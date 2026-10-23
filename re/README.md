@@ -6,32 +6,32 @@ meant to be kept in version control.
 
 ```
 re/
-├─ notes/      findings per topic: camera.md, stereo.md, input.md …
-├─ symbols/    address → name lists you confirm (also used by src/hooks)
+├─ MAPPING.md  what to map next, why, how, and in which order (start here)
+├─ notes/      findings and experiments per topic: camera.md, stereo.md, gamepad.md …
+├─ symbols/    verified addresses/offsets per build, e.g. bf4-179547.md
 ├─ dumps/      (ignored) memory snapshots of the running game
-└─ projects/   (ignored) Ghidra projects
+└─ projects/   (ignored) Ghidra projects and REA snapshots
 ```
 
 ## Workflow
 
-1. **Static data first.** The `typeinfo`/`fieldinf` sections are not encrypted.
-   Map Frostbite class names and field offsets from them, especially camera,
-   view and render-settings classes.
-2. **Live code.** Start the campaign, attach **x32dbg** read-only, and analyze the
-   decrypted code in memory. Let Ghidra and REA work on that view, never on the
-   encrypted file.
-3. **Frame captures.** Use **RenderDoc** to capture a frame, find the passes and
-   constant buffers holding view/projection matrices, then follow them back to
-   code.
-4. **Record everything.** One note per topic in `notes/`, stating how each claim
-   was verified: addresses, byte signatures, game version (linker timestamp
-   2013-02-14). Overlord's docs are a good model.
+See [MAPPING.md](MAPPING.md) for the per-session method and the list of engine elements.
+In short, for BF4 (build 179547, linked 2017-02-20):
+
+1. **Decrypted image only.** `.text`, `typeinfo`, `fieldinf` and `.data` are encrypted on disk;
+   take a dump at the main menu (`tools\pipe.ps1 dump <path>`) and analyse that, never the file.
+2. **Live first.** Find writers with `watch`, follow pointers with `peek`, then read the function
+   with `tools/disasm.py`. Use REA/Ghidra for cross-references across larger subsystems.
+3. **Frame captures.** RenderDoc shows the passes and constant buffers holding view/projection
+   matrices; follow them back to code.
+4. **Record everything.** Verified results go into `symbols/`, reasoning and experiments into
+   `notes/`, each with how it was verified and the prologue bytes for functions.
 
 ## Asking Claude with REA
 
 Example prompts, once REA and Ghidra are set up:
 
-- "Using the Ghidra project for bf3, find the functions that read `WorldRender`
-  stereo settings and explain how the eye index is selected."
+- "Using the Ghidra project of the bf4 dump, list the callers of `0x14083A710` and
+  explain what each passes as the view-params source."
 - "List the Frostbite types in the typeinfo section whose names contain Camera
   or View, with their field offsets."

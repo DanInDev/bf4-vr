@@ -16,6 +16,8 @@ A control pipe gives status and back-buffer screenshots without touching the gam
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, stages, BF4 vs BF3 |
 | [docs/TOOLING.md](docs/TOOLING.md) | Runtime selection (Steam Link / Meta Link / simulator), driving BF4, emulation options |
 | [re/README.md](re/README.md) | Reverse-engineering workspace and REA workflow |
+| [re/MAPPING.md](re/MAPPING.md) | Engine elements still to map, with method and session order |
+| [re/symbols/bf4-179547.md](re/symbols/bf4-179547.md) | Verified addresses and offsets for BF4 build 179547 |
 | [re/notes/stereo.md](re/notes/stereo.md) | BF4's built-in stereo settings and the next experiment |
 
 ## Layout
