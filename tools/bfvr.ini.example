@@ -1,0 +1,19 @@
+# Copy to the game folder as bfvr.ini (e.g. E:\EA\Battlefield 4\bfvr.ini).
+# Environment variables BFVR_<KEY> override these values.
+
+# Stage 1 virtual screen: 1 = on, 0 = load the DLL but leave VR off.
+theater = 1
+
+# OpenXR runtime:
+#   auto     SteamVR when it is running (Steam Link), otherwise the Windows default (Meta Horizon Link)
+#   system   always the Windows default runtime
+#   steamvr  always SteamVR
+#   <path>   any runtime manifest, e.g. a simulator: C:\Tools\MetaXRSimulator\meta_openxr_simulator.json
+xr_runtime = auto
+
+# Stage 2: alternate-eye stereo with head tracking (replaces the virtual screen once both eyes
+# have an image). Experimental; set to 0 to return to theater mode.
+stereo = 0
+# Also apply the eye pose to the second RenderView (+0x4E0). It proved to be a copy of the world
+# view with no visible effect; the weapon uses a separate pass (re/notes/camera.md).
+stereo_first_person = 0

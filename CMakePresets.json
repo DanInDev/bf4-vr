@@ -1,0 +1,27 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "bf4",
+      "displayName": "Battlefield 4 - x64 - Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/bf4",
+      "cacheVariables": { "BFVR_GAME": "bf4" }
+    },
+    {
+      "name": "bf3",
+      "displayName": "Battlefield 3 - Win32 (x86) - Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/bf3",
+      "cacheVariables": { "BFVR_GAME": "bf3" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "bf4-debug", "configurePreset": "bf4", "configuration": "Debug" },
+    { "name": "bf4-release", "configurePreset": "bf4", "configuration": "Release" },
+    { "name": "bf3-debug", "configurePreset": "bf3", "configuration": "Debug" },
+    { "name": "bf3-release", "configurePreset": "bf3", "configuration": "Release" }
+  ]
+}

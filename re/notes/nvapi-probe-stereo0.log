@@ -1,0 +1,19 @@
+23:56:48.721 [18824] bfvr loader attached: game=bf4 pid=25688 process=E:\EA\Battlefield 4\bf4.exe pointer_bits=64
+23:56:48.757 [13080] nvapi: probe installed on nvapi64.dll!nvapi_QueryInterface
+23:56:48.758 [13080] core: theater mode disabled (theater=0)
+23:56:48.759 [11740] control: listening on \\.\pipe\bfvr
+23:56:48.948 [13080] present hook: installed at 00007FFE32C79000
+23:56:50.689 [22284] nvapi: query 0x0150e828  -> provided
+23:56:50.692 [22284] nvapi: query 0x33c7358c  -> NOT provided
+23:56:50.692 [22284] nvapi: query 0x593e8644  -> NOT provided
+23:56:50.692 [22284] nvapi: query 0x01053fa5  -> provided
+23:56:50.692 [22284] nvapi: query 0x2926aaad  -> provided
+23:56:50.692 [22284] nvapi: query 0x48b3ea59  -> provided
+23:56:50.693 [22284] nvapi: query 0xe5ac921f  -> provided
+23:56:50.720 [22284] DirectInput8Create(version=0x0800) forwarded, hr=0x00000000
+23:56:50.895 [22284] nvapi: query 0xd44d3c4e  -> provided
+23:56:50.896 [22284] nvapi: query 0x4b708b54  -> provided
+23:56:50.905 [22284] nvapi: query 0x1e9d8a31  -> provided
+23:56:50.908 [22284] nvapi: query 0xdc6dc8d3  -> provided
+23:56:51.022 [12524] DirectInput8Create(version=0x0800) forwarded, hr=0x00000000
+23:59:42.022 [18824] bfvr loader detached

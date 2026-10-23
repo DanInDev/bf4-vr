@@ -1,0 +1,10 @@
+00:04:49.964 [43948] bfvr loader attached: game=bf4 pid=21892 process=E:\EA\Battlefield 4\bf4.exe pointer_bits=64
+00:04:50.105 [3272] dxgi: stereo probe installed
+00:04:50.106 [3272] core: theater mode disabled (theater=0)
+00:04:50.106 [25112] control: listening on \\.\pipe\bfvr
+00:04:50.230 [3272] dxgi: CreateSwapChain 0x0 format=28 buffers=1 effect=0 windowed=1 -> 0x00000000
+00:04:50.273 [3272] present hook: installed at 00007FFE32C79000
+00:04:51.928 [39852] DirectInput8Create(version=0x0800) forwarded, hr=0x00000000
+00:04:52.098 [39852] dxgi: CreateSwapChain 1280x720 format=28 buffers=3 effect=0 windowed=1 -> 0x00000000
+00:04:52.212 [25680] DirectInput8Create(version=0x0800) forwarded, hr=0x00000000
+00:06:07.287 [43948] bfvr loader detached

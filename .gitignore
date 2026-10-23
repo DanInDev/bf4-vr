@@ -1,0 +1,37 @@
+# Build output
+build/
+out/
+*.pdb
+*.ilk
+*.obj
+
+# Reverse-engineering artefacts: never commit (see docs/SAFETY.md)
+re/dumps/
+re/projects/
+*.dmp
+*.gpr
+*.rep/
+*.i64
+*.idb
+*.rdc
+
+# Game screenshots from tools\game.ps1 (copyrighted game imagery)
+re/screenshots/
+
+# Game files must never be copied into the repo
+*.exe
+bfvr.log
+
+# Personal game data (settings profile backups made during experiments)
+re/*.backup
+PROFSAVE*
+bfvr.ini
+
+# Python
+__pycache__/
+*.pyc
+
+# Local tooling
+.vs/
+.vscode/
+.agents/

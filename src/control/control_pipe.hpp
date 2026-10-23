@@ -1,0 +1,22 @@
+#pragma once
+
+#include <dxgi.h>
+
+#include <string>
+
+namespace bfvr::control
+{
+	// Text commands over \\.\pipe\bfvr, one command per connection (local clients only):
+	//   status          runtime state, frame rate, back buffer and pad state
+	//   shot <path>     PNG of the next presented frame, straight from the back buffer
+	//   dump <path>     in-memory (decrypted) game image as a PE file for local analysis only
+	//   peek <addr> <n> n bytes of game memory as hex (research; unreadable addresses fail cleanly)
+	//   watch <addr> [len] [ms]  instructions that write addr (hardware breakpoint, research)
+	//   help
+	using status_provider = std::string (*)();
+
+	void start(status_provider provider);
+
+	// Call from the Present hook: measures frame rate and services screenshot requests.
+	void on_present(IDXGISwapChain* swap_chain);
+}
