@@ -16,6 +16,8 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL bfvr_pointer_size)
 endif()
 
 option(BFVR_BUILD_TESTS "Build the standalone smoke tests" ON)
+# CI turns this on so a new warning fails the build; it only applies to bf-vr's own code.
+option(BFVR_WARNINGS_AS_ERRORS "Treat compiler warnings in bf-vr code as errors" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -70,6 +72,9 @@ add_library(bfvr_common STATIC
 target_include_directories(bfvr_common PUBLIC src)
 target_compile_definitions(bfvr_common PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN BFVR_GAME_NAME="${BFVR_GAME}")
 target_compile_options(bfvr_common PUBLIC /W4 /permissive-)
+if(BFVR_WARNINGS_AS_ERRORS)
+	target_compile_options(bfvr_common PUBLIC /WX)
+endif()
 
 # Everything that runs inside the game: hooks, OpenXR, start-up.
 add_library(bfvr_runtime STATIC

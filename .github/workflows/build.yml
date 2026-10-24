@@ -1,0 +1,55 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.build }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { configure: bf4, build: bf4-debug }
+          - { configure: bf4, build: bf4-release }
+          - { configure: bf3, build: bf3-debug }
+    steps:
+      - uses: actions/checkout@v7
+
+      # Only the third-party sources and their populate step; build trees are always fresh.
+      - name: Cache FetchContent downloads
+        uses: actions/cache@v6
+        with:
+          path: |
+            build/${{ matrix.configure }}/_deps/*-src
+            build/${{ matrix.configure }}/_deps/*-subbuild
+          key: deps-${{ runner.os }}-${{ matrix.configure }}-${{ hashFiles('CMakeLists.txt') }}
+
+      # windows-latest ships Visual Studio 2026 only; the presets name 2022 for local builds.
+      - name: Configure
+        run: cmake --preset ${{ matrix.configure }} -G "Visual Studio 18 2026" -D BFVR_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.build }} --parallel
+
+      - name: Upload dinput8.dll
+        if: matrix.build == 'bf4-release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bfvr-bf4-release
+          path: |
+            build/bf4/Release/dinput8.dll
+            build/bf4/Release/bfvr_smoke_theater.exe
+          if-no-files-found: error
