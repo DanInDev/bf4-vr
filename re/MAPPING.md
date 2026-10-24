@@ -31,7 +31,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
-| **Runtime type registry** (`typeinfo`/`fieldinf` in memory): class and field names with offsets | Turns every later search into a lookup; replaces guessing offsets | Walk the TypeInfo list in the decrypted image; write a dumper to JSON; cross-check with Frosty's BF4SDK | ⬜ |
+| **Runtime type registry** (`typeinfo`/`fieldinf` in memory): class and field names with offsets | Turns every later search into a lookup; replaces guessing offsets | Done: `tools/typeinfo_dump.py`, vtable → class naming of live objects ([typeinfo.md](notes/typeinfo.md)) | ✅ |
 | Game-thread per-frame hook point | Apply camera/input/IK at the right moment each frame | Have one: view-params copy `0x14083A710` (once per frame) | ✅ |
 | Render-thread frame boundary | Pair eyes and frames reliably (#6) | Present hook (have); find the render-frame begin to tag frames | 🟡 |
 | Console/settings setter | Our settings menu can set game options (DOF, blur, FOV) without the console UI (#1, #7) | `watch` a setting's storage after changing it through the console; disassemble the writer | ⬜ |
@@ -54,7 +54,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
-| **Local player chain**: ClientGameContext `[0x142670D80]` → player manager → local player → soldier | Everything player-related hangs off it | Live reads + TypeInfo names; verify by moving | 🟡 (global seen, chain not verified) |
+| **Local player chain**: ClientGameContext → player manager → local player → soldier | Everything player-related hangs off it | Shortcut found: global `[0x14230F260]` = local `ClientSoldierEntity`, with its components ([symbols](symbols/bf4-179547.md)). Still open: ClientPlayer (view angles live there in Frostbite), and stability across reloads | 🟡 |
 | Authoritative view angles (yaw/pitch) | Neutralise game pitch, snap turn, head-driven yaw (#5) | `watch` the soldier's yaw while turning with the stick | ⬜ |
 | **Input concepts** (Frostbite input actions such as move, fire, reload, jump) | Drive the game directly from VR controllers, no physical pad needed (#4), and gestures (M4) | Find the input-concept array the game reads each frame; `watch` it while pressing keys | ⬜ |
 | Device detection for gamepads | Why XInput is never polled without a pad (#4) | Wrap `IDirectInput8::EnumDevices` (we are the dinput8 proxy); log Raw Input/SetupAPI calls | 🟡 ([gamepad.md](notes/gamepad.md)) |
@@ -66,7 +66,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
 | **First-person arms mesh and skeleton**: bone names, hierarchy, indices | Arms/shoulders IK to the controllers (#11) | Frosty: SkeletonAsset of the 1P arms; bone list → indices | ⬜ |
-| **Pose buffer after animation, before skinning** | Overwrite shoulder/elbow/wrist bones each frame | From the soldier entity to its animated skeleton component; `watch` a hand bone while the reload animation plays | ⬜ |
+| **Pose buffer after animation, before skinning** | Overwrite shoulder/elbow/wrist bones each frame | Start at the soldier's two `ClientAntAnimatableComponent`s (+0x1E8 body, +0x1F0 likely first-person); `watch` a hand bone while the reload animation plays | 🟡 |
 | Weapon attachment bone and grip points | Hands on the gun; weapon follows the controller (#12, #14) | Frosty weapon mesh/sockets; the bone the weapon is parented to | ⬜ |
 | Third-person body | Body presence, shadows (#13) | Same chain, 3P mesh | ⬜ |
 

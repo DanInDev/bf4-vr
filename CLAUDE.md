@@ -8,6 +8,8 @@ Read those instead of reconstructing history.
 
 - `README.md` status and controls; `docs/ARCHITECTURE.md` modules and stages; `docs/TOOLING.md` all tools.
 - `re/notes/camera.md` camera hook (BF4 build 179547 addresses), `stereo.md`, `gamepad.md`.
+- `re/notes/typeinfo.md` engine type registry: `tools/typeinfo_dump.py` names classes, fields and
+  vtables; `tools/object_probe.py` / `global_scan.py` name live objects (run the dumper once first).
 - `re/MAPPING.md` what is left to reverse-engineer, by area, with method and session order;
   `re/symbols/bf4-179547.md` the registry of verified addresses/offsets (add every new finding there).
 - `docs/SAFETY.md` is binding: campaign only, no tools while Battlefield 6 / EasyAntiCheat games run,

@@ -63,6 +63,15 @@ Static helpers (local analysis of the dump, `python -E -P`, needs `pip install -
 `.pdata`, leaf gaps handled); `tools/callers.py <dump> <address>` lists direct call/jmp sites;
 `tools/camera_probe.py` and `tools/projection_probe.py` read live camera and projection data.
 
+Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
+
+| Tool | Use |
+| --- | --- |
+| `tools/typeinfo_dump.py <dump>` | Writes `re/dumps/typeinfo-<pe timestamp>.json`: every reflected type, field, enum value and vtable → class (under 1 s) |
+| `… --class <Name>` / `--find <text>` / `--vtable <addr>` | One layout with inherited fields / name search / class of a vtable |
+| `tools/object_probe.py <addr> [--deref] [--depth 1]` | Live: class of an object and of every typed object it points to |
+| `tools/global_scan.py [--filter Soldier]` | Live: typed objects reachable from `.data` globals, one level through untyped managers (~1 min); saves `re/dumps/globals-live.json` |
+
 REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline. The user
 variable `REA_GHIDRA_STARTUP_TIMEOUT_MS = 10800000` (3 h) is set and takes effect after Claude restarts.
 
