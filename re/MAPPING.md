@@ -54,8 +54,8 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
-| **Local player chain**: ClientGameContext → player manager → local player → soldier | Everything player-related hangs off it | Shortcut found: global `[0x14230F260]` = local `ClientSoldierEntity`, with its components ([symbols](symbols/bf4-179547.md)). Still open: ClientPlayer (view angles live there in Frostbite), and stability across reloads | 🟡 |
-| Authoritative view angles (yaw/pitch) | Neutralise game pitch, snap turn, head-driven yaw (#5) | `watch` the soldier's yaw while turning with the stick | ⬜ |
+| **Local player chain**: ClientGameContext → player manager → local player → soldier | Everything player-related hangs off it | Global `[0x14230F260]` = local `ClientSoldierEntity`, valid across a section change; components in [symbols](symbols/bf4-179547.md). ClientPlayer itself not needed so far | ✅ |
+| Authoritative view angles (yaw/pitch) | Neutralise game pitch, snap turn, head-driven yaw (#5) | Done: aimer `[[weapon+0x4988]+0x10]` +0x14/+0x18, verified by writing ([aim.md](notes/aim.md)). Open: vehicles and scripted sections | ✅ |
 | **Input concepts** (Frostbite input actions such as move, fire, reload, jump) | Drive the game directly from VR controllers, no physical pad needed (#4), and gestures (M4) | Find the input-concept array the game reads each frame; `watch` it while pressing keys | ⬜ |
 | Device detection for gamepads | Why XInput is never polled without a pad (#4) | Wrap `IDirectInput8::EnumDevices` (we are the dinput8 proxy); log Raw Input/SetupAPI calls | 🟡 ([gamepad.md](notes/gamepad.md)) |
 | Weapon fire origin and direction | Aim with the controller (#12) | Find where a shot's ray/projectile transform is built (watch the camera-forward read during firing; Frosty `WeaponFiringData`) | ⬜ |

@@ -2,12 +2,14 @@
 #   tools\dev-run.ps1                    build bf4-debug, deploy, start, wait for the main menu
 #   tools\dev-run.ps1 -Resume            ...then Campaign > Resume (your saved checkpoint) and wait for the level
 #   tools\dev-run.ps1 -NoBuild -Resume
+#   tools\dev-run.ps1 -NoBuild -UseRunning -Resume   navigate a BF4 that is already running
 # Leave mouse and keyboard alone while it clicks through the menus.
 
 param(
 	[string]$Preset = 'bf4-debug',
 	[switch]$NoBuild,
 	[switch]$Resume,
+	[switch]$UseRunning,  # BF4 already at the main menu (e.g. started from the EA app): no stop/deploy/start
 	[int]$MenuWaitSeconds = 60,
 	[int]$LoadWaitSeconds = 100
 )
@@ -50,10 +52,12 @@ if (-not $NoBuild) {
 }
 
 $config = if ($Preset -like '*release') { 'Release' } else { 'Debug' }
-Invoke-Tool 'game.ps1' @('stop') | Out-Null
-Invoke-Tool 'deploy.ps1' @('-Action', 'deploy', '-Game', 'bf4', '-Config', $config) | Out-Null
-Remove-Item 'E:\EA\Battlefield 4\bfvr.log' -ErrorAction SilentlyContinue
-Invoke-Tool 'game.ps1' @('start')
+if (-not $UseRunning) {
+	Invoke-Tool 'game.ps1' @('stop') | Out-Null
+	Invoke-Tool 'deploy.ps1' @('-Action', 'deploy', '-Game', 'bf4', '-Config', $config) | Out-Null
+	Remove-Item 'E:\EA\Battlefield 4\bfvr.log' -ErrorAction SilentlyContinue
+	Invoke-Tool 'game.ps1' @('start')
+}
 Wait-Seconds $MenuWaitSeconds
 # Collect the whole reply first: Select-Object -First 1 on a live pipeline kills the child (exit 255).
 $status = @(Invoke-Tool 'pipe.ps1' @('status'))

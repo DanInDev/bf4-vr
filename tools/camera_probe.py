@@ -21,8 +21,12 @@ def command(line: str) -> str:
             with open(PIPE, 'r+b', buffering=0) as pipe:
                 pipe.write(line.encode())
                 chunks = []
-                while chunk := pipe.read(1 << 20):  # large replies arrive in several reads
-                    chunks.append(chunk)
+                try:
+                    while chunk := pipe.read(1 << 20):  # large replies arrive in several reads
+                        chunks.append(chunk)
+                except OSError:  # the server's disconnect shows up as EINVAL/broken pipe, not as EOF
+                    if not chunks:
+                        raise
                 return b''.join(chunks).decode().strip()
         except OSError:  # not found, busy (EINVAL) or access denied while the server re-creates it
             time.sleep(0.05)

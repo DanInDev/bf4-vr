@@ -18,13 +18,21 @@ never touched.
 
 | Command | Effect |
 | --- | --- |
-| `start` / `stop` | Launch BF4 (the EA app handles activation) / close it, forced after 20 s |
+| `start` / `stop` | Launch BF4 through the EA app's link (`origin2://game/launch/?offerIds=<content IDs>`, as `bf4.exe` itself does) / close it, forced after 20 s, then wait 10 s so the EA app registers the exit |
 | `status` | Process, window and the last `bfvr.log` lines |
 | `shot` | PNG of the game window into `re/screenshots/` (git-ignored); works when covered |
 | `keys -Keys "Esc,Down,Enter"` | Scancode key presses (DirectInput-compatible); takes focus |
 | `click -X 640 -Y 360` | Left click at window-relative pixels; takes focus |
 
 Input commands steal keyboard focus, so do not type elsewhere while a scripted run is going.
+
+EA app launch pitfalls (from `%LOCALAPPDATA%\Electronic Arts\EA Desktop\Logs\EADesktop.log`):
+- A relaunch right after BF4 exits is refused with `Game launch error: [4] (AlreadyRunning)`;
+  `start` detects that line and fails fast. If it persists, the EA app needs a restart.
+- The Play button's offer key `OFB-EAST:109548960` is rejected over the link (`EntitlementNotFound`);
+  the content-ID list works.
+- `dev-run.ps1` stops BF4 before deploying, so it also closes a game started from the EA app; use
+  `-UseRunning` to drive a game that is already at the main menu.
 Screenshots taken while BF4 is resizing its window (first ~20 s) can come out black.
 
 ## SteamVR behaviour to know
@@ -36,7 +44,7 @@ instead of reconnecting (which relaunched SteamVR or kept BF4 registered during 
 
 ## One-shot dev loop: `tools/dev-run.ps1`
 
-`dev-run.ps1 [-Resume] [-NoBuild]` builds, deploys, starts BF4 and (with `-Resume`) clicks
+`dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks
 Campaign → BF4 Campaign → Resume, then waits for the level and saves `re/screenshots/dev-run-level.png`.
 Menu clicks are scaled from 1920×1080 to the current back buffer. Total ≈ 3.5 minutes.
 

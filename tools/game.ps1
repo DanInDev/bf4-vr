@@ -1,5 +1,5 @@
 # Drives Battlefield 4 for automated test runs.
-#   tools\game.ps1 start [-GameArgs "-GameTime.MaxVariableFps 90"]   launch BF4 and wait for its window
+#   tools\game.ps1 start [-GameArgs "..."]  launch BF4 through the EA app (like Play) and wait for its window
 #   tools\game.ps1 stop                     ask BF4 to close; force after 20 s
 #   tools\game.ps1 status                   process, window and log state
 #   tools\game.ps1 shot  [-Out file.png]    capture the game window (works when covered)
@@ -132,6 +132,20 @@ $scancodes = @{
 	'1' = 0x02; '2' = 0x03; '3' = 0x04; '4' = 0x05; '5' = 0x06
 }
 
+# The content IDs bf4.exe itself hands to the EA app (EALaunchHelper.log); the offer key the Play
+# button uses (OFB-EAST:109548960) is rejected over the link as "EntitlementNotFound".
+$eaContentIds = '1007968,1011575,1011576,1011577,1010268,1010269,1010270,1010271,1010958,1010959,1010960,1010961,1007077,1016751,1016757,1016754,1015365,1015364,1015363,1015362'
+$eaLog = Join-Path $env:LOCALAPPDATA 'Electronic Arts\EA Desktop\Logs\EADesktop.log'
+
+# True when the EA app logged an "AlreadyRunning" launch error after $since (UTC).
+function Test-EaRefusedLaunch([datetime]$since) {
+	if (-not (Test-Path $eaLog)) { return $false }
+	foreach ($line in (Get-Content $eaLog -Tail 200 | Select-String 'Game launch error: \[4\] \(AlreadyRunning\)')) {
+		if ($line.Line -match '^\[([0-9T:.\-]+)Z\]' -and [datetime]::Parse($Matches[1]) -ge $since) { return $true }
+	}
+	return $false
+}
+
 function Get-GameProcess { Get-Process bf4 -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
 function Require-Window {
 	$process = Get-GameProcess
@@ -142,20 +156,27 @@ function Require-Window {
 switch ($Action) {
 	'start' {
 		if (Get-GameProcess) { 'BF4 already running'; break }
-		if ($GameArgs) {
-			Start-Process -FilePath (Join-Path $installDir 'bf4.exe') -WorkingDirectory $installDir -ArgumentList $GameArgs
-		} else {
-			Start-Process -FilePath (Join-Path $installDir 'bf4.exe') -WorkingDirectory $installDir
-		}
+		# Launch the way the EA app's Play button does (starting bf4.exe directly is refused while the
+		# EA app still believes an earlier instance is running).
+		$link = "origin2://game/launch/?offerIds=$eaContentIds"
+		if ($GameArgs) { $link += '&cmdParams=' + [Uri]::EscapeDataString($GameArgs) }
+		$launchedAt = (Get-Date).ToUniversalTime()
+		Start-Process $link
 		$deadline = (Get-Date).AddMinutes(3)
-		while (-not (Get-GameProcess) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+		while (-not (Get-GameProcess) -and (Get-Date) -lt $deadline) {
+			Start-Sleep -Seconds 2
+			if (Test-EaRefusedLaunch $launchedAt) { throw 'The EA app refused the launch: it thinks BF4 is still running (restart the EA app).' }
+		}
 		if (Get-GameProcess) { 'BF4 window is up' } else { throw 'BF4 did not open a window within 3 minutes (check the EA app for a prompt).' }
 	}
 	'stop' {
 		$process = Get-Process bf4 -ErrorAction SilentlyContinue
 		if (-not $process) { 'BF4 not running'; break }
 		[void]$process.CloseMainWindow()
-		if (-not $process.WaitForExit(20000)) { Stop-Process -Id $process.Id -Force; 'BF4 force-closed after 20 s' } else { 'BF4 closed' }
+		$result = if (-not $process.WaitForExit(20000)) { Stop-Process -Id $process.Id -Force; 'BF4 force-closed after 20 s' } else { 'BF4 closed' }
+		# Give the EA app time to notice the exit; an immediate relaunch is refused as "AlreadyRunning".
+		Start-Sleep -Seconds 10
+		$result
 	}
 	'status' {
 		$process = Get-Process bf4 -ErrorAction SilentlyContinue
