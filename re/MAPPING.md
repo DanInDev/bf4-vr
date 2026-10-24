@@ -43,7 +43,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
 | GameRenderer → RenderView: transform, FOV, aspect, dirty flags, matrices | Head tracking and stereo | Done ([camera.md](notes/camera.md)) | ✅ |
-| **First-person weapon pass camera/projection** | Gun glued to the view (#2); prerequisite for arms | RenderDoc: find weapon draws and their view/projection constant buffer → find where the CPU fills it → `watch` → disassemble | ⬜ |
+| **First-person weapon pass camera/projection** | Gun glued to the view (#2); prerequisite for arms | Camera done: view-params `+0xED0`, eye pose applied ([first_person.md](notes/first_person.md)). Projection/FOV open: not a CPU-side matrix; RenderDoc next | 🟡 |
 | Render resolution independent of the window | Sharp image, per-eye aspect (#1) | Find where the render-target size comes from (window size × `Render.ResolutionScale`); override for VR | ⬜ |
 | Post-process settings (DOF, motion blur, TAA history) | Blurry centre (#1), per-eye history artefacts | Console names known (`WorldRender.*`, `PostProcess.*`); map their storage + setter | 🟡 |
 | HUD / UI pass (Scaleform) | Head-locked crosshair and HUD (#3); render HUD to its own layer | RenderDoc: last passes before Present; find the UI render target and its draw call site | ⬜ |

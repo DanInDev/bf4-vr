@@ -14,6 +14,6 @@ xr_runtime = auto
 # Stage 2: alternate-eye stereo with head tracking (replaces the virtual screen once both eyes
 # have an image). Experimental; set to 0 to return to theater mode.
 stereo = 0
-# Also apply the eye pose to the second RenderView (+0x4E0). It proved to be a copy of the world
-# view with no visible effect; the weapon uses a separate pass (re/notes/camera.md).
-stereo_first_person = 0
+# Also apply the eye pose to the first-person pass camera (view params +0xED0), so the gun stays
+# where the soldier aims while the head looks around (re/notes/first_person.md). 0 = gun follows the head.
+stereo_first_person = 1

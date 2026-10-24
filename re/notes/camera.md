@@ -59,6 +59,6 @@ Experiments (mono, `pipe view <i> <fov> <shift>`, screenshots `re/screenshots/vi
 
 ## Open questions
 
-1. Find the first-person weapon pass's camera/projection (constant buffers, or a structure near the GameRenderer).
+1. ~~Find the first-person weapon pass's camera~~: view-params `+0xED0`, see [first_person.md](first_person.md). Its projection/FOV is still open.
 2. Third RenderView `+0x9C0`: role unknown.
 3. Game pitch from the stick/mouse adds to head pitch; ordinary gameplay probably needs the game pitch neutralised.

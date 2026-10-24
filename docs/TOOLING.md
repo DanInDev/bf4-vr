@@ -64,6 +64,9 @@ offline mode is the legitimate way to play without a connection.
 | `peek <hex address> <length>` | Raw memory read, fails cleanly on bad addresses; used by `tools/camera_probe.py` |
 | `peekmany <length> <hex address>...` | Batched reads (≤ 4096 bytes each), one line per address, `-` if unreadable; each pipe connection costs ~20 ms, so scans use this (`camera_probe.peek_many`) |
 | `poke <hex address> <hex bytes>` | Research write of ≤ 64 bytes, only into pages that are already writable (never code) |
+| `tshift <slot> <hex offset> <m>` | Research: every copy, shift the transform at a view-params offset along its right row (0 m = off) |
+| `pin <slot> <hex offset> <float>` | Research: every copy, write a float at a view-params offset and mark view 0 dirty (offset 0 = off) |
+| `fakeyaw <deg>` | Research: synthetic head yaw applied like a headset eye pose (world + first-person camera); 0 = off |
 | `pad <lx> <ly> <rx> <ry> [ms]` | Holds the virtual pad's sticks (−1..1) for up to 10 s; needs XInput polling (a physical pad) and no running headset session |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |
@@ -82,6 +85,7 @@ Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
 | `… --class <Name>` / `--find <text>` / `--vtable <addr>` | One layout with inherited fields / name search / class of a vtable |
 | `tools/object_probe.py <addr> [--deref] [--depth 1]` | Live: class of an object and of every typed object it points to |
 | `tools/global_scan.py [--filter Soldier]` | Live: typed objects reachable from `.data` globals, one level through untyped managers; saves `re/dumps/globals-live.json` |
+| `tools/matrix_search.py [--save f] [--compare a b]` | Live: every copy of the camera rotation (rows or transposed) reachable from renderer, camera manager and soldier; compare two runs (e.g. with a `view`/`tshift` change) |
 | `tools/aim_probe.py [--axis yaw\|pitch] [--static]` | Live: turns with the `pad` stick and lists floats (soldier/camera manager, 2 hops deep) whose change equals the camera's yaw or pitch change |
 
 REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline. The user

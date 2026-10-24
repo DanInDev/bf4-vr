@@ -16,7 +16,7 @@ namespace bfvr::config
 	//   dxgi_probe   = 0 | 1                             log DXGI stereo queries and swap chain creation (default 0)
 	//   camera_hook  = 1 | 0                             hook the per-frame view copy (default 1; idle unless used)
 	//   stereo       = 0 | 1                             alternate-eye stereo with head tracking (default 0)
-	//   stereo_first_person = 1 | 0                      apply the eye pose to the weapon/arms view too (default 1)
+	//   stereo_first_person = 1 | 0                      apply the eye pose to the first-person (weapon/arms) camera too (default 1)
 	std::string get(const char* key, const char* fallback);
 	bool get_bool(const char* key, bool fallback);
 }
