@@ -22,9 +22,12 @@ namespace bfvr::stereo
 		constexpr std::uint64_t view_params_copy = 0x14083a710;
 		constexpr std::size_t render_view_offset = 0x60;
 
-		// The copied view-params block holds three RenderViews; the first is the world camera,
-		// the second appears to be the first-person (weapon/arms) view.
-		constexpr std::size_t first_person_view = 0x4e0;
+		// The copied view-params block holds three RenderViews (+0x0 world camera, +0x4E0 and +0x9C0
+		// without visible effect), then the camera the first-person pass (weapon, arms) is drawn
+		// with: rows right, up, forward, position in soldier-local space (position = eye above the
+		// feet). Shifting it moves only the gun (re/notes/first_person.md).
+		constexpr std::size_t second_view = 0x4e0;
+		constexpr std::size_t first_person_transform = 0xed0;
 
 		// RenderView layout: camera transform rows (right, up, forward, position) at +0x40,
 		// FOV candidate at +0xB4, aspect at +0xC4, dirty flags at +0xE0
@@ -46,9 +49,21 @@ namespace bfvr::stereo
 		std::atomic<float> alternate_amplitude{};
 		std::atomic<float> fov_override{};
 		// Research overrides per RenderView in the params block (0, 0x4E0, 0x9C0).
-		constexpr std::size_t view_offsets[3] = { 0x0, first_person_view, 0x9c0 };
+		constexpr std::size_t view_offsets[3] = { 0x0, second_view, 0x9c0 };
+		// Research: a synthetic head yaw (degrees) applied like an eye pose when no headset drives
+		// the camera, to check that the world and the gun turn together.
+		std::atomic<float> fake_yaw_degrees{};
 		std::atomic<float> view_fov[3]{};
 		std::atomic<float> view_shift[3]{};
+		// Research: shift any transform (rows right, up, forward, position) inside the view-params
+		// block, e.g. the camera copies after the three RenderViews.
+		constexpr std::uint32_t max_transform_offset = 0x10C0;
+		std::atomic<std::uint32_t> transform_shift_offset[4]{};
+		std::atomic<float> transform_shift_metres[4]{};
+		// Research: pin a float at an offset inside the view-params block every copy (0 offset = off),
+		// marking view 0's matrices dirty so cached projections are rebuilt.
+		std::atomic<std::uint32_t> pin_offset[4]{};
+		std::atomic<float> pin_value[4]{};
 		bool stereo_enabled{};
 		bool stereo_first_person{};
 
@@ -84,10 +99,8 @@ namespace bfvr::stereo
 		// vectors (world = local * M). The camera's local axes match OpenXR's (x right, y up,
 		// looking along -z): a z-mirrored conversion made yaw and pitch run backwards in the
 		// headset (2026-10-23 test), so the pose is used unchanged.
-		void apply_eye_pose(std::uint8_t* view, const pose& eye)
+		void compose_pose(float* camera, const pose& eye) // 4 rows x float4
 		{
-			auto* camera = reinterpret_cast<float*>(view + transform); // 4 rows x float4
-
 			const float qx = eye.orientation[0], qy = eye.orientation[1], qz = eye.orientation[2], qw = eye.orientation[3];
 			// Column-vector rotation matrix of the converted quaternion.
 			const float m[3][3] = {
@@ -125,7 +138,18 @@ namespace bfvr::stereo
 					camera[row * 4 + axis] = result[row][axis];
 				}
 			}
-			mark_dirty(view);
+		}
+
+		// The eye pose goes onto the world camera and, unless disabled, onto the first-person
+		// camera, so the gun stays where the soldier aims while the head looks around.
+		void apply_eye_pose(std::uint8_t* params, const pose& eye)
+		{
+			compose_pose(reinterpret_cast<float*>(params + transform), eye);
+			mark_dirty(params);
+			if (stereo_first_person)
+			{
+				compose_pose(reinterpret_cast<float*>(params + first_person_transform), eye);
+			}
 		}
 
 		// Menus and loading screens use a fixed camera: identity rotation at (0, 1, 0).
@@ -176,10 +200,6 @@ namespace bfvr::stereo
 				const float half_horizontal = std::atan(std::tan(half_vertical) * view_aspect);
 
 				apply_eye_pose(params, head.eyes[eye]);
-				if (stereo_first_person)
-				{
-					apply_eye_pose(params + first_person_view, head.eyes[eye]);
-				}
 
 				tag.stereo = true;
 				tag.eye = eye;
@@ -211,6 +231,34 @@ namespace bfvr::stereo
 					if (const float metres = view_shift[view].load(std::memory_order_relaxed); metres != 0.0f)
 					{
 						shift_sideways(render_view, metres);
+					}
+				}
+				if (const float degrees = fake_yaw_degrees.load(std::memory_order_relaxed); degrees != 0.0f && !is_menu_camera(params))
+				{
+					const float half = degrees * 3.14159265f / 360.0f; // about +y, as a head turn
+					pose turn;
+					turn.orientation[1] = std::sin(half);
+					turn.orientation[3] = std::cos(half);
+					apply_eye_pose(params, turn);
+				}
+				for (int slot = 0; slot < 4; ++slot)
+				{
+					if (const std::uint32_t pinned = pin_offset[slot].load(std::memory_order_relaxed); pinned != 0)
+					{
+						*reinterpret_cast<float*>(params + pinned) = pin_value[slot].load(std::memory_order_relaxed);
+						mark_dirty(params);
+					}
+				}
+				for (int slot = 0; slot < 4; ++slot)
+				{
+					const float metres = transform_shift_metres[slot].load(std::memory_order_relaxed);
+					if (metres != 0.0f)
+					{
+						auto* rows = reinterpret_cast<float*>(params + transform_shift_offset[slot].load(std::memory_order_relaxed));
+						for (int axis = 0; axis < 3; ++axis)
+						{
+							rows[12 + axis] += rows[axis] * metres;
+						}
 					}
 				}
 			}
@@ -272,7 +320,7 @@ namespace bfvr::stereo
 #else
 		stereo_enabled = config::get_bool("stereo", false);
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
-		stereo_first_person = config::get_bool("stereo_first_person", false);
+		stereo_first_person = config::get_bool("stereo_first_person", true);
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -310,6 +358,35 @@ namespace bfvr::stereo
 			view_fov[view] = fov_radians;
 			view_shift[view] = shift_metres;
 		}
+	}
+
+	bool set_pin(int slot, std::uint32_t offset, float value)
+	{
+		if (slot < 0 || slot >= 4 || offset > max_transform_offset + 0x3C || offset % 4 != 0)
+		{
+			return false;
+		}
+		pin_offset[slot] = 0; // never pair a new offset with the old value
+		pin_value[slot] = value;
+		pin_offset[slot] = offset;
+		return true;
+	}
+
+	void set_fake_yaw(float degrees)
+	{
+		fake_yaw_degrees = degrees;
+	}
+
+	bool set_transform_shift(int slot, std::uint32_t offset, float metres)
+	{
+		if (slot < 0 || slot >= 4 || offset > max_transform_offset || offset % 16 != 0)
+		{
+			return false;
+		}
+		transform_shift_metres[slot] = 0.0f; // never pair a new offset with the old shift
+		transform_shift_offset[slot] = offset;
+		transform_shift_metres[slot] = metres;
+		return true;
 	}
 
 	camera_stats stats()

@@ -414,6 +414,36 @@ namespace bfvr::control
 				stereo::set_view_override(view, fov, shift);
 				return "view " + std::to_string(view) + " fov=" + std::to_string(fov) + " shift=" + std::to_string(shift);
 			}
+			if (command == "pin")
+			{
+				int slot = -1;
+				unsigned offset = 0;
+				float value = 0.0f;
+				if (sscanf_s(argument.c_str(), "%d %x %f", &slot, &offset, &value) < 2 || !stereo::set_pin(slot, offset, value))
+				{
+					return "error: usage: pin <slot 0..3> <hex offset in view params, 4-aligned, 0 = off> <float>";
+				}
+				return "pin " + std::to_string(slot) + " offset=" + std::to_string(offset) + " value=" + std::to_string(value);
+			}
+			if (command == "fakeyaw")
+			{
+				float degrees = 0.0f;
+				sscanf_s(argument.c_str(), "%f", &degrees);
+				stereo::set_fake_yaw(degrees);
+				return "fake_yaw=" + std::to_string(degrees);
+			}
+			if (command == "tshift")
+			{
+				int slot = -1;
+				unsigned offset = 0;
+				float metres = 0.0f;
+				if (sscanf_s(argument.c_str(), "%d %x %f", &slot, &offset, &metres) != 3
+					|| !stereo::set_transform_shift(slot, offset, metres))
+				{
+					return "error: usage: tshift <slot 0..3> <hex offset in view params, 16-aligned, <= 10c0> <metres, 0 = off>";
+				}
+				return "tshift " + std::to_string(slot) + " offset=" + std::to_string(offset) + " metres=" + std::to_string(metres);
+			}
 			if (command == "fov")
 			{
 				float radians = 0.0f;
@@ -450,7 +480,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

@@ -30,4 +30,16 @@ namespace bfvr::stereo
 	// Research: per RenderView (0 world, 1 = +0x4E0, 2 = +0x9C0) FOV (radians, 0 = off) and
 	// sideways shift (metres, 0 = off), applied when not in stereo.
 	void set_view_override(int view, float fov_radians, float shift_metres);
+
+	// Research: shifts the transform (rows right, up, forward, position) at a 16-byte-aligned
+	// offset inside the view-params block along its right row, every copy (slot 0..3, 0 m = off).
+	bool set_transform_shift(int slot, std::uint32_t offset, float metres);
+
+	// Research: writes a float at a 4-byte-aligned offset in the view-params block every copy and
+	// marks view 0 dirty (slot 0..3; offset 0 = off).
+	bool set_pin(int slot, std::uint32_t offset, float value);
+
+	// Research: a synthetic head yaw (degrees, 0 = off) applied like a headset eye pose when not
+	// in stereo; world and first-person camera turn together.
+	void set_fake_yaw(float degrees);
 }

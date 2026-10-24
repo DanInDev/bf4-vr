@@ -66,12 +66,13 @@ def camera_angles():
     return math.atan2(look[0], look[2]), math.asin(max(-1.0, min(1.0, look[1])))
 
 
-def regions(vtables, depth):
-    """name -> (address, length) of every block to compare: the soldier and the camera manager,
-    plus the objects they point to, `depth` pointer hops deep (aiming sits behind the weapon)."""
+def regions(vtables, depth, roots=None):
+    """name -> (address, length) of every block to compare: the roots (default: the soldier and the
+    camera manager) plus the objects they point to, `depth` pointer hops deep."""
     sizes = class_sizes()
-    roots = {'soldier': (pointer(LOCAL_SOLDIER), sizes['ClientSoldierEntity']),
-             'cameras': (pointer(CAMERA_MANAGER), REGION)}
+    if roots is None:
+        roots = {'soldier': (pointer(LOCAL_SOLDIER), sizes['ClientSoldierEntity']),
+                 'cameras': (pointer(CAMERA_MANAGER), REGION)}
     found = dict(roots)
     seen = {address for address, _ in roots.values()}
     frontier = dict(roots)
