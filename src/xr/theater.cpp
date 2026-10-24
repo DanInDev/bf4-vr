@@ -9,9 +9,11 @@
 #include <openxr/openxr_platform.h>
 
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <future>
 #include <initializer_list>
 #include <mutex>
 #include <string>
@@ -120,6 +122,9 @@ namespace bfvr::xr
 
 		ComPtr<ID3D11Device> device;
 		XrInstance instance{ XR_NULL_HANDLE };
+		// xrCreateInstance blocks for seconds while SteamVR is not running, so it never runs on
+		// the game's Present thread.
+		std::future<XrInstance> instance_attempt;
 		XrSystemId system{ XR_NULL_SYSTEM_ID };
 		XrSession session{ XR_NULL_HANDLE };
 		XrSpace space{ XR_NULL_HANDLE };
@@ -194,7 +199,8 @@ namespace bfvr::xr
 			set_phase(phase::waiting_for_headset);
 		}
 
-		bool create_instance()
+		// Runs on a worker thread; only touches state no other thread uses while it runs.
+		XrInstance create_instance()
 		{
 			// Logged only on changes: while waiting for a headset this runs every retry.
 			const std::string runtime = select_runtime();
@@ -212,28 +218,28 @@ namespace bfvr::xr
 			info.applicationInfo.apiVersion = XR_API_VERSION_1_0;
 			info.enabledExtensionCount = 1;
 			info.enabledExtensionNames = extensions;
-			const XrResult result = xrCreateInstance(&info, &instance);
+			XrInstance created{ XR_NULL_HANDLE };
+			const XrResult result = xrCreateInstance(&info, &created);
 			if (XR_FAILED(result))
 			{
 				// A runtime that is still starting (SteamVR) fails here for a few seconds; log the first few.
 				if (++instance_failures <= 3)
 				{
-					check(result, "xrCreateInstance");
+					log::write("theater: xrCreateInstance failed: XrResult %d", static_cast<int>(result));
 				}
-				instance = XR_NULL_HANDLE;
-				return false;
+				return XR_NULL_HANDLE;
 			}
 			instance_failures = 0;
 
 			XrInstanceProperties properties{ XR_TYPE_INSTANCE_PROPERTIES };
-			if (XR_SUCCEEDED(xrGetInstanceProperties(instance, &properties)) && last_runtime_name != properties.runtimeName)
+			if (XR_SUCCEEDED(xrGetInstanceProperties(created, &properties)) && last_runtime_name != properties.runtimeName)
 			{
 				log::write("theater: runtime %s %u.%u.%u", properties.runtimeName,
 					XR_VERSION_MAJOR(properties.runtimeVersion), XR_VERSION_MINOR(properties.runtimeVersion),
 					XR_VERSION_PATCH(properties.runtimeVersion));
 				last_runtime_name = properties.runtimeName;
 			}
-			return true;
+			return created;
 		}
 
 		// Returns false while no headset is available (retried later) or on a hard error.
@@ -868,11 +874,20 @@ namespace bfvr::xr
 
 		if (s.instance == XR_NULL_HANDLE)
 		{
-			if (GetTickCount64() < s.next_attempt)
+			if (!s.instance_attempt.valid())
+			{
+				if (GetTickCount64() >= s.next_attempt)
+				{
+					s.instance_attempt = std::async(std::launch::async, [&s] { return s.create_instance(); });
+				}
+				return;
+			}
+			if (s.instance_attempt.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 			{
 				return;
 			}
-			if (!s.create_instance())
+			s.instance = s.instance_attempt.get();
+			if (s.instance == XR_NULL_HANDLE)
 			{
 				s.retry_later();
 				return;
