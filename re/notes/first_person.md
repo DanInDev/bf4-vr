@@ -2,7 +2,9 @@
 
 Status: **camera found and used (2026-10-25).** The weapon/arms pass is drawn with the transform at
 view-params `+0xED0`; the stereo hook now composes the eye pose onto it (`stereo_first_person`,
-default on). Mono test passes; headset test pending. The pass's FOV is still unknown.
+default on). **Headset test passed (2026-10-25):** turning the head looks away from the gun, the gun
+has depth, stick turns carry it, shots go where the gun points, and looking down shows the body and
+arms. The pass's FOV is still unknown.
 
 ## Layout after the three RenderViews (`[[0x142672378]+0x60]`)
 
