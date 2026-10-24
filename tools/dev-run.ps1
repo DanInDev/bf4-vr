@@ -55,7 +55,9 @@ Invoke-Tool 'deploy.ps1' @('-Action', 'deploy', '-Game', 'bf4', '-Config', $conf
 Remove-Item 'E:\EA\Battlefield 4\bfvr.log' -ErrorAction SilentlyContinue
 Invoke-Tool 'game.ps1' @('start')
 Wait-Seconds $MenuWaitSeconds
-"menu: " + (Invoke-Tool 'pipe.ps1' @('status') | Select-Object -First 1)
+# Collect the whole reply first: Select-Object -First 1 on a live pipeline kills the child (exit 255).
+$status = @(Invoke-Tool 'pipe.ps1' @('status'))
+"menu: " + $status[0]
 
 if ($Resume) {
 	Click-Relative 487 70; Wait-Seconds 3     # CAMPAIGN tab
@@ -65,6 +67,8 @@ if ($Resume) {
 	Wait-Seconds $LoadWaitSeconds
 	$shot = Join-Path $root 're\screenshots\dev-run-level.png'
 	Invoke-Tool 'pipe.ps1' @('shot', $shot) | Out-Null
-	"level: " + (Invoke-Tool 'pipe.ps1' @('status') | Select-Object -First 1)
+	$status = @(Invoke-Tool 'pipe.ps1' @('status'))
+	"level: " + $status[0]
 	"screenshot: $shot"
 }
+exit 0

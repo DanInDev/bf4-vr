@@ -17,7 +17,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # `python -P` leaves the script folder off the path
 
-from camera_probe import peek  # noqa: E402
+from camera_probe import peek, peek_many  # noqa: E402
 from object_probe import load_vtables, plausible_heap  # noqa: E402
 
 DATA = (0x1422EF000, 0x1422EF000 + 0x72C4C0)  # BF4 179547 .data
@@ -43,30 +43,30 @@ def main():
                 pointers.setdefault(value, []).append(chunk + offset)
     print(f'{len(pointers)} distinct heap pointers in .data ({time.time() - started:.1f} s)', file=sys.stderr)
 
-    def class_at(address):
-        try:
-            return vtables.get(struct.unpack('<Q', peek(address, 8))[0])
-        except RuntimeError:
-            return None
+    def classes(addresses):
+        heads = peek_many(addresses, 8)
+        return {a: vtables.get(struct.unpack('<Q', b)[0]) if b else None for a, b in heads.items()}
 
     found = []  # (path, object, class); path = "[global]" or "[global]+0xNN"
+    named = classes(pointers)
+    untyped = [value for value in pointers if not named[value]]
     for value, globals_ in pointers.items():
-        name = class_at(value)
-        if name:
-            found.extend((f'[{g:#x}]', value, name) for g in globals_)
-            continue
-        if not args.members:
-            continue
-        try:
-            blob = peek(value, args.members)  # untyped singleton: look at its members once
-        except RuntimeError:
-            continue
-        for offset in range(0, len(blob) - 7, 8):
-            member = struct.unpack_from('<Q', blob, offset)[0]
-            if plausible_heap(member):
-                member_name = class_at(member)
-                if member_name:
-                    found.extend((f'[{g:#x}]+{offset:#x}', member, member_name) for g in globals_)
+        if named[value]:
+            found.extend((f'[{g:#x}]', value, named[value]) for g in globals_)
+    if args.members:
+        # Untyped singletons (managers): name their typed members, one level deep.
+        bodies = peek_many(untyped, args.members)
+        members = {}
+        for value, blob in bodies.items():
+            for offset in range(0, len(blob or b'') - 7, 8):
+                member = struct.unpack_from('<Q', blob, offset)[0]
+                if plausible_heap(member):
+                    members.setdefault(member, []).append((value, offset))
+        member_names = classes(members)
+        for member, owners in members.items():
+            if member_names[member]:
+                for value, offset in owners:
+                    found.extend((f'[{g:#x}]+{offset:#x}', member, member_names[member]) for g in pointers[value])
     print(f'{len(found)} typed objects reachable ({time.time() - started:.1f} s)', file=sys.stderr)
 
     found.sort()

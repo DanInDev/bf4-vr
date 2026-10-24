@@ -10,9 +10,11 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 #include "common/log.hpp"
+#include "input/gamepad.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 
@@ -32,6 +34,8 @@ namespace bfvr::control
 		std::atomic<UINT> back_buffer_width{};
 		std::atomic<UINT> back_buffer_height{};
 		std::atomic<int> back_buffer_format{};
+		// Latest "pad" command; an older command's timer must not release a newer hold.
+		std::atomic<std::uint64_t> pad_generation{};
 
 		// One screenshot request at a time: the pipe thread asks, the present thread fills it.
 		struct shot_request
@@ -280,6 +284,77 @@ namespace bfvr::control
 			return hex;
 		}
 
+		// Many reads in one round trip: "peekmany <length> <hex address>..." -> one line per address,
+		// hex bytes or "-" when unreadable. Each pipe connection costs ~20 ms, so scans batch here.
+		std::string peek_many(const std::string& argument)
+		{
+			unsigned length = 0;
+			int consumed = 0;
+			if (sscanf_s(argument.c_str(), "%u%n", &length, &consumed) != 1 || length == 0 || length > 4096)
+			{
+				return "error: usage: peekmany <length 1..4096> <hex address>...";
+			}
+			std::string reply;
+			std::vector<std::uint8_t> bytes(length);
+			constexpr char digits[] = "0123456789abcdef";
+			const char* cursor = argument.c_str() + consumed;
+			unsigned long long address = 0;
+			int advance = 0;
+			while (sscanf_s(cursor, " %llx%n", &address, &advance) == 1)
+			{
+				cursor += advance;
+				SIZE_T read = 0;
+				if (ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), bytes.data(), length, &read) && read == length)
+				{
+					for (const std::uint8_t byte : bytes)
+					{
+						reply += digits[byte >> 4];
+						reply += digits[byte & 0xF];
+					}
+				}
+				else
+				{
+					reply += '-';
+				}
+				reply += '\n';
+			}
+			return reply;
+		}
+
+		// Writes game data for structure research: "poke <hex address> <hex bytes>" (at most 64 bytes).
+		// Only pages that are already writable, so code and read-only data are never patched.
+		std::string poke(const std::string& argument)
+		{
+			unsigned long long address = 0;
+			char hex[129]{};
+			if (sscanf_s(argument.c_str(), "%llx %128s", &address, hex, static_cast<unsigned>(sizeof(hex))) != 2
+				|| std::strlen(hex) % 2 != 0)
+			{
+				return "error: usage: poke <hex address> <hex bytes, at most 64>";
+			}
+			std::vector<std::uint8_t> bytes;
+			for (std::size_t i = 0; hex[i] != '\0'; i += 2)
+			{
+				unsigned value = 0;
+				if (sscanf_s(hex + i, "%2x", &value) != 1)
+				{
+					return "error: bad hex bytes";
+				}
+				bytes.push_back(static_cast<std::uint8_t>(value));
+			}
+
+			MEMORY_BASIC_INFORMATION info{};
+			const auto start = reinterpret_cast<std::uint8_t*>(address);
+			if (!VirtualQuery(start, &info, sizeof(info)) || info.State != MEM_COMMIT
+				|| !(info.Protect & (PAGE_READWRITE | PAGE_WRITECOPY)) || (info.Protect & PAGE_GUARD)
+				|| start + bytes.size() > static_cast<std::uint8_t*>(info.BaseAddress) + info.RegionSize)
+			{
+				return "error: not a writable data range";
+			}
+			std::memcpy(start, bytes.data(), bytes.size());
+			return "ok " + std::to_string(bytes.size()) + " bytes";
+		}
+
 		std::string status()
 		{
 			char text[256];
@@ -298,6 +373,36 @@ namespace bfvr::control
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
+			if (command == "peekmany") return peek_many(argument);
+			if (command == "poke") return poke(argument);
+			if (command == "pad")
+			{
+				// Holds the virtual pad's sticks for a while (automation without a headset session,
+				// which would overwrite them every frame). Needs XInput polling, i.e. a physical pad.
+				float lx = 0.0f, ly = 0.0f, rx = 0.0f, ry = 0.0f;
+				unsigned duration_ms = 500;
+				if (sscanf_s(argument.c_str(), "%f %f %f %f %u", &lx, &ly, &rx, &ry, &duration_ms) < 4 || duration_ms > 10000)
+				{
+					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000]  (axes -1..1)";
+				}
+				const auto axis = [](float value) { return static_cast<std::int16_t>(std::clamp(value, -1.0f, 1.0f) * 32767.0f); };
+				input::gamepad_state pad{};
+				pad.connected = true;
+				pad.left_x = axis(lx);
+				pad.left_y = axis(ly);
+				pad.right_x = axis(rx);
+				pad.right_y = axis(ry);
+				const std::uint64_t generation = ++pad_generation;
+				input::publish(pad);
+				std::thread([generation, duration_ms] {
+					Sleep(duration_ms);
+					if (pad_generation == generation)
+					{
+						input::publish({});
+					}
+				}).detach();
+				return "pad held for " + std::to_string(duration_ms) + " ms";
+			}
 			if (command == "view")
 			{
 				int view = -1;
@@ -345,7 +450,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
@@ -367,11 +472,12 @@ namespace bfvr::control
 
 				if (ConnectNamedPipe(pipe, nullptr) || GetLastError() == ERROR_PIPE_CONNECTED)
 				{
-					char buffer[1024]{};
+					// Large enough for a peekmany batch of a few thousand addresses.
+					std::vector<char> buffer(64 * 1024);
 					DWORD read{};
-					if (ReadFile(pipe, buffer, sizeof(buffer) - 1, &read, nullptr))
+					if (ReadFile(pipe, buffer.data(), static_cast<DWORD>(buffer.size()), &read, nullptr))
 					{
-						std::string line(buffer, read);
+						std::string line(buffer.data(), read);
 						line.erase(line.find_last_not_of("\r\n ") + 1);
 						const std::string reply = handle(line) + "\n";
 						DWORD written{};

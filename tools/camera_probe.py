@@ -20,7 +20,10 @@ def command(line: str) -> str:
         try:
             with open(PIPE, 'r+b', buffering=0) as pipe:
                 pipe.write(line.encode())
-                return pipe.read(1 << 20).decode().strip()
+                chunks = []
+                while chunk := pipe.read(1 << 20):  # large replies arrive in several reads
+                    chunks.append(chunk)
+                return b''.join(chunks).decode().strip()
         except OSError:  # not found, busy (EINVAL) or access denied while the server re-creates it
             time.sleep(0.05)
     raise RuntimeError('bf-vr control pipe not available')
@@ -31,6 +34,26 @@ def peek(address: int, length: int) -> bytes:
     if reply.startswith('error'):
         raise RuntimeError(f'{address:#x}: {reply}')
     return bytes.fromhex(reply)
+
+
+def peek_many(addresses, length: int):
+    """{address: bytes or None}; batched (peekmany) when the DLL supports it."""
+    addresses = list(dict.fromkeys(addresses))
+    result = {}
+    batch = max(1, min(3000, (900_000 // (length * 2 + 1))))
+    for start in range(0, len(addresses), batch):
+        group = addresses[start:start + batch]
+        reply = command(f'peekmany {length} ' + ' '.join(f'{a:x}' for a in group))
+        if reply.startswith('error'):  # older DLL: one round trip per read
+            for address in group:
+                try:
+                    result[address] = peek(address, length)
+                except RuntimeError:
+                    result[address] = None
+            continue
+        for address, line in zip(group, reply.split('\n')):
+            result[address] = None if line.strip() == '-' else bytes.fromhex(line.strip())
+    return result
 
 
 def pointer(address: int) -> int:
