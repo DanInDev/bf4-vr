@@ -14,6 +14,7 @@
 #include "hooks/present_hook.hpp"
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
+#include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
 #include "xr/theater.hpp"
 
@@ -61,6 +62,12 @@ namespace bfvr::core
 
 		DWORD WINAPI start_thread(LPVOID)
 		{
+			if (!safety::command_line_allows_mod())
+			{
+				return 0;
+			}
+			safety::start_multiplayer_guard();
+
 			// First, so it sees the game's earliest NVAPI queries.
 			if (config::get_bool("nvapi_probe", false))
 			{

@@ -81,6 +81,7 @@ add_library(bfvr_runtime STATIC
 	src/hooks/present_hook.cpp
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
+	src/safety/mp_guard.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/tracking.cpp
 	src/xr/controller_actions.cpp

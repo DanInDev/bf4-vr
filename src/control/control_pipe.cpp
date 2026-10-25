@@ -15,6 +15,7 @@
 
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "safety/mp_guard.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 
@@ -370,6 +371,7 @@ namespace bfvr::control
 			const std::string argument = space == std::string::npos ? std::string() : line.substr(space + 1);
 
 			if (command == "status") return status();
+			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);

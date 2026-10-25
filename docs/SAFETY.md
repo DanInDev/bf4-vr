@@ -37,3 +37,13 @@ of the project. They apply to every stage.
 10. Install tools from official sources only (Ghidra from NSA's GitHub releases,
    x64dbg from x64dbg.com/GitHub, RenderDoc from renderdoc.org, REA from
    `morluto/rea` / `rea-agents` on npm).
+
+## Runtime guard (2026-10-25)
+
+Backup only: removing `dinput8.dll` before multiplayer stays rule 2. `src/safety/mp_guard.cpp`
+refuses to start on a multiplayer command line (`State_ConnectToGameId`, `State_ClaimReservation`,
+`-webmode MP`) and polls the loaded level four times a second. Allowed: `Levels/FrontEnd/FrontEnd`
+(its IsMultiplayer flag is 1) and `Levels/SP/...` with IsMultiplayer 0. Anything else disables every
+MinHook hook for the rest of the process and blocks the pipe's commands except `status`.
+Verified in single-player only: front end and campaign allowed; a deliberate false trip disabled all
+hooks (theater idle) as intended.
