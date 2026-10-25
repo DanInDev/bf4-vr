@@ -2,6 +2,24 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## 2026-10-25 night — render quality (feature/render-quality), batched test pending
+
+Already reported by the user (build with `render_size = 2160x2160` and `keep_focus`): "the changes
+helped a ton, partly on performance but for the look definitely". Remaining complaint: the image still
+feels like a low-FOV, curved flat screen stretched around the head (see re/notes/stereo-rendering.md).
+
+Pending checklist (game `bfvr.ini`: `render_size = 2160x2160`, `hud_layer = 1`, `keep_focus` default on):
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | HUD floats as a flat panel ahead (minimap bottom-left, ammo bottom-right), sharp and fully inside the view; nothing in the lens corners | |
+| 2 | HUD size/distance comfortable? (`hud_width` 1.3 / `hud_distance` 1.5; try 1.1 or 1.5) | |
+| 3 | World image has no HUD burnt in; no black or flickering HUD | |
+| 4 | Menus, pause menu and loading screens still on the theater screen | |
+| 5 | Squad/objective markers on the HUD panel: acceptable, or distracting (they no longer sit on their targets)? | |
+| 6 | Click to the desktop or open the SteamVR dashboard for ~10 s, come back: image stays sharp, no 720p drop, game kept running | |
+| 7 | fps in a firefight (pipe `status`): stays at 120? | |
+
 ## 2026-10-25 evening — arm IK (feature/arm-ik)
 
 | Item | Result |
