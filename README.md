@@ -33,9 +33,10 @@ bf-vr/
 │  ├─ core/         runtime start-up on its own thread
 │  ├─ hooks/        Present and XInput detours (MinHook)
 │  ├─ input/        shared gamepad state
+│  ├─ launcher/     bfvr_launcher.exe: install/remove the mod, settings, start BF4 (bf4 preset only)
 │  └─ xr/           theater mode, controller actions, runtime selection
-├─ tests/           smoke_theater: hook + OpenXR without the game
-├─ tools/           check-env.ps1, deploy.ps1, game.ps1, pipe.ps1, console-probe.ps1, bfvr.ini.example
+├─ tests/           smoke_theater: hook + OpenXR without the game; launcher_test: install logic
+├─ tools/           check-env.ps1, deploy.ps1, game.ps1, pipe.ps1, package.ps1, console-probe.ps1, bfvr.ini.example
 └─ CMakeLists.txt   presets bf4 (x64, default) and bf3 (Win32); fetches OpenXR SDK and MinHook
 ```
 
@@ -57,6 +58,12 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Action deploy
 powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Action status
 powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Action remove
 ```
+
+Or use the launcher, `build\bf4\Debug\bfvr_launcher.exe` (or `Release`): it finds BF4 through the
+registry, verifies build 179547, installs or removes the `dinput8.dll` beside it (same ownership marker
+as `deploy.ps1`, so both tools work together), edits the main `bfvr.ini` keys, starts BF4 through the
+EA app and opens `bfvr.log`. **Remove mod (required before multiplayer)** takes the DLL out again.
+`tools\package.ps1` builds the release zip for players (see docs/TOOLING.md).
 
 ## Controls in theater mode (Quest Touch → Xbox pad)
 
