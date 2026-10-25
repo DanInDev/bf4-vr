@@ -79,9 +79,53 @@ and `research_views` defaults to 1.
 | `tools/disasm.py`, `tools/callers.py`, REA + Ghidra | Static analysis of `re/dumps/bf4-179547-mem.exe` (decrypted dump, never committed) |
 | HUD capture (`src/stereo/hud_capture.cpp`) | Already takes the HUD out of the eye image. Per-eye rendering needs the HUD once per frame, not per eye, which this already does |
 
+## How Overlord does it (read 2026-10-25)
+
+Source: `github.com/Aeka0/Overlord` (GPLv3: study the design, do not copy code into this repo unless
+the project is relicensed under GPLv3). Relevant files: `docs/vr-runtime-rendering.md`,
+`src/client/component/vr/engine_stereo_renderer.cpp`, `engine_scene_completion.cpp`,
+`engine_stereo_owner_pass.cpp`, `engine_stereo_eye_resources.cpp`.
+
+Overlord renders both eyes from one game frame by **re-running the engine's own backend render
+record once per eye on the render thread**, not by adding a second engine view. The steps that
+matter for us:
+
+| Overlord step | What it does | Our equivalent |
+| --- | --- | --- |
+| Publish views early | Before the engine builds the frame's draw lists, publish one immutable "view family" (head rotation + left/right eye positions and FOV, one prediction) | View setup `0x140848B00` / camera hook: write both eye poses from one head sample into our own per-frame record |
+| Await CPU scene inputs | Before the per-eye pass, run the engine's own job-pumping wait functions (initial → surfaces → effects) and check the four "inputs complete" flags; verify the frontend identity before and after | The `worldpass 2` hang: the second world-module call waits on job fences the first call consumed. Find the equivalent fences in the dispatcher `0x140CE5EDE` and wait on them (or pump them) **before** eye 1, not between eyes |
+| Per-eye transaction | Save native state, swap camera constants, models, dynamic upload arenas, targets and history resources for the eye, run the record, restore everything on every exit path | A save/restore scope around each world-module call: RenderView, view constant buffers, `+0xEA8/+0xEB0` targets, the previous-frame view `+0x4E0` |
+| History isolation | Temporal effects (SSR, TAA/SMAA T2x, Filmic) keep a separate history per eye; isolation is in place before the first read in each eye | Exposure/bloom history, motion vectors from `+0x4E0`, any temporal AA |
+| Post-AA per eye | Run the game's FXAA/SMAA after each eye's post transform, before copying the eye out | Post module (tonemap) must run per eye |
+| Complete pairs only | Never submit half a pair or fill the missing eye from the desktop/other eye; keep submitted pairs until the runtime retires them | Theater submission: same rule |
+| Explicit warning | "Do not generate the second eye by simply repeating `R_RenderScene`" | Matches our hang exactly |
+
+Overlord also rejects canted (independently rotated) eye cameras and uses one head orientation
+plus per-eye positions and asymmetric FOVs. Quest 3 eyes are parallel, so that fits.
+
+Other reference: UEVR names three modes. "Native stereo" (engine renders both views) is best when
+it works; "synchronized sequential" renders both eyes back to back on the same engine tick (no world
+time between eyes; TAA may ghost, motion blur off) and is UEVR's recommended fallback; "alternating"
+is our current AER. Synchronized sequential is the same idea as `smooth-stereo.md` direction B.
+
+**Consequence for the ranking below:** Overlord's proven path is our approach 2 with two additions
+(await scene inputs before the first eye; a full per-eye save/restore transaction). Approach 2 is
+now first. Approach 1 stays as the alternative because Frostbite really is multi-view by design.
+
 ## Approaches, most promising first
 
-### 1. Two views through the engine's own multi-view path (recommended)
+### 2 (now first). Run the world renderer per eye, Overlord-style
+
+See approach 2 below, plus the two Overlord additions above. First session:
+
+1. `worldpass 2` with `threads`: name the wait in the dispatcher `0x140CE5EDE` and its fence/job.
+2. Find who produces that fence in the render frame `0x1408463A0` before the modules (render-view
+   copy `0x140B79380`, world system `0x140B8C660`). Wait on/pump it before eye 1 so both eye calls
+   see completed inputs (Overlord: `engine_scene_completion::await`).
+3. Wrap each world-module call in a save/restore scope (camera constants, RenderView, targets,
+   previous-frame view). Goal: two calls per frame without a hang, eye 2 visible in a capture.
+
+### 1. Two views through the engine's own multi-view path (alternative)
 
 The engine already loops over views in the render frame and the world module. Make it work for
 two:
@@ -152,11 +196,13 @@ without the user. Research hooks stay behind config switches that default off.
 
 ## First session
 
-1. Approach 1, steps 1–3 on the monitor: start with `research_views = 2` and view 1 on our own
-   targets, then find the first corrupted array with `threads` + a write watch. Record each array
-   in `re/notes/stereo-rendering.md`.
-2. Goal of the session: the game runs stable in a level with two views, view 1's image visible in a
-   `shot`-style capture of our target (any camera offset).
+1. Approach 2 Overlord-style (section "Run the world renderer per eye"), steps 1–3 on the monitor.
+   Record the fence, its producer and every saved/restored field in `re/notes/stereo-rendering.md`.
+2. Goal of the session: two world-module calls per frame, stable for 5 minutes in a level, eye 2's
+   image visible in a `shot`-style capture of our target (any camera offset).
+3. If approach 2 stalls after one session, switch to approach 1 steps 1–3 (`research_views = 2`,
+   view 1 on our own targets, write watch on the corrupted memory).
+4. Tests for each step: `docs/tasks/testing.md`.
 
 ## Done when
 
