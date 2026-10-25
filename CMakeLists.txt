@@ -102,3 +102,29 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_smoke_theater tests/smoke_theater.cpp)
 	target_link_libraries(bfvr_smoke_theater PRIVATE bfvr_runtime d3d11 dxgi)
 endif()
+
+# Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.
+if(BFVR_GAME STREQUAL "bf4")
+	add_library(bfvr_launcher_core STATIC
+		src/launcher/ini_file.cpp
+		src/launcher/install.cpp
+	)
+	target_link_libraries(bfvr_launcher_core PUBLIC bfvr_common PRIVATE bcrypt)
+
+	add_executable(bfvr_launcher WIN32
+		src/launcher/main.cpp
+		src/launcher/launcher.rc
+		src/launcher/launcher.manifest
+	)
+	target_link_libraries(bfvr_launcher PRIVATE bfvr_launcher_core comctl32 shell32 ole32)
+	target_compile_definitions(bfvr_launcher PRIVATE BFVR_BUILD_CONFIG="$<CONFIG>")
+	# The launcher seeds a new bfvr.ini from the template beside it, as in the release zip.
+	add_custom_command(TARGET bfvr_launcher POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/tools/bfvr.ini.example $<TARGET_FILE_DIR:bfvr_launcher>
+	)
+
+	if(BFVR_BUILD_TESTS)
+		add_executable(bfvr_launcher_test tests/launcher_test.cpp)
+		target_link_libraries(bfvr_launcher_test PRIVATE bfvr_launcher_core)
+	endif()
+endif()

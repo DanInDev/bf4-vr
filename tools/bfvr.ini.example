@@ -17,3 +17,6 @@ stereo = 0
 # Also apply the eye pose to the first-person pass camera (view params +0xED0), so the gun stays
 # where the soldier aims while the head looks around (re/notes/first_person.md). 0 = gun follows the head.
 stereo_first_person = 1
+
+# VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
+gamepad = 1
