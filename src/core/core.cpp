@@ -11,8 +11,10 @@
 #include "common/log.hpp"
 #include "control/control_pipe.hpp"
 #include "hooks/dxgi_probe.hpp"
+#include "hooks/focus_keeper.hpp"
 #include "hooks/nvapi_hook.hpp"
 #include "hooks/present_hook.hpp"
+#include "hooks/swap_chain_size.hpp"
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
 #include "input/virtual_pad.hpp"
@@ -62,7 +64,7 @@ namespace bfvr::core
 				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls,
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
-			return text;
+			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden());
 		}
 
 		DWORD WINAPI start_thread(LPVOID)
@@ -82,6 +84,8 @@ namespace bfvr::core
 			{
 				hooks::install_nvapi_probe();
 			}
+			// Before the game's first swap chain and before the Present hook's probe swap chain.
+			hooks::install_swap_chain_hooks();
 			if (config::get_bool("dxgi_probe", false))
 			{
 				hooks::install_dxgi_stereo_probe();

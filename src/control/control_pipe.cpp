@@ -16,6 +16,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "hooks/swap_chain_size.hpp"
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
 #include "control/watchpoint.hpp"
@@ -449,6 +450,7 @@ namespace bfvr::control
 				stereo::current_view_crop(horizontal, vertical);
 				return "view_crop=" + std::to_string(horizontal) + " " + std::to_string(vertical);
 			}
+			if (command == "rendersize") return hooks::render_size_report();
 			if (command == "gunscale")
 			{
 				float scale = 0.0f;
@@ -566,7 +568,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

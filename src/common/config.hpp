@@ -26,6 +26,8 @@ namespace bfvr::config
 	//   arm_ik_weapon = 1 | 0                            the gun (Wep_Root) follows the right hand (default 1)
 	//   arm_ik_wrist = <x y z>                           wrist relative to the grip pose, metres, right hand (default 0 0 0.06)
 	//   arm_ik_pole  = <x y z>                           elbow direction from the shoulder, camera axes, right arm (default 0.5 -1 0.3)
+	//   render_size  = 0 | <w>x<h>                       virtual fullscreen mode: the game renders at that size (default 0, experimental)
+	//   keep_focus   = 1 | 0                             hide focus loss from the game (no 30 fps / 720p drop) (default 1)
 	//   research     = 1 | 0                             memory research pipe commands and research hooks
 	//                                                    (default 1 in Debug builds, 0 in Release builds)
 	std::string get(const char* key, const char* fallback);

@@ -42,3 +42,11 @@ arm_ik_weapon = 1
 arm_ik_wrist = 0 0 0.06
 # Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
 arm_ik_pole = 0.5 -1 0.3
+
+# Render size for the eye images (re/notes/render-quality.md). 0 = the monitor's mode (1920x1080).
+# <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
+# shows a scaled preview). EXPERIMENTAL: fps problem still open.
+render_size = 0
+# Hide focus loss from the game, so it keeps rendering at full rate and resolution when the SteamVR
+# dashboard, Steam Link or another window takes focus. 0 = the game's own behaviour.
+keep_focus = 1
