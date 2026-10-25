@@ -25,8 +25,9 @@ of the project. They apply to every stage.
 6. `bf3.exe` is DRM-encrypted on disk. Analyze the decrypted code **in memory, for
    your own interoperability research**. Do not patch out, bypass or redistribute
    the DRM, a decrypted executable, or memory dumps.
-7. Never commit or share game files, dumps, Ghidra/IDA databases or extracted
-   assets. `.gitignore` excludes `re/dumps/` and `re/projects/`.
+7. Game assets (meshes, textures, UI) may be read from your own install or from game memory
+   and used by the mod. Do not commit game files, dumps or Ghidra/IDA databases: `.gitignore`
+   excludes `re/dumps/`, `re/projects/` and `re/assets/`.
 8. If the mod is ever published, ship only your own code (like Overlord does) and
    require users to own the game.
 
