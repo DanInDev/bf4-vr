@@ -20,6 +20,7 @@
 #include "input/virtual_pad.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/world_pass.hpp"
 #include "xr/theater.hpp"
 
 namespace bfvr::core
@@ -95,6 +96,10 @@ namespace bfvr::core
 			if (config::get_bool("camera_hook", true))
 			{
 				stereo::install_camera_hook();
+			}
+			if (config::research_enabled())
+			{
+				stereo::install_view_experiment();
 			}
 			// Arm pose hook: arm IK to the controllers, and the research bone edits.
 			if (config::get_bool("arm_ik", true) || (config::research_enabled() && config::get_bool("arm_pose_hook", true)))

@@ -8,7 +8,7 @@ Alternate-eye stereo implemented (`stereo = 1`), awaiting the first headset test
 | Step | Value | How verified |
 | --- | --- | --- |
 | Global `GameRenderer*` | `[0x142672378]` (in `.data`) | Live reads (`tools/camera_probe.py`) |
-| View params | `[GameRenderer + 0x60]` → block of **three RenderViews** (`+0x0` world camera, `+0x4E0` probably first-person view, `+0x9C0` unknown) plus extra data | Disassembly of the copy function below |
+| View params | `[GameRenderer + 0x60]` → view block (stride 0x1020): `+0x0` world camera RenderView, `+0x4E0` the **previous frame**'s RenderView (corrected 2026-10-25, see stereo-rendering.md), first-person transforms at `+0xED0` | Disassembly of the copy function below |
 | Camera world transform | `RenderView + 0x40`: rows right, up, forward, position (row vectors, x right / y up / z forward, metres) | Strafing moved position along row 0 |
 | Vertical FOV | `RenderView + 0xB4` (radians). `+0xB8` = 0.96 rad = the player's FOV setting (BF4's "70 (Hor+ 86)" = 55.3° vertical) | Overriding `+0xB4` to 1.6 rebuilt the projection to exactly 91.7° vertical |
 | Aspect | `RenderView + 0xC4` (1.778 = 16:9) | Projection m11/m00 = 1.778 |

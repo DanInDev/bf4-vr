@@ -19,8 +19,11 @@
 #include "hooks/swap_chain_size.hpp"
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
+#include "control/frame_trace.hpp"
+#include "control/thread_stacks.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/world_pass.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -377,7 +380,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -451,6 +454,22 @@ namespace bfvr::control
 				return "view_crop=" + std::to_string(horizontal) + " " + std::to_string(vertical);
 			}
 			if (command == "rendersize") return hooks::render_size_report();
+			if (command == "frametrace") return trace_frame(argument);
+			if (command == "threads") return thread_stacks();
+			if (command == "worldpass")
+			{
+				int passes = 1, target = 0;
+				float shift = 0.0f;
+				sscanf_s(argument.c_str(), "%d %f %d", &passes, &shift, &target);
+				return stereo::set_world_pass(passes, shift, target);
+			}
+			if (command == "viewcount")
+			{
+				int count = 0, viewport = 0;
+				float shift = 0.0f;
+				sscanf_s(argument.c_str(), "%d %f %d", &count, &shift, &viewport);
+				return stereo::set_view_count(count, shift, viewport); // count 0 = report only
+			}
 			if (command == "gunscale")
 			{
 				float scale = 0.0f;
@@ -568,7 +587,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
@@ -621,6 +640,7 @@ namespace bfvr::control
 
 	void on_present(IDXGISwapChain* swap_chain)
 	{
+		frame_trace_on_present(swap_chain);
 		static LARGE_INTEGER frequency{};
 		static LARGE_INTEGER window_start{};
 		static unsigned frames{};

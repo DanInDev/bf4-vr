@@ -74,6 +74,8 @@ target_compile_options(bfvr_common PUBLIC /W4 /permissive-)
 # Everything that runs inside the game: hooks, OpenXR, start-up.
 add_library(bfvr_runtime STATIC
 	src/control/control_pipe.cpp
+	src/control/frame_trace.cpp
+	src/control/thread_stacks.cpp
 	src/control/watchpoint.cpp
 	src/core/core.cpp
 	src/hooks/dxgi_probe.cpp
@@ -89,6 +91,7 @@ add_library(bfvr_runtime STATIC
 	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/tracking.cpp
+	src/stereo/world_pass.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
