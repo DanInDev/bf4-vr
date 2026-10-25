@@ -4,9 +4,14 @@ Hobby research project: VR support for the **Battlefield 4 single-player campaig
 (Battlefield 3 remains a supported build target) on a Meta Quest 3, in the spirit
 of [Overlord](https://github.com/Aeka0/Overlord) (MW2CR) and the Titanfall 2 VR mod.
 
-Status: **stage 1 (theater mode) works in BF4 on a Quest 3 via Steam Link** (confirmed in
-the headset 2026-10-22). VR controllers act as an Xbox pad (built, awaiting an in-headset test).
-A control pipe gives status and back-buffer screenshots without touching the game window.
+Status (2026-10-25):
+- **Head-tracked stereo works in the headset** (alternate-eye rendering through SteamVR), and
+  the first-person gun stays where the soldier aims while the head looks around (headset-tested).
+- Theater mode (a virtual screen) for menus; VR controllers act as an Xbox pad.
+- Per-eye rendering at the headset's aspect, `gun_scale`, a multiplayer guard and the arm-pose
+  hook (groundwork for arm IK) are built and checked on the monitor; headset checks pending.
+- Research tooling: a control pipe (status, screenshots, memory research commands), a TypeInfo
+  dumper and live object naming (`docs/TOOLING.md`, `re/MAPPING.md`).
 
 | Doc | What it covers |
 | --- | --- |
