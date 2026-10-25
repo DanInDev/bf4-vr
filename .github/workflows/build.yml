@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [main, feature/ci]
+    branches: [main]
   pull_request:
-    branches: [main, feature/ci]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
