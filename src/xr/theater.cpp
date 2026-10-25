@@ -145,6 +145,17 @@ namespace bfvr::xr
 		bool waiting_for_steamvr_logged{};
 		std::atomic<bool> steamvr_restart_pending{}; // set on EXITING (Present thread), read by the instance worker
 		std::atomic<bool> runtime_is_steamvr{};      // written by the instance worker
+		// Every runtime call from the game's Present and the waiter's hidden-frame begin/end are
+		// serialised: concurrent calls froze the game when Steam Link reconnected (2026-10-25).
+		std::mutex xr_calls;
+		std::atomic<const char*> stage{ "idle" };
+		std::atomic<ULONGLONG> stage_since{};
+
+		void enter(const char* name)
+		{
+			stage = name;
+			stage_since = GetTickCount64();
+		}
 		XrResult ready_result{};
 		XrFrameState ready_frame{ XR_TYPE_FRAME_STATE };
 
@@ -699,6 +710,15 @@ namespace bfvr::xr
 				// game's Present for ~200 ms per frame (7 fps) when done there.
 				if (XR_SUCCEEDED(result) && !frame.shouldRender)
 				{
+					std::unique_lock xr(xr_calls, std::defer_lock);
+					while (!xr.try_lock())
+					{
+						if (waiter_stop_requested())
+						{
+							return;
+						}
+						Sleep(1);
+					}
 					XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
 					XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
 					end_info.displayTime = frame.predictedDisplayTime;
@@ -720,6 +740,12 @@ namespace bfvr::xr
 				ready_frame = frame;
 				frame_ready = true;
 			}
+		}
+
+		bool waiter_stop_requested()
+		{
+			const std::lock_guard guard(waiter_lock);
+			return waiter_stop;
 		}
 
 		void start_waiter()
@@ -800,6 +826,7 @@ namespace bfvr::xr
 				can_copy = desc.SampleDesc.Count == 1 && ensure_swapchain(desc);
 			}
 
+			enter("begin frame");
 			XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
 			if (!check(xrBeginFrame(session, &begin_info), "xrBeginFrame"))
 			{
@@ -813,6 +840,7 @@ namespace bfvr::xr
 			const XrCompositionLayerBaseHeader* layers[1]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
+			enter("copy to swap chain");
 			if (frame.shouldRender && stereo_frame && copy_eyes_to_swapchain())
 			{
 				// Each eye is shown with exactly the pose and FOV it was rendered with; the
@@ -846,6 +874,7 @@ namespace bfvr::xr
 				layer_count = 1;
 			}
 
+			enter("end frame");
 			XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
 			end_info.displayTime = frame.predictedDisplayTime;
 			end_info.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
@@ -979,9 +1008,12 @@ namespace bfvr::xr
 			return;
 		}
 
+		const std::lock_guard xr(s.xr_calls);
+		s.enter("poll events");
 		s.poll_events();
 		if (s.session_running)
 		{
+			s.enter("sync actions");
 			LARGE_INTEGER frequency{}, t0{}, t1{}, t2{};
 			QueryPerformanceFrequency(&frequency);
 			QueryPerformanceCounter(&t0);
@@ -1001,6 +1033,7 @@ namespace bfvr::xr
 			}
 			if (s.stereo_mode)
 			{
+				s.enter("store eye");
 				ComPtr<ID3D11Texture2D> back_buffer;
 				if (SUCCEEDED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer))))
 				{
@@ -1013,6 +1046,7 @@ namespace bfvr::xr
 				}
 			}
 			QueryPerformanceCounter(&t1);
+			s.enter("submit");
 			s.submit_frame(swap_chain);
 			QueryPerformanceCounter(&t2);
 			const double ticks_per_ms = static_cast<double>(frequency.QuadPart) / 1000.0;
@@ -1023,12 +1057,15 @@ namespace bfvr::xr
 		{
 			input::publish({});
 		}
+		s.enter("idle");
 	}
 
 	theater_status theater::status() const
 	{
 		const state& s = *state_;
+		const char* stage = s.stage.load();
+		const double stage_ms = std::strcmp(stage, "idle") == 0 ? 0.0 : static_cast<double>(GetTickCount64() - s.stage_since.load());
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
-			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored };
+			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms };
 	}
 }

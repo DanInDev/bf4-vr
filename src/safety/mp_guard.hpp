@@ -11,4 +11,8 @@ namespace bfvr::safety
 	// mod_disabled() turns true. Removing dinput8.dll before multiplayer stays the primary rule.
 	void start_multiplayer_guard();
 	bool mod_disabled();
+
+	// True while the front end (main menu level) is loaded; the stereo view shows it on the
+	// theater screen instead of head-tracked (its 2D menu would otherwise fill the whole view).
+	bool front_end_loaded();
 }
