@@ -72,6 +72,10 @@ namespace bfvr::stereo
 		// FOV; multiplying the first-person camera's right and up rows by g scales the drawn gun by g
 		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
 		std::atomic<float> gun_scale{ 1.0f };
+		// Fraction (tangent space) of the headset's reported FOV that is rendered, horizontal and
+		// vertical (1 = all of it); config view_crop_h / view_crop_v.
+		std::atomic<float> view_crop_h{ 1.0f };
+		std::atomic<float> view_crop_v{ 1.0f };
 		std::atomic<float> view_fov[3]{};
 		std::atomic<float> view_shift[3]{};
 		// Research: shift any transform (rows right, up, forward, position) inside the view-params
@@ -218,6 +222,11 @@ namespace bfvr::stereo
 					half_vertical = std::fmax(half_vertical, std::fmax(f.up, -f.down));
 					half_horizontal = std::fmax(half_horizontal, std::fmax(f.right, -f.left));
 				}
+				// The runtime's FOV can be wider than what the lens shows (Quest 3 via Steam Link:
+				// headset test 2026-10-25). Cropping (in tangent space) spends the pixels on the
+				// visible part; the compositor still gets exactly the FOV that was rendered.
+				half_horizontal = std::atan(std::tan(half_horizontal) * view_crop_h.load(std::memory_order_relaxed));
+				half_vertical = std::atan(std::tan(half_vertical) * view_crop_v.load(std::memory_order_relaxed));
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
 				if (stereo_headset_aspect)
 				{
@@ -394,6 +403,8 @@ namespace bfvr::stereo
 		stereo_first_person = config::get_bool("stereo_first_person", true);
 		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
 		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
+		set_view_crop(static_cast<float>(std::atof(config::get("view_crop_h", "1.0").c_str())),
+			static_cast<float>(std::atof(config::get("view_crop_v", "1.0").c_str())));
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -454,6 +465,19 @@ namespace bfvr::stereo
 	float current_gun_scale()
 	{
 		return gun_scale;
+	}
+
+	void set_view_crop(float horizontal, float vertical)
+	{
+		const auto clamp = [](float value) { return std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.4f), 1.0f) : 1.0f; };
+		view_crop_h = clamp(horizontal);
+		view_crop_v = clamp(vertical);
+	}
+
+	void current_view_crop(float& horizontal, float& vertical)
+	{
+		horizontal = view_crop_h;
+		vertical = view_crop_v;
 	}
 
 	void set_research_aspect(float value)
