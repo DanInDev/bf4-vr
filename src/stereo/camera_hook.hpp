@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace bfvr::stereo
 {
@@ -54,5 +55,7 @@ namespace bfvr::stereo
 
 	// Research: a synthetic head yaw (degrees, 0 = off) applied like a headset eye pose when not
 	// in stereo; world and first-person camera turn together.
+	// stereo_render at runtime: "pair" (both eyes from one frame, eye pass) or "aer" (alternate eyes).
+	std::string set_stereo_render(const std::string& name);
 	void set_fake_yaw(float degrees);
 }

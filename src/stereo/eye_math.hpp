@@ -29,6 +29,13 @@ namespace bfvr::stereo::eye_math
 	// use when both eyes are rendered from one head sample.
 	pose centre_pose(const head_sample& head);
 
+	// The pose moved by metres along its own right axis (+x), orientation unchanged: the right eye as
+	// the eye pass renders it from the left eye.
+	pose moved_along_right(const pose& eye, float metres);
+
+	// Distance between the two eye positions (the interpupillary distance the runtime reports).
+	float eye_distance(const head_sample& head);
+
 	// Angle (radians) between the two eye orientations. The per-eye path assumes parallel eyes
 	// (one head rotation, per-eye positions): Overlord rejects canted eye cameras the same way.
 	float eye_angle(const head_sample& head);

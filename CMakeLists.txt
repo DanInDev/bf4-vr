@@ -91,6 +91,7 @@ add_library(bfvr_runtime STATIC
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
+	src/stereo/constant_patch.cpp
 	src/stereo/eye_math.cpp
 	src/stereo/eye_pass.cpp
 	src/stereo/hud_capture.cpp
@@ -120,7 +121,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_arm_ik_test PRIVATE bfvr_common)
 
 	# Per-eye maths: pose composition, rendered frustum, complete pairs; exits non-zero on failure.
-	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp)
+	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp src/stereo/constant_patch.cpp)
 	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
 
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.

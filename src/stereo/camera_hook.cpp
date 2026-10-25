@@ -14,6 +14,7 @@
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/eye_math.hpp"
+#include "stereo/eye_pass.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -89,6 +90,8 @@ namespace bfvr::stereo
 		std::atomic<std::uint32_t> pin_offset[4]{};
 		std::atomic<float> pin_value[4]{};
 		bool stereo_enabled{};
+		// stereo_render = pair (research): both eyes from one game frame (stereo/eye_pass.hpp).
+		std::atomic<bool> pair_render{};
 		bool stereo_first_person{};
 
 		std::uint8_t* renderer_view_params()
@@ -175,8 +178,10 @@ namespace bfvr::stereo
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			if (head.valid)
 			{
-				// Alternate-eye rendering: odd copies left eye, even copies right eye.
-				const int eye = static_cast<int>(index % 2 == 1 ? 0 : 1);
+				// Alternate-eye rendering: odd copies left eye, even copies right eye. Pair rendering:
+				// every copy is the left eye; the eye pass renders the right eye from the same frame.
+				const bool pair = pair_render.load(std::memory_order_relaxed);
+				const int eye = pair ? 0 : static_cast<int>(index % 2 == 1 ? 0 : 1);
 
 				// Render a symmetric frustum covering both eyes' FOVs. With the headset aspect the
 				// 16:9 image is anamorphic and spends its pixels only on what the lens shows; with
@@ -197,6 +202,13 @@ namespace bfvr::stereo
 				tag.eye = eye;
 				tag.eye_pose = head.eyes[eye];
 				tag.rendered_fov = { -half_horizontal, half_horizontal, half_vertical, -half_vertical };
+				if (pair)
+				{
+					const float ipd = eye_math::eye_distance(head);
+					set_eye_pass_shift(ipd);
+					tag.pair = true;
+					tag.second_pose = eye_math::moved_along_right(head.eyes[0], ipd);
+				}
 			}
 			else
 			{
@@ -299,8 +311,13 @@ namespace bfvr::stereo
 				log::write("camera: hooking %p failed: %s", target, MH_StatusToString(status));
 				return false;
 			}
-			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d headset_aspect=%d)", target,
-				stereo_enabled, stereo_first_person, stereo_headset_aspect);
+			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d headset_aspect=%d pair=%d)", target,
+				stereo_enabled, stereo_first_person, stereo_headset_aspect, pair_render.load());
+			if (pair_render)
+			{
+				// Render twice per frame with eye-2 constants (flags 1 | 8); the shift follows the IPD.
+				log::write("camera: pair rendering: %s", set_eye_pass(9, 0.064f).c_str());
+			}
 
 			// Optional second hook; without it stereo still works at the game's aspect.
 			auto* const aspect_target = reinterpret_cast<void*>(static_cast<std::uintptr_t>(view_set_aspect));
@@ -354,6 +371,7 @@ namespace bfvr::stereo
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
 		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
+		pair_render = stereo_enabled && config::get("stereo_render", "aer") == "pair";
 		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
 		set_view_crop(static_cast<float>(std::atof(config::get("view_crop_h", "1.0").c_str())),
 			static_cast<float>(std::atof(config::get("view_crop_v", "1.0").c_str())));
@@ -435,6 +453,29 @@ namespace bfvr::stereo
 	void set_research_aspect(float value)
 	{
 		research_aspect = std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.2f), 5.0f) : 0.0f;
+	}
+
+	std::string set_stereo_render(const std::string& name)
+	{
+		if (name == "pair" || name == "aer")
+		{
+			const bool pair = name == "pair";
+			// The eye pass must run before the camera hook tags copies as pairs, and stop after.
+			if (pair)
+			{
+				const std::string result = set_eye_pass(9, 0.064f);
+				if (result.rfind("error", 0) == 0)
+				{
+					return result;
+				}
+			}
+			pair_render = pair && stereo_enabled;
+			if (!pair)
+			{
+				set_eye_pass(0, 0.064f);
+			}
+		}
+		return std::string("stereo_render=") + (pair_render.load() ? "pair" : "aer");
 	}
 
 	void set_fake_yaw(float degrees)

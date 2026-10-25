@@ -56,3 +56,7 @@ hud_layer = 1
 # Distance and width of the HUD layer in metres (1.3 m at 1.5 m is about 47 degrees wide).
 hud_distance = 1.5
 hud_width = 1.3
+# How the two eyes are rendered with stereo = 1. aer = alternate eyes (one eye per game frame, the
+# default); pair = both eyes from one game frame (research, feature/render-quality: the world is
+# correct, the gun and arms have no depth yet). Switch live with pipe `stereorender aer|pair`.
+stereo_render = aer

@@ -93,7 +93,11 @@ variable `REA_GHIDRA_STARTUP_TIMEOUT_MS = 10800000` (3 h) is set and takes effec
 
 Per-eye research (2026-10-25, research builds): `eyepass <flags> [shift m]` (1 render twice, 2 shifted
 eye last, 4 restore the slot snapshot), `eyeshot <path.png>` (first eye's image), `frametrace` now also
-records constant-buffer bindings and uploads that contain the camera position (`cam@offset`). Fatal
+records constant-buffer bindings and uploads that contain the camera position (`cam@offset`). `eyeprobe <prefix>` writes one
+first-eye render's constant bindings, every bound buffer (GPU readback) and view slot 0 to `re/dumps`;
+`fakehead <ipd>|off` publishes a fixed head sample so stereo paths run without a headset;
+`stereorender aer|pair` switches between alternate-eye and both-eyes-per-frame rendering. Timing work on
+the eye pass needs the Release build (`dev-run.ps1 -Preset bf4-release`, `research = 1` in `bfvr.ini`). Fatal
 exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash_log.cpp`).
 
 | Test tool | Use |

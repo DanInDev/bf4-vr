@@ -145,11 +145,12 @@ See approach 2 below, plus the two Overlord additions above. First session:
   constant arenas that job threads fill before the render (`re/notes/stereo-rendering.md`,
   "Per-eye pass"). This is Overlord's "dynamic uploads" step.
 
-**Next session:** give eye 2 its own constants. First the cheap probe: before the second render,
-rewrite the centre camera's matrices and position in the mapped arena ranges with eye-2 values,
-then restore. If per-object constants mix world and view, find the job that writes the view
-constants (write-watch at a `cam@` offset) and run it once more for eye 2. Done when `eyeshot` and
-`shot` differ by the eye offset.
+**Session 3 results (2026-10-25/26):** eye 2 has its own world constants (`eyepass` flag 8,
+`constant_patch`): correct world disparity on the monitor, 130–140 fps at 1280×720 in Release.
+`stereo_render = pair` submits both eyes of one frame to the headset (pipe `stereorender` switches live).
+**Open:** the gun and arms are identical in both eyes; none of the constant-buffer experiments moved
+them (table in `re/notes/stereo-rendering.md`). Next suspect: skinning/bone buffers bound as shader
+resources. Headset checklist: `docs/HEADSET-TESTS.md` (2026-10-26).
 
 ### 1. Two views through the engine's own multi-view path (ruled out, see above)
 

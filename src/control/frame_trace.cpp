@@ -1,10 +1,11 @@
 #include "control/frame_trace.hpp"
 
-#include <d3d11.h>
+#include <d3d11_1.h>
 #include <intrin.h>
 
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <cstdio>
@@ -43,6 +44,8 @@ namespace bfvr::control
 		{
 			vs_set_constant_buffers = 7, map = 14, unmap = 15, ps_set_constant_buffers = 16, cs_set_constant_buffers = 71,
 			update_subresource = 48,
+			// ID3D11DeviceContext1 (d3d11_1.h order)
+			vs_set_constant_buffers1 = 119, ps_set_constant_buffers1 = 123, cs_set_constant_buffers1 = 124,
 			draw_indexed = 12, draw = 13, draw_indexed_instanced = 20, draw_instanced = 21,
 			om_set_render_targets = 33, om_set_render_targets_uav = 34, draw_indexed_instanced_indirect = 39,
 			draw_instanced_indirect = 40, dispatch = 41, dispatch_indirect = 42, rs_set_viewports = 44,
@@ -234,6 +237,11 @@ namespace bfvr::control
 		map_t original_map{};
 		unmap_t original_unmap{};
 		update_subresource_t original_update_subresource{};
+		using set_constant_buffers1_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, ID3D11Buffer* const*, const UINT*, const UINT*);
+		set_constant_buffers1_t original_vs_set_constant_buffers1{};
+		set_constant_buffers1_t original_ps_set_constant_buffers1{};
+		set_constant_buffers1_t original_cs_set_constant_buffers1{};
+		std::atomic<int> dumped_blocks{};
 
 		std::string targets_text(UINT count, ID3D11RenderTargetView* const* views, ID3D11DepthStencilView* depth)
 		{
@@ -375,6 +383,66 @@ namespace bfvr::control
 			}
 			return text + "]";
 		}
+		std::string constant_buffers1_text(UINT start, UINT count, ID3D11Buffer* const* buffers, const UINT* first, const UINT* number)
+		{
+			std::string text = "slot " + std::to_string(start) + " [";
+			for (UINT i = 0; i < count && buffers && i < 8; ++i)
+			{
+				char b[64];
+				std::snprintf(b, sizeof(b), "%s%p+0x%x/%u", i ? " " : "", static_cast<void*>(buffers[i]), first ? first[i] * 16 : 0,
+					number ? number[i] * 16 : 0);
+				text += b;
+			}
+			return text + "]";
+		}
+		void STDMETHODCALLTYPE vs_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("VSSetConstantBuffers1", _ReturnAddress(), constant_buffers1_text(s, n, b, f, k));
+			}
+			original_vs_set_constant_buffers1(c, s, n, b, f, k);
+		}
+		void STDMETHODCALLTYPE ps_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("PSSetConstantBuffers1", _ReturnAddress(), constant_buffers1_text(s, n, b, f, k));
+			}
+			original_ps_set_constant_buffers1(c, s, n, b, f, k);
+		}
+		void STDMETHODCALLTYPE cs_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("CSSetConstantBuffers1", _ReturnAddress(), constant_buffers1_text(s, n, b, f, k));
+			}
+			original_cs_set_constant_buffers1(c, s, n, b, f, k);
+		}
+
+		// Floats around the first camera hit of an upload (first few uploads only): shows the block layout.
+		std::string block_dump(const void* data, std::size_t size, const std::string& hits)
+		{
+			if (hits.empty() || dumped_blocks.fetch_add(1) >= 4)
+			{
+				return {};
+			}
+			const std::size_t hit = static_cast<std::size_t>(std::strtoull(hits.c_str() + hits.find("0x") + 2, nullptr, 16));
+			const std::size_t begin = hit >= 0x140 ? hit - 0x140 : 0;
+			const std::size_t end = hit + 0x40 < size ? hit + 0x40 : size;
+			std::string text = " block@0x";
+			char b[32];
+			std::snprintf(b, sizeof(b), "%zx:", begin);
+			text += b;
+			const auto* f = static_cast<const float*>(data);
+			for (std::size_t i = begin / 4; i < end / 4; ++i)
+			{
+				std::snprintf(b, sizeof(b), " %.4g", f[i]);
+				text += b;
+			}
+			return text;
+		}
+
 		void STDMETHODCALLTYPE vs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
 		{
 			if (recording.load(std::memory_order_relaxed))
@@ -431,7 +499,7 @@ namespace bfvr::control
 				const std::string hits = size && size <= (1u << 20) ? find_camera(data, size) : std::string();
 				if (!hits.empty())
 				{
-					add("Unmap", _ReturnAddress(), buffer_text(r) + hits);
+					add("Unmap", _ReturnAddress(), buffer_text(r) + hits + block_dump(data, size, hits));
 				}
 			}
 			original_unmap(c, r, s);
@@ -479,9 +547,23 @@ namespace bfvr::control
 				{ map, &map_detour, reinterpret_cast<void**>(&original_map) },
 				{ unmap, &unmap_detour, reinterpret_cast<void**>(&original_unmap) },
 				{ update_subresource, &update_subresource_detour, reinterpret_cast<void**>(&original_update_subresource) },
+				{ vs_set_constant_buffers1, &vs_set_constant_buffers1_detour, reinterpret_cast<void**>(&original_vs_set_constant_buffers1) },
+				{ ps_set_constant_buffers1, &ps_set_constant_buffers1_detour, reinterpret_cast<void**>(&original_ps_set_constant_buffers1) },
+				{ cs_set_constant_buffers1, &cs_set_constant_buffers1_detour, reinterpret_cast<void**>(&original_cs_set_constant_buffers1) },
 			};
+			// Slots from 115 on exist only on an ID3D11DeviceContext1 vtable.
+			ID3D11DeviceContext1* context1{};
+			const bool has_context1 = SUCCEEDED(context->QueryInterface(IID_PPV_ARGS(&context1)));
+			if (context1)
+			{
+				context1->Release();
+			}
 			for (const auto& entry : table)
 			{
+				if (entry.slot >= 115 && !has_context1)
+				{
+					continue;
+				}
 				const MH_STATUS status = MH_CreateHook(vtable[entry.slot], entry.detour, entry.original);
 				if (status == MH_ERROR_ALREADY_CREATED)
 				{
@@ -616,6 +698,7 @@ namespace bfvr::control
 			}
 			events.clear();
 			camera_known = camera_position_now(camera_position);
+			dumped_blocks = 0;
 			set_enabled(true);
 			recording = true;
 			state = 2;

@@ -75,6 +75,26 @@ namespace bfvr::stereo::eye_math
 		return centre;
 	}
 
+	pose moved_along_right(const pose& eye, float metres)
+	{
+		const float qx = eye.orientation[0], qy = eye.orientation[1], qz = eye.orientation[2], qw = eye.orientation[3];
+		const float right[3] = { 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy + qz * qw), 2 * (qx * qz - qy * qw) };
+		pose moved = eye;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			moved.position[axis] += right[axis] * metres;
+		}
+		return moved;
+	}
+
+	float eye_distance(const head_sample& head)
+	{
+		const float dx = head.eyes[1].position[0] - head.eyes[0].position[0];
+		const float dy = head.eyes[1].position[1] - head.eyes[0].position[1];
+		const float dz = head.eyes[1].position[2] - head.eyes[0].position[2];
+		return std::sqrt(dx * dx + dy * dy + dz * dz);
+	}
+
 	float eye_angle(const head_sample& head)
 	{
 		const float* a = head.eyes[0].orientation;

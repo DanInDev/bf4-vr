@@ -134,3 +134,44 @@ Consequence: per-eye rendering needs per-eye **constant data**, not only a per-e
 2. Cheaper probe first: before the second render, rewrite the centre camera's view, projection and
    view-projection matrices (and inverses, camera position) inside the mapped arena ranges with the
    eye-2 values, render, restore. Works only if per-object constants keep world and view separate.
+
+## Eye-2 constants and pair rendering (session 3, 2026-10-25/26)
+
+Constant data, found with `eyeprobe` (bindings of one first-eye render + every bound buffer read back):
+
+| Finding | Evidence |
+| --- | --- |
+| Draws bind 256-byte (and 512/3072/5888/12800-byte) blocks of 3 dynamic 1 MB constant arenas through `VS/PS/CSSetConstantBuffers1` with offsets (~2100 bindings per frame) | `eyeprobe` bindings |
+| Per-draw blocks hold the object's world matrix (3×4); per-view blocks hold copies of the RenderView's view-projection (`+0x420`, transposed `+0x460`), projection (`+0x320`), camera position | float dumps vs `probe-slot.bin` |
+| RenderView layout additions: transform `+0x40`, view `+0x260`, projection `+0x320` (x/y scale 1.358/2.414 = 72.7° h at 16:9), view-projection `+0x420`, transposed `+0x460` | slot dump |
+| Blocks bound by eye 1 were written by job threads before the render; eye 2 also binds ~180 blocks that the **render thread writes during the render**, still with the centre camera | counters `eye_late` |
+| Reading the arenas through their mapping is slow (GPU memory over the bus); GPU copy to staging after eye 1 costs ~4 ms incl. waiting for eye 1 | `eye_readback_ms` |
+| Debug-build timings are meaningless for this path (37 ms → 2 ms in Release) | |
+
+Eye-2 constants (`eyepass` flag 8, `src/stereo/constant_patch.*`, tested): every 16-byte aligned window of
+the slot's RenderViews that changes when the camera moves is a replacement pair (25 per frame); blocks
+bound by eye 1 are patched in one upload, late blocks are read live and patched one by one; bindings of
+eye 2 are redirected to our own 4 MB constant buffer. Result: world disparity correct in sign and order
+(fake 64 mm head at 1280×720: walls −8 px, far window −5 px). Release, monitor, both eyes every frame:
+130–140 fps; eye 2 ~2 ms CPU, preparation ~4 ms.
+
+Pair rendering (`stereo_render = pair`, pipe `stereorender`): the camera hook gives every copy the left eye
+pose and the eye pass the IPD; the theater takes the eye pass's first image as the left eye and the
+Present image as the right eye (`store_pair`, only for a newly completed pair). 10-minute soak: see
+`docs/HEADSET-TESTS.md`.
+
+**The gun and arms are not offset in eye 2.** Their screen position does not depend on any constant this
+path changes:
+
+| Experiment | Gun | World |
+| --- | --- | --- |
+| Shift the slot's first-person transforms `+0xFF0/+0x19C0/+0x1A50` before eye 2 | no change | – |
+| Probe diff with `tshift 0 ed0 0.1` (moves the gun a lot) | changed windows: 512-byte slot-2 blocks (+0x30 view, +0xB0 view-projection; a mirrored world camera, likely reflection/probe) and the first-person view-projection at `+0x80` of first-person draw blocks (part matrix at `+0x40`, soldier-local) | – |
+| Move every view-projection built with the game projection (flag 32, `shift_view_projections`, unit-tested) | no change at 0.1 m or 1 m | correct |
+| Move the first-person part matrix too | no change | – |
+| Also shift pure projections | −6 px only | broken (far wall −15 px) |
+
+Next suspect: skinning. The first-person meshes are skinned; bone matrices probably live in a
+non-constant buffer (structured buffer / SRV) that jobs fill. Find the gun draws' shader resources
+(`VSSetShaderResources` around the draws using the `+0x80` first-person view-projection) and the
+buffer they read.

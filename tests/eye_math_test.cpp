@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <random>
 
+#include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
 
 using namespace bfvr::stereo;
@@ -163,6 +164,15 @@ namespace
 			q = -q;
 		}
 		expect(near(eye_angle(head), 0.1f, 1e-3f), "eye angle depends on the quaternion sign");
+
+		// Pair rendering: the right eye is the left eye moved by the IPD along its own right axis.
+		head.eyes[0] = yaw_pose(0.5f, 0.1f, 1.6f, -0.2f);
+		head.eyes[1] = moved_along_right(head.eyes[0], 0.063f);
+		expect(near(eye_distance(head), 0.063f), "eye distance wrong");
+		const float x_after_yaw = std::cos(0.5f), z_after_yaw = -std::sin(0.5f); // +x turned 0.5 rad about +y
+		expect(near(head.eyes[1].position[0] - head.eyes[0].position[0], 0.063f * x_after_yaw)
+			&& near(head.eyes[1].position[2] - head.eyes[0].position[2], 0.063f * z_after_yaw), "right axis wrong");
+		expect(eye_angle(head) < 1e-4f, "moving changed the orientation");
 	}
 
 	void test_pair()
@@ -189,14 +199,154 @@ namespace
 		expect(pair.abandoned() == 1, "half frame not counted as abandoned");
 		expect(!pair.rendered(1, 6), "eye of an abandoned frame accepted");
 	}
+
+	void test_constant_patch()
+	{
+		// A 32-float "RenderView": camera position at 4..6, a view-projection at 16..31; the eye copy
+		// moves both.
+		float centre[32]{};
+		float eye[32]{};
+		centre[4] = 10, centre[5] = 1.6f, centre[6] = -3;
+		for (int i = 0; i < 16; ++i)
+		{
+			centre[16 + i] = 0.25f * static_cast<float>(i) - 1.5f;
+		}
+		for (int i = 0; i < 32; ++i)
+		{
+			eye[i] = centre[i];
+		}
+		eye[4] += 0.064f;
+		eye[28] += 0.087f; // translation row of the view-projection
+		constant_patch patch;
+		patch.add_view(centre, eye, 32);
+		expect(patch.matrices() >= 1 && patch.positions() >= 1, "changed windows not collected");
+
+		// Block: a world matrix (must stay), the centre view-projection 16-byte aligned, the camera position.
+		float block[64]{};
+		for (int i = 0; i < 12; ++i)
+		{
+			block[i] = 100.0f + static_cast<float>(i);
+		}
+		for (int i = 0; i < 16; ++i)
+		{
+			block[16 + i] = centre[16 + i];
+		}
+		block[40] = 10, block[41] = 1.6f, block[42] = -3;
+		const int replaced = patch.apply(block, 64);
+		expect(replaced == 2, "wrong number of replacements");
+		expect(near(block[28], centre[28] + 0.087f) && near(block[16], centre[16]), "view-projection not replaced by the eye's");
+		expect(near(block[40], 10.064f), "camera position not replaced");
+		expect(block[0] == 100.0f && block[11] == 111.0f, "world matrix changed");
+
+		// Unaligned copies are not constant-buffer fields and stay.
+		float unaligned[40]{};
+		for (int i = 0; i < 16; ++i)
+		{
+			unaligned[2 + i] = centre[16 + i];
+		}
+		expect(patch.apply(unaligned, 40) == 0, "unaligned window replaced");
+
+		// Rounding differences of the engine's own copy still match.
+		for (int i = 0; i < 16; ++i)
+		{
+			block[16 + i] = centre[16 + i];
+		}
+		block[19] *= 1.0f + 2e-7f;
+		expect(patch.apply(block, 64) == 1, "rounded copy not matched");
+	}
+}
+
+namespace
+{
+	// Row-vector convention like the engine: clip = [x y z 1] * V * P.
+	void multiply(const float* a, const float* b, float* out)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				out[r * 4 + c] = a[r * 4 + 0] * b[0 * 4 + c] + a[r * 4 + 1] * b[1 * 4 + c] + a[r * 4 + 2] * b[2 * 4 + c] + a[r * 4 + 3] * b[3 * 4 + c];
+			}
+		}
+	}
+
+	// View matrix of a camera whose rows are right, up, forward and whose position is p.
+	void view_of(const float (&rot)[9], const float (&p)[3], float* v)
+	{
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				v[r * 4 + c] = rot[c * 3 + r]; // transpose: world -> camera axes
+			}
+			v[r * 4 + 3] = 0;
+		}
+		for (int c = 0; c < 3; ++c)
+		{
+			v[12 + c] = -(p[0] * rot[c * 3 + 0] + p[1] * rot[c * 3 + 1] + p[2] * rot[c * 3 + 2]);
+		}
+		v[15] = 1;
+	}
+
+	void test_view_projection_shift()
+	{
+		const float sx = 1.358f, sy = 2.414f, near_plane = 0.06f;
+		// Reverse-z infinite projection as in the RenderView (+0x320).
+		const float projection[16] = { sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -1, -1, 0, 0, -near_plane, 0 };
+		std::mt19937 random(11);
+		for (int round = 0; round < 100; ++round)
+		{
+			const pose head = random_pose(random);
+			const float qx = head.orientation[0], qy = head.orientation[1], qz = head.orientation[2], qw = head.orientation[3];
+			const float rot[9] = { 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy + qz * qw), 2 * (qx * qz - qy * qw),
+				2 * (qx * qy - qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz + qx * qw),
+				2 * (qx * qz + qy * qw), 2 * (qy * qz - qx * qw), 1 - 2 * (qx * qx + qy * qy) };
+			const float p[3] = { 100.0f * head.position[0], 50.0f + head.position[1], -300.0f + head.position[2] };
+			const float d = 0.064f;
+			const float p_eye[3] = { p[0] + d * rot[0], p[1] + d * rot[1], p[2] + d * rot[2] };
+			float v[16], v_eye[16], vp[16], vp_eye[16];
+			view_of(rot, p, v);
+			view_of(rot, p_eye, v_eye);
+			multiply(v, projection, vp);
+			multiply(v_eye, projection, vp_eye);
+
+			float block[48]{};
+			for (int i = 0; i < 16; ++i)
+			{
+				block[4 + i] = vp[i];            // row-vector storage at +0x10
+				block[24 + i] = vp[(i % 4) * 4 + i / 4]; // transposed storage at +0x60
+			}
+			const int shifted = constant_patch::shift_view_projections(block, 48, sx, sy, d);
+			expect(shifted == 2, "view-projections not found in both storage orders", round);
+			bool ok = true;
+			for (int i = 0; i < 16; ++i)
+			{
+				ok = ok && near(block[4 + i], vp_eye[i], 2e-3f) && near(block[24 + i], vp_eye[(i % 4) * 4 + i / 4], 2e-3f);
+			}
+			expect(ok, "shifted view-projection differs from the moved camera's", round);
+		}
+
+		// A pure projection (camera-space) stays.
+		float block[16];
+		for (int i = 0; i < 16; ++i)
+		{
+			block[i] = projection[i];
+		}
+		expect(constant_patch::shift_view_projections(block, 16, sx, sy, 0.064f) == 0, "pure projection shifted");
+		// A view-projection with another projection (shadow cascade) stays.
+		float other[16] = { 0.1f, 0, 0, 0, 0, 0.1f, 0, 0, 0, 0, 0.01f, 0, 5, 3, 0.5f, 1 };
+		expect(constant_patch::shift_view_projections(other, 16, sx, sy, 0.064f) == 0, "foreign view-projection shifted");
+	}
 }
 
 int main()
 {
+	test_view_projection_shift();
 	test_compose();
 	test_fov();
 	test_family();
 	test_pair();
+	test_constant_patch();
 	std::printf(failures ? "eye_math_test: %d failures\n" : "eye_math_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

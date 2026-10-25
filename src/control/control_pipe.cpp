@@ -25,6 +25,7 @@
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
+#include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -403,7 +404,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -414,6 +415,7 @@ namespace bfvr::control
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "hudshot") return take_screenshot(argument, true);
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
+			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
@@ -564,6 +566,21 @@ namespace bfvr::control
 				stereo::set_research_aspect(value);
 				return "research_aspect=" + std::to_string(value);
 			}
+			if (command == "stereorender") return stereo::set_stereo_render(argument);
+			if (command == "fakehead")
+			{
+				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
+				// without a headset; "fakehead off" clears it. The XR thread overwrites it when tracking.
+				stereo::head_sample head;
+				float ipd = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f", &ipd) == 1 && ipd > 0.0f && ipd < 0.1f;
+				head.eyes[0].position[0] = -0.5f * ipd;
+				head.eyes[1].position[0] = 0.5f * ipd;
+				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
+				head.fovs[1] = { -0.698f, 0.942f, 0.768f, -0.890f };
+				stereo::publish_head_sample(head);
+				return head.valid ? "fakehead ipd=" + std::to_string(ipd) : "fakehead off";
+			}
 			if (command == "fakeyaw")
 			{
 				float degrees = 0.0f;
@@ -619,7 +636,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

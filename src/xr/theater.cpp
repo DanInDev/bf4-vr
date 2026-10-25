@@ -25,6 +25,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "xr/controller_actions.hpp"
@@ -184,6 +185,7 @@ namespace bfvr::xr
 		stereo::pose eye_poses[2];
 		stereo::fov eye_fovs[2];
 		std::uint64_t last_stored_copy{};
+		std::uint64_t last_stored_pair{};
 		std::uint64_t eye_images_stored{};
 
 		// HUD layer (hud_layer = 1, stereo/hud_capture.hpp): the game's HUD on a head-locked quad in
@@ -686,6 +688,29 @@ namespace bfvr::xr
 			hud_swapchain_width = hud_swapchain_height = 0;
 		}
 
+		// Pair rendering: the eye pass's first image is the left eye, this Present's image the right
+		// eye of the same game frame. Only a pair completed since the last one is taken.
+		void store_pair(ID3D11Texture2D* back_buffer, const stereo::rendered_view& tag)
+		{
+			const std::uint64_t completed = stereo::eye_pass_pairs();
+			ID3D11Texture2D* const left = stereo::eye_pass_image();
+			if (completed == last_stored_pair || !left || !eye_textures[0] || !eye_textures[1])
+			{
+				return;
+			}
+			ComPtr<ID3D11DeviceContext> context;
+			device->GetImmediateContext(&context);
+			context->CopyResource(eye_textures[0].Get(), left);
+			context->CopyResource(eye_textures[1].Get(), back_buffer);
+			eye_poses[0] = tag.eye_pose;
+			eye_poses[1] = tag.second_pose;
+			eye_fovs[0] = eye_fovs[1] = tag.rendered_fov;
+			eye_ready[0] = eye_ready[1] = true;
+			last_stored_pair = completed;
+			last_stored_copy = tag.copy_index;
+			eye_images_stored += 2;
+		}
+
 		// Stereo: keeps this Present's image as the eye the camera hook rendered it for.
 		void store_eye(ID3D11Texture2D* back_buffer)
 		{
@@ -694,6 +719,11 @@ namespace bfvr::xr
 			{
 				// Mono frame (menu, loading, no tracking): fall back to the theater screen.
 				eye_ready[0] = eye_ready[1] = false;
+				return;
+			}
+			if (tag.pair)
+			{
+				store_pair(back_buffer, tag);
 				return;
 			}
 			if (tag.copy_index == last_stored_copy || !eye_textures[tag.eye])

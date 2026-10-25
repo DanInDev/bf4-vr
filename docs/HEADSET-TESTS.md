@@ -2,6 +2,27 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## 2026-10-26 — pair rendering (both eyes from one game frame), test pending
+
+Build: `feature/render-quality`, **Release** (`tools\dev-run.ps1 -Preset bf4-release -Resume`). The game's
+`bfvr.ini` already has `stereo_render = pair` and `research = 1` (added 2026-10-25 for this test).
+Switch modes live from a terminal: `tools\pipe.ps1 stereorender aer` / `pair`.
+
+What changed: in `pair` every game frame renders the world twice: left eye, then right eye with its own
+camera constants. Both images go to the headset together, so the eyes no longer differ by a frame.
+**Known gap:** the gun and arms are still identical in both eyes (no depth on the gun) in `pair`; in `aer`
+they have depth as before. Monitor checks without the headset (fake 64 mm head): world disparity
+−5 to −8 px at 1280×720, correct direction and order by distance; gun +2 px (flat).
+
+| # | Check (Steam Link, stay in BF4) | Look for | Result |
+| --- | --- | --- | --- |
+| 1 | Level in `pair`, look around slowly | World has normal depth, no double images; walls/props feel the right size | |
+| 2 | Walk/strafe and turn quickly in `pair`, then `stereorender aer` and repeat | Is `pair` steadier (less shimmer/doubling while moving) than `aer`? | |
+| 3 | Gun in `pair` | Expected wrong: gun looks flat/far away or "inside" the wall. How bad? | |
+| 4 | Comfort over 2–3 minutes in `pair` | Eye strain, judder | |
+| 5 | Pipe `status` in `pair` (read by Claude afterwards) | `fps`, `eyepass eye_ms`, `eye_readback_ms`, `eye_rejected=0` | |
+| 6 | Menus, loading screen, HUD layer in `pair` | Theater screen as before, HUD layer still sharp | |
+
 ## 2026-10-25 night — render quality (feature/render-quality), batched test pending
 
 Already reported by the user (build with `render_size = 2160x2160` and `keep_focus`): "the changes

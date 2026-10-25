@@ -48,6 +48,10 @@ namespace bfvr::stereo
 		pose eye_pose;      // eye pose used, OpenXR LOCAL space
 		fov rendered_fov;   // symmetric FOV the game rendered with
 		std::uint64_t copy_index{};
+		// stereo_render = pair: this copy is the left eye of a frame whose right eye the eye pass
+		// renders (stereo/eye_pass.hpp); second_pose is that right eye as rendered.
+		bool pair{};
+		pose second_pose;
 	};
 
 	void publish_rendered_view(const rendered_view& view);
