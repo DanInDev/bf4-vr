@@ -50,6 +50,8 @@ sized for two. Each freeze can be localised with `threads` plus a write-watch on
 
 ## Next steps for per-eye rendering
 
+The task brief with the ranked approaches and a first-session plan is `docs/tasks/per-eye-rendering.md`.
+
 1. Give view 1 valid targets: set `+0xEA8/+0xEB0` of view 1 to our own render target pair before the
    setup call (so the per-index viewport lookup is skipped), and override the per-index aspect read.
 2. Find the world system's per-view allocations: `0x140B8C660` (receives count, renderViews,

@@ -62,7 +62,7 @@ Facts measured so far (`docs/HEADSET-TESTS.md`, `re/notes/camera.md`, `re/notes/
 | B. Freeze the world for the second eye | Render both eyes of a pair from the same game state, so only the camera differs: hold simulation time (or skip the game update) on every second frame. This removes the double images that AER causes in motion | Find the game-time step (`GameTime.*` settings, the main loop around the copy caller chain `0x140848C03 → 0x14083F1CF → 0x14082891E`, `re/notes/camera.md`) and test pausing it on alternate frames on the monitor |
 | C. Depth submission | Find the scene depth buffer, submit `XR_KHR_composition_layer_depth` so SteamVR can reproject positionally and use motion smoothing | Locate the depth texture (RenderDoc capture; `tools` has none yet) and check that SteamVR's runtime accepts the extension |
 | D. More pixels per eye | Render above 1920×1080 (`Render.ResolutionScale`, a larger render target, or a taller window kept independent of focus) | Measure sharpness and fps with `ResolutionScale` 1.25/1.5 |
-| E. True per-eye rendering | Run the scene render twice per frame (Overlord's approach) | Research only; much later (`re/notes/stereo.md` option C) |
+| E. True per-eye rendering | Run the scene render twice per frame (Overlord's approach) | Own brief: `docs/tasks/per-eye-rendering.md` (first research session done 2026-10-25) |
 
 A and B together are the most likely to fix "janky"; C and D make it feel solid and sharp. Pick
 based on what the user reports in the first session.
