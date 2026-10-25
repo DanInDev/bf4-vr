@@ -2,7 +2,11 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-## 2026-10-26 — pair rendering (both eyes from one game frame), test pending
+## 2026-10-26 — pair rendering (both eyes from one game frame)
+
+**Result (user, headset):** "looked amazing, depth and motion was great"; no judder or eye strain; the
+gun sits "somewhere in the ground/wall" (expected gap). AER was not compared this time. Status during
+the test: session VISIBLE, ~110 fps, 0 rejected pairs, render size still 1280×720 (windowed game).
 
 Build: `feature/render-quality`, **Release** (`tools\dev-run.ps1 -Preset bf4-release -Resume`). The game's
 `bfvr.ini` already has `stereo_render = pair` and `research = 1` (added 2026-10-25 for this test).
