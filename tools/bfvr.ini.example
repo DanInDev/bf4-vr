@@ -27,3 +27,8 @@ stereo_aspect = headset
 # Apparent size of the gun and arms: 1 = the game's own (drawn with its own FOV, so it looks large
 # in the headset's wide view); smaller values shrink it around the view centre. Tune in the headset.
 gun_scale = 1.0
+# Part of the headset's reported FOV that is rendered (0.4-1, tangent space). The Quest 3 via
+# Steam Link reports more than its lenses show; cropping makes the visible image sharper. Too
+# small shows black edges. Tune in the headset (pipe: viewcrop <h> <v>).
+view_crop_h = 1.0
+view_crop_v = 1.0

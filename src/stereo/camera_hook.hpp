@@ -43,6 +43,11 @@ namespace bfvr::stereo
 	void set_gun_scale(float scale);
 	float current_gun_scale();
 
+	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
+	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.
+	void set_view_crop(float horizontal, float vertical);
+	void current_view_crop(float& horizontal, float& vertical);
+
 	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,
 	// when not in stereo (0 = the game's own).
 	void set_research_aspect(float value);
