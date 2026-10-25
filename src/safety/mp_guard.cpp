@@ -31,6 +31,7 @@ namespace bfvr::safety
 		};
 
 		std::atomic<bool> disabled{};
+		std::atomic<bool> front_end_active{};
 
 		template <typename T>
 		bool read(std::uint64_t address, T& value)
@@ -106,6 +107,7 @@ namespace bfvr::safety
 					continue;
 				}
 				const level_info level = loaded_level();
+				front_end_active = !level.path.empty() && front_end(level.path);
 				if (!level.path.empty())
 				{
 					if (level.path != last_path)
@@ -166,5 +168,10 @@ namespace bfvr::safety
 	bool mod_disabled()
 	{
 		return disabled;
+	}
+
+	bool front_end_loaded()
+	{
+		return front_end_active;
 	}
 }

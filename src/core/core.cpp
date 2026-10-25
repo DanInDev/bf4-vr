@@ -49,11 +49,12 @@ namespace bfvr::core
 			const xr::theater_status vr = theater ? theater->status() : xr::theater_status{ "disabled" };
 			const stereo::camera_stats camera = stereo::stats();
 			std::snprintf(text, sizeof(text),
-				"game=%s\ntheater=%s session_state=%d presents=%llu submitted=%llu max_sync_ms=%.2f max_frame_ms=%.2f\n"
+				"game=%s\ntheater=%s session_state=%d presents=%llu submitted=%llu max_sync_ms=%.2f max_frame_ms=%.2f stage=%s stage_ms=%.0f\n"
 				"pad connected=%d buttons=%04X lt=%u rt=%u left=(%d,%d) right=(%d,%d)\n"
 				"xinput get_state_calls=%llu get_capabilities_calls=%llu\n"
 				"camera copies=%llu copy_thread=%lu present_thread=%lu eye_offset=%.4f stereo=%d eye_images=%llu",
 				BFVR_GAME_NAME, vr.phase, vr.session_state, vr.presents_seen, vr.frames_submitted, vr.max_sync_ms, vr.max_frame_ms,
+				vr.stage ? vr.stage : "-", vr.stage_ms,
 				pad.connected ? 1 : 0, pad.buttons,
 				pad.left_trigger, pad.right_trigger, pad.left_x, pad.left_y, pad.right_x, pad.right_y,
 				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls,

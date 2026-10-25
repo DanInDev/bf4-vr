@@ -18,6 +18,9 @@ namespace bfvr::xr
 		double max_frame_ms{};
 		bool stereo{};
 		std::uint64_t eye_images_stored{};
+		// Step the game's frame is in inside the VR code, and for how long (diagnoses freezes).
+		const char* stage{};
+		double stage_ms{};
 	};
 
 	// Stage 1: shows the game's back buffer on a virtual screen in the headset.
