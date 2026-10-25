@@ -68,6 +68,10 @@ namespace bfvr::core
 				return 0;
 			}
 			safety::start_multiplayer_guard();
+			if (safety::mod_disabled())
+			{
+				return 0; // no guard, no hooks
+			}
 
 			// First, so it sees the game's earliest NVAPI queries.
 			if (config::get_bool("nvapi_probe", false))
@@ -85,7 +89,7 @@ namespace bfvr::core
 				stereo::install_camera_hook();
 			}
 			// Arm pose hook (research for now; IK later).
-			if (config::get_bool("arm_pose_hook", true))
+			if (config::research_enabled() && config::get_bool("arm_pose_hook", true))
 			{
 				body::install_arm_pose_hook();
 			}

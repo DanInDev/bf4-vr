@@ -172,6 +172,7 @@ switch ($Action) {
 				$refused = Test-EaRefusedLaunch $launchedAt
 			}
 			if (-not $refused) { break }
+			if ($attempt -eq 3) { throw 'The EA app refused 3 launches (AlreadyRunning); restart the EA app.' }
 			"EA app refused launch attempt $attempt (AlreadyRunning); retrying in 20 s"
 			Start-Sleep -Seconds 20
 		}

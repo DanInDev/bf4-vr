@@ -12,6 +12,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "safety/mp_guard.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -365,6 +366,10 @@ namespace bfvr::stereo
 			std::uint8_t bytes[sizeof(expected_prologue)]{};
 			for (int attempt = 0; attempt < 600; ++attempt)
 			{
+				if (safety::mod_disabled())
+				{
+					return 0;
+				}
 				if (ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(view_params_copy)), bytes, sizeof(bytes), nullptr)
 					&& std::memcmp(bytes, expected_prologue, sizeof(bytes)) == 0)
 				{
@@ -388,7 +393,7 @@ namespace bfvr::stereo
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
 		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
-		gun_scale = static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str()));
+		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -442,7 +447,8 @@ namespace bfvr::stereo
 
 	void set_gun_scale(float scale)
 	{
-		gun_scale = scale > 0.0f ? scale : 1.0f;
+		// Out-of-range or non-finite values would give the engine degenerate camera rows.
+		gun_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.25f), 4.0f) : 1.0f;
 	}
 
 	float current_gun_scale()
@@ -452,7 +458,7 @@ namespace bfvr::stereo
 
 	void set_research_aspect(float value)
 	{
-		research_aspect = value;
+		research_aspect = std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.2f), 5.0f) : 0.0f;
 	}
 
 	void set_fake_yaw(float degrees)

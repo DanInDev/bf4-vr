@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "body/arm_pose.hpp"
+#include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
@@ -373,6 +374,16 @@ namespace bfvr::control
 
 			if (command == "status") return status();
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
+			// Memory research and test overrides: off in release builds unless research = 1.
+			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
+				"aspect", "bone", "eye", "eyealt", "fov", "view" };
+			for (const char* research : research_commands)
+			{
+				if (command == research && !config::research_enabled())
+				{
+					return "error: '" + command + "' needs research = 1 in bfvr.ini";
+				}
+			}
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);

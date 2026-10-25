@@ -19,6 +19,12 @@ namespace bfvr::config
 	//   stereo_first_person = 1 | 0                      apply the eye pose to the first-person (weapon/arms) camera too (default 1)
 	//   stereo_aspect = headset | game                   per-eye render aspect (default headset)
 	//   gun_scale    = <float>                           apparent gun/arms size, 1 = the game's (default 1)
+	//   research     = 1 | 0                             memory research pipe commands and research hooks
+	//                                                    (default 1 in Debug builds, 0 in Release builds)
 	std::string get(const char* key, const char* fallback);
 	bool get_bool(const char* key, bool fallback);
+
+	// Research tooling (dump, poke, watch, pins, the arm-pose research hook) stays out of release
+	// builds unless explicitly enabled.
+	bool research_enabled();
 }

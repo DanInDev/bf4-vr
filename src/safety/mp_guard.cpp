@@ -58,9 +58,13 @@ namespace bfvr::safety
 			{
 				return {};
 			}
+			// Read only up to the end of the string's page: a full-size read would fail on a string
+			// near an uncommitted page and the level would go unchecked.
 			char text[128]{};
 			SIZE_T done = 0;
-			if (path == 0 || !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(path)), text, sizeof(text) - 1, &done))
+			const std::uint64_t to_page_end = 0x1000 - (path & 0xfff);
+			const SIZE_T length = static_cast<SIZE_T>(to_page_end < sizeof(text) - 1 ? to_page_end : sizeof(text) - 1);
+			if (path == 0 || !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(path)), text, length, &done))
 			{
 				return {};
 			}
@@ -92,8 +96,15 @@ namespace bfvr::safety
 		DWORD WINAPI guard_thread(LPVOID)
 		{
 			std::string last_path;
-			while (!disabled)
+			for (;;)
 			{
+				if (disabled)
+				{
+					// A hook installed late (e.g. a wait-for-decryption thread) must not stay enabled.
+					MH_DisableHook(MH_ALL_HOOKS);
+					Sleep(poll_ms);
+					continue;
+				}
 				const level_info level = loaded_level();
 				if (!level.path.empty())
 				{
@@ -117,7 +128,6 @@ namespace bfvr::safety
 				}
 				Sleep(poll_ms);
 			}
-			return 0;
 		}
 	}
 

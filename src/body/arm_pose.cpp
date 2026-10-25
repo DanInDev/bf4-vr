@@ -9,19 +9,22 @@
 #include <MinHook.h>
 
 #include "common/log.hpp"
+#include "safety/mp_guard.hpp"
 
 namespace bfvr::body
 {
 	namespace
 	{
 		// BF4 179547: local ClientSoldierEntity*; soldier+0x1E8 first-person ClientAntAnimatableComponent,
-		// component+0x128 Animatable. The pose object handed to the conversion is Animatable - 0xD0;
-		// its local pose (QuatTransform[bones]: translation+scale, rotation) is at Animatable+0x48.
+		// component+0x128 Animatable; Animatable+0x48 local pose (QuatTransform[bones]: translation+scale,
+		// rotation), +0x230 SkeletonAsset (+0x18 BoneNames, count at data-4). The object handed to the
+		// conversion holds the local-pose pointer at +0x128 (re/notes/skeleton.md).
 		constexpr std::uint64_t local_soldier_global = 0x14230f260;
 		constexpr std::uint64_t pose_conversion = 0x140716050;
 		// push rbx; sub rsp,20h; xor r9d,r9d; mov rbx,rcx; cmp [rcx+16Ah],r9b
 		constexpr std::uint8_t expected_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x45, 0x33, 0xc9, 0x48, 0x8b, 0xd9, 0x44, 0x38, 0x89, 0x6a, 0x01 };
 		constexpr std::size_t quat_transform_size = 0x20;
+		constexpr std::uint64_t pose_object_local_pose = 0x128;
 		constexpr int max_bones = 256;
 
 		using pose_conversion_t = void(__fastcall*)(void* pose);
@@ -38,59 +41,44 @@ namespace bfvr::body
 				&& done == sizeof(value);
 		}
 
-		// The local soldier's first-person Animatable buffers (+0x40, +0x48 local pose, +0x50 model pose).
-		bool first_person_buffers(std::uint64_t (&buffers)[3])
+		struct first_person_rig
 		{
-			std::uint64_t soldier = 0, component = 0, animatable = 0;
+			std::uint64_t local_pose{};
+			std::uint32_t bones{};
+		};
+
+		bool first_person(first_person_rig& rig)
+		{
+			std::uint64_t soldier = 0, component = 0, animatable = 0, skeleton = 0, names = 0;
 			return read(local_soldier_global, soldier) && read(soldier + 0x1e8, component) && read(component + 0x128, animatable)
-				&& read(animatable + 0x40, buffers[0]) && read(animatable + 0x48, buffers[1]) && read(animatable + 0x50, buffers[2]);
+				&& read(animatable + 0x48, rig.local_pose) && rig.local_pose != 0 && read(animatable + 0x230, skeleton)
+				&& read(skeleton + 0x18, names) && names >= 4 && read(names - 4, rig.bones);
 		}
 
 		std::atomic<std::uint64_t> conversions{};
 		std::atomic<std::uint64_t> matched{};
-		std::atomic<bool> layout_logged{};
+		// Translation last written by the research edit; if the animation has not rewritten the bone
+		// since (evaluation skipped while conversion runs), the offset is not added again.
+		float last_written[3]{};
 
-		// Research: recognise the local soldier's first-person pose object by any of its buffer
-		// pointers in the first 0x200 bytes, log where they sit once, and edit the local pose.
+		// Research: edit the local soldier's first-person local pose before the conversion.
 		void __fastcall conversion_detour(void* pose)
 		{
 			++conversions;
 			const int bone = research_bone.load(std::memory_order_relaxed);
-			if (bone >= 0)
+			first_person_rig rig;
+			std::uint64_t local_pose = 0;
+			if (bone >= 0 && read(reinterpret_cast<std::uint64_t>(pose) + pose_object_local_pose, local_pose) && first_person(rig)
+				&& local_pose == rig.local_pose && static_cast<std::uint32_t>(bone) < rig.bones)
 			{
-				std::uint64_t buffers[3]{};
-				std::uint64_t fields[0x40]{};
-				SIZE_T done = 0;
-				if (first_person_buffers(buffers) && ReadProcessMemory(GetCurrentProcess(), pose, fields, sizeof(fields), &done) && done == sizeof(fields))
+				++matched;
+				auto* translation = reinterpret_cast<float*>(static_cast<std::uintptr_t>(local_pose + bone * quat_transform_size));
+				if (std::memcmp(translation, last_written, sizeof(last_written)) != 0)
 				{
-					bool ours = false;
-					for (int i = 0; i < 0x40; ++i)
+					for (int axis = 0; axis < 3; ++axis)
 					{
-						for (int b = 0; b < 3; ++b)
-						{
-							if (buffers[b] != 0 && fields[i] == buffers[b])
-							{
-								ours = true;
-								if (!layout_logged)
-								{
-									log::write("arms: pose object %p +%#x = Animatable buffer +%#x", pose, i * 8, 0x40 + b * 8);
-								}
-							}
-						}
-					}
-					if (ours)
-					{
-						layout_logged = true;
-					}
-					const std::uint64_t wanted = buffers[1];
-					if (ours && wanted != 0)
-					{
-						++matched;
-						auto* translation = reinterpret_cast<float*>(static_cast<std::uintptr_t>(wanted + bone * quat_transform_size));
-						for (int axis = 0; axis < 3; ++axis)
-						{
-							translation[axis] += research_offset[axis].load(std::memory_order_relaxed);
-						}
+						translation[axis] += research_offset[axis].load(std::memory_order_relaxed);
+						last_written[axis] = translation[axis];
 					}
 				}
 			}
@@ -103,6 +91,10 @@ namespace bfvr::body
 			std::uint8_t bytes[sizeof(expected_prologue)]{};
 			for (int attempt = 0; attempt < 600; ++attempt)
 			{
+				if (safety::mod_disabled())
+				{
+					return 0;
+				}
 				if (ReadProcessMemory(GetCurrentProcess(), target, bytes, sizeof(bytes), nullptr) && std::memcmp(bytes, expected_prologue, sizeof(bytes)) == 0)
 				{
 					MH_STATUS status = MH_Initialize();
