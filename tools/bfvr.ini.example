@@ -35,6 +35,8 @@ view_crop_v = 1.0
 # First-person arms follow the VR controllers (two-bone IK on the arm bones, the gun stays in the
 # right hand). 0 = the game's animated arms. Pipe: armik 0|1, arms (diagnostics).
 arm_ik = 1
+# The gun keeps its animated grip in the right hand (its bones hang from Wep_Root, not the hand).
+arm_ik_weapon = 1
 # Wrist relative to the controller grip pose (metres, grip axes: -z along the handle, right hand;
 # mirrored for the left). Tune in the headset.
 arm_ik_wrist = 0 0 0.06

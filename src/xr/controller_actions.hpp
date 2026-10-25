@@ -26,7 +26,7 @@ namespace bfvr::xr
 		// Call once per frame while the session is running.
 		input::gamepad_state sync(XrSession session);
 		// Grip and aim poses relative to base at the given display time; uses the state of the
-		// last sync. Safe on another thread than sync.
+		// last sync.
 		stereo::hand_sample locate(XrSpace base, XrTime time) const;
 		// Destroys the actions; call before the instance is destroyed. The pose spaces belong to
 		// the session and go with it.

@@ -156,6 +156,9 @@ namespace bfvr::xr
 			stage = name;
 			stage_since = GetTickCount64();
 		}
+		// Predicted display time of the newest waited frame; the controllers are located for it on
+		// the Present thread, under xr_calls like every other call that thread makes.
+		std::atomic<XrTime> latest_display_time{};
 		XrResult ready_result{};
 		XrFrameState ready_frame{ XR_TYPE_FRAME_STATE };
 
@@ -704,9 +707,9 @@ namespace bfvr::xr
 				{
 					publish_head_sample(frame.predictedDisplayTime);
 				}
-				if (actions_ready && XR_SUCCEEDED(result))
+				if (XR_SUCCEEDED(result))
 				{
-					stereo::publish_hand_sample(actions.locate(space, frame.predictedDisplayTime));
+					latest_display_time = frame.predictedDisplayTime;
 				}
 
 				// A frame the headset will not show (headset off, dashboard) is begun and ended
@@ -757,6 +760,7 @@ namespace bfvr::xr
 			stop_waiter();
 			waiter_stop = false;
 			frame_ready = false;
+			latest_display_time = 0;
 			wait_requested = true;
 			waiter = std::thread([this] { waiter_loop(); });
 		}
@@ -1026,6 +1030,10 @@ namespace bfvr::xr
 			{
 				const input::gamepad_state pad = s.actions.sync(s.session);
 				input::publish(pad);
+				if (const XrTime time = s.latest_display_time.load(); time != 0)
+				{
+					stereo::publish_hand_sample(s.actions.locate(s.space, time));
+				}
 				// Non-neutral input is logged at most once per second, for diagnosing bindings.
 				const bool active = pad.buttons || pad.left_trigger > 64 || pad.right_trigger > 64
 					|| std::abs(pad.left_x) > 8000 || std::abs(pad.left_y) > 8000 || std::abs(pad.right_x) > 8000 || std::abs(pad.right_y) > 8000;

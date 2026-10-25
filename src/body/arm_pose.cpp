@@ -67,11 +67,13 @@ namespace bfvr::body
 
 		struct rig_info
 		{
+			std::uint64_t soldier{};
 			std::uint64_t local_pose{};
 			std::uint64_t skeleton{};
 			int bones{};
 			int parents[max_bones]{};
 			int camera{ -1 };
+			int weapon{ -1 };      // Wep_Root: the gun's bones hang from it, not from the hand
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -115,9 +117,15 @@ namespace bfvr::body
 		std::atomic<std::uint64_t> rig_pose{}; // rig.local_pose, for the lock-free match
 		std::atomic<ULONGLONG> next_refresh{};
 		std::atomic<ULONGLONG> next_check{};
-		bone_memory memory[2][3];
+		// Bones the IK rewrites: both arms (upper, fore, roll, hand) and the weapon root.
+		constexpr int max_edited = 9;
+		int edited[max_edited]{};
+		int edited_count{};
+		bone_memory memory[max_edited];
+		bool weapon_follows{ true };
 		hand_target targets[2];
-		ik::quat camera_axes; // OpenXR camera axes -> CameraJoint axes
+		// OpenXR camera axes -> CameraJoint axes (the joint's x points left, z forward).
+		ik::quat camera_axes{ 0, 1, 0, 0 };
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
@@ -144,12 +152,9 @@ namespace bfvr::body
 
 		void forget_written()
 		{
-			for (auto& arm : memory)
+			for (bone_memory& bone : memory)
 			{
-				for (bone_memory& bone : arm)
-				{
-					bone.has_written = false;
-				}
+				bone.has_written = false;
 			}
 		}
 
@@ -177,6 +182,7 @@ namespace bfvr::body
 					forget_written();
 					rig.local_pose = local_pose;
 				}
+				rig.soldier = soldier;
 				rig_pose = local_pose;
 				return;
 			}
@@ -190,6 +196,7 @@ namespace bfvr::body
 				return;
 			}
 			rig_info fresh;
+			fresh.soldier = soldier;
 			fresh.skeleton = skeleton;
 			fresh.local_pose = local_pose;
 			fresh.bones = static_cast<int>(bones);
@@ -210,19 +217,43 @@ namespace bfvr::body
 			}
 			read_string(skeleton + 0x10, fresh.name);
 			fresh.camera = find_bone(bone_names, fresh.bones, "CameraJoint");
+			fresh.weapon = find_bone(bone_names, fresh.bones, "Wep_Root");
 			fresh.arms[0] = { find_bone(bone_names, fresh.bones, "LeftArm"), find_bone(bone_names, fresh.bones, "LeftForeArm"),
-				find_bone(bone_names, fresh.bones, "LeftHand") };
+				find_bone(bone_names, fresh.bones, "LeftHand"), find_bone(bone_names, fresh.bones, "LeftForeArmRoll") };
 			fresh.arms[1] = { find_bone(bone_names, fresh.bones, "RightArm"), find_bone(bone_names, fresh.bones, "RightForeArm"),
-				find_bone(bone_names, fresh.bones, "RightHand") };
+				find_bone(bone_names, fresh.bones, "RightHand"), find_bone(bone_names, fresh.bones, "RightForeArmRoll") };
+			// The roll bone must sit between the forearm and the hand, the weapon root off the arm.
+			for (ik::arm_bones& arm : fresh.arms)
+			{
+				if (arm.roll >= 0 && (fresh.parents[arm.hand] != arm.roll || fresh.parents[arm.roll] != arm.fore))
+				{
+					arm.roll = -1;
+				}
+			}
 			const bool complete = fresh.camera >= 0 && fresh.arms[0].upper >= 0 && fresh.arms[0].fore >= 0 && fresh.arms[0].hand >= 0
 				&& fresh.arms[1].upper >= 0 && fresh.arms[1].fore >= 0 && fresh.arms[1].hand >= 0;
-			log::write("arms: skeleton %s, %d bones, camera %d, left %d/%d/%d, right %d/%d/%d%s", fresh.name, fresh.bones, fresh.camera,
-				fresh.arms[0].upper, fresh.arms[0].fore, fresh.arms[0].hand, fresh.arms[1].upper, fresh.arms[1].fore, fresh.arms[1].hand,
-				complete ? "" : " (incomplete: arms left alone)");
+			log::write("arms: skeleton %s, %d bones, camera %d, weapon %d, left %d/%d/%d/%d, right %d/%d/%d/%d%s", fresh.name, fresh.bones,
+				fresh.camera, fresh.weapon, fresh.arms[0].upper, fresh.arms[0].fore, fresh.arms[0].roll, fresh.arms[0].hand, fresh.arms[1].upper,
+				fresh.arms[1].fore, fresh.arms[1].roll, fresh.arms[1].hand, complete ? "" : " (incomplete: arms left alone)");
 			if (complete)
 			{
 				rig = fresh;
 				rig_pose = local_pose;
+				edited_count = 0;
+				for (const ik::arm_bones& arm : rig.arms)
+				{
+					for (const int bone : { arm.upper, arm.fore, arm.roll, arm.hand })
+					{
+						if (bone >= 0)
+						{
+							edited[edited_count++] = bone;
+						}
+					}
+				}
+				if (rig.weapon >= 0)
+				{
+					edited[edited_count++] = rig.weapon;
+				}
 			}
 		}
 
@@ -244,40 +275,55 @@ namespace bfvr::body
 			}
 		}
 
-		int arm_bone(const ik::arm_bones& bones, int slot)
+		// The first-person camera in rig space, OpenXR axes: at the CameraJoint, turned by the aim
+		// pitch the joint does not carry (soldier +0x4DC, radians, up positive; aim.md).
+		ik::quat camera_frame(const ik::bone_transform& camera_joint)
 		{
-			return slot == 0 ? bones.upper : slot == 1 ? bones.fore : bones.hand;
+			float pitch = 0.0f;
+			if (!read(rig.soldier + 0x4dc, pitch) || !std::isfinite(pitch))
+			{
+				pitch = 0.0f;
+			}
+			return camera_joint.rotation * camera_axes * ik::quat{ std::sin(0.5f * pitch), 0, 0, std::cos(0.5f * pitch) };
 		}
 
 		// Called with rig_lock held, before the conversion: the arms reach for the controllers.
 		void edit_arms(ik::bone_transform* local)
 		{
-			for (int hand = 0; hand < 2; ++hand)
+			for (int i = 0; i < edited_count; ++i)
 			{
-				for (int slot = 0; slot < 3; ++slot)
+				bone_memory& bone = memory[i];
+				ik::bone_transform& current = local[edited[i]];
+				if (bone.has_written && std::memcmp(&current, &bone.written, sizeof(current)) == 0)
 				{
-					bone_memory& bone = memory[hand][slot];
-					ik::bone_transform& current = local[arm_bone(rig.arms[hand], slot)];
-					if (bone.has_written && std::memcmp(&current, &bone.written, sizeof(current)) == 0)
-					{
-						current = bone.animated;
-					}
-					else
-					{
-						bone.animated = current;
-					}
-					bone.has_written = false;
+					current = bone.animated;
 				}
-				last_arms[hand].solved = false;
+				else
+				{
+					bone.animated = current;
+				}
+				bone.has_written = false;
 			}
+			last_arms[0].solved = last_arms[1].solved = false;
 			if (!ik_enabled.load(std::memory_order_relaxed))
 			{
 				return;
 			}
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
-			const ik::quat frame = camera.rotation * camera_axes;
+			const ik::quat frame = camera_frame(camera);
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			// Synthetic targets are placed relative to the view: the head (between the eyes) when tracked.
+			ik::vec3 head_position;
+			ik::quat head_rotation;
+			if (const stereo::head_sample head = stereo::latest_head_sample(); head.valid)
+			{
+				const float* left = head.eyes[0].position;
+				const float* right = head.eyes[1].position;
+				const float* q = head.eyes[0].orientation;
+				head_position = { 0.5f * (left[0] + right[0]), 0.5f * (left[1] + right[1]), 0.5f * (left[2] + right[2]) };
+				head_rotation = { q[0], q[1], q[2], q[3] };
+			}
 			bool any = false;
 			for (int hand = 0; hand < 2; ++hand)
 			{
@@ -285,8 +331,8 @@ namespace bfvr::body
 				ik::quat aim;
 				if (targets[hand].active)
 				{
-					wrist = targets[hand].position;
-					aim = targets[hand].rotation;
+					wrist = head_position + ik::rotate(head_rotation, targets[hand].position);
+					aim = head_rotation * targets[hand].rotation;
 				}
 				else if (hands.valid[hand])
 				{
@@ -303,7 +349,12 @@ namespace bfvr::body
 
 				const ik::arm_bones& bones = rig.arms[hand];
 				// The controller turns the animated hand: pointing straight ahead keeps the authored grip.
-				const ik::quat hand_animated = ik::model_of(local, rig.parents, bones.hand).rotation;
+				const ik::bone_transform hand_model = ik::model_of(local, rig.parents, bones.hand);
+				const ik::quat hand_animated = hand_model.rotation;
+				// The gun keeps its animated placement relative to the right hand.
+				const bool carry_weapon = hand == 1 && weapon_follows && rig.weapon >= 0;
+				const ik::bone_transform weapon_in_hand = carry_weapon
+					? ik::compose(ik::inverse(hand_model), ik::model_of(local, rig.parents, rig.weapon)) : ik::bone_transform{};
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
@@ -313,16 +364,22 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_arms[hand].goal = goal.wrist;
-					for (int slot = 0; slot < 3; ++slot)
+					if (carry_weapon)
 					{
-						memory[hand][slot].written = local[arm_bone(bones, slot)];
-						memory[hand][slot].has_written = true;
+						ik::set_model_transform(local, rig.parents, rig.weapon,
+							ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
 					}
 				}
 			}
 			if (any)
 			{
 				++solved;
+				// Bones of an arm left alone are rewritten unchanged; that is harmless.
+				for (int i = 0; i < edited_count; ++i)
+				{
+					memory[i].written = local[edited[i]];
+					memory[i].has_written = true;
+				}
 			}
 		}
 
@@ -336,17 +393,23 @@ namespace bfvr::body
 				return;
 			}
 			const auto* model = reinterpret_cast<const ik::bone_transform*>(static_cast<std::uintptr_t>(model_pose));
-			static ik::bone_transform conjugated[max_bones];
+			// The root carries the world transform; the engine's model pose leaves it out.
+			static ik::bone_transform rooted[max_bones], conjugated[max_bones];
 			for (int bone = 0; bone < rig.bones; ++bone)
 			{
+				rooted[bone] = local[bone];
 				conjugated[bone] = local[bone];
 				conjugated[bone].rotation = ik::conjugate(local[bone].rotation);
+				if (rig.parents[bone] < 0)
+				{
+					rooted[bone] = conjugated[bone] = {};
+				}
 			}
 			float error = 0, error_conjugate = 0;
 			const int checked[] = { rig.camera, rig.arms[0].upper, rig.arms[0].fore, rig.arms[0].hand, rig.arms[1].upper, rig.arms[1].fore, rig.arms[1].hand };
 			for (const int bone : checked)
 			{
-				error = std::fmax(error, ik::length(ik::model_of(local, rig.parents, bone).position - model[bone].position));
+				error = std::fmax(error, ik::length(ik::model_of(rooted, rig.parents, bone).position - model[bone].position));
 				error_conjugate = std::fmax(error_conjugate, ik::length(ik::model_of(conjugated, rig.parents, bone).position - model[bone].position));
 			}
 			check_report report;
@@ -354,7 +417,7 @@ namespace bfvr::body
 			report.fk_error = error;
 			report.fk_error_conjugate = error_conjugate;
 			report.camera = ik::model_of(local, rig.parents, rig.camera);
-			const ik::quat to_camera = ik::conjugate(report.camera.rotation * camera_axes);
+			const ik::quat to_camera = ik::conjugate(camera_frame(report.camera));
 			for (int hand = 0; hand < 2; ++hand)
 			{
 				arm_report& arm = report.arms[hand];
@@ -461,6 +524,7 @@ namespace bfvr::body
 			pole_direction[0] = { -pole_direction[1].x, pole_direction[1].y, pole_direction[1].z };
 		}
 		ik_enabled = config::get_bool("arm_ik", true);
+		weapon_follows = config::get_bool("arm_ik_weapon", true);
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{

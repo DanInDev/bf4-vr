@@ -31,29 +31,30 @@ namespace
 
 int main()
 {
-	// root, upper arm, roll bone, forearm, hand, weapon (child of the hand)
-	const int parents[] = { -1, 0, 1, 2, 3, 4 };
-	const arm_bones bones{ 1, 3, 4 };
+	// root, upper arm, upper roll, forearm, forearm roll, hand, weapon (child of the hand)
+	const int parents[] = { -1, 0, 1, 2, 3, 4, 5 };
+	const arm_bones bones{ 1, 3, 5, 4 };
 	std::mt19937 random(11);
 	std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
 
 	for (int round = 0; round < 500; ++round)
 	{
-		bone_transform local[6];
+		bone_transform local[7];
 		local[0].rotation = random_rotation(random, 3.0f);
 		local[1].position = { 0.2f, 1.5f, 0.0f };
 		local[2].position = { 0.14f, 0.01f, 0.0f };
 		local[3].position = { 0.15f, 0.0f, 0.02f };
-		local[4].position = { 0.26f, 0.0f, 0.0f };
-		local[5].position = { 0.05f, -0.05f, 0.1f };
-		for (int bone = 1; bone < 6; ++bone)
+		local[4].position = { 0.10f, 0.0f, 0.0f };
+		local[5].position = { 0.16f, 0.0f, 0.0f };
+		local[6].position = { 0.05f, -0.05f, 0.1f };
+		for (int bone = 1; bone < 7; ++bone)
 		{
 			local[bone].rotation = random_rotation(random, 2.0f);
 		}
 
 		const vec3 shoulder = model_of(local, parents, 1).position;
 		const float a = length(model_of(local, parents, 3).position - shoulder);
-		const float b = length(model_of(local, parents, 4).position - model_of(local, parents, 3).position);
+		const float b = length(model_of(local, parents, 5).position - model_of(local, parents, 3).position);
 		const bool reachable = round % 4 != 0;
 		const vec3 direction = normalize(vec3{ unit(random), unit(random), unit(random) });
 		const float distance = reachable ? std::fabs(a - b) + 0.05f + (a + b - std::fabs(a - b) - 0.1f) * (0.5f + 0.5f * unit(random))
@@ -63,11 +64,11 @@ int main()
 		goal.hand = random_rotation(random, 3.0f);
 		goal.pole = shoulder + normalize(cross(direction, vec3{ unit(random), unit(random), unit(random) })) * 0.5f;
 
-		const vec3 weapon_offset_before = rotate(conjugate(model_of(local, parents, 4).rotation),
-			model_of(local, parents, 5).position - model_of(local, parents, 4).position);
+		const vec3 weapon_offset_before = rotate(conjugate(model_of(local, parents, 5).rotation),
+			model_of(local, parents, 6).position - model_of(local, parents, 5).position);
 
 		expect(solve_arm(local, parents, bones, goal), "solver refused", round);
-		const bone_transform hand = model_of(local, parents, 4);
+		const bone_transform hand = model_of(local, parents, 5);
 		const vec3 elbow = model_of(local, parents, 3).position;
 		const vec3 expected_wrist = reachable ? goal.wrist : shoulder + direction * ((a + b) * 0.9999f);
 		expect(length(hand.position - expected_wrist) < 1e-3f, "wrist misses the goal", round);
@@ -80,8 +81,18 @@ int main()
 		const vec3 elbow_side = (elbow - shoulder) - n * dot(elbow - shoulder, n);
 		const vec3 pole_side = (goal.pole - shoulder) - n * dot(goal.pole - shoulder, n);
 		expect(!reachable || dot(elbow_side, pole_side) > 0.0f, "elbow bends away from the pole", round);
-		const vec3 weapon_offset_after = rotate(conjugate(hand.rotation), model_of(local, parents, 5).position - hand.position);
+		const vec3 weapon_offset_after = rotate(conjugate(hand.rotation), model_of(local, parents, 6).position - hand.position);
 		expect(length(weapon_offset_after - weapon_offset_before) < 1e-4f, "weapon left the hand", round);
+
+		// A bone placed at a model transform lands there.
+		bone_transform wanted;
+		wanted.position = shoulder + direction * 0.3f;
+		wanted.rotation = random_rotation(random, 3.0f);
+		set_model_transform(local, parents, 6, wanted);
+		const bone_transform placed = model_of(local, parents, 6);
+		const float placed_alignment = std::fabs(placed.rotation.x * wanted.rotation.x + placed.rotation.y * wanted.rotation.y
+			+ placed.rotation.z * wanted.rotation.z + placed.rotation.w * wanted.rotation.w);
+		expect(length(placed.position - wanted.position) < 1e-4f && placed_alignment > 0.9999f, "set_model_transform misplaced the bone", round);
 	}
 
 	std::printf(failures ? "arm_ik_test: %d failures\n" : "arm_ik_test: all passed\n", failures);

@@ -23,6 +23,7 @@ namespace bfvr::config
 	//   gun_scale    = <float>                           apparent gun/arms size, 1 = the game's (default 1)
 	//   view_crop_h / view_crop_v = <0.4..1>             rendered part of the headset FOV (default 1)
 	//   arm_ik       = 1 | 0                             first-person arms follow the VR controllers (default 1)
+	//   arm_ik_weapon = 1 | 0                            the gun (Wep_Root) follows the right hand (default 1)
 	//   arm_ik_wrist = <x y z>                           wrist relative to the grip pose, metres, right hand (default 0 0 0.06)
 	//   arm_ik_pole  = <x y z>                           elbow direction from the shoulder, camera axes, right arm (default 0.5 -1 0.3)
 	//   research     = 1 | 0                             memory research pipe commands and research hooks

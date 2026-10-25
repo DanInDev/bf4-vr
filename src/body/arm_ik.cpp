@@ -68,6 +68,15 @@ namespace bfvr::body::ik
 		return model;
 	}
 
+	bone_transform inverse(const bone_transform& t)
+	{
+		bone_transform result;
+		result.scale = t.scale != 0.0f ? 1.0f / t.scale : 1.0f;
+		result.rotation = conjugate(t.rotation);
+		result.position = rotate(result.rotation, t.position) * -result.scale;
+		return result;
+	}
+
 	bone_transform model_of(const bone_transform* local, const int* parents, int bone)
 	{
 		constexpr int max_depth = 64;
@@ -93,11 +102,27 @@ namespace bfvr::body::ik
 			local[bone].rotation = normalize(conjugate(parent) * rotation);
 		}
 
+		// Twist part of q about the unit axis (swing-twist decomposition), raised to the power t.
+		quat twist_fraction(quat q, vec3 axis, float t)
+		{
+			const float along = dot(vec3{ q.x, q.y, q.z }, axis);
+			const float angle = 2.0f * std::atan2(along, q.w) * t;
+			const vec3 v = axis * std::sin(0.5f * angle);
+			return { v.x, v.y, v.z, std::cos(0.5f * angle) };
+		}
+
 		vec3 any_perpendicular(vec3 n)
 		{
 			const vec3 axis = std::fabs(n.y) < 0.9f ? vec3{ 0, 1, 0 } : vec3{ 1, 0, 0 };
 			return normalize(cross(n, axis));
 		}
+	}
+
+	void set_model_transform(bone_transform* local, const int* parents, int bone, const bone_transform& model)
+	{
+		const bone_transform parent = parents[bone] >= 0 ? model_of(local, parents, parents[bone]) : bone_transform{};
+		local[bone] = compose(inverse(parent), model);
+		local[bone].rotation = normalize(local[bone].rotation);
 	}
 
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal)
@@ -136,11 +161,32 @@ namespace bfvr::body::ik
 
 		set_model_rotation(local, parents, bones.upper, from_to(fore.position - shoulder, elbow - shoulder) * upper.rotation);
 
-		const bone_transform fore_now = model_of(local, parents, bones.fore);
-		const bone_transform hand_now = model_of(local, parents, bones.hand);
 		const vec3 wrist = shoulder + n * d;
-		set_model_rotation(local, parents, bones.fore,
-			from_to(hand_now.position - fore_now.position, wrist - fore_now.position) * fore_now.rotation);
+		const auto aim_forearm = [&]
+		{
+			const bone_transform fore_now = model_of(local, parents, bones.fore);
+			const bone_transform hand_now = model_of(local, parents, bones.hand);
+			set_model_rotation(local, parents, bones.fore,
+				from_to(hand_now.position - fore_now.position, wrist - fore_now.position) * fore_now.rotation);
+		};
+		aim_forearm();
+
+		if (bones.roll >= 0)
+		{
+			// Twist change of the hand relative to the roll bone, about the forearm axis, in the
+			// roll bone's frame; the roll bone takes half so the forearm skin does not wrap.
+			const bone_transform roll = model_of(local, parents, bones.roll);
+			const bone_transform hand_now = model_of(local, parents, bones.hand);
+			const quat before = conjugate(roll.rotation) * hand_now.rotation;
+			const quat after = conjugate(roll.rotation) * normalize(goal.hand);
+			const vec3 axis = normalize(rotate(conjugate(roll.rotation), hand_now.position - roll.position));
+			if (length(axis) > 0.5f)
+			{
+				const quat change = normalize(after * conjugate(before));
+				local[bones.roll].rotation = normalize(local[bones.roll].rotation * twist_fraction(change, axis, 0.5f));
+				aim_forearm(); // the roll bone may sit off the forearm axis
+			}
+		}
 
 		set_model_rotation(local, parents, bones.hand, normalize(goal.hand));
 		return true;

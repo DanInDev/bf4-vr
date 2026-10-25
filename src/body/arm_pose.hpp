@@ -14,9 +14,9 @@ namespace bfvr::body
 	void set_arm_ik(bool enabled);
 	bool arm_ik_enabled();
 
-	// Synthetic hand target overriding the controller, for tests without a headset. Position in
-	// metres and yaw/pitch in degrees, relative to the unturned first-person camera in OpenXR axes
-	// (x right, y up, -z forward). hand: 0 = left, 1 = right.
+	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres
+	// and yaw/pitch in degrees relative to the view (the tracked head, else the unturned
+	// first-person camera), OpenXR axes (x right, y up, -z forward). hand: 0 = left, 1 = right.
 	void set_hand_target(int hand, bool active, const float position[3], float yaw_degrees, float pitch_degrees);
 
 	// Research: rotation (x, y, z, w) from OpenXR camera axes to the CameraJoint bone's axes.
