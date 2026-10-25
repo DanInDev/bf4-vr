@@ -2,6 +2,24 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## 2026-10-25 retry — menus, controllers, sweeps
+
+| Item | Result |
+| --- | --- |
+| VR session via Steam Link | ✅ came up immediately; no SteamVR restarts (mod no longer launches SteamVR) |
+| Controllers without the Cepter | ✅ game polls the virtual pad continuously (feel in game: to confirm) |
+| Main menu | ✅ on the theater screen; ❌ loading screens still head-tracked (level path empty while loading) → next: stereo only while a campaign level is loaded |
+| View-crop sweep (h/v: 1, 0.9, 0.8, 0.7/0.75, 0.6/0.68) | black side lines at steps 4-5; HUD corners visible from step 3; bottom cut-off line at step 5 → **saved view_crop_h 0.78, view_crop_v 0.72** in the game's bfvr.ini |
+| "Weird depth of field" at steps 4-5 | open: Weapon DOF is off and motion blur 0 in the profile; suspects: 1280x720 drop (BF4 lost focus at 14:16:38 even in windowed mode), post AA (AntiAliasingPost 3) |
+| Gun-size sweep (1, 0.85, 0.7, 0.55) | no answer yet |
+| Stall/freeze while Claude had focus and the headset was hidden | the mod's VR step was idle: BF4 itself stops presenting in the background; not a mod deadlock |
+| Profile | FieldOfViewVertical 105, WeaponDOF 0, MotionBlur 0, AntiAliasingPost 3, AntiAliasingDeferred 2, ResolutionScale 1 |
+
+## Next focus (user, 2026-10-25)
+
+1. **Resolution:** remove the blur at crop ~0.78/0.72 (render larger than the 1920x1080 window; keep it independent of focus).
+2. **Hand tracking:** controllers drive the first-person arms (IK) via the arm-pose hook.
+
 ## 2026-10-25 afternoon — combined build (main + feature/virtual-pad)
 
 Reported per-eye FOV (logged): left eye left −54°, right 40°, up 44°, down −55°; right eye mirrored.
