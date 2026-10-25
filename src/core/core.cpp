@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 
+#include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "control/control_pipe.hpp"
@@ -82,6 +83,11 @@ namespace bfvr::core
 			if (config::get_bool("camera_hook", true))
 			{
 				stereo::install_camera_hook();
+			}
+			// Arm pose hook (research for now; IK later).
+			if (config::get_bool("arm_pose_hook", true))
+			{
+				body::install_arm_pose_hook();
 			}
 
 			control_enabled = config::get_bool("control_pipe", true);

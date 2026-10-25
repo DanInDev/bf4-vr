@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "body/arm_pose.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
@@ -427,6 +428,19 @@ namespace bfvr::control
 				}
 				return "pin " + std::to_string(slot) + " offset=" + std::to_string(offset) + " value=" + std::to_string(value);
 			}
+			if (command == "bone")
+			{
+				int bone = -1;
+				float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+				if (sscanf_s(argument.c_str(), "%d %f %f %f", &bone, &dx, &dy, &dz) < 1)
+				{
+					return "error: usage: bone <index, -1 = off> <dx> <dy> <dz>";
+				}
+				body::set_bone_offset(bone, dx, dy, dz);
+				const body::arm_pose_stats seen = body::stats();
+				return "bone " + std::to_string(bone) + " offset=(" + std::to_string(dx) + "," + std::to_string(dy) + "," + std::to_string(dz)
+					+ ") conversions=" + std::to_string(seen.conversions) + " matched=" + std::to_string(seen.matched);
+			}
 			if (command == "aspect")
 			{
 				float value = 0.0f;
@@ -489,7 +503,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

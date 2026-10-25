@@ -141,7 +141,8 @@ $eaLog = Join-Path $env:LOCALAPPDATA 'Electronic Arts\EA Desktop\Logs\EADesktop.
 function Test-EaRefusedLaunch([datetime]$since) {
 	if (-not (Test-Path $eaLog)) { return $false }
 	foreach ($line in (Get-Content $eaLog -Tail 3000 | Select-String 'Game launch error: \[4\] \(AlreadyRunning\)')) {
-		if ($line.Line -match '^\[([0-9T:.\-]+)Z\]' -and [datetime]::Parse($Matches[1]) -ge $since) { return $true }
+		# Lines look like "  1582<TAB>[2026-10-25T00:39:01.669Z]<TAB>PID: ...".
+		if ($line.Line -match '\[(\d{4}-\d\d-\d\dT[0-9:.]+)Z\]' -and [datetime]::Parse($Matches[1]) -ge $since) { return $true }
 	}
 	return $false
 }
@@ -160,20 +161,19 @@ switch ($Action) {
 		# EA app still believes an earlier instance is running).
 		$link = "origin2://game/launch/?offerIds=$eaContentIds"
 		if ($GameArgs) { $link += '&cmdParams=' + [Uri]::EscapeDataString($GameArgs) }
-		$deadline = (Get-Date).AddMinutes(3)
-		for ($attempt = 1; $attempt -le 3 -and -not (Get-GameProcess); $attempt++) {
+		# Only a refused launch is retried; a launch that is merely slow is waited for, never doubled.
+		for ($attempt = 1; $attempt -le 3; $attempt++) {
 			$launchedAt = (Get-Date).ToUniversalTime()
 			Start-Process $link
+			$deadline = (Get-Date).AddMinutes(3)
 			$refused = $false
 			while (-not (Get-GameProcess) -and (Get-Date) -lt $deadline -and -not $refused) {
 				Start-Sleep -Seconds 2
 				$refused = Test-EaRefusedLaunch $launchedAt
 			}
-			if ($refused) {
-				"EA app refused launch attempt $attempt (AlreadyRunning); retrying in 20 s"
-				Start-Sleep -Seconds 20
-				$deadline = (Get-Date).AddMinutes(3)
-			}
+			if (-not $refused) { break }
+			"EA app refused launch attempt $attempt (AlreadyRunning); retrying in 20 s"
+			Start-Sleep -Seconds 20
 		}
 		if (Get-GameProcess) { 'BF4 window is up' } else { throw 'BF4 did not open a window within 3 minutes (check the EA app for a prompt).' }
 	}
@@ -182,10 +182,10 @@ switch ($Action) {
 		if (-not $process) { 'BF4 not running'; break }
 		[void]$process.CloseMainWindow()
 		$result = if (-not $process.WaitForExit(20000)) { Stop-Process -Id $process.Id -Force; 'BF4 force-closed after 20 s' } else { 'BF4 closed' }
-		# The EA app tracks a second bf4.exe (the DRM starter) that exits ~20 s after the game window;
-		# relaunching before it is gone is refused as "AlreadyRunning".
+		# The EA app tracks BFLauncher.exe, which exits ~10 s after the game; relaunching before it is
+		# gone is refused as "AlreadyRunning".
 		$deadline = (Get-Date).AddSeconds(60)
-		while ((Get-Process bf4 -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
+		while ((Get-Process bf4, BFLauncher -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1 }
 		Start-Sleep -Seconds 5
 		$result
 	}

@@ -65,8 +65,8 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 
 | Element | Why | How | Status |
 | --- | --- | --- | --- |
-| **First-person arms mesh and skeleton**: bone names, hierarchy, indices | Arms/shoulders IK to the controllers (#11) | Frosty: SkeletonAsset of the 1P arms; bone list → indices | ⬜ |
-| **Pose buffer after animation, before skinning** | Overwrite shoulder/elbow/wrist bones each frame | Start at the soldier's two `ClientAntAnimatableComponent`s (+0x1E8 body, +0x1F0 likely first-person); `watch` a hand bone while the reload animation plays | 🟡 |
+| **First-person arms mesh and skeleton**: bone names, hierarchy, indices | Arms/shoulders IK to the controllers (#11) | Done live: Warsaw1pAntSke01, 179 bones ([skeleton.md](notes/skeleton.md)) | ✅ |
+| **Pose buffer after animation, before skinning** | Overwrite shoulder/elbow/wrist bones each frame | Done: local pose Animatable+0x48, edited in a hook on `0x140716050`; moving the left hand is visible ([skeleton.md](notes/skeleton.md)) | ✅ |
 | Weapon attachment bone and grip points | Hands on the gun; weapon follows the controller (#12, #14) | Frosty weapon mesh/sockets; the bone the weapon is parented to | ⬜ |
 | Third-person body | Body presence, shadows (#13) | Same chain, 3P mesh | ⬜ |
 
