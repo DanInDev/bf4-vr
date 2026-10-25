@@ -142,6 +142,9 @@ namespace bfvr::xr
 		std::atomic<std::uint64_t> hidden_frames{}; // completed on the waiter (not shown by the headset)
 		bool warned_hidden_frame{};
 		bool fov_logged{}; // the headset's per-eye FOV, once per process
+		bool waiting_for_steamvr_logged{};
+		std::atomic<bool> steamvr_restart_pending{}; // set on EXITING (Present thread), read by the instance worker
+		std::atomic<bool> runtime_is_steamvr{};      // written by the instance worker
 		XrResult ready_result{};
 		XrFrameState ready_frame{ XR_TYPE_FRAME_STATE };
 
@@ -213,6 +216,23 @@ namespace bfvr::xr
 				log::write("theater: OpenXR runtime: %s", runtime.c_str());
 				last_runtime_choice = runtime;
 			}
+			runtime_is_steamvr = runtime.rfind("steamvr", 0) == 0;
+			// Never be the one that starts SteamVR: wait until the user's headset connection has.
+			// After SteamVR exited, wait for its server to disappear before waiting for a new one.
+			if (steamvr_restart_pending && !steamvr_running())
+			{
+				steamvr_restart_pending = false;
+			}
+			if (runtime_is_steamvr && (steamvr_restart_pending || !steamvr_running()))
+			{
+				if (!waiting_for_steamvr_logged)
+				{
+					log::write("theater: waiting for SteamVR to be started (connect the headset, e.g. Steam Link)");
+					waiting_for_steamvr_logged = true;
+				}
+				return XR_NULL_HANDLE;
+			}
+			waiting_for_steamvr_logged = false;
 			const char* const extensions[] = { XR_KHR_D3D11_ENABLE_EXTENSION_NAME };
 
 			XrInstanceCreateInfo info{ XR_TYPE_INSTANCE_CREATE_INFO };
@@ -359,10 +379,19 @@ namespace bfvr::xr
 				set_phase(phase::waiting_for_session);
 				break;
 			case XR_SESSION_STATE_EXITING:
-				// The user or runtime ended VR (e.g. quitting SteamVR). Reconnecting would relaunch
-				// the runtime or keep the game registered while it shuts down, so stay out until restart.
+				// The user or runtime ended VR (e.g. quitting SteamVR). With SteamVR, reconnect only
+				// after its server has gone and been started again by the user; never while it shuts
+				// down. Other runtimes stay out until the game restarts.
 				destroy_all();
-				set_phase(phase::stopped);
+				if (runtime_is_steamvr)
+				{
+					steamvr_restart_pending = true;
+					retry_later();
+				}
+				else
+				{
+					set_phase(phase::stopped);
+				}
 				break;
 			case XR_SESSION_STATE_LOSS_PENDING:
 				// Connection lost (headset unplugged, link dropped): rebuild later, choosing the runtime again.

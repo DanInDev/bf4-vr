@@ -15,4 +15,9 @@ namespace bfvr::xr
 	//
 	// An XR_RUNTIME_JSON already set by the user always wins.
 	std::string select_runtime();
+
+	// True when SteamVR's server is running. Creating an instance on SteamVR's runtime launches
+	// SteamVR, so retries wait for this instead (otherwise SteamVR keeps restarting while the user
+	// tries to connect the headset, headset test 2026-10-25).
+	bool steamvr_running();
 }
