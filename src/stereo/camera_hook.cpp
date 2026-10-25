@@ -42,6 +42,19 @@ namespace bfvr::stereo
 
 		using view_params_copy_t = void*(__fastcall*)(void* destination, const void* source);
 		view_params_copy_t original_copy{};
+
+		// RenderView set-aspect: called each frame after the copy with the viewport's width/height;
+		// stores +0xC4, recomputes the horizontal FOV (+0x250) and marks the matrices dirty.
+		// Replacing the value renders an anamorphic image with the headset's per-eye aspect.
+		constexpr std::uint64_t view_set_aspect = 0x140b89d60;
+		// push rbx; sub rsp,30h; movaps [rsp+20h],xmm6; movaps xmm6,xmm1; mov rbx,rcx
+		constexpr std::uint8_t set_aspect_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x30, 0x0f, 0x29, 0x74, 0x24, 0x20, 0x0f, 0x28, 0xf1, 0x48, 0x8b, 0xd9 };
+		using view_set_aspect_t = void(__fastcall*)(void* view, float aspect);
+		view_set_aspect_t original_set_aspect{};
+		// Aspect for the world view this frame (0 = the game's own), set by the copy hook.
+		std::atomic<float> aspect_override{};
+		std::atomic<float> research_aspect{};
+		bool stereo_headset_aspect{};
 		std::atomic<float> offset_metres{};
 		std::atomic<DWORD> copy_thread{};
 		std::atomic<std::uint64_t> copies{};
@@ -189,15 +202,27 @@ namespace bfvr::stereo
 				// Alternate-eye rendering: odd copies left eye, even copies right eye.
 				const int eye = static_cast<int>(index % 2 == 1 ? 0 : 1);
 
-				// Render with a vertical FOV covering both eyes, at the game's aspect ratio.
+				// Render a symmetric frustum covering both eyes' FOVs. With the headset aspect the
+				// 16:9 image is anamorphic and spends its pixels only on what the lens shows; with
+				// the game's aspect it is wider than the lens.
 				float half_vertical = 0.0f;
+				float half_horizontal = 0.0f;
 				for (const fov& f : head.fovs)
 				{
 					half_vertical = std::fmax(half_vertical, std::fmax(f.up, -f.down));
+					half_horizontal = std::fmax(half_horizontal, std::fmax(f.right, -f.left));
 				}
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
-				const float view_aspect = *reinterpret_cast<const float*>(params + aspect);
-				const float half_horizontal = std::atan(std::tan(half_vertical) * view_aspect);
+				if (stereo_headset_aspect)
+				{
+					aspect_override = std::tan(half_horizontal) / std::tan(half_vertical);
+				}
+				else
+				{
+					aspect_override = 0.0f;
+					const float view_aspect = *reinterpret_cast<const float*>(params + aspect);
+					half_horizontal = std::atan(std::tan(half_vertical) * view_aspect);
+				}
 
 				apply_eye_pose(params, head.eyes[eye]);
 
@@ -208,6 +233,7 @@ namespace bfvr::stereo
 			}
 			else
 			{
+				aspect_override = research_aspect.load(std::memory_order_relaxed);
 				const float override_fov = fov_override.load(std::memory_order_relaxed);
 				if (override_fov > 0.0f)
 				{
@@ -266,6 +292,15 @@ namespace bfvr::stereo
 			publish_rendered_view(tag);
 			return result;
 		}
+
+		void __fastcall set_aspect_detour(void* view, float value)
+		{
+			if (const float wanted = aspect_override.load(std::memory_order_relaxed); wanted > 0.0f && view == renderer_view_params())
+			{
+				value = wanted;
+			}
+			original_set_aspect(view, value);
+		}
 	}
 
 	namespace
@@ -288,7 +323,24 @@ namespace bfvr::stereo
 				log::write("camera: hooking %p failed: %s", target, MH_StatusToString(status));
 				return false;
 			}
-			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d)", target, stereo_enabled, stereo_first_person);
+			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d headset_aspect=%d)", target,
+				stereo_enabled, stereo_first_person, stereo_headset_aspect);
+
+			// Optional second hook; without it stereo still works at the game's aspect.
+			auto* const aspect_target = reinterpret_cast<void*>(static_cast<std::uintptr_t>(view_set_aspect));
+			std::uint8_t bytes[sizeof(set_aspect_prologue)]{};
+			if (!ReadProcessMemory(GetCurrentProcess(), aspect_target, bytes, sizeof(bytes), nullptr)
+				|| std::memcmp(bytes, set_aspect_prologue, sizeof(bytes)) != 0)
+			{
+				log::write("camera: set-aspect %p does not match build 179547; per-eye aspect unavailable", aspect_target);
+				return true;
+			}
+			status = MH_CreateHook(aspect_target, reinterpret_cast<void*>(&set_aspect_detour), reinterpret_cast<void**>(&original_set_aspect));
+			if (status == MH_OK)
+			{
+				status = MH_EnableHook(aspect_target);
+			}
+			log::write("camera: set-aspect hook at %p: %s", aspect_target, MH_StatusToString(status));
 			return true;
 		}
 
@@ -321,6 +373,7 @@ namespace bfvr::stereo
 		stereo_enabled = config::get_bool("stereo", false);
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
+		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -370,6 +423,11 @@ namespace bfvr::stereo
 		pin_value[slot] = value;
 		pin_offset[slot] = offset;
 		return true;
+	}
+
+	void set_research_aspect(float value)
+	{
+		research_aspect = value;
 	}
 
 	void set_fake_yaw(float degrees)

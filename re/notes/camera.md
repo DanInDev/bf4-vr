@@ -57,6 +57,18 @@ Experiments (mono, `pipe view <i> <fov> <shift>`, screenshots `re/screenshots/vi
 - **The weapon is drawn in a separate first-person pass with its own camera and FOV, locked to the screen.** In alternate-eye stereo it sits at the same screen spot in both eyes, so it reads as distant and head-locked, and it is drawn with its ~55° FOV inside a 110° image (looks oversized). The fix needs that pass's camera: apply the inverse head pose there so the gun stays where the soldier aims while the head looks around. Next research target.
 - The HUD crosshair is likewise screen-locked; the true aim point is the game camera's forward axis.
 
+## Per-eye aspect (2026-10-25)
+
+The world view's aspect (+0xC4) is set once per frame after our copy hook by `0x140B89D60`
+(RenderView set-aspect: stores +0xC4 = viewport width/height, recomputes the horizontal FOV at
++0x250, marks the matrices dirty; prologue `40 53 48 83 EC 30 0F 29 74 24 20 0F 28 F1 48 8B D9`;
+caller `0x140848E4C`). Writing +0xC4 ourselves is overwritten. The hook replaces the value: with
+`aspect 1.0` the projection became m00 = m11 = 2.414 (horizontal FOV 72.7° → 45°) and the world and
+the gun stretched together, so the first-person pass uses the same aspect. In stereo
+(`stereo_aspect = headset`) the aspect is tan(half horizontal)/tan(half vertical) of the headset's
+widest eye FOVs, so the 1920×1080 image covers exactly the lens FOV (anamorphic; the compositor maps
+it with the submitted FOV). Window resizing does not help: the game keeps a 1920×1080 borderless window.
+
 ## Open questions
 
 1. ~~Find the first-person weapon pass's camera~~: view-params `+0xED0`, see [first_person.md](first_person.md). Its projection/FOV is still open.

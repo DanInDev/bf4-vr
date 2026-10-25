@@ -39,6 +39,10 @@ namespace bfvr::stereo
 	// marks view 0 dirty (slot 0..3; offset 0 = off).
 	bool set_pin(int slot, std::uint32_t offset, float value);
 
+	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,
+	// when not in stereo (0 = the game's own).
+	void set_research_aspect(float value);
+
 	// Research: a synthetic head yaw (degrees, 0 = off) applied like a headset eye pose when not
 	// in stereo; world and first-person camera turn together.
 	void set_fake_yaw(float degrees);

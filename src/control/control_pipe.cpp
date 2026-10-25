@@ -425,6 +425,13 @@ namespace bfvr::control
 				}
 				return "pin " + std::to_string(slot) + " offset=" + std::to_string(offset) + " value=" + std::to_string(value);
 			}
+			if (command == "aspect")
+			{
+				float value = 0.0f;
+				sscanf_s(argument.c_str(), "%f", &value);
+				stereo::set_research_aspect(value);
+				return "research_aspect=" + std::to_string(value);
+			}
 			if (command == "fakeyaw")
 			{
 				float degrees = 0.0f;
@@ -480,7 +487,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
