@@ -20,3 +20,6 @@ stereo_first_person = 1
 # Per-eye image shape: headset = render each eye at the headset's own aspect (anamorphic 16:9
 # image covering exactly the lens FOV, re/notes/camera.md); game = the window's 16:9 (wider than the lens).
 stereo_aspect = headset
+# Apparent size of the gun and arms: 1 = the game's own (drawn with its own FOV, so it looks large
+# in the headset's wide view); smaller values shrink it around the view centre. Tune in the headset.
+gun_scale = 1.0

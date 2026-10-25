@@ -57,6 +57,13 @@ The live WorldRenderSettings is found through the settings manager `[0x14261E930
 All projections go through `0x140B7EA10` → `0x140B7EAE0` (inputs: RenderView +0xB0 type,
 +0xB4 fov, +0xBC near, +0xC0 far, +0xC4 aspect, +0xD0 eye separation, +0xD4 convergence).
 
+## Gun size lever (verified live)
+
+Multiplying the first-person camera's right and up rows (+0xED0, +0xEE0) by g scales the drawn gun
+and arms by g around the view centre, world unchanged, no visible artefacts (rows x1.43 → clearly
+larger gun). `gun_scale` (config, pipe `gunscale <g>`) applies this every frame; the right value
+for VR still has to be tuned in the headset (the gun's own FOV is unknown).
+
 ## Open: the first-person FOV
 
 - The gun keeps its size when the world FOV changes (camera.md), so the pass has its own projection.

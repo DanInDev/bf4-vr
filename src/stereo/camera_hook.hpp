@@ -39,6 +39,10 @@ namespace bfvr::stereo
 	// marks view 0 dirty (slot 0..3; offset 0 = off).
 	bool set_pin(int slot, std::uint32_t offset, float value);
 
+	// Apparent size of the first-person gun and arms (1 = the game's; config key gun_scale).
+	void set_gun_scale(float scale);
+	float current_gun_scale();
+
 	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,
 	// when not in stereo (0 = the game's own).
 	void set_research_aspect(float value);
