@@ -9,6 +9,7 @@
 #include <openxr/openxr_platform.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -138,6 +139,9 @@ namespace bfvr::xr
 		bool waiter_stop{};
 		bool wait_requested{};
 		bool frame_ready{};
+		std::atomic<std::uint64_t> hidden_frames{}; // completed on the waiter (not shown by the headset)
+		bool warned_hidden_frame{};
+		bool fov_logged{}; // the headset's per-eye FOV, once per process
 		XrResult ready_result{};
 		XrFrameState ready_frame{ XR_TYPE_FRAME_STATE };
 
@@ -585,6 +589,17 @@ namespace bfvr::xr
 						{ pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w } };
 					sample.fovs[eye] = { views[eye].fov.angleLeft, views[eye].fov.angleRight, views[eye].fov.angleUp, views[eye].fov.angleDown };
 				}
+				if (!fov_logged)
+				{
+					constexpr float degrees = 57.29578f;
+					for (int eye = 0; eye < 2; ++eye)
+					{
+						const XrFovf& f = views[eye].fov;
+						log::write("theater: %s eye FOV left %.1f right %.1f up %.1f down %.1f deg", eye == 0 ? "left" : "right",
+							f.angleLeft * degrees, f.angleRight * degrees, f.angleUp * degrees, f.angleDown * degrees);
+					}
+					fov_logged = true;
+				}
 			}
 			stereo::publish_head_sample(sample);
 		}
@@ -625,17 +640,22 @@ namespace bfvr::xr
 
 		void waiter_loop()
 		{
+			bool wait_again = false; // the previous frame was completed here; no request needed
 			for (;;)
 			{
 				{
 					std::unique_lock guard(waiter_lock);
-					waiter_wake.wait(guard, [this] { return waiter_stop || wait_requested; });
+					if (!wait_again)
+					{
+						waiter_wake.wait(guard, [this] { return waiter_stop || wait_requested; });
+						wait_requested = false;
+					}
 					if (waiter_stop)
 					{
 						return;
 					}
-					wait_requested = false;
 				}
+				wait_again = false;
 
 				XrFrameWaitInfo wait_info{ XR_TYPE_FRAME_WAIT_INFO };
 				XrFrameState frame{ XR_TYPE_FRAME_STATE };
@@ -643,6 +663,27 @@ namespace bfvr::xr
 				if (stereo_mode && XR_SUCCEEDED(result))
 				{
 					publish_head_sample(frame.predictedDisplayTime);
+				}
+
+				// A frame the headset will not show (headset off, dashboard) is begun and ended
+				// here: SteamVR throttles those calls to ~5 Hz for a hidden app, which held the
+				// game's Present for ~200 ms per frame (7 fps) when done there.
+				if (XR_SUCCEEDED(result) && !frame.shouldRender)
+				{
+					XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
+					XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
+					end_info.displayTime = frame.predictedDisplayTime;
+					end_info.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+					const XrResult begun = xrBeginFrame(session, &begin_info);
+					const XrResult ended = XR_SUCCEEDED(begun) ? xrEndFrame(session, &end_info) : begun;
+					if (XR_FAILED(ended) && !warned_hidden_frame)
+					{
+						log::write("theater: completing a hidden frame failed: XrResult %d", static_cast<int>(ended));
+						warned_hidden_frame = true;
+					}
+					++hidden_frames;
+					wait_again = true;
+					continue;
 				}
 
 				const std::lock_guard guard(waiter_lock);
