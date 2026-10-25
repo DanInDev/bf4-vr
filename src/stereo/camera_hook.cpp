@@ -206,8 +206,9 @@ namespace bfvr::stereo
 			rendered_view tag;
 			tag.copy_index = index;
 
-			// Menus stay mono (theater screen): the front end level, or the fixed menu/loading camera.
-			const bool menu = is_menu_camera(params) || safety::front_end_loaded();
+			// Head-tracked stereo only inside a loaded campaign level; menus and loading screens stay
+			// mono and appear on the theater screen.
+			const bool menu = is_menu_camera(params) || !safety::campaign_level_loaded();
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			if (head.valid)
 			{

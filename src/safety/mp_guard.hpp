@@ -12,7 +12,8 @@ namespace bfvr::safety
 	void start_multiplayer_guard();
 	bool mod_disabled();
 
-	// True while the front end (main menu level) is loaded; the stereo view shows it on the
-	// theater screen instead of head-tracked (its 2D menu would otherwise fill the whole view).
-	bool front_end_loaded();
+	// True while a campaign level is loaded and running (not the front end, not a loading screen,
+	// whose level path is briefly empty). Head-tracked stereo is used only then; menus and loading
+	// screens stay on the theater screen.
+	bool campaign_level_loaded();
 }

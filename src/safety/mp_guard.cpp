@@ -31,7 +31,7 @@ namespace bfvr::safety
 		};
 
 		std::atomic<bool> disabled{};
-		std::atomic<bool> front_end_active{};
+		std::atomic<bool> campaign_active{};
 
 		template <typename T>
 		bool read(std::uint64_t address, T& value)
@@ -107,7 +107,7 @@ namespace bfvr::safety
 					continue;
 				}
 				const level_info level = loaded_level();
-				front_end_active = !level.path.empty() && front_end(level.path);
+				campaign_active = !level.path.empty() && campaign_level(level.path) && level.is_multiplayer == 0;
 				if (!level.path.empty())
 				{
 					if (level.path != last_path)
@@ -170,8 +170,8 @@ namespace bfvr::safety
 		return disabled;
 	}
 
-	bool front_end_loaded()
+	bool campaign_level_loaded()
 	{
-		return front_end_active;
+		return campaign_active;
 	}
 }
