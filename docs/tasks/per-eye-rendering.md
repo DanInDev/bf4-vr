@@ -125,7 +125,33 @@ See approach 2 below, plus the two Overlord additions above. First session:
 3. Wrap each world-module call in a save/restore scope (camera constants, RenderView, targets,
    previous-frame view). Goal: two calls per frame without a hang, eye 2 visible in a capture.
 
-### 1. Two views through the engine's own multi-view path (alternative)
+**Session 2 results (2026-10-25):**
+
+- The `worldpass 2` "hang" is a **crash** on the render thread (AV reading `0x78` at `0x140C60185`). A
+  sub-renderer begin-frame callback in the world renderer frame `0x140CE56F0` takes a per-frame
+  pointer from `[obj+0x200]` and nulls it after use, so the second call dereferences null. The game's
+  crash reporter then spins in an HTTPS certificate check, which made it look like a hang. The
+  research crash logger (`src/control/crash_log.cpp`) now writes such faults to `bfvr.log`.
+- The cut point is therefore **below** the frame-level callbacks: the per-view render `0x140CE7EA0`
+  (G-buffer through tonemap for one view slot). `src/stereo/eye_pass.cpp` (pipe `eyepass`) calls it
+  twice per frame, the second time with the camera moved sideways, and copies the first eye's
+  back buffer into its own texture (pipe `eyeshot`).
+- Approach 1 is ruled out without relocating the world renderer: it is allocated with `0x34400`
+  bytes (`0x140CE2140`), room for exactly one `0x34000` view slot, and slot 1 would overwrite the
+  members after slot 0 and run past the allocation (that explains the two-view freeze).
+
+- Result: two per-view renders per frame are **stable** (5-minute soak, 0 rejected pairs, ~1.9× draws),
+  but the second render shows the **same camera**. The camera is baked into two 1 MB dynamic
+  constant arenas that job threads fill before the render (`re/notes/stereo-rendering.md`,
+  "Per-eye pass"). This is Overlord's "dynamic uploads" step.
+
+**Next session:** give eye 2 its own constants. First the cheap probe: before the second render,
+rewrite the centre camera's matrices and position in the mapped arena ranges with eye-2 values,
+then restore. If per-object constants mix world and view, find the job that writes the view
+constants (write-watch at a `cam@` offset) and run it once more for eye 2. Done when `eyeshot` and
+`shot` differ by the eye offset.
+
+### 1. Two views through the engine's own multi-view path (ruled out, see above)
 
 The engine already loops over views in the render frame and the world module. Make it work for
 two:

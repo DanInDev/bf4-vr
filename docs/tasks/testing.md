@@ -35,6 +35,16 @@ says what it proves and what it does not.
 5. Layer 4 WARP probe once the per-eye save/restore scope exists.
 6. CI (`feature/ci`, #18): add `ctest` for layers 1, 3 and 4. Layers 2, 5 and 6 stay local.
 
+## Status
+
+| Item | State (2026-10-25) |
+| --- | --- |
+| CTest | `ctest --preset bf4-debug` / `bf3-debug` runs `arm_ik` and `eye_math` |
+| Layer 1 per-eye maths | `src/stereo/eye_math.*` (pose composition, rendered frustum, eye midpoint, eye angle, complete-pairs rule), `tests/eye_math_test.cpp`; the camera hook uses it |
+| Layer 5 counters | status line `eyepass eye_frames= eye_pairs= eye_rejected= eye_abandoned= eye_ms=` |
+| Layer 5 soak | `tools/soak.ps1`; first real use caught the `worldpass 2` crash and saved its thread sample automatically |
+| Crash evidence | research builds log fatal exceptions with registers and stack to `bfvr.log` (`src/control/crash_log.cpp`) |
+
 ## Rules
 
 - A test says in its first comment what it proves and what it does not.

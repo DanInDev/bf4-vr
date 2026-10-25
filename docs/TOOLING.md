@@ -91,6 +91,16 @@ Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
 REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline. The user
 variable `REA_GHIDRA_STARTUP_TIMEOUT_MS = 10800000` (3 h) is set and takes effect after Claude restarts.
 
+Per-eye research (2026-10-25, research builds): `eyepass <flags> [shift m]` (1 render twice, 2 shifted
+eye last, 4 restore the slot snapshot), `eyeshot <path.png>` (first eye's image), `frametrace` now also
+records constant-buffer bindings and uploads that contain the camera position (`cam@offset`). Fatal
+exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash_log.cpp`).
+
+| Test tool | Use |
+| --- | --- |
+| `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`); see `docs/tasks/testing.md` |
+| `tools/soak.ps1 [-Minutes 10] [-MinFps 60] [-Command 'eyepass 1']` | Samples `status` once a second while the game sits in a level; fails on a stall, low fps or rejected eye pairs and saves a `threads` sample (`re/dumps/soak-*`) |
+
 Disable with `control_pipe = 0` in `bfvr.ini`. Local clients only (`PIPE_REJECT_REMOTE_CLIENTS`).
 
 ## Headset emulation options

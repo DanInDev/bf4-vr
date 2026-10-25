@@ -42,6 +42,30 @@ The resolved scene depth (D24S8, 2160², bound with the back buffer) is the cand
 | Two views from game start (`research_views = 2`) | Freezes after ~154 frames in the front end |
 | Stack sample of the freeze (`threads`) | Render thread idle (waiting for work); the **game thread spins in EA's TLS certificate code** (`0x1406CBFD0`: DER subjectAltName, tag 0x82, wildcard host matching) in an endless loop. Unrelated code looping = **memory corruption**: view 1 asks for viewport/window 1, which does not exist, and other per-view arrays are sized for one view |
 
+**Correction 2026-10-25 (second session):** the "TLS loop = memory corruption" reading was wrong.
+`worldpass 2` reproduced the same stack on the **render thread** (pipe `present_thread`), and the
+bottom frames resolve to `kernelbase!UnhandledExceptionFilter` → ntdll exception dispatch → the
+game's unhandled-exception filter `0x140007639` → crash reporter → HTTPS upload (ProtoSSL stream
+write `0x140AC4140` → handshake `0x1406CD3F0` → certificate hostname match `0x1406CBFD0`, which loops
+forever on a null cursor with a non-zero length). So **both experiments crash the render thread**,
+and the crash reporter then spins instead of exiting. Thread CPU grows ~1 s/s in that loop. The
+real fault is logged by the research crash logger (`src/control/crash_log.cpp`, `research = 1`).
+
+| Address | What |
+| --- | --- |
+| `0x140007639` | Game's unhandled-exception filter (called from `UnhandledExceptionFilter+0x1F3`) |
+| `0x1406CBFD0` | ProtoSSL: DER subjectAltName (tag `0x82`) wildcard hostname match; infinite loop on bad input |
+| `0x1406CD3F0` / `0x140AC4140` | ProtoSSL connection update / blocking stream write |
+
+World renderer frame `0x140CE56F0` (the "dispatcher"; world module → `module+0x30` vtable slot 3):
+loops over its **own view slots**, count `+0x214`, slot stride `0x34000` inline in the object, view
+data at `+0x280 + i*0x34000`, per-slot context at `+0x34040 + i*0x34000`, frame argument stored at
+`+0x34258 + i*0x34000`, and calls the per-view render `0x140CE7EA0` (14 KB: G-buffer, shadows,
+lighting; only caller) once per slot. Before the loop: per-frame callbacks (`+0xB0..+0xB8` list,
+vtable `+0x18`; after the loop `+0x20`), sync points `+0x34378/+0x34390/+0x343A8` (each checked
+with `0x140D1E570`/`0x140D1CF50`, waited with `0x14063CA00`/`0x14063C940` inside a renderer lock
+`[0x142738080]` slots `+0x48`/`+0x40`).
+
 Conclusion: the engine's renderer is multi-view by design (view arrays, per-view targets, per-view
 clears), but this build is configured for exactly one display window and one view. True per-eye
 rendering through it needs (1) a second valid viewport/window entry or views pointing at window 0 with
@@ -78,3 +102,35 @@ premultiplied alpha. Menus and loading screens are untouched (theater screen).
 | HUD texture (`hudshot`) | minimap, ammo, objective, squad markers, crosshair; alpha 0–255 |
 | Pitfall | The detour must pass all six argument slots through bit for bit (64-bit): declaring them `int`/`float` changed the callee's register/stack view and leaked a Twinkle lock (`0x141110102`), freezing the game thread |
 | Known limitation | 3D markers (squad tags, objectives) are screen-space HUD too: on a head-locked layer they no longer sit on their targets |
+
+## Per-eye pass on the per-view render (session 2, 2026-10-25)
+
+`src/stereo/eye_pass.cpp`, pipe `eyepass <flags> [shift m]`, `eyeshot <path.png>`; off by default.
+Hooks the world per-view render `0x140CE7EA0` and calls it twice per frame for slot 0, the camera
+RenderViews in the slot (`+0x630`, `+0xB10`, sub-pass copies `+0x186A0`/`+0x19060`) moved sideways
+for one of the calls (`RenderView::update 0x140B8C180`, flags `0xF`), the first eye's back buffer
+copied to its own texture.
+
+| Check (monitor, 1280x720, saved campaign checkpoint) | Result |
+| --- | --- |
+| Stability, `eyepass 1 0.5`, `tools/soak.ps1 -Minutes 5` | **PASS**: 297 samples, no crash/stall, 10781 complete pairs in the first minute, 0 rejected; lowest fps 146.7 (cap ~200) |
+| GPU work | frametrace: **1925 draws per frame with the pass vs 1000 without** (all on the render thread) |
+| CPU cost of the second call | `eye_ms` 0.29 ms: the call only submits draw lists that job threads built earlier |
+| Camera shift visible? | **No**: `eyeshot` (shifted eye) and `shot` (normal eye) show the same viewpoint; both are complete frames (the eye image has no HUD, as expected) |
+
+Why the shift has no effect: the camera is baked into **dynamic constant arenas** before the
+per-view render runs. frametrace with constant-buffer tracking (`Map`/`Unmap`/`UpdateSubresource`
+and `VS/PS/CSSetConstantBuffers`, camera position search) shows two 1 MB dynamic buffers mapped
+`NO_OVERWRITE` and unmapped from `0x140C12490` (`+0x63`, through the device wrapper vtable `+0x78`) on
+the render thread **and on job threads**, each holding the camera position at many offsets (per-draw
+or per-pass constant blocks). The second render replays draw lists that point at the same arena data.
+
+Consequence: per-eye rendering needs per-eye **constant data**, not only a per-eye RenderView:
+
+1. Find the writer of the view constants into the arena (the job that fills per-view/per-draw
+   constant blocks from the RenderView; breakpoint the writes near a `cam@` offset with `watch`),
+   and make it produce an eye-2 copy (Overlord: `engine_stereo_dynamic_arena`, "dynamic uploads"
+   in the per-eye transaction).
+2. Cheaper probe first: before the second render, rewrite the centre camera's view, projection and
+   view-projection matrices (and inverses, camera position) inside the mapped arena ranges with the
+   eye-2 values, render, restore. Works only if per-object constants keep world and view separate.

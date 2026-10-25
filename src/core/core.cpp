@@ -10,6 +10,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "control/control_pipe.hpp"
+#include "control/crash_log.hpp"
 #include "hooks/dxgi_probe.hpp"
 #include "hooks/game_window.hpp"
 #include "hooks/nvapi_hook.hpp"
@@ -20,6 +21,7 @@
 #include "input/virtual_pad.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
 #include "xr/theater.hpp"
@@ -43,6 +45,7 @@ namespace bfvr::core
 			}
 			// Before the theater: it shows the HUD captured for this frame.
 			stereo::hud_capture_on_present(swap_chain);
+			stereo::eye_pass_on_present(swap_chain);
 			if (theater)
 			{
 				theater->on_present(swap_chain);
@@ -68,7 +71,8 @@ namespace bfvr::core
 				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls,
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
-			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden());
+			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
+				+ "\neyepass " + stereo::eye_pass_report();
 		}
 
 		DWORD WINAPI start_thread(LPVOID)
@@ -102,6 +106,7 @@ namespace bfvr::core
 			}
 			if (config::research_enabled())
 			{
+				control::install_crash_log();
 				stereo::install_view_experiment();
 			}
 			stereo::install_hud_capture();

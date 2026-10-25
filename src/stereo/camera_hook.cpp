@@ -13,6 +13,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
+#include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -118,49 +119,11 @@ namespace bfvr::stereo
 			mark_dirty(view);
 		}
 
-		// Composes an OpenXR LOCAL-space eye pose onto the game camera. Game transforms are row
-		// vectors (world = local * M). The camera's local axes match OpenXR's (x right, y up,
-		// looking along -z): a z-mirrored conversion made yaw and pitch run backwards in the
-		// headset (2026-10-23 test), so the pose is used unchanged.
-		void compose_pose(float* camera, const pose& eye) // 4 rows x float4
+		// A z-mirrored conversion made yaw and pitch run backwards in the headset (2026-10-23
+		// test), so the OpenXR pose is composed unchanged (eye_math::compose_pose).
+		void compose_pose(float* camera, const pose& eye)
 		{
-			const float qx = eye.orientation[0], qy = eye.orientation[1], qz = eye.orientation[2], qw = eye.orientation[3];
-			// Column-vector rotation matrix of the converted quaternion.
-			const float m[3][3] = {
-				{ 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw) },
-				{ 2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw) },
-				{ 2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy) },
-			};
-			const float local_position[3] = { eye.position[0], eye.position[1], eye.position[2] };
-
-			float result[4][3]{};
-			// Rotation rows: row i of the eye transform (column i of m) times the camera rotation.
-			for (int i = 0; i < 3; ++i)
-			{
-				for (int k = 0; k < 3; ++k)
-				{
-					for (int axis = 0; axis < 3; ++axis)
-					{
-						result[i][axis] += m[k][i] * camera[k * 4 + axis];
-					}
-				}
-			}
-			// Position: eye offset expressed in camera axes, plus the camera position.
-			for (int axis = 0; axis < 3; ++axis)
-			{
-				result[3][axis] = camera[12 + axis];
-				for (int k = 0; k < 3; ++k)
-				{
-					result[3][axis] += local_position[k] * camera[k * 4 + axis];
-				}
-			}
-			for (int row = 0; row < 4; ++row)
-			{
-				for (int axis = 0; axis < 3; ++axis)
-				{
-					camera[row * 4 + axis] = result[row][axis];
-				}
-			}
+			eye_math::compose_pose(camera, eye);
 		}
 
 		// The eye pose goes onto the world camera and, unless disabled, onto the first-person
@@ -218,29 +181,15 @@ namespace bfvr::stereo
 				// Render a symmetric frustum covering both eyes' FOVs. With the headset aspect the
 				// 16:9 image is anamorphic and spends its pixels only on what the lens shows; with
 				// the game's aspect it is wider than the lens.
-				float half_vertical = 0.0f;
-				float half_horizontal = 0.0f;
-				for (const fov& f : head.fovs)
-				{
-					half_vertical = std::fmax(half_vertical, std::fmax(f.up, -f.down));
-					half_horizontal = std::fmax(half_horizontal, std::fmax(f.right, -f.left));
-				}
 				// The runtime's FOV can be wider than what the lens shows (Quest 3 via Steam Link:
 				// headset test 2026-10-25). Cropping (in tangent space) spends the pixels on the
 				// visible part; the compositor still gets exactly the FOV that was rendered.
-				half_horizontal = std::atan(std::tan(half_horizontal) * view_crop_h.load(std::memory_order_relaxed));
-				half_vertical = std::atan(std::tan(half_vertical) * view_crop_v.load(std::memory_order_relaxed));
+				const eye_math::render_fov rendered = eye_math::symmetric_fov(head.fovs, view_crop_h.load(std::memory_order_relaxed),
+					view_crop_v.load(std::memory_order_relaxed), stereo_headset_aspect, *reinterpret_cast<const float*>(params + aspect));
+				const float half_horizontal = rendered.half_horizontal;
+				const float half_vertical = rendered.half_vertical;
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
-				if (stereo_headset_aspect)
-				{
-					aspect_override = std::tan(half_horizontal) / std::tan(half_vertical);
-				}
-				else
-				{
-					aspect_override = 0.0f;
-					const float view_aspect = *reinterpret_cast<const float*>(params + aspect);
-					half_horizontal = std::atan(std::tan(half_vertical) * view_aspect);
-				}
+				aspect_override = rendered.aspect;
 
 				apply_eye_pose(params, head.eyes[eye]);
 

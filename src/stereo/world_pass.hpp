@@ -4,8 +4,8 @@
 
 namespace bfvr::stereo
 {
-	// Research toward true per-eye rendering (re/notes/stereo-rendering.md). Result 2026-10-25: rendering the module twice hangs the render thread (it waits on per-frame
-	// state the first pass consumed); kept for reference. Hooks the world render
+	// Research toward true per-eye rendering (re/notes/stereo-rendering.md). Result 2026-10-25: rendering the module twice crashes the render thread (a sub-renderer
+	// callback nulls a per-frame pointer the second pass dereferences); kept for reference, see eye_pass.hpp. Hooks the world render
 	// module's render method (0x1408BEC40, vtable 0x141D24258 slot 3), which draws the whole 3D world
 	// (G-buffer, shadows, lighting) once per frame on the render thread.
 	//   passes 1 = normal, 2 = the world is rendered twice per frame;

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <mutex>
@@ -19,9 +20,29 @@ namespace bfvr::control
 {
 	namespace
 	{
+		// World camera position from the GameRenderer's first RenderView (transform rows at +0x40,
+		// position at +0x70), read on the present thread at the start of the traced frame.
+		bool camera_position_now(float (&position)[3])
+		{
+#if defined(_M_X64)
+			std::uintptr_t renderer{}, views{};
+			if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(0x142672378ull), &renderer, sizeof(renderer), nullptr) || !renderer
+				|| !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(renderer + 0x60), &views, sizeof(views), nullptr) || !views)
+			{
+				return false;
+			}
+			return ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(views + 0x70), position, sizeof(position), nullptr) != FALSE;
+#else
+			(void)position;
+			return false;
+#endif
+		}
+
 		// ID3D11DeviceContext vtable slots (d3d11.h order).
 		enum slot : int
 		{
+			vs_set_constant_buffers = 7, map = 14, unmap = 15, ps_set_constant_buffers = 16, cs_set_constant_buffers = 71,
+			update_subresource = 48,
 			draw_indexed = 12, draw = 13, draw_indexed_instanced = 20, draw_instanced = 21,
 			om_set_render_targets = 33, om_set_render_targets_uav = 34, draw_indexed_instanced_indirect = 39,
 			draw_instanced_indirect = 40, dispatch = 41, dispatch_indirect = 42, rs_set_viewports = 44,
@@ -48,6 +69,60 @@ namespace bfvr::control
 		std::string result;
 		std::vector<void*> targets;
 		HMODULE own_module{};
+
+		// Camera position (world space) at the start of the recorded frame; uploads containing it are
+		// marked, which finds the per-view constants.
+		float camera_position[3]{};
+		bool camera_known{};
+		struct mapping
+		{
+			ID3D11Resource* resource{};
+			void* data{};
+		};
+		std::mutex map_lock;
+		std::vector<mapping> mappings;
+
+		std::string find_camera(const void* data, std::size_t size)
+		{
+			if (!camera_known || !data)
+			{
+				return {};
+			}
+			const auto* f = static_cast<const float*>(data);
+			std::string hits;
+			for (std::size_t i = 0; i + 3 <= size / 4 && hits.size() < 80; ++i)
+			{
+				if (std::fabs(f[i] - camera_position[0]) < 0.01f && std::fabs(f[i + 1] - camera_position[1]) < 0.01f
+					&& std::fabs(f[i + 2] - camera_position[2]) < 0.01f)
+				{
+					char text[24];
+					std::snprintf(text, sizeof(text), " cam@0x%zx", i * 4);
+					hits += text;
+				}
+			}
+			return hits;
+		}
+
+		std::size_t buffer_size(ID3D11Resource* resource)
+		{
+			D3D11_RESOURCE_DIMENSION dimension{};
+			resource->GetType(&dimension);
+			if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
+			{
+				return 0;
+			}
+			D3D11_BUFFER_DESC desc{};
+			static_cast<ID3D11Buffer*>(resource)->GetDesc(&desc);
+			return desc.ByteWidth;
+		}
+
+		std::string buffer_text(ID3D11Resource* resource)
+		{
+			const std::size_t size = buffer_size(resource);
+			char text[64];
+			std::snprintf(text, sizeof(text), size ? "%p:buf%zu" : "%p:texture", static_cast<void*>(resource), size);
+			return text;
+		}
 
 		std::string describe(ID3D11Resource* resource)
 		{
@@ -148,6 +223,17 @@ namespace bfvr::control
 		clear_depth_stencil_view_t original_clear_depth_stencil_view{};
 		resolve_subresource_t original_resolve_subresource{};
 		execute_command_list_t original_execute_command_list{};
+
+		using set_constant_buffers_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, ID3D11Buffer* const*);
+		using map_t = HRESULT(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, ID3D11Resource*, UINT, D3D11_MAP, UINT, D3D11_MAPPED_SUBRESOURCE*);
+		using unmap_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, ID3D11Resource*, UINT);
+		using update_subresource_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, ID3D11Resource*, UINT, const D3D11_BOX*, const void*, UINT, UINT);
+		set_constant_buffers_t original_vs_set_constant_buffers{};
+		set_constant_buffers_t original_ps_set_constant_buffers{};
+		set_constant_buffers_t original_cs_set_constant_buffers{};
+		map_t original_map{};
+		unmap_t original_unmap{};
+		update_subresource_t original_update_subresource{};
 
 		std::string targets_text(UINT count, ID3D11RenderTargetView* const* views, ID3D11DepthStencilView* depth)
 		{
@@ -278,6 +364,94 @@ namespace bfvr::control
 			original_execute_command_list(c, l, restore);
 		}
 
+		std::string constant_buffers_text(UINT start, UINT count, ID3D11Buffer* const* buffers)
+		{
+			std::string text = "slot " + std::to_string(start) + " [";
+			for (UINT i = 0; i < count && buffers && i < 8; ++i)
+			{
+				char b[24];
+				std::snprintf(b, sizeof(b), "%s%p", i ? " " : "", static_cast<void*>(buffers[i]));
+				text += b;
+			}
+			return text + "]";
+		}
+		void STDMETHODCALLTYPE vs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("VSSetConstantBuffers", _ReturnAddress(), constant_buffers_text(s, n, b));
+			}
+			original_vs_set_constant_buffers(c, s, n, b);
+		}
+		void STDMETHODCALLTYPE ps_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("PSSetConstantBuffers", _ReturnAddress(), constant_buffers_text(s, n, b));
+			}
+			original_ps_set_constant_buffers(c, s, n, b);
+		}
+		void STDMETHODCALLTYPE cs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				add("CSSetConstantBuffers", _ReturnAddress(), constant_buffers_text(s, n, b));
+			}
+			original_cs_set_constant_buffers(c, s, n, b);
+		}
+		HRESULT STDMETHODCALLTYPE map_detour(ID3D11DeviceContext* c, ID3D11Resource* r, UINT s, D3D11_MAP type, UINT flags, D3D11_MAPPED_SUBRESOURCE* m)
+		{
+			const HRESULT hr = original_map(c, r, s, type, flags, m);
+			if (recording.load(std::memory_order_relaxed) && SUCCEEDED(hr) && m && (type == D3D11_MAP_WRITE_DISCARD || type == D3D11_MAP_WRITE_NO_OVERWRITE))
+			{
+				const std::lock_guard guard(map_lock);
+				mappings.push_back({ r, m->pData });
+			}
+			return hr;
+		}
+		void STDMETHODCALLTYPE unmap_detour(ID3D11DeviceContext* c, ID3D11Resource* r, UINT s)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				void* data{};
+				{
+					const std::lock_guard guard(map_lock);
+					for (auto it = mappings.begin(); it != mappings.end(); ++it)
+					{
+						if (it->resource == r)
+						{
+							data = it->data;
+							mappings.erase(it);
+							break;
+						}
+					}
+				}
+				const std::size_t size = data ? buffer_size(r) : 0;
+				// Only uploads that hold the camera get a line; the rest would drown the trace.
+				const std::string hits = size && size <= (1u << 20) ? find_camera(data, size) : std::string();
+				if (!hits.empty())
+				{
+					add("Unmap", _ReturnAddress(), buffer_text(r) + hits);
+				}
+			}
+			original_unmap(c, r, s);
+		}
+		void STDMETHODCALLTYPE update_subresource_detour(ID3D11DeviceContext* c, ID3D11Resource* r, UINT s, const D3D11_BOX* box, const void* data,
+			UINT row, UINT depth)
+		{
+			if (recording.load(std::memory_order_relaxed))
+			{
+				std::size_t size = buffer_size(r);
+				if (box && size)
+				{
+					size = box->right - box->left;
+				}
+				const std::string hits = size && size <= (1u << 20) ? find_camera(data, size) : std::string();
+				add("UpdateSubresource", _ReturnAddress(), buffer_text(r) + (box ? " box" : "") + hits);
+			}
+			original_update_subresource(c, r, s, box, data, row, depth);
+		}
+
 		bool create_hooks(ID3D11DeviceContext* context)
 		{
 			void** const vtable = *reinterpret_cast<void***>(context);
@@ -299,6 +473,12 @@ namespace bfvr::control
 				{ clear_depth_stencil_view, &clear_depth_stencil_view_detour, reinterpret_cast<void**>(&original_clear_depth_stencil_view) },
 				{ resolve_subresource, &resolve_subresource_detour, reinterpret_cast<void**>(&original_resolve_subresource) },
 				{ execute_command_list, &execute_command_list_detour, reinterpret_cast<void**>(&original_execute_command_list) },
+				{ vs_set_constant_buffers, &vs_set_constant_buffers_detour, reinterpret_cast<void**>(&original_vs_set_constant_buffers) },
+				{ ps_set_constant_buffers, &ps_set_constant_buffers_detour, reinterpret_cast<void**>(&original_ps_set_constant_buffers) },
+				{ cs_set_constant_buffers, &cs_set_constant_buffers_detour, reinterpret_cast<void**>(&original_cs_set_constant_buffers) },
+				{ map, &map_detour, reinterpret_cast<void**>(&original_map) },
+				{ unmap, &unmap_detour, reinterpret_cast<void**>(&original_unmap) },
+				{ update_subresource, &update_subresource_detour, reinterpret_cast<void**>(&original_update_subresource) },
 			};
 			for (const auto& entry : table)
 			{
@@ -372,6 +552,8 @@ namespace bfvr::control
 				}
 				file << "\n";
 			}
+			file << "# camera " << camera_position[0] << " " << camera_position[1] << " " << camera_position[2]
+				<< (camera_known ? "" : " (unknown)") << "\n";
 			result = "ok " + output_path + " events=" + std::to_string(events.size()) + " draws=" + std::to_string(draws);
 		}
 	}
@@ -433,6 +615,7 @@ namespace bfvr::control
 				}
 			}
 			events.clear();
+			camera_known = camera_position_now(camera_position);
 			set_enabled(true);
 			recording = true;
 			state = 2;

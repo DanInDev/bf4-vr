@@ -74,6 +74,7 @@ target_compile_options(bfvr_common PUBLIC /W4 /permissive-)
 # Everything that runs inside the game: hooks, OpenXR, start-up.
 add_library(bfvr_runtime STATIC
 	src/control/control_pipe.cpp
+	src/control/crash_log.cpp
 	src/control/frame_trace.cpp
 	src/control/thread_stacks.cpp
 	src/control/watchpoint.cpp
@@ -90,6 +91,8 @@ add_library(bfvr_runtime STATIC
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
+	src/stereo/eye_math.cpp
+	src/stereo/eye_pass.cpp
 	src/stereo/hud_capture.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
@@ -115,4 +118,13 @@ if(BFVR_BUILD_TESTS)
 	# Arm IK solver on a synthetic chain; exits non-zero on failure.
 	add_executable(bfvr_arm_ik_test tests/arm_ik_test.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_arm_ik_test PRIVATE bfvr_common)
+
+	# Per-eye maths: pose composition, rendered frustum, complete pairs; exits non-zero on failure.
+	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp)
+	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
+
+	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
+	enable_testing()
+	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
+	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
 endif()
