@@ -20,6 +20,7 @@
 #include "input/virtual_pad.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
 #include "xr/theater.hpp"
 
@@ -40,6 +41,8 @@ namespace bfvr::core
 			{
 				control::on_present(swap_chain);
 			}
+			// Before the theater: it shows the HUD captured for this frame.
+			stereo::hud_capture_on_present(swap_chain);
 			if (theater)
 			{
 				theater->on_present(swap_chain);
@@ -101,6 +104,7 @@ namespace bfvr::core
 			{
 				stereo::install_view_experiment();
 			}
+			stereo::install_hud_capture();
 			// Arm pose hook: arm IK to the controllers, and the research bone edits.
 			if (config::get_bool("arm_ik", true) || (config::research_enabled() && config::get_bool("arm_pose_hook", true)))
 			{

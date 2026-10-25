@@ -23,6 +23,7 @@
 #include "control/thread_stacks.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -54,16 +55,26 @@ namespace bfvr::control
 			UINT width{};
 			UINT height{};
 			std::vector<std::uint8_t> bgra;
+			bool hud{}; // the HUD layer texture (alpha kept) instead of the back buffer
 		};
 		std::mutex shot_lock;
 		shot_request shot;
 
-		// Copies the back buffer to CPU memory as opaque BGRA. Runs on the present thread.
-		std::string capture(IDXGISwapChain* swap_chain, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
+		// Copies the back buffer (or the HUD layer texture) to CPU memory as BGRA; the back buffer's
+		// alpha is not meaningful on screen and is made opaque. Runs on the present thread.
+		std::string capture(IDXGISwapChain* swap_chain, bool hud, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
 		{
 			ComPtr<ID3D11Texture2D> back_buffer;
 			ComPtr<ID3D11Device> device;
-			if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer))) || FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
+			if (hud)
+			{
+				back_buffer = stereo::latest_hud().texture;
+				if (!back_buffer)
+				{
+					return "no HUD texture (hud_layer = 0, or no frame captured yet)";
+				}
+			}
+			if ((!hud && FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) || FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
 			{
 				return "back buffer unavailable";
 			}
@@ -124,7 +135,7 @@ namespace bfvr::control
 					target[x * 4 + 0] = source[x * 4 + (swap_red_blue ? 2 : 0)];
 					target[x * 4 + 1] = source[x * 4 + 1];
 					target[x * 4 + 2] = source[x * 4 + (swap_red_blue ? 0 : 2)];
-					target[x * 4 + 3] = 0xFF; // the game's alpha is not meaningful on screen
+					target[x * 4 + 3] = hud ? source[x * 4 + 3] : 0xFF;
 				}
 			}
 			context->Unmap(staging.Get(), 0);
@@ -176,7 +187,7 @@ namespace bfvr::control
 			return wide;
 		}
 
-		std::string take_screenshot(const std::string& path)
+		std::string take_screenshot(const std::string& path, bool hud = false)
 		{
 			if (path.empty())
 			{
@@ -186,6 +197,7 @@ namespace bfvr::control
 			{
 				const std::lock_guard guard(shot_lock);
 				shot = {};
+				shot.hud = hud;
 				shot.pending = true;
 				shot.done = CreateEventW(nullptr, TRUE, FALSE, nullptr);
 			}
@@ -389,6 +401,7 @@ namespace bfvr::control
 				}
 			}
 			if (command == "shot") return take_screenshot(argument);
+			if (command == "hudshot") return take_screenshot(argument, true);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
@@ -587,7 +600,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
@@ -672,7 +685,7 @@ namespace bfvr::control
 		if (shot.pending)
 		{
 			shot.copies_at_capture = stereo::stats().copies;
-			shot.error = capture(swap_chain, shot.width, shot.height, shot.bgra);
+			shot.error = capture(swap_chain, shot.hud, shot.width, shot.height, shot.bgra);
 			shot.pending = false;
 			SetEvent(shot.done);
 		}

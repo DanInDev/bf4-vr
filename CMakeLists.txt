@@ -90,6 +90,7 @@ add_library(bfvr_runtime STATIC
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
+	src/stereo/hud_capture.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
 	src/xr/controller_actions.cpp

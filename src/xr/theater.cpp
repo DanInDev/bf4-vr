@@ -25,6 +25,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
@@ -129,6 +130,7 @@ namespace bfvr::xr
 		XrSystemId system{ XR_NULL_SYSTEM_ID };
 		XrSession session{ XR_NULL_HANDLE };
 		XrSpace space{ XR_NULL_HANDLE };
+		XrSpace view_space{ XR_NULL_HANDLE }; // head-locked layers (HUD)
 		bool session_running{};
 
 		// xrWaitFrame runs on its own thread so a throttled headset (taken off, dashboard open)
@@ -183,6 +185,18 @@ namespace bfvr::xr
 		stereo::fov eye_fovs[2];
 		std::uint64_t last_stored_copy{};
 		std::uint64_t eye_images_stored{};
+
+		// HUD layer (hud_layer = 1, stereo/hud_capture.hpp): the game's HUD on a head-locked quad in
+		// front of the eyes, at a size and distance that keep it inside the visible lens area.
+		const bool hud_mode{ stereo_mode && config::get_bool("hud_layer", false) };
+		const float hud_distance{ static_cast<float>(std::atof(config::get("hud_distance", "1.5").c_str())) };
+		const float hud_width{ static_cast<float>(std::atof(config::get("hud_width", "1.3").c_str())) };
+		XrSwapchain hud_swapchain{ XR_NULL_HANDLE };
+		std::vector<XrSwapchainImageD3D11KHR> hud_images;
+		UINT hud_swapchain_width{};
+		UINT hud_swapchain_height{};
+		std::uint64_t hud_seen_frame{};
+		int hud_idle_frames{};
 
 		~state()
 		{
@@ -357,6 +371,11 @@ namespace bfvr::xr
 			space_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
 			space_info.poseInReferenceSpace.orientation.w = 1.0f;
 			if (!check(xrCreateReferenceSpace(session, &space_info, &space), "xrCreateReferenceSpace"))
+			{
+				return false;
+			}
+			space_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+			if (!check(xrCreateReferenceSpace(session, &space_info, &view_space), "xrCreateReferenceSpace(VIEW)"))
 			{
 				return false;
 			}
@@ -558,6 +577,113 @@ namespace bfvr::xr
 			log::write("theater: swap chain %ux%u x%u, back buffer format %d -> runtime format %d, %u images",
 				swapchain_width, swapchain_height, info.arraySize, back_buffer.Format, chosen, count);
 			return true;
+		}
+
+		bool ensure_hud_swapchain(const D3D11_TEXTURE2D_DESC& hud)
+		{
+			if (hud_swapchain != XR_NULL_HANDLE && hud.Width == hud_swapchain_width && hud.Height == hud_swapchain_height)
+			{
+				return true;
+			}
+			destroy_hud_swapchain();
+			std::uint32_t count{};
+			if (!check(xrEnumerateSwapchainFormats(session, 0, &count, nullptr), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			std::vector<std::int64_t> formats(count);
+			if (!check(xrEnumerateSwapchainFormats(session, count, &count, formats.data()), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			DXGI_FORMAT chosen = DXGI_FORMAT_UNKNOWN;
+			for (const DXGI_FORMAT candidate : format_preferences(hud.Format))
+			{
+				if (std::find(formats.begin(), formats.end(), static_cast<std::int64_t>(candidate)) != formats.end())
+				{
+					chosen = candidate;
+					break;
+				}
+			}
+			if (chosen == DXGI_FORMAT_UNKNOWN)
+			{
+				return false;
+			}
+			XrSwapchainCreateInfo info{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+			info.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+			info.format = chosen;
+			info.sampleCount = 1;
+			info.width = hud.Width;
+			info.height = hud.Height;
+			info.faceCount = 1;
+			info.arraySize = 1;
+			info.mipCount = 1;
+			if (!check(xrCreateSwapchain(session, &info, &hud_swapchain), "xrCreateSwapchain(HUD)")
+				|| !check(xrEnumerateSwapchainImages(hud_swapchain, 0, &count, nullptr), "xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			hud_images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+			if (!check(xrEnumerateSwapchainImages(hud_swapchain, count, &count,
+					reinterpret_cast<XrSwapchainImageBaseHeader*>(hud_images.data())), "xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			hud_swapchain_width = hud.Width;
+			hud_swapchain_height = hud.Height;
+			log::write("theater: HUD swap chain %ux%u, format %d, quad %.2f m wide at %.2f m", hud.Width, hud.Height, chosen, hud_width, hud_distance);
+			return true;
+		}
+
+		// The latest captured HUD into its swap chain; false when there is none to show.
+		bool copy_hud_to_swapchain()
+		{
+			const stereo::hud_frame hud = stereo::latest_hud();
+			if (!hud.texture)
+			{
+				return false;
+			}
+			// The HUD is not drawn on every frame type (cutscenes, loading); hide a stale one.
+			hud_idle_frames = hud.frame == hud_seen_frame ? hud_idle_frames + 1 : 0;
+			hud_seen_frame = hud.frame;
+			if (hud.frame == 0 || hud_idle_frames > 30)
+			{
+				return false;
+			}
+			D3D11_TEXTURE2D_DESC desc{};
+			hud.texture->GetDesc(&desc);
+			if (!ensure_hud_swapchain(desc))
+			{
+				return false;
+			}
+			std::uint32_t index{};
+			XrSwapchainImageAcquireInfo acquire{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+			if (!check(xrAcquireSwapchainImage(hud_swapchain, &acquire, &index), "xrAcquireSwapchainImage(HUD)"))
+			{
+				return false;
+			}
+			XrSwapchainImageWaitInfo wait{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+			wait.timeout = XR_INFINITE_DURATION;
+			if (!check(xrWaitSwapchainImage(hud_swapchain, &wait), "xrWaitSwapchainImage(HUD)"))
+			{
+				return false;
+			}
+			ComPtr<ID3D11DeviceContext> context;
+			device->GetImmediateContext(&context);
+			context->CopySubresourceRegion(hud_images[index].texture, 0, 0, 0, 0, hud.texture, 0, nullptr);
+			XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+			return check(xrReleaseSwapchainImage(hud_swapchain, &release), "xrReleaseSwapchainImage(HUD)");
+		}
+
+		void destroy_hud_swapchain()
+		{
+			if (hud_swapchain != XR_NULL_HANDLE)
+			{
+				xrDestroySwapchain(hud_swapchain);
+				hud_swapchain = XR_NULL_HANDLE;
+			}
+			hud_images.clear();
+			hud_swapchain_width = hud_swapchain_height = 0;
 		}
 
 		// Stereo: keeps this Present's image as the eye the camera hook rendered it for.
@@ -843,9 +969,10 @@ namespace bfvr::xr
 			}
 
 			XrCompositionLayerQuad quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			XrCompositionLayerQuad hud_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerProjection projection{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
 			XrCompositionLayerProjectionView views[2]{ { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW }, { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW } };
-			const XrCompositionLayerBaseHeader* layers[1]{};
+			const XrCompositionLayerBaseHeader* layers[2]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
 			enter("copy to swap chain");
@@ -868,6 +995,20 @@ namespace bfvr::xr
 				projection.views = views;
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection);
 				layer_count = 1;
+
+				if (hud_mode && copy_hud_to_swapchain())
+				{
+					// The texture holds the HUD over transparent black: premultiplied alpha.
+					hud_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+					hud_quad.space = view_space;
+					hud_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+					hud_quad.subImage.swapchain = hud_swapchain;
+					hud_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(hud_swapchain_width), static_cast<std::int32_t>(hud_swapchain_height) };
+					hud_quad.pose.orientation.w = 1.0f;
+					hud_quad.pose.position.z = -hud_distance;
+					hud_quad.size = { hud_width, hud_width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width) };
+					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&hud_quad);
+				}
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
 			{
@@ -922,6 +1063,12 @@ namespace bfvr::xr
 		{
 			stop_waiter();
 			destroy_swapchain();
+			destroy_hud_swapchain();
+			if (view_space != XR_NULL_HANDLE)
+			{
+				xrDestroySpace(view_space);
+				view_space = XR_NULL_HANDLE;
+			}
 			if (space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(space);

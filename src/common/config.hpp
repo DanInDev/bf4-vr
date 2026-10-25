@@ -27,6 +27,9 @@ namespace bfvr::config
 	//   arm_ik_wrist = <x y z>                           wrist relative to the grip pose, metres, right hand (default 0 0 0.06)
 	//   arm_ik_pole  = <x y z>                           elbow direction from the shoulder, camera axes, right arm (default 0.5 -1 0.3)
 	//   render_size  = 0 | <w>x<h>                       virtual fullscreen mode: the game renders at that size (default 0, experimental)
+	//   hud_layer    = 0 | 1 | 2                         HUD on its own head-locked layer, not in the eye images
+	//                                                    (default 0; 2 = also without head tracking, monitor tests)
+	//   hud_distance / hud_width = <metres>              HUD quad placement (default 1.5 / 1.3)
 	//   keep_focus   = 1 | 0                             hide focus loss from the game (no 30 fps / 720p drop) (default 1)
 	//   research     = 1 | 0                             memory research pipe commands and research hooks
 	//                                                    (default 1 in Debug builds, 0 in Release builds)

@@ -57,9 +57,22 @@ sized for two. Each freeze can be localised with `threads` plus a write-watch on
 3. Alternative: drive the second eye at render-module level by re-running the world renderer's
    per-frame preparation (find what the dispatcher waits on, via `threads` during the `worldpass 2` hang).
 
-## HUD (#5): plan
+## HUD layer (#3/#5): built, monitor-verified 2026-10-25
 
-The HUD is drawn last, after the render modules, by `0x14063E210` into the back buffer. Wrapping that
-call and swapping the back-buffer render target for our own transparent texture gives a HUD-free eye
-image plus a HUD texture that can be shown as its own OpenXR quad layer (sharp, placed in the visible
-area, not bleeding into the lens corners).
+Correction to the frame table: the HUD is not drawn by the overlay call `0x14063E210`. Call stacks of
+the HUD draws show the **UI render module** (third module slot): `0x1401691C9` (module render,
+dispatches on the slot) → **UI render `0x1408863E0`** (binds the back buffer at `0x14088658E`, HUD via
+`0x140886640` → `0x140897E82` → draws from `0x140C81BD2`). The world module ends with the tonemap
+into the back buffer (`0x140CEAC6B`).
+
+`src/stereo/hud_capture.cpp` (`hud_layer = 1`): wraps the UI render; while it runs on a head-tracked
+frame, `OMSetRenderTargets(back buffer)` binds our transparent 2160² texture instead (cleared once per
+frame). The theater shows it as a head-locked quad (`hud_distance` 1.5 m, `hud_width` 1.3 m ≈ 47°),
+premultiplied alpha. Menus and loading screens are untouched (theater screen).
+
+| Check (monitor, `hud_layer = 2` = every frame) | Result |
+| --- | --- |
+| Eye image | HUD-free: world, hands, gun only |
+| HUD texture (`hudshot`) | minimap, ammo, objective, squad markers, crosshair; alpha 0–255 |
+| Pitfall | The detour must pass all six argument slots through bit for bit (64-bit): declaring them `int`/`float` changed the callee's register/stack view and leaked a Twinkle lock (`0x141110102`), freezing the game thread |
+| Known limitation | 3D markers (squad tags, objectives) are screen-space HUD too: on a head-locked layer they no longer sit on their targets |

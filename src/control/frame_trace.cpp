@@ -303,7 +303,13 @@ namespace bfvr::control
 			for (const auto& entry : table)
 			{
 				const MH_STATUS status = MH_CreateHook(vtable[entry.slot], entry.detour, entry.original);
-				if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED)
+				if (status == MH_ERROR_ALREADY_CREATED)
+				{
+					// Owned by a permanent hook (OMSetRenderTargets: hud_capture); not traced, never disabled here.
+					log::write("frametrace: slot %d already hooked; not traced", entry.slot);
+					continue;
+				}
+				if (status != MH_OK)
 				{
 					log::write("frametrace: hooking slot %d failed: %s", entry.slot, MH_StatusToString(status));
 					return false;
