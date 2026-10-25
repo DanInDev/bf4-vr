@@ -14,7 +14,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
-#include "hooks/focus_keeper.hpp"
+#include "hooks/game_window.hpp"
 
 namespace bfvr::hooks
 {
@@ -200,6 +200,7 @@ namespace bfvr::hooks
 			if (overriding() && is_game_swap_chain(swap_chain))
 			{
 				virtual_fullscreen = fullscreen != FALSE;
+				set_virtual_client_size(fullscreen ? mode_width : 0, fullscreen ? mode_height : 0);
 				log::write("dxgi: SetFullscreenState %d (virtual)", fullscreen);
 				return S_OK;
 			}
@@ -257,9 +258,10 @@ namespace bfvr::hooks
 			}
 			// The window covers the monitor; every further ResizeTarget would only send window messages
 			// that make the game apply its mode again, every frame.
-			RECT client{};
-			GetClientRect(desc.OutputWindow, &client);
-			if (client.right == screen.right - screen.left && client.bottom == screen.bottom - screen.top)
+			// GetWindowRect: GetClientRect answers with the virtual size (game_window.cpp).
+			RECT placed{};
+			GetWindowRect(desc.OutputWindow, &placed);
+			if (EqualRect(&placed, &screen) && (GetWindowLongPtrW(desc.OutputWindow, GWL_STYLE) & WS_POPUP))
 			{
 				return S_OK;
 			}
@@ -382,7 +384,11 @@ namespace bfvr::hooks
 			}
 			if (SUCCEEDED(result) && game && swap_chain && *swap_chain)
 			{
-				keep_focus(desc->OutputWindow);
+				attach_game_window(desc->OutputWindow);
+				if (virtual_fullscreen.load())
+				{
+					set_virtual_client_size(mode_width, mode_height);
+				}
 				static bool mode_lookup_hooked = false;
 				if (!mode_lookup_hooked && overriding())
 				{

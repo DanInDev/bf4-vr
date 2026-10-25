@@ -11,7 +11,7 @@
 #include "common/log.hpp"
 #include "control/control_pipe.hpp"
 #include "hooks/dxgi_probe.hpp"
-#include "hooks/focus_keeper.hpp"
+#include "hooks/game_window.hpp"
 #include "hooks/nvapi_hook.hpp"
 #include "hooks/present_hook.hpp"
 #include "hooks/swap_chain_size.hpp"

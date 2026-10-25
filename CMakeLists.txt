@@ -77,7 +77,7 @@ add_library(bfvr_runtime STATIC
 	src/control/watchpoint.cpp
 	src/core/core.cpp
 	src/hooks/dxgi_probe.cpp
-	src/hooks/focus_keeper.cpp
+	src/hooks/game_window.cpp
 	src/hooks/nvapi_hook.cpp
 	src/hooks/present_hook.cpp
 	src/hooks/swap_chain_size.cpp

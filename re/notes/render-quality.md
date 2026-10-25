@@ -30,15 +30,15 @@ Session 2026-10-25, branch `feature/render-quality`. Monitor-only measurements (
 | Forcing a bigger back buffer under the game (ResizeBuffers override only) gives a **black image**: the engine keeps its 1920x1080 targets and its final copy into the bigger buffer does nothing | Pipe shot: all pixels 0 |
 | Offering a virtual 2160x2160 mode (FindClosestMatchingMode answer, fullscreen kept virtual = swap chain windowed) makes the **engine render at 2160x2160** | `back_buffer=2160x2160` in pipe status |
 | …but it then re-applies the mode **every frame** (FindClosest + ResizeBuffers per frame, ~57 fps) because the virtual mode is not in the cached list. Adding the mode to `IDXGIOutput::GetDisplayModeList` did not help (the cache is filled through another path); hooking `0x140BE4EB0` to accept the virtual size **stopped the loop** (1 mode query per run) | `rendersize` pipe report: `mode_queries=1` |
-| Remaining: in the menu something still calls `ResizeBuffers` with the same size every frame (skipped by the hook, 3795 in ~2 min) and fps was 18.8; caller not identified yet (logging added: `same-size ResizeBuffers … from <addr>`) | `rendersize` report |
+| The remaining per-frame rebuild came from the renderer's window check `0x140BF4E60`: every frame it reads the client size (`GetClientRect`, IAT call at `0x140BF4F42`; `IsIconic` at `0x140BF4F30`) into window+0x60/0x64 and, in fullscreen, rebuilds the swap chain (`0x140C0A4C0` → `0x140C10F00` → `0x140C0AFC0`, ResizeBuffers at `0x140C0B03C`) when it differs from the mode. Reporting the virtual size from `GetClientRect` for the game window (mouse coordinates scaled to match) **fixed it: 120 fps (VR cap) in menu and level at 2160x2160**, 4 rebuilds at start-up only, menu clicks still land | IAT entries resolved live against user32; pipe status |
 | On focus loss the engine leaves fullscreen: `SetFullscreenState 0` → `ResizeBuffers 1280x720` (this is the 720p drop from the headset tests) | Log 17:52:59 |
 
 ## Built (all behind `bfvr.ini` switches)
 
 | Switch | Default | What | State |
 | --- | --- | --- | --- |
-| `render_size = WxH` | 0 (off) | Virtual fullscreen mode of that size (`src/hooks/swap_chain_size.cpp`): mode query answered with the size, exclusive fullscreen faked, borderless monitor-sized window, mode lookup hook `0x140BE4EB0`, same-size `ResizeBuffers` skipped | Renders at 2160x2160; **fps problem open** (see above) — do not use for play yet |
-| `keep_focus = 1` | 1 | `src/hooks/focus_keeper.cpp`: filters the window's deactivation messages, `GetForegroundWindow` answers with the game window, `ClipCursor`/`SetCursorPos` only act while BF4 really is in front | **Built, never run** — first run was interrupted. If anything misbehaves set `keep_focus = 0` |
+| `render_size = WxH` | 0 (off) | Virtual fullscreen mode of that size (`src/hooks/swap_chain_size.cpp`): mode query answered with the size, exclusive fullscreen faked, borderless monitor-sized window, mode lookup hook `0x140BE4EB0`, same-size `ResizeBuffers` skipped; the game window reports the virtual client size (`src/hooks/game_window.cpp`) | Works at 2160x2160, 120 fps |
+| `keep_focus = 1` | 1 | `src/hooks/game_window.cpp`: filters the window's deactivation messages, `GetForegroundWindow` answers with the game window, `ClipCursor`/`SetCursorPos` only act while BF4 really is in front | Works: focus losses hidden, no 720p drop |
 | pipe `rendersize` | – | Report: render_size, buffer, game_fullscreen, resizes, same-size skips, mode queries (also appended to `status`) | Works |
 
 ## Results table (monitor)
@@ -52,12 +52,11 @@ Session 2026-10-25, branch `feature/render-quality`. Monitor-only measurements (
 | + mode list entries | 2160x2160 | 2160x2160 | 58 / 55 | – | no change |
 | + same-size resize skip | 2160x2160 | 2160x2160 | 32 / 19 | – | VR session was live (session_state 5) |
 | + `0x140BE4EB0` hook | 2160x2160 | 2160x2160 → 1280x720 | 18.8 / 115 | – | loop gone; menu still slow; focus loss dropped to 720p |
+| + `keep_focus`, virtual `GetClientRect` | 2160x2160 | 2160x2160 | **120 / 120** (VR cap) | full square image, HUD laid out for it | user played it: "helped a ton", look and performance |
 | Render.ResolutionScale, AA, DOF, sharpening | – | – | – | – | not measured yet |
 
 ## Next steps
 
-1. Run the build with `keep_focus` (expect no 720p drop), read the `same-size ResizeBuffers … from`
-   address and find what keeps resizing in the menu; check the level image at 2160x2160 (pipe shot).
 2. Measure `Render.ResolutionScale` 1.25/1.5 and `AntiAliasingPost 0` (user.cfg / console), per lever.
 3. Prototype the up-tilt of the render frustum (above).
 4. HUD in the corners: try `GstRender.ScreenSafeAreaWidth/Height` < 1 to pull the HUD into the visible area
