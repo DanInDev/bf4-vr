@@ -13,9 +13,11 @@ arms. The pass's FOV is still unknown.
 | `+0xED0` | **First-person camera**, soldier-local: rows right, up, forward, position (position = eye above the feet, e.g. (0.054, 1.56, 0.077)) |
 | `+0xF10` | the same camera in world space |
 | `+0xF50` | soldier (feet) position, world |
-| `+0xF60…+0xFEF` | a second copy of that set (no visible effect when shifted) |
-| `+0x1030…` | a fourth view description (local at +0x1030, world at +0x1070, FOV 0.7854 at +0x10E4, 0.96 at +0x10E8, near 0.06, far 20000, aspect 1.778) |
-| `+0x1008…+0x1014` | 1.0, 0.8029, 0.99, 100.0 (no visible effect on the gun) |
+| `+0xF60…+0xFEF` | history copy: rewritten from +0xED0 or the previous frame by `0x140848B79` after our hook, so edits there are discarded |
+| `+0xFF4`, `+0xFF8` | world fade, blur (GameRenderSettings) |
+| `+0x100C` | **shadow-map minimum FOV** `(1 + [GameView+0x13D0])·π/180` or −1, read at `0x140CE0D8C` (not the gun FOV) |
+| `+0x1008`, `+0x1010` | shadow inputs from the camera |
+| `+0x1020…` | the block is an array with stride 0x1020: +0x1030 is element 1 (second split-screen view, unused) |
 
 RenderView `+0x00` (in each of the three views) holds the same local camera; only `+0xED0` moves the gun.
 
@@ -32,6 +34,28 @@ RenderView `+0x00` (in each of the three views) holds the same local camera; onl
 How the candidates were found: `tools/matrix_search.py` listed 71 copies of the camera rotation
 reachable from the renderer, camera manager and soldier; with the world view shifted by 0.3 m
 (`view 0 0 0.3`) 23 copies kept the original camera, including the +0xED0 set.
+
+## How +0xED0 is built (static analysis, 2026-10-25)
+
+`0x140828090` (game side) fills each view, then copies view 0's +0x00..+0x8F (local transform,
+world transform, +0x80) into +0xED0..+0xF5F (`0x1408281CB`). An optional camera override at
+`0x140828249` (`setTransform` `0x140B8A0A0`) runs after that copy and moves only the world view.
+On the render thread `0x1408CAF70` builds a 0x1560-byte descriptor per view (weapon camera at
+descriptor +0x13E0); no code reads it at a fixed offset except copies.
+
+## The gun is the foreground pass (verified live)
+
+| Test | Result |
+| --- | --- |
+| `WorldRenderSettings.ForegroundEnable` (+0x12E) = 0 | **gun and arms disappear** (not redrawn in the world pass) |
+| `ForegroundDepthClearEnable` (+0x12F) = 0 | no visible change (no wall close to the gun) |
+| view 0 eye separation (+0xD0) = 0.3 | world and gun shift together: the foreground projection shares view 0's inputs |
+| view 0 near plane (+0xBC) = 0.6 | gun not clipped |
+
+The live WorldRenderSettings is found through the settings manager `[0x14261E930]` (lookup
+`0x140688C50(manager, ClassInfo)`), 3 pointer hops deep, identified by its getType().
+All projections go through `0x140B7EA10` → `0x140B7EAE0` (inputs: RenderView +0xB0 type,
++0xB4 fov, +0xBC near, +0xC0 far, +0xC4 aspect, +0xD0 eye separation, +0xD4 convergence).
 
 ## Open: the first-person FOV
 
