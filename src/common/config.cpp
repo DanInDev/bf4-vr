@@ -82,4 +82,14 @@ namespace bfvr::config
 		const std::string value = lower(get(key, fallback ? "1" : "0"));
 		return !(value == "0" || value == "false" || value == "off" || value == "no");
 	}
+
+	bool research_enabled()
+	{
+#if defined(NDEBUG)
+		static const bool enabled = get_bool("research", false);
+#else
+		static const bool enabled = get_bool("research", true);
+#endif
+		return enabled;
+	}
 }

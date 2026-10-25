@@ -75,5 +75,7 @@ type codes          0 Void 1 DbObject 2 ValueType 3 Class 4 Array 5 FixedArray 6
 
 ## Corrections
 
-- The global `0x142670D80`, so far labelled "ClientGameContext", points at an untyped object whose
-  members are a `GameView`, `DxTexture`s and `DxRenderTargetView`s: render-side, not the game context.
+- The global `0x142670D80` **is** the (unreflected) ClientGameContext after all: besides a `GameView`
+  (+0x70) and render targets it holds the current `Level*` at +0x28 (static analysis of the writer
+  `0x140825E7E`; live level path read through it). A first reading here called it render-side; that
+  was wrong.

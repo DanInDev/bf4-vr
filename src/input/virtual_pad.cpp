@@ -14,6 +14,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "safety/mp_guard.hpp"
 
 namespace bfvr::input
 {
@@ -40,6 +41,11 @@ namespace bfvr::input
 				if (!config::get_bool("virtual_pad", true))
 				{
 					log::write("virtual pad: disabled (virtual_pad=0)");
+					return false;
+				}
+				// Campaign only: never wrap anything in a process started to join multiplayer.
+				if (!safety::command_line_allows_mod())
+				{
 					return false;
 				}
 				if (!config::get_bool("gamepad", true) || !config::get_bool("theater", true))
@@ -215,7 +221,8 @@ namespace bfvr::input
 
 			HRESULT STDMETHODCALLTYPE EnumDevices(DWORD type, LPDIENUMDEVICESCALLBACKA callback, LPVOID context, DWORD flags) override
 			{
-				if (type != DI8DEVCLASS_GAMECTRL || !callback)
+				// After a multiplayer-guard trip the game only sees its real devices.
+				if (type != DI8DEVCLASS_GAMECTRL || !callback || safety::mod_disabled())
 				{
 					return real_->EnumDevices(type, callback, context, flags);
 				}

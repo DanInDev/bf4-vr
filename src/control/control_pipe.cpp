@@ -13,8 +13,11 @@
 #include <thread>
 #include <vector>
 
+#include "body/arm_pose.hpp"
+#include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "safety/mp_guard.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 
@@ -370,6 +373,17 @@ namespace bfvr::control
 			const std::string argument = space == std::string::npos ? std::string() : line.substr(space + 1);
 
 			if (command == "status") return status();
+			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
+			// Memory research and test overrides: off in release builds unless research = 1.
+			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
+				"aspect", "bone", "eye", "eyealt", "fov", "view" };
+			for (const char* research : research_commands)
+			{
+				if (command == research && !config::research_enabled())
+				{
+					return "error: '" + command + "' needs research = 1 in bfvr.ini";
+				}
+			}
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
@@ -424,6 +438,28 @@ namespace bfvr::control
 					return "error: usage: pin <slot 0..3> <hex offset in view params, 4-aligned, 0 = off> <float>";
 				}
 				return "pin " + std::to_string(slot) + " offset=" + std::to_string(offset) + " value=" + std::to_string(value);
+			}
+			if (command == "gunscale")
+			{
+				float scale = 0.0f;
+				if (!argument.empty() && sscanf_s(argument.c_str(), "%f", &scale) == 1)
+				{
+					stereo::set_gun_scale(scale);
+				}
+				return "gun_scale=" + std::to_string(stereo::current_gun_scale());
+			}
+			if (command == "bone")
+			{
+				int bone = -1;
+				float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+				if (sscanf_s(argument.c_str(), "%d %f %f %f", &bone, &dx, &dy, &dz) < 1)
+				{
+					return "error: usage: bone <index, -1 = off> <dx> <dy> <dz>";
+				}
+				body::set_bone_offset(bone, dx, dy, dz);
+				const body::arm_pose_stats seen = body::stats();
+				return "bone " + std::to_string(bone) + " offset=(" + std::to_string(dx) + "," + std::to_string(dy) + "," + std::to_string(dz)
+					+ ") conversions=" + std::to_string(seen.conversions) + " matched=" + std::to_string(seen.matched);
 			}
 			if (command == "aspect")
 			{
@@ -487,7 +523,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | gunscale [g] | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 
@@ -11,6 +12,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "safety/mp_guard.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -66,6 +68,10 @@ namespace bfvr::stereo
 		// Research: a synthetic head yaw (degrees) applied like an eye pose when no headset drives
 		// the camera, to check that the world and the gun turn together.
 		std::atomic<float> fake_yaw_degrees{};
+		// Apparent size of the gun and arms (1 = the game's). The foreground pass has its own fixed
+		// FOV; multiplying the first-person camera's right and up rows by g scales the drawn gun by g
+		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
+		std::atomic<float> gun_scale{ 1.0f };
 		std::atomic<float> view_fov[3]{};
 		std::atomic<float> view_shift[3]{};
 		// Research: shift any transform (rows right, up, forward, position) inside the view-params
@@ -289,6 +295,15 @@ namespace bfvr::stereo
 				}
 			}
 
+			if (const float scale = gun_scale.load(std::memory_order_relaxed); scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
+			{
+				auto* rows = reinterpret_cast<float*>(params + first_person_transform);
+				for (int i = 0; i < 8; ++i) // right and up rows (4 floats each; w stays 0)
+				{
+					rows[i] *= scale;
+				}
+			}
+
 			publish_rendered_view(tag);
 			return result;
 		}
@@ -351,6 +366,10 @@ namespace bfvr::stereo
 			std::uint8_t bytes[sizeof(expected_prologue)]{};
 			for (int attempt = 0; attempt < 600; ++attempt)
 			{
+				if (safety::mod_disabled())
+				{
+					return 0;
+				}
 				if (ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(view_params_copy)), bytes, sizeof(bytes), nullptr)
 					&& std::memcmp(bytes, expected_prologue, sizeof(bytes)) == 0)
 				{
@@ -374,6 +393,7 @@ namespace bfvr::stereo
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
 		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
+		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -425,9 +445,20 @@ namespace bfvr::stereo
 		return true;
 	}
 
+	void set_gun_scale(float scale)
+	{
+		// Out-of-range or non-finite values would give the engine degenerate camera rows.
+		gun_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.25f), 4.0f) : 1.0f;
+	}
+
+	float current_gun_scale()
+	{
+		return gun_scale;
+	}
+
 	void set_research_aspect(float value)
 	{
-		research_aspect = value;
+		research_aspect = std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.2f), 5.0f) : 0.0f;
 	}
 
 	void set_fake_yaw(float degrees)

@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <string>
 
+#include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "control/control_pipe.hpp"
@@ -15,6 +16,7 @@
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
 #include "input/virtual_pad.hpp"
+#include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
 #include "xr/theater.hpp"
 
@@ -64,6 +66,16 @@ namespace bfvr::core
 
 		DWORD WINAPI start_thread(LPVOID)
 		{
+			if (!safety::command_line_allows_mod())
+			{
+				return 0;
+			}
+			safety::start_multiplayer_guard();
+			if (safety::mod_disabled())
+			{
+				return 0; // no guard, no hooks
+			}
+
 			// First, so it sees the game's earliest NVAPI queries.
 			if (config::get_bool("nvapi_probe", false))
 			{
@@ -78,6 +90,11 @@ namespace bfvr::core
 			if (config::get_bool("camera_hook", true))
 			{
 				stereo::install_camera_hook();
+			}
+			// Arm pose hook (research for now; IK later).
+			if (config::research_enabled() && config::get_bool("arm_pose_hook", true))
+			{
+				body::install_arm_pose_hook();
 			}
 
 			control_enabled = config::get_bool("control_pipe", true);
