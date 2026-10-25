@@ -2,6 +2,16 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## 2026-10-25 evening — arm IK (feature/arm-ik)
+
+| Item | Result |
+| --- | --- |
+| Hands follow the controllers (position, rotation) | ✅ |
+| Gun stays in the right hand and follows it | ✅ for guns ("flawless") |
+| Knife and other odd items | ❌ hand rotation wrong (animated hand is not a gun grip) |
+| Shoulders and arms look right | not judged (viewpoint); looked fine |
+| GPU driver reset 15:00:51 (nvlddmkm 153; Helldivers 2 crashed at the same moment) | froze BF4 once; not reproduced |
+
 ## 2026-10-25 retry — menus, controllers, sweeps
 
 | Item | Result |

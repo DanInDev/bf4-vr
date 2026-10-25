@@ -1,8 +1,9 @@
 # First-person skeleton and arm pose — BF4 build 179547
 
-Status: **injection point proven (2026-10-25).** Editing a bone of the local soldier's first-person
-local pose before the engine converts it moves the drawn arm (left hand pushed 0.3 m along the
-forearm: glove and forearm moved up to the sight). Groundwork for arm IK (#11).
+Status: **arm IK works in the headset (2026-10-25).** The first-person arms follow the Quest
+controllers (two-bone IK in the pose-conversion hook, `src/body/arm_pose.cpp`, `arm_ik.cpp`); the
+gun follows the right hand. Injection point proven earlier the same day (left hand pushed 0.3 m
+along the forearm moved the glove and forearm up to the sight).
 
 ## Where the pose lives
 
@@ -35,8 +36,65 @@ MinHook on `0x140716050`; recognises the local soldier's first-person pose objec
 pointers and edits the local pose before calling the original. Research command
 `bone <index> <dx> <dy> <dz>` adds a translation to one bone every frame (`bone -1` = off).
 
-## Next for IK
+## Rig facts (live, 2026-10-25)
 
-Read the shoulder in model space, solve two-bone IK (upper arm, forearm) to the controller pose,
-write local rotations for Arm/ForeArm/Hand. Needs the model-space frame relative to the
-first-person camera (+0xED0) to map controller poses in.
+- **Hierarchy** (`SkeletonAsset +0x28`, `Array<Int32>` parent indices, parent < child): Reference 0 ->
+  AITrajectory 1 -> CameraBase 4 -> CameraJoint 5; 1 -> SpineX 43 -> SpineXLeft 44 -> LeftShoulder 45 ->
+  LeftArm 46 -> LeftArmRoll 47 -> LeftForeArm 48 -> LeftForeArmRoll 49 -> LeftHand 51 (-> LeftWeapon 52,
+  fingers 53-76); right side mirrored: SpineXRight 89 -> RightShoulder 90 -> RightArm 91 -> RightArmRoll 92
+  -> RightForeArm 93 -> RightForeArmRoll 94 -> RightHand 96 (-> RightWeapon 97). ForeArmRoll1 50/95 are
+  siblings of the hands.
+- **The gun does not hang from the hand:** `Wep_Root` 126 is a child of SpineX 43 and parents every
+  weapon bone (Trigger, Slide, Mag, Scope, Belt, Bipod, `IK_Joint_LeftHand` 149, `IK_Joint_RightHand`
+  150, ...). `Wep_Aim` 161 is another child of SpineX.
+- **Spaces:** the local pose's root (Reference) carries the **world** transform, so forward kinematics
+  over the local pose gives world positions. The engine's model pose (+0x50 / object +0x130) is the
+  same with the root left out (our FK matches it to 0.00000 m; reading the quaternions as conjugates
+  is off by 0.4-1 m). Quaternions are Hamilton xyzw, model = parent * local, translation scaled by the
+  parent's scale (all 1 seen).
+- **First-person camera = CameraJoint + aim pitch:** the world first-person camera (view params
+  `+0xF10`) has exactly the CameraJoint position and yaw, but the joint carries no pitch:
+  camera = joint rotation * 180 deg about y (joint x points left, z forward; OpenXR x right, -z
+  forward) * pitch about x, pitch = soldier `+0x4DC` (matched the camera to 1e-6 rad).
+
+## Arm IK (`arm_ik = 1`, default on, also in release builds)
+
+1. The frame waiter records the predicted display time; the Present thread locates the grip and aim
+   poses (OpenXR LOCAL) right after `xrSyncActions`, under the XR-call lock, and publishes them
+   (`stereo::hand_sample`).
+2. In the conversion hook (local soldier's first-person rig, matched by its local-pose pointer,
+   refreshed every 250 ms; bones found by name) the IK'd bones are first restored to the animation
+   if it has not rewritten them since our last write (the conversion can run on a pose the
+   animation skipped).
+3. Rig frame F = CameraJoint (world) with the rotation above. Wrist goal = F * (grip position + grip
+   rotation * `arm_ik_wrist`); hand goal = F * aim * F^-1 * animated hand rotation (the controller turns
+   the authored hand, so pointing straight ahead keeps the authored grip); elbow pole = shoulder +
+   F * `arm_ik_pole`.
+4. Two-bone solve (`ik::solve_arm`): upper arm and forearm by shortest arcs to the law-of-cosines elbow,
+   half the wrist-twist change to the forearm roll bone, then the hand rotation. Out of reach: arm
+   straight towards the goal (rig arm about 0.56 m shoulder to wrist).
+5. `Wep_Root` is set to right hand * (animated hand^-1 * animated Wep_Root), so the gun keeps its
+   authored grip in the moved hand (`arm_ik_weapon`).
+
+Pipe: `arms` (rig, controller validity, FK check, camera joint, per-arm shoulder/elbow/wrist/goal and
+wrist in camera axes), `armik 0|1`; research: `hand <l|r> <x y z> [yaw pitch] | off` (synthetic
+target relative to the tracked head), `armaxes <q>`. Unit test: `bfvr_arm_ik_test`.
+
+## Verification (2026-10-25)
+
+| Test | Result |
+| --- | --- |
+| FK vs engine model pose (root removed) | 0.00000 m |
+| `hand r 0 0 -0.5` before the pitch fix | hand above the target; camera pitch -7 deg equals soldier +0x4DC -> added to F |
+| Synthetic targets (r 0.1 -0.15 -0.4, l -0.2 -0.25 -0.35) | both wrists on their goals; gun in the right hand after the Wep_Root fix (before: gun stayed at its animated place) |
+| `hand r ... 40 0` / `... 0 35` | gun turns left / points up |
+| Headset (Quest 3, Steam Link) | both hands follow the controllers in position and rotation; guns track the right hand "flawlessly". Knife and other odd items: hand rotation wrong. Shoulders/arms not judged (viewpoint) |
+
+## Open
+
+- Knife and other items: their animated hand pose is not a gun grip, so "aim turns the animated hand"
+  gives the wrong rotation; needs per-item handling (their bones may not hang from Wep_Root either).
+- Bullets still go where the aimer points, not the gun (decoupled aiming, #12).
+- Left hand on the weapon (`IK_Joint_LeftHand`) for two-handed aiming; shoulder (clavicle) reach;
+  tune `arm_ik_wrist` / `arm_ik_pole` in the headset.
+- With `gun_scale` != 1 the drawn arms are scaled about the view and no longer line up with the controllers.

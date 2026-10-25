@@ -8,8 +8,11 @@ Status (2026-10-25):
 - **Head-tracked stereo works in the headset** (alternate-eye rendering through SteamVR), and
   the first-person gun stays where the soldier aims while the head looks around (headset-tested).
 - Theater mode (a virtual screen) for menus; VR controllers act as an Xbox pad.
-- Per-eye rendering at the headset's aspect, `gun_scale`, a multiplayer guard and the arm-pose
-  hook (groundwork for arm IK) are built and checked on the monitor; headset checks pending.
+- **Arms follow the controllers** (two-bone IK on the first-person rig, `arm_ik`, default on): both
+  hands track position and rotation and the gun stays in the right hand (headset-tested); bullets
+  still follow the game's aim, and knife-type items rotate the hand wrongly.
+- Per-eye rendering at the headset's aspect, `gun_scale` and a multiplayer guard are built and
+  checked on the monitor.
 - Research tooling: a control pipe (status, screenshots, memory research commands), a TypeInfo
   dumper and live object naming (`docs/TOOLING.md`, `re/MAPPING.md`).
 
