@@ -81,13 +81,14 @@ add_library(bfvr_runtime STATIC
 	src/hooks/present_hook.cpp
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
+	src/input/virtual_pad.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/tracking.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
 )
-target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi windowscodecs ole32)
+target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid windowscodecs ole32)
 
 # Loaded by the game as dinput8.dll; forwards to the system DLL and starts the runtime.
 add_library(bfvr_loader SHARED

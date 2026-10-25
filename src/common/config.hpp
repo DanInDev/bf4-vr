@@ -11,6 +11,8 @@ namespace bfvr::config
 	//   theater      = 1 | 0                             stage 1 virtual screen (default 1)
 	//   xr_runtime   = auto | system | steamvr | <path>   OpenXR runtime manifest (default auto)
 	//   gamepad      = 1 | 0                             VR controllers as an Xbox pad (default 1)
+	//   virtual_pad  = 1 | 0                             offer a fake XInput pad to BF4's DirectInput enumeration, so the
+	//                                                    VR controllers work without a physical pad (default 1)
 	//   control_pipe = 1 | 0                             \\.\pipe\bfvr status/screenshot server (default 1)
 	//   nvapi_probe  = 0 | 1                             log NVAPI function IDs the game requests (default 0)
 	//   dxgi_probe   = 0 | 1                             log DXGI stereo queries and swap chain creation (default 0)

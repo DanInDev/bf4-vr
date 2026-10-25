@@ -14,6 +14,7 @@
 #include "hooks/present_hook.hpp"
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
+#include "input/virtual_pad.hpp"
 #include "stereo/camera_hook.hpp"
 #include "xr/theater.hpp"
 
@@ -42,19 +43,21 @@ namespace bfvr::core
 
 		std::string status_text()
 		{
-			char text[640];
+			char text[768];
 			const input::gamepad_state pad = input::latest();
 			const xr::theater_status vr = theater ? theater->status() : xr::theater_status{ "disabled" };
 			const stereo::camera_stats camera = stereo::stats();
+			const input::virtual_pad_stats virtual_pad = input::virtual_pad_counts();
 			std::snprintf(text, sizeof(text),
 				"game=%s\ntheater=%s session_state=%d presents=%llu submitted=%llu max_sync_ms=%.2f max_frame_ms=%.2f\n"
 				"pad connected=%d buttons=%04X lt=%u rt=%u left=(%d,%d) right=(%d,%d)\n"
-				"xinput get_state_calls=%llu get_capabilities_calls=%llu\n"
+				"xinput get_state_calls=%llu get_capabilities_calls=%llu virtual_pad_offered=%llu virtual_pad_xinput=%llu\n"
 				"camera copies=%llu copy_thread=%lu present_thread=%lu eye_offset=%.4f stereo=%d eye_images=%llu",
 				BFVR_GAME_NAME, vr.phase, vr.session_state, vr.presents_seen, vr.frames_submitted, vr.max_sync_ms, vr.max_frame_ms,
 				pad.connected ? 1 : 0, pad.buttons,
 				pad.left_trigger, pad.right_trigger, pad.left_x, pad.left_y, pad.right_x, pad.right_y,
 				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls,
+				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return text;
 		}

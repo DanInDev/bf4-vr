@@ -11,6 +11,10 @@ theater = 1
 #   <path>   any runtime manifest, e.g. a simulator: C:\Tools\MetaXRSimulator\meta_openxr_simulator.json
 xr_runtime = auto
 
+# Offer BF4 a fake XInput pad at start-up so the VR controllers work without a physical pad
+# plugged in (re/notes/gamepad.md). 0 = only a real pad makes BF4 read the controllers.
+virtual_pad = 1
+
 # Stage 2: alternate-eye stereo with head tracking (replaces the virtual screen once both eyes
 # have an image). Experimental; set to 0 to return to theater mode.
 stereo = 0
