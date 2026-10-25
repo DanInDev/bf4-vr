@@ -32,3 +32,11 @@ gun_scale = 1.0
 # small shows black edges. Tune in the headset (pipe: viewcrop <h> <v>).
 view_crop_h = 1.0
 view_crop_v = 1.0
+# First-person arms follow the VR controllers (two-bone IK on the arm bones, the gun stays in the
+# right hand). 0 = the game's animated arms. Pipe: armik 0|1, arms (diagnostics).
+arm_ik = 1
+# Wrist relative to the controller grip pose (metres, grip axes: -z along the handle, right hand;
+# mirrored for the left). Tune in the headset.
+arm_ik_wrist = 0 0 0.06
+# Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
+arm_ik_pole = 0.5 -1 0.3

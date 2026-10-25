@@ -376,7 +376,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -458,6 +458,39 @@ namespace bfvr::control
 				}
 				return "gun_scale=" + std::to_string(stereo::current_gun_scale());
 			}
+			if (command == "arms") return body::report();
+			if (command == "armik")
+			{
+				if (argument == "0" || argument == "1")
+				{
+					body::set_arm_ik(argument == "1");
+				}
+				return std::string("arm_ik=") + (body::arm_ik_enabled() ? "1" : "0");
+			}
+			if (command == "hand")
+			{
+				char side = 0;
+				float position[3]{}, yaw = 0.0f, pitch = 0.0f;
+				const int fields = sscanf_s(argument.c_str(), "%c %f %f %f %f %f", &side, 1u, &position[0], &position[1], &position[2], &yaw, &pitch);
+				const int hand = side == 'l' ? 0 : side == 'r' ? 1 : -1;
+				const bool off = argument.size() > 2 && argument.substr(2) == "off";
+				if (hand < 0 || (!off && fields < 4))
+				{
+					return "error: usage: hand <l|r> <x> <y> <z> [yaw deg] [pitch deg]  (camera axes: x right, y up, -z forward) | hand <l|r> off";
+				}
+				body::set_hand_target(hand, !off, position, yaw, pitch);
+				return off ? "hand target off" : "hand target set";
+			}
+			if (command == "armaxes")
+			{
+				float rotation[4]{};
+				if (sscanf_s(argument.c_str(), "%f %f %f %f", &rotation[0], &rotation[1], &rotation[2], &rotation[3]) != 4)
+				{
+					return "error: usage: armaxes <qx> <qy> <qz> <qw>  (OpenXR camera axes -> CameraJoint axes)";
+				}
+				body::set_camera_axes(rotation);
+				return "camera axes set";
+			}
 			if (command == "bone")
 			{
 				int bone = -1;
@@ -533,7 +566,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | gunscale [g] | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

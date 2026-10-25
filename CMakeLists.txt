@@ -83,6 +83,7 @@ add_library(bfvr_runtime STATIC
 	src/input/gamepad.cpp
 	src/input/virtual_pad.cpp
 	src/safety/mp_guard.cpp
+	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/tracking.cpp
@@ -104,4 +105,8 @@ if(BFVR_BUILD_TESTS)
 	# Drives the Present hook and theater mode from a plain D3D11 window, without the game.
 	add_executable(bfvr_smoke_theater tests/smoke_theater.cpp)
 	target_link_libraries(bfvr_smoke_theater PRIVATE bfvr_runtime d3d11 dxgi)
+
+	# Arm IK solver on a synthetic chain; exits non-zero on failure.
+	add_executable(bfvr_arm_ik_test tests/arm_ik_test.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_arm_ik_test PRIVATE bfvr_common)
 endif()

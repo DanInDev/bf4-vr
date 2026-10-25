@@ -704,6 +704,10 @@ namespace bfvr::xr
 				{
 					publish_head_sample(frame.predictedDisplayTime);
 				}
+				if (actions_ready && XR_SUCCEEDED(result))
+				{
+					stereo::publish_hand_sample(actions.locate(space, frame.predictedDisplayTime));
+				}
 
 				// A frame the headset will not show (headset off, dashboard) is begun and ended
 				// here: SteamVR throttles those calls to ~5 Hz for a hidden app, which held the
@@ -932,6 +936,7 @@ namespace bfvr::xr
 			destroy_session();
 			actions.destroy();
 			actions_ready = false;
+			stereo::publish_hand_sample({});
 			input::publish({});
 			if (instance != XR_NULL_HANDLE)
 			{

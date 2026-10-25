@@ -92,8 +92,8 @@ namespace bfvr::core
 			{
 				stereo::install_camera_hook();
 			}
-			// Arm pose hook (research for now; IK later).
-			if (config::research_enabled() && config::get_bool("arm_pose_hook", true))
+			// Arm pose hook: arm IK to the controllers, and the research bone edits.
+			if (config::get_bool("arm_ik", true) || (config::research_enabled() && config::get_bool("arm_pose_hook", true)))
 			{
 				body::install_arm_pose_hook();
 			}
