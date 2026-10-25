@@ -12,6 +12,8 @@ Read those instead of reconstructing history.
   vtables; `tools/object_probe.py` / `global_scan.py` name live objects (run the dumper once first).
 - `re/MAPPING.md` what is left to reverse-engineer, by area, with method and session order;
   `re/symbols/bf4-179547.md` the registry of verified addresses/offsets (add every new finding there).
+- `docs/tasks/` holds self-contained task briefs (e.g. `smooth-stereo.md`: a smoother 3D view);
+  start from the brief when the user names one.
 - `docs/SAFETY.md` is binding: campaign only, no tools while Battlefield 6 / EasyAntiCheat games run,
   never commit dumps, screenshots, game files or profile data; DRM-protected code is analysed in memory only.
 
