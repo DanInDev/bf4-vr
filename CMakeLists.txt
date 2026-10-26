@@ -67,6 +67,7 @@ add_library(bfvr_common STATIC
 	src/common/config.cpp
 	src/common/log.cpp
 	src/common/settings.cpp
+	src/common/settings_store.cpp
 )
 target_include_directories(bfvr_common PUBLIC src)
 target_compile_definitions(bfvr_common PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN BFVR_GAME_NAME="${BFVR_GAME}")

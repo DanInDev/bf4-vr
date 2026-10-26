@@ -42,6 +42,8 @@ namespace bfvr::stereo
 
 	// Apparent size of the first-person gun and arms (1 = the game's; config key gun_scale).
 	void set_gun_scale(float scale);
+	// Eye distance multiplier (world scale), 0.5..2; 1 = the runtime's IPD.
+	void set_ipd_scale(float scale);
 	float current_gun_scale();
 
 	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and

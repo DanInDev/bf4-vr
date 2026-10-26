@@ -75,6 +75,7 @@ namespace bfvr::stereo
 		// FOV; multiplying the first-person camera's right and up rows by g scales the drawn gun by g
 		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
 		std::atomic<float> gun_scale{ 1.0f };
+		std::atomic<float> ipd_scale{ 1.0f };
 		// Fraction (tangent space) of the headset's reported FOV that is rendered, horizontal and
 		// vertical (1 = all of it); config view_crop_h / view_crop_v.
 		std::atomic<float> view_crop_h{ 1.0f };
@@ -198,18 +199,29 @@ namespace bfvr::stereo
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
 				aspect_override = rendered.aspect;
 
-				apply_eye_pose(params, head.eyes[eye]);
+				// ipd_scale (world scale): eyes moved apart around their midpoint.
+				pose eye_pose = head.eyes[eye];
+				const float scale = ipd_scale.load(std::memory_order_relaxed);
+				if (scale != 1.0f)
+				{
+					const pose centre = eye_math::centre_pose(head);
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						eye_pose.position[axis] = centre.position[axis] + (eye_pose.position[axis] - centre.position[axis]) * scale;
+					}
+				}
+				apply_eye_pose(params, eye_pose);
 
 				tag.stereo = true;
 				tag.eye = eye;
-				tag.eye_pose = head.eyes[eye];
+				tag.eye_pose = eye_pose;
 				tag.rendered_fov = { -half_horizontal, half_horizontal, half_vertical, -half_vertical };
 				if (pair)
 				{
-					const float ipd = eye_math::eye_distance(head);
+					const float ipd = eye_math::eye_distance(head) * scale;
 					set_eye_pass_shift(ipd);
 					tag.pair = true;
-					tag.second_pose = eye_math::moved_along_right(head.eyes[0], ipd);
+					tag.second_pose = eye_math::moved_along_right(eye_pose, ipd);
 				}
 			}
 			else
@@ -432,6 +444,11 @@ namespace bfvr::stereo
 	{
 		// Out-of-range or non-finite values would give the engine degenerate camera rows.
 		gun_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.25f), 4.0f) : 1.0f;
+	}
+
+	void set_ipd_scale(float scale)
+	{
+		ipd_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.5f), 2.0f) : 1.0f;
 	}
 
 	float current_gun_scale()

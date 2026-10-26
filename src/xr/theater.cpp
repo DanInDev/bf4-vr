@@ -25,6 +25,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "common/settings_store.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
@@ -191,8 +192,6 @@ namespace bfvr::xr
 		// HUD layer (hud_layer = 1, stereo/hud_capture.hpp): the game's HUD on a head-locked quad in
 		// front of the eyes, at a size and distance that keep it inside the visible lens area.
 		const bool hud_mode{ stereo_mode && config::get_bool("hud_layer", false) };
-		const float hud_distance{ static_cast<float>(std::atof(config::get("hud_distance", "1.5").c_str())) };
-		const float hud_width{ static_cast<float>(std::atof(config::get("hud_width", "1.3").c_str())) };
 		XrSwapchain hud_swapchain{ XR_NULL_HANDLE };
 		std::vector<XrSwapchainImageD3D11KHR> hud_images;
 		UINT hud_swapchain_width{};
@@ -633,7 +632,7 @@ namespace bfvr::xr
 			}
 			hud_swapchain_width = hud.Width;
 			hud_swapchain_height = hud.Height;
-			log::write("theater: HUD swap chain %ux%u, format %d, quad %.2f m wide at %.2f m", hud.Width, hud.Height, chosen, hud_width, hud_distance);
+			log::write("theater: HUD swap chain %ux%u, format %d", hud.Width, hud.Height, chosen);
 			return true;
 		}
 
@@ -1035,6 +1034,9 @@ namespace bfvr::xr
 					hud_quad.subImage.swapchain = hud_swapchain;
 					hud_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(hud_swapchain_width), static_cast<std::int32_t>(hud_swapchain_height) };
 					hud_quad.pose.orientation.w = 1.0f;
+					// Live settings (hud_distance, hud_width), read per frame.
+					const float hud_distance = settings::global().real("hud_distance", 1.5f);
+					const float hud_width = settings::global().real("hud_width", 1.3f);
 					hud_quad.pose.position.z = -hud_distance;
 					hud_quad.size = { hud_width, hud_width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width) };
 					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&hud_quad);

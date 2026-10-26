@@ -9,6 +9,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
 #include "control/control_pipe.hpp"
 #include "control/crash_log.hpp"
 #include "hooks/dxgi_probe.hpp"
@@ -37,9 +38,43 @@ namespace bfvr::core
 		bool control_enabled{};
 		std::atomic<DWORD> present_thread{};
 
+		// Live settings (common/settings_store.hpp) pushed into the modules when they changed.
+		void apply_settings()
+		{
+			static std::uint64_t applied = ~0ull;
+			static std::string stereo_render, right_stick;
+			settings::registry& store = settings::global();
+			const std::uint64_t revision = store.revision();
+			if (revision == applied)
+			{
+				return;
+			}
+			const bool first = applied == ~0ull;
+			applied = revision;
+			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
+			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
+			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
+			body::set_arm_ik(store.boolean("arm_ik", true));
+			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
+			// Modes are switched only on a change: start-up already applied the ini values.
+			const std::string render = store.text("stereo_render", "aer");
+			if (!first && render != stereo_render)
+			{
+				stereo::set_stereo_render(render);
+			}
+			stereo_render = render;
+			const std::string stick = store.text("right_stick", "look");
+			if (!first && stick != right_stick)
+			{
+				input::set_right_stick_mode(stick);
+			}
+			right_stick = stick;
+		}
+
 		void on_present(IDXGISwapChain* swap_chain)
 		{
 			present_thread = GetCurrentThreadId();
+			apply_settings();
 			if (control_enabled)
 			{
 				control::on_present(swap_chain);
@@ -83,6 +118,7 @@ namespace bfvr::core
 				return 0;
 			}
 			safety::start_multiplayer_guard();
+			settings::load_global();
 			if (safety::mod_disabled())
 			{
 				return 0; // no guard, no hooks

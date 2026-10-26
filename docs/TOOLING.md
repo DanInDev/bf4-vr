@@ -102,6 +102,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 
 | Test tool | Use |
 | --- | --- |
+| `tools/settings.ps1 [-List]` | Live settings (#25): up/down pick, left/right change, `r` reset, `s` save into `bfvr.ini`, `q` quit; pipe `setting list|get|set|step|reset|save` underneath |
 | `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`); see `docs/tasks/testing.md` |
 | `tools/soak.ps1 [-Minutes 10] [-MinFps 60] [-Command 'eyepass 1']` | Samples `status` once a second while the game sits in a level; fails on a stall, low fps or rejected eye pairs and saves a `threads` sample (`re/dumps/soak-*`) |
 

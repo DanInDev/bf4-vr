@@ -1075,7 +1075,7 @@ namespace bfvr::stereo
 
 	void set_eye_pass_shift(float metres)
 	{
-		if (std::isfinite(metres) && metres > 0.0f && metres < 0.1f)
+		if (std::isfinite(metres) && metres > 0.0f && metres < 0.2f)
 		{
 			shift = metres;
 			eye_shift_metres = metres;

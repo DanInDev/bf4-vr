@@ -124,21 +124,24 @@ namespace bfvr::input
 		}
 	}
 
-	void install_vr_controls()
+	void configure_turn(const std::string& turn, int snap_degrees, bool stance_flicks)
 	{
 		right_stick_config config;
-		const std::string turn = config::get("turn", "snap");
 		config.turn = turn == "smooth" ? turn_mode::smooth : turn == "off" ? turn_mode::off : turn_mode::snap;
-		const float degrees = static_cast<float>(std::atof(config::get("snap_turn_degrees", "30").c_str()));
-		if (degrees > 0.0f && degrees <= 90.0f)
+		if (snap_degrees > 0 && snap_degrees <= 90)
 		{
-			config.snap_angle = degrees * 3.14159265f / 180.0f;
+			config.snap_angle = static_cast<float>(snap_degrees) * 3.14159265f / 180.0f;
 		}
-		config.stance_flicks = config::get_bool("stance_flicks", true);
+		config.stance_flicks = stance_flicks;
+		const std::lock_guard guard(lock);
 		stick.configure(config);
+	}
+
+	void install_vr_controls()
+	{
+		configure_turn(config::get("turn", "snap"), std::atoi(config::get("snap_turn_degrees", "30").c_str()), config::get_bool("stance_flicks", true));
 		stick_turns = config::get("right_stick", "look") == "turn";
-		log::write("controls: right_stick=%s turn=%s snap=%.0f deg stance_flicks=%d", stick_turns.load() ? "turn" : "look", turn.c_str(),
-			degrees, config.stance_flicks ? 1 : 0);
+		log::write("controls: right_stick=%s", stick_turns.load() ? "turn" : "look");
 	}
 
 	gamepad_state for_game(const gamepad_state& pad)
@@ -204,6 +207,7 @@ namespace bfvr::input
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void install_vr_controls() {}
+	void configure_turn(const std::string&, int, bool) {}
 	gamepad_state for_game(const gamepad_state& pad) { return pad; }
 	void apply_view_turn() {}
 	std::string set_right_stick_mode(const std::string&) { return "right_stick=look (x64 only)"; }

@@ -11,6 +11,8 @@ namespace bfvr::input
 	// vertical flicks change stance through the pad's crouch/jump buttons, chosen from the soldier's
 	// real stance (ClientSoldierEntity +0x4F0: 0 stand, 1 crouch, 2 prone).
 	void install_vr_controls();
+	// turn: snap | smooth | off.
+	void configure_turn(const std::string& turn, int snap_degrees, bool stance_flicks);
 
 	// XInput thread, every poll: the pad the game sees (stick replaced, stance presses added).
 	gamepad_state for_game(const gamepad_state& pad);

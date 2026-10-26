@@ -16,6 +16,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
 #include "hooks/swap_chain_size.hpp"
 #include "input/gamepad.hpp"
 #include "input/vr_controls.hpp"
@@ -580,6 +581,7 @@ namespace bfvr::control
 				stereo::set_research_aspect(value);
 				return "research_aspect=" + std::to_string(value);
 			}
+			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "fakehead")

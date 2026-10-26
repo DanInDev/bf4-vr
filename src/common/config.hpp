@@ -34,6 +34,8 @@ namespace bfvr::config
 	//   research     = 1 | 0                             memory research pipe commands and research hooks
 	//                                                    (default 1 in Debug builds, 0 in Release builds)
 	std::string get(const char* key, const char* fallback);
+	// bfvr.ini beside the executable (empty when the path cannot be built).
+	std::wstring ini_path();
 	bool get_bool(const char* key, bool fallback);
 
 	// Research tooling (dump, poke, watch, pins, the arm-pose research hook) stays out of release
