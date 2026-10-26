@@ -15,16 +15,17 @@ namespace bfvr::weapon
 		*this = grenade_hands(config_);
 	}
 
-	// Average velocity over the last velocity_window seconds of the off hand.
-	v3 grenade_hands::velocity() const
+	// Average velocity of the off hand over velocity_window seconds ending at the sample that is
+	// back samples old (0 = the newest).
+	v3 grenade_hands::velocity_ending(int back) const
 	{
-		if (history_count_ < 2)
+		if (history_count_ - back < 2)
 		{
 			return {};
 		}
-		const sample& newest = history_[(history_next_ + history_size - 1) % history_size];
+		const sample& newest = history_[(history_next_ + history_size - 1 - back) % history_size];
 		const sample* oldest = &newest;
-		for (int i = 2; i <= history_count_; ++i)
+		for (int i = back + 2; i <= history_count_; ++i)
 		{
 			const sample& s = history_[(history_next_ + history_size - i) % history_size];
 			oldest = &s;
@@ -40,6 +41,33 @@ namespace bfvr::weapon
 		}
 		const v3 d = minus(newest.position, oldest->position);
 		return { d.x / dt, d.y / dt, d.z / dt };
+	}
+
+	// Hands often slow down just before the fingers open: the fastest motion shortly before release.
+	v3 grenade_hands::release_velocity() const
+	{
+		if (history_count_ == 0)
+		{
+			return {};
+		}
+		const float now = history_[(history_next_ + history_size - 1) % history_size].time;
+		v3 best;
+		float best_speed = -1.0f;
+		for (int back = 0; back < history_count_; ++back)
+		{
+			if (now - history_[(history_next_ + history_size - 1 - back) % history_size].time > config_.release_lookback)
+			{
+				break;
+			}
+			const v3 v = velocity_ending(back);
+			const float speed = length(v);
+			if (speed > best_speed)
+			{
+				best_speed = speed;
+				best = v;
+			}
+		}
+		return best;
 	}
 
 	grenade_result grenade_hands::update(const grenade_frame& frame)
@@ -103,7 +131,7 @@ namespace bfvr::weapon
 			}
 			if (off_released)
 			{
-				const v3 v = velocity();
+				const v3 v = release_velocity();
 				result.position = frame.off_hand;
 				result.velocity = v;
 				if (!armed_)

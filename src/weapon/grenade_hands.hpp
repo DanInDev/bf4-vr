@@ -46,7 +46,8 @@ namespace bfvr::weapon
 		float reach_pin{ 0.10f };   // gun hand this close to the grenade grabs the pin
 		float pin_pull{ 0.05f };    // pulled this far away = pin out
 		float throw_speed{ 1.5f };  // hand speed at release that counts as a throw (m/s)
-		float velocity_window{ 0.08f }; // seconds of hand motion averaged at release
+		float velocity_window{ 0.08f }; // seconds of hand motion averaged into one velocity
+		float release_lookback{ 0.15f }; // the throw is the fastest such velocity this long before release
 	};
 
 	class grenade_hands
@@ -64,7 +65,8 @@ namespace bfvr::weapon
 			v3 position;
 		};
 
-		v3 velocity() const;
+		v3 velocity_ending(int newest) const; // averaged over velocity_window up to history index newest
+		v3 release_velocity() const;
 
 		grenade_config config_;
 		bool last_off_grip_{};

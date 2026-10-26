@@ -485,6 +485,26 @@ namespace
 		g.frame.off_grip = false;
 		r = g.step();
 		expect(r.event == grenade_event::dropped, "pin out, slow release drops it");
+		// A throw whose hand stops 0.1 s before the fingers open still counts.
+		grenade_rig late;
+		late.frame.off_hand = late.frame.belt;
+		late.step();
+		late.frame.off_grip = true;
+		late.step();
+		late.move({ -0.1f, -0.3f, -0.3f }, 0.4f);
+		late.frame.gun_hand = { -0.06f, -0.3f, -0.3f };
+		late.frame.gun_grip = true;
+		late.step();
+		late.frame.gun_hand = { 0.02f, -0.3f, -0.3f };
+		late.step();
+		late.frame.gun_grip = false;
+		late.move({ -0.1f, -0.1f, -0.8f }, 0.1f);
+		for (int i = 0; i < 9; ++i)
+		{
+			late.step();
+		}
+		late.frame.off_grip = false;
+		expect(late.step().event == grenade_event::thrown, "fastest motion in the last 0.15 s is the throw");
 		grenade_rig none;
 		none.frame.have_grenade = false;
 		none.frame.off_hand = none.frame.belt;
