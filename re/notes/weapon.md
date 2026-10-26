@@ -60,6 +60,35 @@ Gun bones relative to `Wep_Root` (its axes, +z along the barrel, metres): `Wep_T
 The accessory touch uses `Wep_Scope1` and `Wep_Extra1`; `IK_Joint_LeftHand` is the handguard spot for a
 future two-hand grip.
 
+## Grenades (2026-10-26, `U_M67_SP` in slot 6; tools/grenade_probe.py, docs/tasks/grenades.md)
+
+- **Pad LB throws** (quick throw: the grenade is equipped, wind-up, release; HUD "1/2 SINGLE").
+- Count: firing object `+0x1A0` = (1, 2) (one ready + two spare, HUD "3"); it did not drop after
+  throws in this checkpoint (the campaign seems to refill).
+- Data (`FiringFunctionData` of the grenade weapon, `+0x60` Shot): InitialPosition (-0.2, 0, 0),
+  InitialDirection (0, 0, 1), InitialSpeed (0, 3, 18), SpawnDelay 0.39, ForceSpawnToCamera 1;
+  `+0x168` HoldAndRelease: Delay 0.5; projectile data: TimeToLive 3.0 (fuse), Gravity -9.8.
+- Live grenade: `ServerGrenadeEntity` (vtable `0x141E685B0`, pooled and reused), reachable as
+  [[server grenade weapon +0x8] +0x348]; world position at `+0x3F0` (and `+0x430`).
+- **Writes before the press steer the throw** (measured launch from the server grenade's track):
+
+| Write | Spawn after the press | Effect |
+| --- | --- | --- |
+| none | 0.97 s | 17 m/s, 0.6 m in front of the camera |
+| InitialSpeed (0, 3, 9) | 0.94 s | forward speed halved |
+| SpawnDelay 0 | 0.58 s | |
+| SpawnDelay 0 + HoldAndRelease.Delay 0 | **0.12 s** (pipe latency included) | instant throw |
+| InitialDirection (1, 0, 0) | | turned 90 deg to the left |
+| InitialPosition (any) with ForceSpawnToCamera 1 | | ignored |
+| ForceSpawnToCamera 0 + InitialPosition (0.3, -0.3, 0.2) | | spawn moved 0.3 left, 0.3 down, 0.2 forward |
+
+- **Frame**: origin at the first-person camera, axes x left, y up, z forward, **pitched with the aim**
+  (16.7 deg aim pitch raised the launch by 17.5 deg). OpenXR-style camera axes (x right, -z forward)
+  convert by flipping x and z.
+- Sharing: none of the 4 server soldiers in this checkpoint carries the player's grenade data (the
+  player has the `_SP` variant); still restore the data right after the spawn.
+- Lesson: a grenade bouncing off the ceiling indoors killed the player (checkpoint reload).
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds
