@@ -91,6 +91,7 @@ add_library(bfvr_runtime STATIC
 	src/input/pointer.cpp
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
+	src/input/vr_controls.cpp
 	src/safety/mp_guard.cpp
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp

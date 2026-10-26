@@ -19,6 +19,7 @@
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
 #include "input/virtual_pad.hpp"
+#include "input/vr_controls.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
@@ -141,6 +142,7 @@ namespace bfvr::core
 			if (theater && config::get_bool("gamepad", true))
 			{
 				hooks::install_xinput_hooks();
+				input::install_vr_controls();
 			}
 			return 0;
 		}

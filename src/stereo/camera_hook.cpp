@@ -13,6 +13,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
+#include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/tracking.hpp"
@@ -167,6 +168,7 @@ namespace bfvr::stereo
 				return result;
 			}
 			copy_thread = GetCurrentThreadId();
+			input::apply_view_turn();
 			const std::uint64_t index = ++copies;
 
 			rendered_view tag;

@@ -63,3 +63,10 @@ hud_width = 1.3
 # default); pair = both eyes from one game frame, world and gun (monitor-verified 2026-10-26; the
 # world was headset-verified). Switch live with pipe `stereorender aer|pair`.
 stereo_render = aer
+# Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
+# smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
+# pipe `rightstick look|turn`.
+right_stick = look
+turn = snap
+snap_turn_degrees = 30
+stance_flicks = 1
