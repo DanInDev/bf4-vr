@@ -16,6 +16,10 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 4 | Same in `aer` (`tools\pipe.ps1 stereorender aer`) | Which looks better, gun and world | |
 | 6 | `tools\pipe.ps1 rightstick turn` (branch `feature/vr-input`) | Right stick left/right snaps 30°, down flicks crouch then prone, up flicks stand back up; no stick aiming | |
 | 7 | Menus (branch `feature/vr-settings`): point the right or left controller at the menu screen, pull its trigger | Cursor follows the ray, trigger clicks; the hand whose trigger was pulled last points | |
+| 8 | `tools\pipe.ps1 setting "set hud_mode body"` (branch `feature/vr-settings`) | Squad/objective markers sit on their targets; crosshair centred; HUD corners out of the way (`hud_marker_distance`, default 10 m) | |
+| 9 | `hud_mode = body`: look at the inside of your left forearm | Minimap appears on the forearm after ~¼ s, leaves when you look away (`hud_watch_width`) | |
+| 10 | `hud_mode = body`: turn the gun sideways, look at it, hold still ~1 s | Ammo counter appears beside the gun, stays until you look away; never while aiming down the sights or sprinting | |
+| 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
 | 5 | Resolution | Sharper than last time? `status` shows `back_buffer=2160x2160` if the fullscreen fix works | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

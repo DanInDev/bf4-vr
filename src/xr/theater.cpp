@@ -27,7 +27,10 @@
 #include "input/gamepad.hpp"
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
+#include "input/gestures.hpp"
 #include "input/pointer.hpp"
+#include "stereo/eye_math.hpp"
+#include "stereo/hud_layout.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
@@ -712,6 +715,83 @@ namespace bfvr::xr
 			eye_images_stored += 2;
 		}
 
+		// HUD on the body (hud_mode = body, #26/#27, docs/tasks/hud-gestures.md). The HUD texture is
+		// shown in pieces: everything but the minimap and the ammo counter projected like the eye
+		// images of the frame (markers on their targets), the minimap on the left forearm while it is
+		// glanced at, the ammo counter beside the gun after a steady inspect. Rectangles measured at
+		// 2160x2160 (2026-10-26).
+		static constexpr stereo::hud_layout::uv_rect minimap_rect{ 0.013f, 0.824f, 0.154f, 0.997f };
+		static constexpr stereo::hud_layout::uv_rect ammo_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
+		static constexpr stereo::hud_layout::uv_rect upper_rect{ 0.0f, 0.0f, 1.0f, 0.82f };
+		static constexpr stereo::hud_layout::uv_rect lower_middle_rect{ 0.16f, 0.82f, 0.87f, 1.0f };
+		input::gestures::forearm_glance minimap_gesture;
+		input::gestures::gun_inspect ammo_gesture;
+		LARGE_INTEGER last_gesture_time{};
+
+		void fill_quad(XrCompositionLayerQuad& layer, const stereo::hud_layout::quad& placed)
+		{
+			layer = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			layer.space = space;
+			layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			layer.subImage.swapchain = hud_swapchain;
+			const auto w = static_cast<float>(hud_swapchain_width);
+			const auto h = static_cast<float>(hud_swapchain_height);
+			layer.subImage.imageRect.offset = { static_cast<std::int32_t>(placed.rect.u0 * w), static_cast<std::int32_t>(placed.rect.v0 * h) };
+			layer.subImage.imageRect.extent = { static_cast<std::int32_t>((placed.rect.u1 - placed.rect.u0) * w),
+				static_cast<std::int32_t>((placed.rect.v1 - placed.rect.v0) * h) };
+			const stereo::pose& p = placed.placement;
+			layer.pose.position = { p.position[0], p.position[1], p.position[2] };
+			layer.pose.orientation = { p.orientation[0], p.orientation[1], p.orientation[2], p.orientation[3] };
+			layer.size = { placed.width, placed.height };
+		}
+
+		int body_hud_layers(XrCompositionLayerQuad (&out)[4])
+		{
+			if (!eye_ready[0] || !eye_ready[1] || !hud_swapchain_width || !hud_swapchain_height)
+			{
+				return 0;
+			}
+			settings::registry& store = settings::global();
+			// The frame's rendered view: the eye midpoint with the left eye's orientation.
+			stereo::pose view = eye_poses[0];
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				view.position[axis] = 0.5f * (eye_poses[0].position[axis] + eye_poses[1].position[axis]);
+			}
+			const float distance = store.real("hud_marker_distance", 10.0f);
+			int count = 0;
+			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, upper_rect));
+			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, lower_middle_rect));
+
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = last_gesture_time.QuadPart
+				? std::fmin(0.1f, static_cast<float>(now.QuadPart - last_gesture_time.QuadPart) / static_cast<float>(frequency.QuadPart)) : 0.0f;
+			last_gesture_time = now;
+			const stereo::head_sample head_sample = stereo::latest_head_sample();
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!head_sample.valid)
+			{
+				return count;
+			}
+			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
+			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
+			const float aspect = static_cast<float>(hud_swapchain_width) / static_cast<float>(hud_swapchain_height);
+			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds))
+			{
+				const float offset[3] = { 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
+			}
+			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds))
+			{
+				const float offset[3] = { -0.06f, 0.05f, -0.10f }; // beside the gun's left side
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], offset, eye, store.real("hud_ammo_width", 0.10f), ammo_rect, aspect));
+			}
+			return count;
+		}
+
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
@@ -1034,7 +1114,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad hud_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerProjection projection{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
 			XrCompositionLayerProjectionView views[2]{ { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW }, { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW } };
-			const XrCompositionLayerBaseHeader* layers[2]{};
+			XrCompositionLayerQuad body_quads[4]{};
+			const XrCompositionLayerBaseHeader* layers[6]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
 			enter("copy to swap chain");
@@ -1058,7 +1139,15 @@ namespace bfvr::xr
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection);
 				layer_count = 1;
 
-				if (hud_mode && copy_hud_to_swapchain())
+				if (hud_mode && settings::global().text("hud_mode", "head") == "body" && copy_hud_to_swapchain())
+				{
+					const int added = body_hud_layers(body_quads);
+					for (int i = 0; i < added; ++i)
+					{
+						layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&body_quads[i]);
+					}
+				}
+				else if (hud_mode && copy_hud_to_swapchain())
 				{
 					// The texture holds the HUD over transparent black: premultiplied alpha.
 					hud_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;

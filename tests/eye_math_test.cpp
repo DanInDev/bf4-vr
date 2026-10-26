@@ -7,6 +7,7 @@
 
 #include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
+#include "stereo/hud_layout.hpp"
 
 using namespace bfvr::stereo;
 using namespace bfvr::stereo::eye_math;
@@ -423,8 +424,49 @@ namespace
 	}
 }
 
+namespace
+{
+	void test_hud_layout()
+	{
+		namespace hl = bfvr::stereo::hud_layout;
+		const fov rendered{ -0.8f, 0.8f, 0.7f, -0.7f };
+		const float d = 10.0f;
+		hl::quad full = hl::projected(pose{}, rendered, d, {});
+		expect(near(full.width, 2 * d * std::tan(0.8f), 1e-3f) && near(full.height, 2 * d * std::tan(0.7f), 1e-3f), "projected size wrong");
+		expect(near(full.placement.position[2], -d) && near(full.placement.position[0], 0) && near(full.placement.position[1], 0), "projected centre wrong");
+		// Top-left quarter: centred halfway to the left and up.
+		hl::quad corner = hl::projected(pose{}, rendered, d, { 0, 0, 0.5f, 0.5f });
+		expect(near(corner.placement.position[0], -0.5f * d * std::tan(0.8f), 1e-3f) && near(corner.placement.position[1], 0.5f * d * std::tan(0.7f), 1e-3f),
+			"corner piece misplaced");
+		expect(near(corner.width, full.width / 2, 1e-3f), "corner width wrong");
+		// A view turned 90 degrees left puts the centre on -x.
+		const pose turned = yaw_pose(1.5707963f, 1, 2, 3);
+		hl::quad side = hl::projected(turned, rendered, d, {});
+		expect(near(side.placement.position[0], 1 - d, 1e-3f) && near(side.placement.position[2], 3, 1e-3f), "turned view misplaced");
+
+		// facing: +z towards the target, x horizontal.
+		const float from[3] = { 0.2f, 1.0f, -0.4f };
+		const float to[3] = { 0.0f, 1.6f, 0.0f };
+		const pose look = hl::facing(from, to);
+		float z[3], x[3];
+		const float unit_z[3] = { 0, 0, 1 }, unit_x[3] = { 1, 0, 0 };
+		hl::rotate(look.orientation, unit_z, z);
+		hl::rotate(look.orientation, unit_x, x);
+		const float dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+		const float length = std::sqrt(dx * dx + dy * dy + dz * dz);
+		expect(near(z[0], dx / length, 1e-3f) && near(z[1], dy / length, 1e-3f) && near(z[2], dz / length, 1e-3f), "facing does not point at the target");
+		expect(near(x[1], 0, 1e-3f), "facing x not horizontal");
+
+		// on_body: height from the piece's pixel aspect.
+		const float offset[3] = { 0, 0, 0 };
+		hl::quad watch = hl::on_body(pose{}, offset, to, 0.1f, { 0, 0, 0.2f, 0.1f }, 1.0f);
+		expect(near(watch.height, 0.05f), "on_body height wrong");
+	}
+}
+
 int main()
 {
+	test_hud_layout();
 	test_per_view_block();
 	test_view_projection_shift();
 	test_compose();
