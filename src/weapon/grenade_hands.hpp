@@ -65,7 +65,7 @@ namespace bfvr::weapon
 			v3 position;
 		};
 
-		v3 velocity_ending(int newest) const; // averaged over velocity_window up to history index newest
+		v3 velocity_ending(int back) const; // averaged over velocity_window, ending back samples ago
 		v3 release_velocity() const;
 
 		grenade_config config_;

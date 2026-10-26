@@ -83,6 +83,11 @@ drop_discards_ammo = 1
 # Off hand on the optic or the front rail + grip = the game's accessory toggle (D-pad up: magnifier,
 # variable zoom, light, laser). Works with either reload mode.
 accessory_touch = 1
+# Grenades (docs/tasks/grenades.md): button = the game's LB throw; physical = take one at the belt with
+# the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
+# letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
+grenade = button
+grenade_throw_scale = 1.5
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
 gamepad = 1

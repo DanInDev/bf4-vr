@@ -54,4 +54,30 @@ mesh in the hand before release.
 
 ## Results
 
-(filled in as the stages land)
+**Stage 0 (2026-10-26, monitor):** see `re/notes/weapon.md` "Grenades". LB is the game's quick throw.
+All four launch fields steer the next throw when written just before the press: speed and direction
+(shot frame: camera, x left / y up / z forward, pitched with the aim), position (only with
+`ForceSpawnToCamera` = 0), and `SpawnDelay` 0 + `HoldAndRelease.Delay` 0 make the grenade leave 0.12 s
+after the press. No other server soldier in the checkpoint shares the player's `U_M67_SP` data. The
+count (1 + 2) did not drop after throws in this checkpoint. Measured launch speed is ~83 % of the
+written one in every throw (the game's damping); `grenade_throw_scale` (1.5) covers it.
+
+**Stage 1:** `src/weapon/grenade_hands.*` (pure; tests in `tests/reload_test.cpp`): take at the belt
+(70 cm below the head, 10 cm ahead, 15 cm reach) with the off-hand grip; the gun hand grips within
+10 cm of the grenade and pulls 5 cm = pin out; letting go throws with the fastest 80 ms hand velocity
+of the last 0.15 s (>= 1.5 m/s), else drops it; pin in = put back; tracking lost = put back.
+
+**Stage 2:** `src/weapon/physical_grenade.*`, live settings `grenade = button|physical` and
+`grenade_throw_scale`. At a throw: launch data written (hand position, velocity x scale, capped at
+30 m/s, no delays, not forced to the camera), an 80 ms LB pulse, data restored after 400 ms. In
+physical mode the game never sees LB itself; the gun-hand grip (RB) is held back while it holds the
+pin. Research pipe `grenade` (state) and `grenade throw <yaw> <pitch> <m/s> [safe]`.
+
+**Monitor-verified:** pipe throws straight / 30 deg right / 30 deg left + 10 deg up go where commanded,
+0.12-0.16 s after the command; the full gesture with synthetic hands and pad grips (take, pin, a
+0.6 m forward-up arm swing in ~0.12 s) launched the grenade 0.115 s after the release at 9.7 m/s
+forward and up.
+
+**Not done / for the headset:** the grenade is not drawn in the hand before the throw; feel of the
+belt position, pin distance, throw threshold and scale; flashbangs/smoke/C4 (only names are
+recognised); cooking (fuse); haptics.
