@@ -110,6 +110,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/hud_layout.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
+	src/weapon/reload.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
@@ -153,6 +154,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_handedness_test tests/handedness_test.cpp src/input/handedness.cpp)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
+	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/reload.cpp)
+	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
+
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
@@ -161,6 +166,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
+	add_test(NAME reload COMMAND bfvr_reload_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.
