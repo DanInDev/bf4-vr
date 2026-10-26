@@ -4,7 +4,7 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
 ## Next — pair rendering with gun depth (pending)
 
-Build: branch `feature/vr-settings` (contains main, `feature/vr-input` and the settings/pointer/HUD work), Release
+Build: `main`, Release
 (`tools\dev-run.ps1 -Preset bf4-release -Resume`).
 New since the last test: the gun and arms get their own eye offset in `pair` (first-person per-view
 block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64 mm (expected ≈ 273 px).
@@ -16,15 +16,15 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 3 | Arm IK + `pair` (`arm_ik = 1`) | Hands on the gun, sizes plausible, shoulders/chest position (note what to tune) | |
 | 4 | Same in `aer` (`tools\pipe.ps1 stereorender aer`) | Which looks better, gun and world | |
 | 5 | Resolution | Sharper than last time? `status` shows `back_buffer=2160x2160` if the fullscreen fix works | |
-| 6 | `tools\pipe.ps1 rightstick turn` (branch `feature/vr-input`) | Right stick left/right snaps 30°, down flicks crouch then prone, up flicks stand back up; no stick aiming | |
-| 7 | Menus (branch `feature/vr-settings`): point the right or left controller at the menu screen, pull its trigger | Cursor follows the ray, trigger clicks; the hand whose trigger was pulled last points | |
-| 8 | `tools\pipe.ps1 setting "set hud_mode body"` (branch `feature/vr-settings`) | Squad/objective markers sit on their targets; crosshair centred; HUD corners out of the way (`hud_marker_distance`, default 10 m) | |
+| 6 | `tools\pipe.ps1 rightstick turn` | Right stick left/right snaps 30°, down flicks crouch then prone, up flicks stand back up; no stick aiming | |
+| 7 | Menus: point the right or left controller at the menu screen, pull its trigger | Cursor follows the ray, trigger clicks; the hand whose trigger was pulled last points | |
+| 8 | `tools\pipe.ps1 setting "set hud_mode body"` | Squad/objective markers sit on their targets; crosshair centred; HUD corners out of the way (`hud_marker_distance`, default 10 m) | |
 | 9 | `hud_mode = body`: look at the inside of your left forearm | Minimap appears on the forearm after ~¼ s, leaves when you look away (`hud_watch_width`) | |
 | 10 | `hud_mode = body`: turn the gun sideways, look at it, hold still ~1 s | Ammo counter appears beside the gun, stays until you look away; never while aiming down the sights or sprinting | |
-| 10b | `tools\settings.ps1`: toggle `hud_show_main/minimap/ammo/bottom` (branch `feature/hud-toggles`), both `hud_mode`s | Each piece disappears/returns at once; nothing else changes | |
-| 11b | `setting "set aim controller"` (branch `feature/controller-aim`) | Bullets go where the right controller points, the view stays with the head; snap turn still turns the view. Expect: walking follows the gun direction, the HUD crosshair no longer marks the aim | |
+| 10b | `tools\settings.ps1`: toggle `hud_show_main/minimap/ammo/bottom`, both `hud_mode`s | Each piece disappears/returns at once; nothing else changes | |
+| 11b | `setting "set aim controller"` | Bullets go where the right controller points, the view stays with the head; snap turn still turns the view. Expect: walking follows the gun direction, the HUD crosshair no longer marks the aim | |
 | 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
-| 11c | `setting "set dominant_hand left"` (branch `feature/left-handed`) | Right stick moves, left stick looks/turns, left trigger fires, X/Y act as A/B; the gun arm follows the left controller; minimap on the right inner forearm. Known: the body is not mirrored yet, so the right arm reaches across to the left controller | |
+| 11c | `setting "set dominant_hand left"` | Right stick moves, left stick looks/turns, left trigger fires, X/Y act as A/B; the gun arm follows the left controller; minimap on the right inner forearm. Known: the body is not mirrored yet, so the right arm reaches across to the left controller | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

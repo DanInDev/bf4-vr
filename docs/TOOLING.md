@@ -14,6 +14,37 @@ never touched.
 | Meta Horizon Link (cable / Air Link) | `auto` (SteamVR not running) or `system` | Session created in smoke test |
 | Simulator | path to the simulator's runtime manifest | not yet installed |
 
+## Launcher: `bfvr_launcher.exe` (issue #16)
+
+Built by the `bf4` preset only (`build\bf4\<Config>\bfvr_launcher.exe`, next to `dinput8.dll` and a copy
+of `bfvr.ini.example`). One window:
+
+| Part | Behaviour |
+| --- | --- |
+| Folder | `Install Dir` from `HKLM\SOFTWARE\WOW6432Node\EA Games\Battlefield 4`; **Change...** picks another; `--game-dir <folder>` on the command line overrides it |
+| Build | Reads the PE header of `bf4.exe`: x64 and timestamp `0x58AB1CC0` = build 179547. Any other build: install is refused |
+| Install / Update / Remove | The `dinput8.dll` beside the launcher, with the `bfvr.deployed.json` hash marker of `deploy.ps1` (each tool can update or remove the other's install). Refused while `bf4.exe` runs; a `dinput8.dll` without a matching marker belongs to another mod and is never replaced or deleted |
+| Settings | `theater`, `stereo`, `stereo_first_person`, `gamepad`, `xr_runtime` in the game folder's `bfvr.ini`; edited in place (comments and other keys kept), a missing file starts from `bfvr.ini.example`. Warns when a `BFVR_<KEY>` environment variable overrides the file |
+| Start Battlefield 4 | The same `origin2://` content-ID link as `game.ps1 start`; asks first when the mod is not installed |
+| Open bfvr.log | The mod's log in the game folder |
+
+The launcher calls `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)` first, so the mod DLL
+beside it can never load into the launcher itself.
+`build\bf4\Debug\bfvr_launcher_test.exe` checks build detection, deploy/remove/foreign-DLL handling,
+the `deploy.ps1` marker format and `bfvr.ini` editing against a throwaway folder in `%TEMP%`.
+
+Not yet: starting SteamVR and showing headset/session status (#16), an update check (#17).
+
+## Release packaging: `tools/package.ps1` (issue #17)
+
+`tools\package.ps1 [-Version 0.1.0] [-NoBuild]` builds `bf4-release` and writes
+`build\package\bf-vr-<version>.zip` (the version defaults to the repository's describe string): `bfvr_launcher.exe`,
+`dinput8.dll`, `bfvr.ini.example`, `README.txt` and `LICENSE.txt` (from `tools/package/`) and
+`THIRD-PARTY-NOTICES.txt` (MinHook, OpenXR loader and JsonCpp licences from the fetched sources). The contents
+are an allow-list, checked again inside the finished zip: game files, dumps, screenshots, PDBs, `bfvr.ini` and
+logs can never end up in it. `LICENSE.txt` is a placeholder until a licence is chosen. There is no installer
+exe yet: the zip plus the launcher's install/remove is the release format.
+
 ## Driving the game: `tools/game.ps1`
 
 | Command | Effect |

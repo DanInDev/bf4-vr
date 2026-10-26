@@ -50,6 +50,7 @@ and `input` are added when their stage starts.
 | `camera` | Replace view/projection per eye with HMD pose and per-eye FOV | camera/view-matrix structures (use `typeinfo`) |
 | `ui` | Capture the Scaleform HUD/menus into a quad/cylinder layer | HUD render pass |
 | `input` | OpenXR actions → game input (sticks, buttons), later decoupled aim | input/command structures |
+| `launcher` | Separate desktop exe: finds BF4, checks the build, installs/removes the proxy, edits `bfvr.ini`, starts the game; never loads the mod itself | none |
 
 ## Stages
 

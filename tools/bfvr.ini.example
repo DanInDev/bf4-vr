@@ -73,3 +73,6 @@ stance_flicks = 1
 # Gun hand (issue #9): left mirrors the controllers (sticks, triggers, grips, A/B <-> X/Y, stick
 # clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
 dominant_hand = right
+
+# VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
+gamepad = 1

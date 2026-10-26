@@ -31,7 +31,7 @@ Implications:
 | --- | --- |
 | **64-bit (x64)**, 40.4 MB; a separate `bf4_x86.exe` also ships | PE machine `0x8664` |
 | **No ASLR** — fixed image base | DllCharacteristics `0x8120` |
-| Final build 179547, linked 2017-02-20 | `version.json`, PE timestamp |
+| Final build 179547, linked 2017-02-20 (PE `TimeDateStamp` `0x58AB1CC0`, checked by the launcher) | `version.json`, PE timestamp |
 | `.text`, `ctr`, `.data` **and `typeinfo`/`fieldinf` encrypted on disk** | Entropy 8.00 on all five; unlike BF3, no class data is readable from the file |
 | `.ooa` section: EA/Origin Online Activation DRM | Section name |
 | Started through `BFLauncher.exe`, which picks x64 or x86 | `__Installer\installerdata.xml` `<runtime>` |

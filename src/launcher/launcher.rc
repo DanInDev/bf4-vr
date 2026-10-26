@@ -1,0 +1,41 @@
+#include <windows.h>
+#include "resource.hpp"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDD_MAIN DIALOGEX 0, 0, 320, 274
+STYLE DS_SHELLFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+CAPTION "bf-vr launcher - Battlefield 4 VR (campaign only)"
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+	GROUPBOX "Battlefield 4", -1, 7, 4, 306, 92
+	LTEXT "Folder:", -1, 15, 18, 36, 9
+	LTEXT "", IDC_FOLDER, 52, 18, 150, 9, SS_PATHELLIPSIS | SS_NOPREFIX
+	PUSHBUTTON "Change...", IDC_CHANGE_FOLDER, 206, 15, 48, 14
+	PUSHBUTTON "Open", IDC_OPEN_FOLDER, 258, 15, 48, 14
+	LTEXT "Build:", -1, 15, 32, 36, 9
+	LTEXT "", IDC_BUILD, 52, 32, 254, 9, SS_NOPREFIX
+	LTEXT "Mod:", -1, 15, 44, 36, 9
+	LTEXT "", IDC_MOD, 52, 44, 254, 9, SS_NOPREFIX
+	LTEXT "Game:", -1, 15, 56, 36, 9
+	LTEXT "", IDC_RUNNING, 52, 56, 254, 9, SS_NOPREFIX
+	PUSHBUTTON "Install mod", IDC_INSTALL, 15, 74, 80, 14
+	PUSHBUTTON "Remove mod (required before multiplayer)", IDC_REMOVE, 100, 74, 206, 14
+
+	GROUPBOX "Settings (bfvr.ini in the game folder)", -1, 7, 102, 306, 100
+	AUTOCHECKBOX "VR on: virtual screen in the headset (theater)", IDC_THEATER, 15, 116, 290, 10
+	AUTOCHECKBOX "Head-tracked stereo, experimental (stereo)", IDC_STEREO, 15, 128, 290, 10
+	AUTOCHECKBOX "Stereo: weapon stays on the aim while the head looks around (stereo_first_person)", IDC_STEREO_FIRST_PERSON, 27, 140, 278, 10
+	AUTOCHECKBOX "VR controllers act as an Xbox pad (gamepad)", IDC_GAMEPAD, 15, 152, 290, 10
+	LTEXT "OpenXR runtime:", -1, 15, 168, 60, 9
+	COMBOBOX IDC_RUNTIME, 78, 166, 227, 80, CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
+	PUSHBUTTON "Save settings", IDC_SAVE, 15, 182, 70, 14
+	PUSHBUTTON "Reload", IDC_RELOAD, 90, 182, 50, 14
+	LTEXT "auto: SteamVR if running, else the system default", -1, 146, 185, 160, 9
+
+	LTEXT "", IDC_MESSAGE, 7, 208, 306, 18, SS_NOPREFIX
+	LTEXT "Campaign only. Remove the mod before joining any multiplayer server: PunkBuster bans for foreign DLLs.", -1, 7, 228, 306, 18
+	DEFPUSHBUTTON "Start Battlefield 4", IDC_START, 7, 252, 90, 14
+	PUSHBUTTON "Open bfvr.log", IDC_OPEN_LOG, 102, 252, 70, 14
+	PUSHBUTTON "Close", IDCANCEL, 243, 252, 70, 14
+END
