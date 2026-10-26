@@ -31,6 +31,7 @@ namespace bfvr::input
 		constexpr std::size_t weapon_aiming = 0x4988;
 		constexpr std::size_t aiming_aimer = 0x10;
 		constexpr std::size_t aimer_yaw = 0x14;
+		constexpr std::size_t aimer_pitch = 0x18;
 
 		// Button presses for a stance change (pad crouch = B: tap toggles crouch, hold goes prone;
 		// A = jump, stands up). Verified with tools/pose_probe.py 2026-10-26.
@@ -44,6 +45,7 @@ namespace bfvr::input
 		std::uint16_t pulse_buttons{};
 		ULONGLONG pulse_until{};
 		std::atomic<float> pending_yaw{};
+		std::atomic<bool> pitch_neutral{};
 		std::atomic<std::uint64_t> turns{};
 		std::atomic<std::uint64_t> stance_commands{};
 
@@ -179,7 +181,8 @@ namespace bfvr::input
 	void apply_view_turn()
 	{
 		const float turn = pending_yaw.exchange(0.0f);
-		if (turn == 0.0f)
+		const bool level = pitch_neutral.load(std::memory_order_relaxed);
+		if (turn == 0.0f && !level)
 		{
 			return;
 		}
@@ -189,8 +192,23 @@ namespace bfvr::input
 		{
 			return; // scripted sections without an aimer: the turn is dropped
 		}
-		yaw += turn;
-		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
+		if (turn != 0.0f)
+		{
+			yaw += turn;
+			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
+		}
+		if (level)
+		{
+			// neutral_pitch: the head alone pitches the view, the horizon stays level (#5).
+			const float zero = 0.0f;
+			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_pitch), &zero, sizeof(zero), nullptr);
+		}
+	}
+
+
+	void set_neutral_pitch(bool enabled)
+	{
+		pitch_neutral = enabled;
 	}
 
 	std::string set_right_stick_mode(const std::string& mode)
@@ -208,6 +226,7 @@ namespace bfvr::input
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
+	void set_neutral_pitch(bool) {}
 	gamepad_state for_game(const gamepad_state& pad) { return pad; }
 	void apply_view_turn() {}
 	std::string set_right_stick_mode(const std::string&) { return "right_stick=look (x64 only)"; }
