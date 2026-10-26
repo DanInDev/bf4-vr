@@ -69,5 +69,5 @@ Research pipe `holster [name]`.
 cleanly; with `fakehead`, synthetic gun-hand targets and pad RB the shoulder, chest and hip zones drew
 the SCAR-H, the knife and the AK-12; a grip at the aiming position did nothing.
 
-**For the headset:** zone positions and radii, the body-yaw slack, whether RB should stay the game's
-spot button outside the zones. **Later:** haptics, zone hints, knife swing = melee, the visor.
+**For the headset:** zone positions and radii, the body-yaw slack, whether RB should keep its game action
+outside the zones (not identified yet). **Later:** haptics, zone hints, knife swing = melee, the visor.
