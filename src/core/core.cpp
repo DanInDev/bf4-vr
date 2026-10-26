@@ -69,6 +69,7 @@ namespace bfvr::core
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
 			weapon::set_holsters(store.boolean("holsters", true));
+			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");

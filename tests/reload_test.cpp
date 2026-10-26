@@ -2,13 +2,15 @@
 // take, drop with and without drop_discards_ammo, bolt lock, bolt catch, racking and the AK flick;
 // the hand gestures (src/weapon/reload_hands), the weapon profiles (src/weapon/profiles) and the
 // accessory toggle by touch (src/weapon/accessory_touch) and the grenade gestures
-// (src/weapon/grenade_hands), and the weapon holsters (src/weapon/holsters).
+// (src/weapon/grenade_hands), the weapon holsters (src/weapon/holsters) and the squad hand signal
+// (src/weapon/hand_signal).
 #include <cmath>
 #include <cstdio>
 #include <initializer_list>
 
 #include "weapon/accessory_touch.hpp"
 #include "weapon/grenade_hands.hpp"
+#include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
@@ -577,6 +579,43 @@ namespace
 		blind.head_valid = false;
 		expect(draw_at(h, blind, { 0.2f, 0.05f, 0.15f }) == holster::none, "no head tracking: no holsters");
 	}
+	void test_hand_signal()
+	{
+		hand_signal signal;
+		signal_frame frame;
+		frame.head_valid = frame.hand_valid = true;
+		const auto squeeze = [&](v3 hand)
+		{
+			frame.off_hand = hand;
+			frame.off_grip = false;
+			signal.update(frame, 0.02f);
+			frame.off_grip = true;
+			const signal_result r = signal.update(frame, 0.02f);
+			frame.off_grip = false;
+			signal.update(frame, 0.02f);
+			return r;
+		};
+		expect(squeeze({ -0.1f, 0.15f, -0.5f }).order, "arm raised ahead + grip: order");
+		expect(!squeeze({ -0.1f, 0.15f, -0.5f }).order, "cooldown: no second order at once");
+		for (int i = 0; i < 60; ++i)
+		{
+			signal.update(frame, 0.02f);
+		}
+		expect(squeeze({ 0.0f, 0.2f, -0.45f }).order, "after the cooldown: order again");
+		for (int i = 0; i < 60; ++i)
+		{
+			signal.update(frame, 0.02f);
+		}
+		expect(!squeeze({ -0.1f, -0.15f, -0.45f }).order, "support hand on the gun (below the eyes): no order");
+		expect(!squeeze({ -0.1f, 0.15f, -0.2f }).order, "hand raised but close to the head: no order");
+		expect(!squeeze({ -0.6f, 0.15f, -0.4f }).order, "hand out to the side: no order");
+		frame.head_yaw = 1.5707963f; // looking along -x
+		expect(squeeze({ -0.5f, 0.15f, 0.0f }).order, "follows the head's yaw");
+		frame.off_hand = { -0.5f, 0.15f, 0.0f };
+		expect(signal.update(frame, 0.02f).raised, "raised pose reported (grip claimed)");
+		frame.head_valid = false;
+		expect(!signal.update(frame, 0.02f).raised, "no head tracking: nothing");
+	}
 }
 
 int main()
@@ -598,6 +637,7 @@ int main()
 	test_grenade_throw();
 	test_grenade_drop_and_put_back();
 	test_holsters();
+	test_hand_signal();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

@@ -17,6 +17,7 @@
 #include "hooks/game_window.hpp"
 #include "input/handedness.hpp"
 #include "stereo/tracking.hpp"
+#include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
 #include "weapon/physical_grenade.hpp"
 
@@ -101,6 +102,13 @@ namespace bfvr::weapon
 
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> grip_claimed{};
+		// Squad order (campaign "engage", key Q) by hand signal.
+		constexpr unsigned short order_key = 'Q';
+		std::atomic<bool> signal_enabled{ true };
+		std::atomic<bool> signal_raised{};
+		hand_signal signal;
+		ULONGLONG order_up_at{};
+		std::uint64_t orders{};
 
 		std::mutex lock;
 		holsters zones;
@@ -143,9 +151,26 @@ namespace bfvr::weapon
 			send(which, now);
 		}
 
+		// Called with lock held: Q down now, up after key_hold_ms (advance).
+		void give_order(ULONGLONG now)
+		{
+			if (order_up_at || !hooks::press_game_key(order_key, true))
+			{
+				return;
+			}
+			order_up_at = now + key_hold_ms;
+			++orders;
+			log::write("squad: order given (Q)");
+		}
+
 		// Called with lock held.
 		void advance(ULONGLONG now)
 		{
+			if (order_up_at && now >= order_up_at)
+			{
+				hooks::press_game_key(order_key, false);
+				order_up_at = 0;
+			}
 			if (key_down && now >= key_up_at)
 			{
 				hooks::press_game_key(key_down, false);
@@ -200,6 +225,11 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
+	void set_squad_signal(bool on)
+	{
+		signal_enabled = on;
+	}
+
 	void update_weapon_swap()
 	{
 #if defined(_M_X64)
@@ -211,6 +241,31 @@ namespace bfvr::weapon
 		QueryPerformanceFrequency(&frequency);
 		const float seconds = last_update.QuadPart ? std::fmin(static_cast<float>(counter.QuadPart - last_update.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
 		last_update = counter;
+		const body::weapon_points points = body::latest_weapon_points();
+		v3 head;
+		float head_yaw{};
+		const bool head_valid = head_pose(head, head_yaw);
+		if (signal_enabled.load(std::memory_order_relaxed))
+		{
+			signal_frame raised;
+			raised.head_valid = head_valid;
+			raised.head = head;
+			raised.head_yaw = head_yaw;
+			raised.hand_valid = points.hand_valid[0] && now - points.at < points_max_age_ms;
+			raised.off_hand = { points.hand[0][0], points.hand[0][1], points.hand[0][2] };
+			// A grenade in the off hand is thrown, not waved.
+			raised.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0 && !grenade_in_hand();
+			const signal_result told = signal.update(raised, seconds);
+			signal_raised = told.raised;
+			if (told.order)
+			{
+				give_order(now);
+			}
+		}
+		else
+		{
+			signal_raised = false;
+		}
 		if (!enabled.load(std::memory_order_relaxed))
 		{
 			zones.reset();
@@ -218,10 +273,11 @@ namespace bfvr::weapon
 			last_zone = holster::none;
 			return;
 		}
-		const body::weapon_points points = body::latest_weapon_points();
 		holster_frame frame;
 		frame.seconds = seconds;
-		frame.head_valid = head_pose(frame.head, frame.head_yaw);
+		frame.head_valid = head_valid;
+		frame.head = head;
+		frame.head_yaw = head_yaw;
 		frame.hand_valid = points.hand_valid[1] && now - points.at < points_max_age_ms;
 		frame.gun_hand = { points.hand[1][0], points.hand[1][1], points.hand[1][2] };
 		// While a grenade is in the off hand, the gun hand's grip pulls its pin, never draws.
@@ -244,6 +300,10 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_RIGHT_SHOULDER);
 		}
+		if (signal_raised.load(std::memory_order_relaxed))
+		{
+			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
+		}
 		return out;
 	}
 
@@ -256,6 +316,11 @@ namespace bfvr::weapon
 			{
 				return "error: 'holster <name>' needs research = 1 in bfvr.ini";
 			}
+			if (argument == "order")
+			{
+				give_order(GetTickCount64());
+				return "squad order sent (Q); orders " + std::to_string(orders);
+			}
 			holster which = holster::none;
 			for (const holster h : { holster::primary, holster::secondary, holster::knife, holster::gadget1, holster::gadget2 })
 			{
@@ -266,15 +331,17 @@ namespace bfvr::weapon
 			}
 			if (which == holster::none)
 			{
-				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2]";
+				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2|order]";
 			}
 			request(which, GetTickCount64());
 		}
 		const slot_state slot = read_slot();
 		char text[384];
-		std::snprintf(text, sizeof(text), "holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f",
+		std::snprintf(text, sizeof(text),
+			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
-			static_cast<unsigned long long>(failed), last_result, zones.body_yaw());
+			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
+			static_cast<unsigned long long>(orders));
 		return text;
 	}
 }
