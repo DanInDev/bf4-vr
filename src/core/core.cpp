@@ -59,6 +59,7 @@ namespace bfvr::core
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
 			}
+			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
 			const std::string render = store.text("stereo_render", "aer");

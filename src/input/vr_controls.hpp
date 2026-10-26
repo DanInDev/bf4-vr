@@ -17,6 +17,9 @@ namespace bfvr::input
 	// XInput thread, every poll: the pad the game sees (stick replaced, stance presses added).
 	gamepad_state for_game(const gamepad_state& pad);
 
+	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
+	void set_neutral_pitch(bool enabled);
+
 	// Game thread (view-params copy): adds the turn collected since the last call to the aimer yaw.
 	void apply_view_turn();
 
