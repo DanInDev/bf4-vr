@@ -49,4 +49,25 @@ vehicles, reload).
 
 ## Results
 
-(filled in as the stages land)
+**Stage 0 (2026-10-26, monitor):** `re/notes/weapon.md` "Weapon slots and switching". Pad Y toggles the
+two guns, the right stick click is the quick knife stab, nothing on the pad selects a slot. Keys typed
+into the game's Raw Input keyboard (new `hooks::press_game_key`, pipe `key`) work without focus:
+1 = slot 0 (primary), 2 = slot 1, 5 = grenade, 6 = knife (stays), F = stab; 3/4 = gadgets (none in
+this kit). Switches land within 0.25 s. The visor's input was not found.
+
+**Stage 1:** `src/weapon/holsters.*` (pure, tests in `tests/reload_test.cpp`): five zones in a body frame
+that follows the head's yaw past 0.6 rad of slack; mirrored for left-handed; a grip press in a zone
+draws, a grip carried into a zone does not.
+
+**Stage 2:** `src/weapon/weapon_swap.*`, live setting `holsters` (default on; needs head and hand
+tracking). Draw = the slot key (80 ms), checked after 0.6 s against the game's slot, one retry, then
+"no switch" (empty holster or refused); the weapon already in hand is skipped. RB is kept from the
+game while the gun hand is in a zone; while a grenade is in the off hand the gun-hand grip is the pin's.
+Research pipe `holster [name]`.
+
+**Monitor-verified:** pipe switches primary / secondary / knife, the empty gadget holster gives up
+cleanly; with `fakehead`, synthetic gun-hand targets and pad RB the shoulder, chest and hip zones drew
+the SCAR-H, the knife and the AK-12; a grip at the aiming position did nothing.
+
+**For the headset:** zone positions and radii, the body-yaw slack, whether RB should stay the game's
+spot button outside the zones. **Later:** haptics, zone hints, knife swing = melee, the visor.

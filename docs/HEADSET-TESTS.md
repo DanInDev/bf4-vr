@@ -29,6 +29,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 13b | Same with the SCAR-H (AR): fire dry, X, new magazine, X | Bolt locks open on empty, X drops the magazine, X after the new one chambers | |
 | 14 | Touch the optic (or the front of the rail) with the left hand and squeeze the grip | The accessory toggles once per squeeze (AK-12: the magnifier flips in/out); holding the gun's handguard elsewhere does nothing. Judge: the 7 cm touch radius, whether the rail point sits where lights/lasers are | |
 | 15 | `setting "set grenade physical"`: left hand to the belt, grip; right hand grips next to the grenade and pulls away; throw with the left arm and let go (outdoors) | Grenade leaves the hand along the throw, no wind-up delay; slow release with the pin out drops it at the hand; release with the pin in puts it back. Judge: belt spot, pin distance, throw speed (`grenade_throw_scale`) | |
+| 16 | Holsters (on by default): right hand over the right shoulder + grip; at the right hip + grip; on the left chest + grip | Primary / secondary / knife drawn within ~0.3 s; nothing happens at the aiming position. Judge: zone positions and sizes, looking over the shoulder (the zone should stay) | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)
