@@ -16,6 +16,7 @@
 #include "common/log.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grenade_hands.hpp"
+#include "weapon/reload_sounds.hpp"
 
 namespace bfvr::weapon
 {
@@ -317,6 +318,14 @@ namespace bfvr::weapon
 		if (result.event != grenade_event::none)
 		{
 			last_event = event_name(result.event);
+		}
+		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
+		{
+			play(cue::cloth);
+		}
+		else if (result.event == grenade_event::pin_pulled)
+		{
+			play(cue::pin);
 		}
 		if (result.event == grenade_event::thrown || result.event == grenade_event::dropped)
 		{

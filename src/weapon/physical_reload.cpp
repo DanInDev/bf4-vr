@@ -21,6 +21,7 @@
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/reload_sounds.hpp"
 
 namespace bfvr::weapon
 {
@@ -169,8 +170,25 @@ namespace bfvr::weapon
 			return "?";
 		}
 
+		void sound_for(reload_event event)
+		{
+			switch (event)
+			{
+			case reload_event::magazine_taken:
+			case reload_event::magazine_stowed: play(cue::cloth); break;
+			case reload_event::magazine_in:
+			case reload_event::flicked_in: play(cue::magazine_in); break;
+			case reload_event::magazine_out: play(cue::magazine_out); break;
+			case reload_event::chambered:
+			case reload_event::round_ejected:
+			case reload_event::racked_empty: play(cue::chamber); break;
+			default: break;
+			}
+		}
+
 		void remember(reload_event event)
 		{
+			sound_for(event);
 			if (event == reload_event::none || event == reload_event::shot)
 			{
 				return;

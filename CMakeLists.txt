@@ -119,12 +119,13 @@ add_library(bfvr_runtime STATIC
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
+	src/weapon/reload_sounds.cpp
 	src/weapon/weapon_swap.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
 )
-target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid windowscodecs ole32)
+target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid windowscodecs ole32 winmm)
 
 # Loaded by the game as dinput8.dll; forwards to the system DLL and starts the runtime.
 add_library(bfvr_loader SHARED
