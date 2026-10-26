@@ -25,6 +25,8 @@ namespace bfvr::weapon
 	// XInput hook thread: removes what the physical reload consumes (X, the off-hand grip while it
 	// handles a magazine, the trigger on an empty chamber).
 	input::gamepad_state filter_pad(const input::gamepad_state& pad);
+	// The off-hand grip belongs to a reload step or an accessory touch this frame.
+	bool reload_owns_off_hand();
 
 	// Pipe "reload": state and the last events. "reload <event>" (research builds) drives the state
 	// machine directly: fire button grab take letgo stow insert rack.

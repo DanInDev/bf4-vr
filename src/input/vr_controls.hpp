@@ -26,6 +26,10 @@ namespace bfvr::input
 	float body_camera_yaw(float game_yaw);
 	// Game thread: points the aimer along a world direction (bullets go there).
 	void aim_along(const float (&direction)[3]);
+	// Controller aim's shot direction in OpenXR LOCAL (weapon/two_handed: the barrel line, converged);
+	// without one the camera hook uses the gun hand's aim ray.
+	void set_aim_direction(bool valid, const float (&direction)[3]);
+	bool aim_direction(float (&direction)[3]);
 
 	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
 	void set_neutral_pitch(bool enabled);

@@ -175,8 +175,15 @@ namespace bfvr::stereo
 				return;
 			}
 			const float* q = hands.aim[1].orientation;
-			// The aim ray (-z) in LOCAL space, then in world axes (camera local axes = OpenXR axes).
-			const float local[3] = { -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
+			// The shot direction in LOCAL space (the two-handed, converged barrel line, else the aim ray
+			// -z), then in world axes (camera local axes = OpenXR axes).
+			float local[3];
+			if (!input::aim_direction(local))
+			{
+				local[0] = -2 * (q[0] * q[2] + q[1] * q[3]);
+				local[1] = -2 * (q[1] * q[2] - q[0] * q[3]);
+				local[2] = -(1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+			}
 			float direction[3];
 			for (int axis = 0; axis < 3; ++axis)
 			{

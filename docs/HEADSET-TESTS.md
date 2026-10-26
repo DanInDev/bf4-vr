@@ -2,6 +2,36 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## Next — two-handed weapon, barrel aim, arm reach, right stick (branch `feature/two-hand-aim`)
+
+Build: `feature/two-hand-aim`, Release. New: two-handed grip (#29), shots converge on the barrel line
+(#29), arm stretch (#31), right stick turns under controller aim (#22). Not yet run in the game at all:
+start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| 1 | `setting "set aim controller"`, right stick left/right | View snap-turns (also with `right_stick = look`); pipe `rightstick` shows `aim=controller (stick turns)` and `turns` counting up | |
+| 2 | Reach both arms straight out; pipe `arms` | `reach` above 1 means the game's arms are too short; with `arm_stretch` 0.25 the hands should now stay on the controllers. Try `arm_stretch` 0, 0.25, 0.4 in `tools\settings.ps1`: what looks natural? | |
+| 3 | Rifle: left hand on the handguard, squeeze the grip | No jump at the grab; moving the left hand steers the barrel; letting go blends back within ~0.1 s; no grenade thrown (LB is held back while you hold the gun). Pipe `twohand`: `held=1` | |
+| 4 | Two-handed, aim at a wall mark ~25 m away and fire (aim = controller) | Bullets hit where the barrel points; at 5–10 m they land a little off (try `aim_convergence`) | |
+| 5 | One-handed, same | Same as 4 | |
+| 6 | Grab next to the light/laser rail (Wep_Extra1) | Known conflict: the accessory toggle claims that spot (7 cm); grab a bit further back. Tell us if that is annoying | |
+| 7 | Reload and grenades while two-handed | Grabbing a magazine or a grenade releases the two-handed hold cleanly | |
+| 8 | Vehicle with aim = controller | Right stick now turns the body, not the turret (known risk); report what happens | |
+
+## 2026-10-26 late — feedback on `main` 22da57a (recorded afterwards)
+
+The table below (row numbers of the "pair rendering with gun depth" checklist) was not filled in row by
+row; the user's summary: "a lot of them seem to be better".
+
+| Finding | Issue |
+| --- | --- |
+| Right stick left/right does not turn the camera. Likely cause found afterwards: with `aim = controller` the stick in `look` mode did nothing (fixed on `feature/two-hand-aim`) | #22 |
+| No custom settings menu in VR: only `tools\settings.ps1` on the desktop exists | #7 |
+| Physical reload: taking a new magazine and putting it in seemed to work; the sounds were way off | #14, #30 |
+| The arms do not reach far from the body: hands, torso and gun look eerily close | #31 |
+| Next priority (user): two-handed mode working, and the gun shooting where the barrel points | #29 |
+
 ## Next — pair rendering with gun depth (pending)
 
 Build: `main`, Release

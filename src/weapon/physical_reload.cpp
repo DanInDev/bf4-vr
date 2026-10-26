@@ -419,6 +419,11 @@ namespace bfvr::weapon
 #endif
 	}
 
+	bool reload_owns_off_hand()
+	{
+		return accessory_busy.load(std::memory_order_relaxed) || (active.load(std::memory_order_relaxed) && block_grip.load(std::memory_order_relaxed));
+	}
+
 	input::gamepad_state filter_pad(const input::gamepad_state& pad)
 	{
 		input::gamepad_state out = pad;

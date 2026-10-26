@@ -17,6 +17,9 @@ namespace bfvr::body
 	// Out of reach, an arm may lengthen by up to this fraction to keep the hand on the controller
 	// (the game's arms can be shorter than the player's, #31). 0 = the rig's length.
 	void set_arm_stretch(float fraction);
+	// Two-handed weapon (#29): the gun hand takes this rotation (OpenXR LOCAL, x y z w) instead of
+	// its controller's aim rotation while active.
+	void set_gun_hand_rotation(bool active, const float (&rotation)[4]);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres

@@ -3,11 +3,13 @@
 #include <windows.h>
 #include <xinput.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <iterator>
 #include <mutex>
 
 #include "common/config.hpp"
@@ -16,6 +18,27 @@
 
 namespace bfvr::input
 {
+	namespace
+	{
+		std::mutex direction_lock;
+		bool direction_valid{};
+		float shot_direction[3]{};
+	}
+
+	void set_aim_direction(bool valid, const float (&direction)[3])
+	{
+		const std::lock_guard guard(direction_lock);
+		direction_valid = valid;
+		std::copy(std::begin(direction), std::end(direction), shot_direction);
+	}
+
+	bool aim_direction(float (&direction)[3])
+	{
+		const std::lock_guard guard(direction_lock);
+		std::copy(std::begin(shot_direction), std::end(shot_direction), direction);
+		return direction_valid;
+	}
+
 #if defined(_M_X64)
 	namespace
 	{

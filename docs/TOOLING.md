@@ -102,6 +102,7 @@ offline mode is the legitimate way to play without a connection.
 | `key <hex vk> [ms]` | Research: a key press through the game's Raw Input keyboard (works without focus), e.g. `key 31` = 1 |
 | `holster [primary\|secondary\|knife\|gadget1\|gadget2\|order]` | Holsters and the squad signal: state; research: switch as if drawn from that holster, or `order` = the squad order key (Q) |
 | `grenade` / `grenade throw <yaw> <pitch> <m/s> [safe]` | Physical grenades: state; research: a throw from the off hand with that velocity (view-relative degrees), `safe` = no explosion |
+| `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |

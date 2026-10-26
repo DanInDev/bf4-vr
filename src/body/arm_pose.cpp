@@ -136,6 +136,9 @@ namespace bfvr::body
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> arm_stretch{ 0.25f }; // live setting: how much longer an arm may get to reach its controller
+		std::mutex gun_hand_lock;
+		bool gun_hand_override{};
+		ik::quat gun_hand_rotation;
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -369,6 +372,14 @@ namespace bfvr::body
 					wrist = wrist - ik::rotate(head_rotation, shoulders);
 					const float* q = hands.aim[hand].orientation;
 					aim = { q[0], q[1], q[2], q[3] };
+					if (hand == 1)
+					{
+						const std::lock_guard held(gun_hand_lock);
+						if (gun_hand_override)
+						{
+							aim = gun_hand_rotation;
+						}
+					}
 				}
 				else
 				{
@@ -655,6 +666,13 @@ namespace bfvr::body
 	void set_arm_ik(bool enabled)
 	{
 		ik_enabled = enabled;
+	}
+
+	void set_gun_hand_rotation(bool active, const float (&rotation)[4])
+	{
+		const std::lock_guard guard(gun_hand_lock);
+		gun_hand_override = active;
+		gun_hand_rotation = { rotation[0], rotation[1], rotation[2], rotation[3] };
 	}
 
 	void set_arm_stretch(float fraction)

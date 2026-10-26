@@ -42,6 +42,10 @@ arm_ik_weapon = 1
 arm_ik_wrist = 0 0 0.06
 # Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
 arm_ik_pole = 0.5 -1 0.3
+# The game's arms can be shorter than yours, so a hand reaching out stopped short of its controller
+# (and the gun with it). An arm may get up to this much longer (0.25 = 25 %); 0 = the game's length.
+# Pipe `arms` shows reach (goal distance / arm length; above 1 = out of reach). Issue #31.
+arm_stretch = 0.25
 
 # Render size for the eye images (re/notes/render-quality.md). 0 = the monitor's mode (1920x1080).
 # <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
@@ -93,6 +97,15 @@ holsters = 1
 # Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
 squad_signal = 1
 grenade_throw_scale = 1.5
+# What aims the gun: head = the view (game default), controller = the gun hand's controller; the view
+# then turns only with the body (right stick), and the right stick always turns.
+aim = head
+# Two-handed weapon (issue #29): off hand on the handguard + grip holds the gun with both hands; the
+# barrel then points along the line between the hands. Pipe `twohand` shows the state.
+two_handed = 1
+# aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
+# many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
+aim_convergence = 25
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
 gamepad = 1

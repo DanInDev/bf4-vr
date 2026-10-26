@@ -29,6 +29,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "xr/theater.hpp"
 
@@ -73,6 +74,8 @@ namespace bfvr::core
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
+			weapon::set_two_handed(store.boolean("two_handed", true));
+			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
@@ -96,6 +99,7 @@ namespace bfvr::core
 			apply_settings();
 			weapon::update_physical_reload();
 			weapon::update_physical_grenades();
+			weapon::update_two_handed();
 			weapon::update_weapon_swap();
 			if (control_enabled)
 			{
