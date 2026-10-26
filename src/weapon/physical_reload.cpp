@@ -39,11 +39,12 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t firing_primary = 0x10;   // FiringFunctionData
 		constexpr std::uintptr_t function_capacity = 0x220; // Ammo.MagazineCapacity (counts the chamber)
 		// Server (single player runs it in-process): local ServerSoldierEntity -> weapons component ->
-		// slot array (same slot index as the client) -> ammo.
+		// slot array (same slot index as the client) -> weapon firing object -> ammo.
 		constexpr std::uintptr_t server_soldier_global = static_cast<std::uintptr_t>(0x142311db8ull);
 		constexpr std::uintptr_t server_soldier_weapons = 0x7c0;
 		constexpr std::uintptr_t server_weapon_slots = 0x828;
-		constexpr std::uintptr_t server_magazine = 0x440;  // int32 rounds in the gun, reserve at +4
+		constexpr std::uintptr_t server_firing = 0x200;
+		constexpr std::uintptr_t firing_magazine = 0x1a0;  // int32 rounds in the gun, reserve at +4
 		constexpr int max_slots = 16;
 		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload).
 		constexpr int spare_rounds = 2;
@@ -69,7 +70,7 @@ namespace bfvr::weapon
 			int slot{ -1 };
 			char name[48]{};
 			int capacity{};          // game MagazineCapacity
-			std::uintptr_t ammo{};   // server weapon + 0x440
+			std::uintptr_t ammo{};   // server weapon firing + 0x1A0
 			int magazine{};
 			int reserve{};
 		};
@@ -97,17 +98,18 @@ namespace bfvr::weapon
 			{
 				return weapon;
 			}
-			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{};
+			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, firing{};
 			if (!read(server_soldier_global, server_soldier) || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
-				|| !read(server_weapon + server_magazine, weapon.magazine) || !read(server_weapon + server_magazine + 4, weapon.reserve))
+				|| !read(server_weapon + server_firing, firing) || !read(firing + firing_magazine, weapon.magazine)
+				|| !read(firing + firing_magazine + 4, weapon.reserve))
 			{
 				return weapon;
 			}
 			// Grenades, the knife and gadgets carry -1: no magazine to reload.
 			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && weapon.capacity > 1 && weapon.capacity <= 500;
 			weapon.slot = static_cast<int>(index);
-			weapon.ammo = server_weapon + server_magazine;
+			weapon.ammo = firing + firing_magazine;
 			return weapon;
 		}
 
