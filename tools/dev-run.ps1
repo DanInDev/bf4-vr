@@ -3,7 +3,7 @@
 #   tools\dev-run.ps1 -Resume            ...then Campaign > Resume (your saved checkpoint) and wait for the level
 #   tools\dev-run.ps1 -NoBuild -Resume
 #   tools\dev-run.ps1 -NoBuild -UseRunning -Resume   navigate a BF4 that is already running
-# Leave mouse and keyboard alone while it clicks through the menus.
+# Menus are clicked through the mod's pointer (no focus needed; you can keep working).
 
 param(
 	[string]$Preset = 'bf4-debug',
@@ -29,23 +29,21 @@ function Wait-Seconds([int]$seconds) {
 	while ((Get-Date) -lt $until) { Start-Sleep -Milliseconds 500 }
 }
 
-# Menu positions measured on a 1920x1080 client area, scaled to the window's current client size
-# (the back buffer can lag behind a window resize).
+# Menu positions measured on a 1920x1080 menu. The click goes through the mod's posted-message
+# pointer (pipe "pointer", texture coordinates of the back buffer), so BF4 needs no focus and the
+# mouse and keyboard stay yours. Taller than 16:9 the menu sits in a centred 16:9 band.
 function Click-Relative([double]$x, [double]$y) {
-	$size = Invoke-Tool 'game.ps1' @('size')
-	if ($size -notmatch '(\d+)x(\d+)') { throw "unexpected size: $size" }
-	$cw = [double]$Matches[1]; $ch = [double]$Matches[2]
-	# With render_size the game sees a virtual client of the back buffer's size (mouse coordinates
-	# are scaled), and taller than 16:9 the menu sits in a centred 16:9 band.
-	$w = $cw; $h = $ch
-	$report = @(Invoke-Tool 'pipe.ps1' @('rendersize')) -join ' '
-	if ($report -match ' buffer=(\d+)x(\d+)') { $w = [double]$Matches[1]; $h = [double]$Matches[2] }
+	$w = 1920.0; $h = 1080.0
+	$report = @(Invoke-Tool 'pipe.ps1' @('status')) -join ' '
+	if ($report -match 'back_buffer=(\d+)x(\d+)') { $w = [double]$Matches[1]; $h = [double]$Matches[2] }
 	$band = [math]::Min($h, $w * 9.0 / 16.0)
-	$vx = $w * $x / 1920.0
-	$vy = ($h - $band) / 2.0 + $band * $y / 1080.0
-	$px = [int]($vx * $cw / $w)
-	$py = [int]($vy * $ch / $h)
-	Invoke-Tool 'game.ps1' @('click', '-X', $px, '-Y', $py) | Out-Null
+	$u = ($w * $x / 1920.0) / $w
+	$v = (($h - $band) / 2.0 + $band * $y / 1080.0) / $h
+	$at = ('{0:0.0000} {1:0.0000}' -f $u, $v)
+	Invoke-Tool 'pipe.ps1' @('pointer', "$at 0") | Out-Null
+	Invoke-Tool 'pipe.ps1' @('pointer', "$at 1") | Out-Null
+	Start-Sleep -Milliseconds 150
+	Invoke-Tool 'pipe.ps1' @('pointer', "$at 0") | Out-Null
 }
 
 if (-not $NoBuild) {
@@ -76,7 +74,7 @@ if ($Resume) {
 	Click-Relative 487 70; Wait-Seconds 3     # CAMPAIGN tab
 	Click-Relative 590 350; Wait-Seconds 4    # BATTLEFIELD 4 CAMPAIGN tile
 	Wait-Seconds 2
-	Invoke-Tool 'game.ps1' @('keys', '-Keys', 'enter') | Out-Null   # RESUME is pre-selected; Enter is more reliable than a click
+	Invoke-Tool 'pipe.ps1' @('pad', '0 0 0 0 200 1000') | Out-Null   # pad A on the pre-selected RESUME (a click there is not always taken)
 	Wait-Seconds $LoadWaitSeconds
 	$shot = Join-Path $root 're\screenshots\dev-run-level.png'
 	Invoke-Tool 'pipe.ps1' @('shot', $shot) | Out-Null

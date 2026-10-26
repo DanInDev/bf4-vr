@@ -27,6 +27,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 11c | `setting "set dominant_hand left"` | Right stick moves, left stick looks/turns, left trigger fires, X/Y act as A/B; the gun arm follows the left controller; minimap on the right inner forearm. Known: the body is not mirrored yet, so the right arm reaches across to the left controller | |
 | 13 | `setting "set reload physical"`, AK-12: empty it, grip the magazine with the left hand and pull, drop it; grip at the chest, bring the new one to the gun; grip the slide and pull back | Magazine follows the left hand and falls when dropped; new one seats at the magwell; rack chambers. Judge: grab distances (8 cm magwell, 7 cm slide, 20 cm chest), where the slide point sits (bone origin), magazine orientation in the hand | |
 | 13b | Same with the SCAR-H (AR): fire dry, X, new magazine, X | Bolt locks open on empty, X drops the magazine, X after the new one chambers | |
+| 14 | Touch the optic (or the front of the rail) with the left hand and squeeze the grip | The accessory toggles once per squeeze (AK-12: the magnifier flips in/out); holding the gun's handguard elsewhere does nothing. Judge: the 7 cm touch radius, whether the rail point sits where lights/lasers are | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

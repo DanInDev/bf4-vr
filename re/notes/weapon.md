@@ -45,6 +45,21 @@ server  [0x142311DB8] ServerSoldierEntity +0x7C0 ServerSoldierWeaponsComponent
 - The game's reload button (pad X) is taken: AR magazine release / bolt catch.
 - `Wep_Mag` is drawn by the mod while the magazine is out (in the hand, falling, or 50 m below).
 
+## Pad D-pad and accessories (2026-10-26, AK-12 with RX01 and flip-to-side magnifier)
+
+| Pad input | Effect |
+| --- | --- |
+| D-pad up | toggle accessory: the magnifier flips behind the red dot and back (lights, lasers, variable zoom share it) |
+| D-pad down / left | fire mode and similar (pressed twice: back to AUTO) |
+| D-pad right | weapon / attachment switch |
+
+Gun bones relative to `Wep_Root` (its axes, +z along the barrel, metres): `Wep_Trigger` (0, -0.007, 0.321),
+`Wep_Mag` (0, -0.002, 0.404), `Wep_Slide` (-0.009, 0.037, 0.497), `Wep_Scope1` (0, 0.062, 0.286),
+`Wep_Extra1` (-0.024, 0.015, 0.641), `IK_Joint_LeftHand` (0.057, -0.062, 0.506), `IK_Joint_RightHand`
+(-0.021, -0.070, 0.203), `Wep_Grenade1` (0.002, -0.105, 0.552), muzzle-side `Wep_Belt*` from 0.67.
+The accessory touch uses `Wep_Scope1` and `Wep_Extra1`; `IK_Joint_LeftHand` is the handguard spot for a
+future two-hand grip.
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds

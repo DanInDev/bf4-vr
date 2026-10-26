@@ -80,6 +80,9 @@ dominant_hand = right
 reload = button
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
+# Off hand on the optic or the front rail + grip = the game's accessory toggle (D-pad up: magnifier,
+# variable zoom, light, laser). Works with either reload mode.
+accessory_touch = 1
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
 gamepad = 1

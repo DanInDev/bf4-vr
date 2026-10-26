@@ -75,7 +75,7 @@ instead of reconnecting (which relaunched SteamVR or kept BF4 registered during 
 
 ## One-shot dev loop: `tools/dev-run.ps1`
 
-`dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks
+`dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks (through the mod's pointer, no focus needed; RESUME by pad A)
 Campaign → BF4 Campaign → Resume, then waits for the level and saves `re/screenshots/dev-run-level.png`.
 Menu clicks are scaled from 1920×1080 to the current back buffer. Total ≈ 3.5 minutes.
 
