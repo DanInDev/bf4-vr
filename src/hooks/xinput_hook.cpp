@@ -14,6 +14,7 @@
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/virtual_pad.hpp"
+#include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "input/vr_controls.hpp"
 
@@ -56,7 +57,7 @@ namespace bfvr::hooks
 				return result;
 			}
 
-			const input::gamepad_state pad = weapon::filter_pad(input::for_game(input::latest()));
+			const input::gamepad_state pad = weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())));
 			if (!pad.connected)
 			{
 				// The game creates its pad object once at startup and treats a failed first read as

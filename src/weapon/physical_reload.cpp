@@ -17,6 +17,7 @@
 #include "common/log.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
+#include "weapon/physical_grenade.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
@@ -277,7 +278,8 @@ namespace bfvr::weapon
 		const body::weapon_points points = body::latest_weapon_points();
 		const input::gamepad_state pad = input::latest();
 		const bool hands_valid = points.valid && points.hand_valid[0] && points.hand_valid[1] && GetTickCount64() - points.at < points_max_age_ms;
-		const bool grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+		// A grenade in the off hand owns its grip (weapon/physical_grenade).
+		const bool grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0 && !grenade_in_hand();
 		{
 			const auto held = slots.find(current_slot);
 			accessory_frame touch;

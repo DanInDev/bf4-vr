@@ -27,6 +27,7 @@
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "xr/theater.hpp"
 
@@ -66,6 +67,8 @@ namespace bfvr::core
 			weapon::set_physical_reload(store.text("reload", "button") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
+			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
+			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
@@ -88,6 +91,7 @@ namespace bfvr::core
 			present_thread = GetCurrentThreadId();
 			apply_settings();
 			weapon::update_physical_reload();
+			weapon::update_physical_grenades();
 			if (control_enabled)
 			{
 				control::on_present(swap_chain);

@@ -1,11 +1,14 @@
 // Checks the physical reload state machine (src/weapon/reload): AK and AR variants, chest stow and
 // take, drop with and without drop_discards_ammo, bolt lock, bolt catch, racking and the AK flick;
 // the hand gestures (src/weapon/reload_hands), the weapon profiles (src/weapon/profiles) and the
-// accessory toggle by touch (src/weapon/accessory_touch).
+// accessory toggle by touch (src/weapon/accessory_touch) and the grenade gestures
+// (src/weapon/grenade_hands).
+#include <cmath>
 #include <cstdio>
 #include <initializer_list>
 
 #include "weapon/accessory_touch.hpp"
+#include "weapon/grenade_hands.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
@@ -392,6 +395,110 @@ namespace
 		frame.grip = true;
 		expect(!touch.update(frame).toggle, "a gun without optic or rail bones has nothing to touch");
 	}
+	struct grenade_rig
+	{
+		grenade_hands hands;
+		grenade_frame frame;
+		grenade_rig()
+		{
+			frame.seconds = 1.0f / 90.0f;
+			frame.hands_valid = true;
+			frame.belt = { 0.0f, -0.7f, -0.1f };
+			frame.off_hand = { -0.25f, -0.4f, -0.3f };
+			frame.gun_hand = { 0.15f, -0.25f, -0.35f };
+		}
+		grenade_result step() { return hands.update(frame); }
+		// Moves the off hand to target over the given time (90 Hz), returns the last result.
+		grenade_result move(v3 target, float seconds)
+		{
+			const v3 start = frame.off_hand;
+			const int steps = static_cast<int>(seconds * 90.0f + 0.5f);
+			grenade_result r;
+			for (int i = 1; i <= steps; ++i)
+			{
+				const float f = static_cast<float>(i) / static_cast<float>(steps);
+				frame.off_hand = { start.x + (target.x - start.x) * f, start.y + (target.y - start.y) * f, start.z + (target.z - start.z) * f };
+				r = step();
+			}
+			return r;
+		}
+	};
+
+	void test_grenade_throw()
+	{
+		grenade_rig g;
+		g.step();
+		g.frame.off_hand = g.frame.belt;
+		grenade_result r = g.step();
+		expect(r.off_busy && !r.holding, "hand at the belt claims the grip");
+		g.frame.off_grip = true;
+		r = g.step();
+		expect(r.event == grenade_event::taken && r.holding, "grip at the belt takes a grenade");
+		r = g.move({ -0.1f, -0.3f, -0.3f }, 0.3f);
+		// Gun hand grips next to the grenade and pulls 7 cm away.
+		g.frame.gun_hand = { -0.05f, -0.28f, -0.3f };
+		r = g.step();
+		expect(r.gun_busy, "gun hand at the grenade claims its grip");
+		g.frame.gun_grip = true;
+		r = g.step();
+		expect(!r.armed, "gripping the pin alone does not arm");
+		g.frame.gun_hand = { 0.03f, -0.25f, -0.3f };
+		r = g.step();
+		expect(r.event == grenade_event::pin_pulled && r.armed, "pulling the pin away arms");
+		g.frame.gun_grip = false;
+		g.step();
+		// Throw: 0.5 m forward-up in 0.1 s (about 5 m/s), let go while moving.
+		r = g.move({ -0.1f, -0.1f, -0.75f }, 0.1f);
+		g.frame.off_grip = false;
+		r = g.step();
+		expect(r.event == grenade_event::thrown, "fast release throws");
+		const float speed = std::sqrt(r.velocity.x * r.velocity.x + r.velocity.y * r.velocity.y + r.velocity.z * r.velocity.z);
+		expect(speed > 3.5f && speed < 6.5f && r.velocity.z < -3.0f && r.velocity.y > 1.0f, "throw velocity follows the hand");
+		expect(!r.holding && !r.off_busy, "hand empty after the throw");
+	}
+
+	void test_grenade_drop_and_put_back()
+	{
+		grenade_rig g;
+		g.frame.off_hand = g.frame.belt;
+		g.step();
+		g.frame.off_grip = true;
+		g.step();
+		g.move({ -0.1f, -0.3f, -0.3f }, 0.4f);
+		g.frame.off_grip = false;
+		grenade_result r = g.step();
+		expect(r.event == grenade_event::put_back, "pin in: back to the pouch");
+		g.frame.off_hand = g.frame.belt;
+		g.frame.off_grip = true;
+		g.step();
+		g.move({ -0.1f, -0.3f, -0.3f }, 0.4f);
+		g.frame.gun_hand = { -0.06f, -0.3f, -0.3f };
+		g.frame.gun_grip = true;
+		g.step();
+		g.frame.gun_hand = { 0.02f, -0.3f, -0.3f };
+		g.step();
+		g.frame.gun_grip = false;
+		for (int i = 0; i < 20; ++i)
+		{
+			g.step(); // hand still
+		}
+		g.frame.off_grip = false;
+		r = g.step();
+		expect(r.event == grenade_event::dropped, "pin out, slow release drops it");
+		grenade_rig none;
+		none.frame.have_grenade = false;
+		none.frame.off_hand = none.frame.belt;
+		none.step();
+		none.frame.off_grip = true;
+		expect(none.step().event == grenade_event::none, "no grenades left: nothing to take");
+		grenade_rig lost;
+		lost.frame.off_hand = lost.frame.belt;
+		lost.step();
+		lost.frame.off_grip = true;
+		lost.step();
+		lost.frame.hands_valid = false;
+		expect(lost.step().event == grenade_event::put_back, "tracking lost: the grenade goes back, never thrown");
+	}
 }
 
 int main()
@@ -410,6 +517,8 @@ int main()
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();
 	test_accessory_touch();
+	test_grenade_throw();
+	test_grenade_drop_and_put_back();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

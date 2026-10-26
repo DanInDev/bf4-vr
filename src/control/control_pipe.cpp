@@ -30,6 +30,7 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -600,6 +601,7 @@ namespace bfvr::control
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
 			if (command == "reload") return weapon::reload_pipe_command(argument);
+			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "fakehand")
 			{
