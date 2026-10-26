@@ -28,6 +28,7 @@ needs the headset: feel, sizes, aim accuracy against real targets.
 | 7 | Reload and grenades while two-handed | Grabbing a magazine or a grenade releases the two-handed hold cleanly | |
 | 9 | Hold the left menu button ~0.6 s (in a level and in the main menu) | The settings panel appears ahead of you; point with either controller, the trigger clicks -/+, toggles and tabs; Save says "saved to bfvr.ini"; Close or holding the button again closes it. A short press still opens the game's pause menu (on release). The game ignores the triggers while the panel is open. Monitor first: pipe `panel open`, `panel shot <file.bmp>` | |
 | 10 | `reload = physical`: full reload while squeezing both grips as you naturally would (AK-12, then SCAR-H) | No spot/voice call-outs (`grip_spot = 0`); the game's own sounds at each step: magazine out, magazine in, bolt when racking; nothing when taking or dropping. Do they sound right and on time? | |
+| 11 | Panel (View page): `vignette` turning, then both; snap turn, smooth turn, stick aiming, walking, sprinting; also look around with your head only | The edge darkens while the game turns or moves you and fades within ~0.3 s; head movement alone never darkens it; the HUD stays readable. Try `vignette_strength` 0.4–1. Seated: recenter while seated | |
 | 8 | Vehicle with aim = controller | Right stick now turns the body, not the turret (known risk); report what happens | |
 
 ## 2026-10-26 late — feedback on `main` 22da57a (recorded afterwards)
