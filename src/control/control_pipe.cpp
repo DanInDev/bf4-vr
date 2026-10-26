@@ -411,7 +411,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -597,6 +597,24 @@ namespace bfvr::control
 					return "error: usage: pointer <u> <v> [0|1]  (0..1, 0 0 = top left)";
 				}
 				return hooks::point_game_cursor(u, v, pressed != 0) ? "ok" : "error: no game window or outside 0..1";
+			}
+			if (command == "key")
+			{
+				// Research: tap a key through the game's Raw Input keyboard (virtual-key code in hex).
+				unsigned key = 0, hold_ms = 100;
+				if (sscanf_s(argument.c_str(), "%x %u", &key, &hold_ms) < 1 || key == 0 || key > 0xff || hold_ms > 5000)
+				{
+					return "error: usage: key <hex virtual-key code> [ms <= 5000]";
+				}
+				if (!hooks::press_game_key(static_cast<unsigned short>(key), true))
+				{
+					return "error: no game window";
+				}
+				std::thread([key, hold_ms] {
+					Sleep(hold_ms);
+					hooks::press_game_key(static_cast<unsigned short>(key), false);
+				}).detach();
+				return "key " + argument + " sent; synthetic keys read so far " + std::to_string(hooks::synthetic_keys_read());
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);

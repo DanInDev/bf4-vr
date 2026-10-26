@@ -1,6 +1,8 @@
 #include "hooks/game_window.hpp"
 
 #include <atomic>
+#include <cstdint>
+#include <cstring>
 
 #include <MinHook.h>
 
@@ -16,6 +18,7 @@ namespace bfvr::hooks
 		using set_cursor_pos_t = BOOL(WINAPI*)(int, int);
 		using get_client_rect_t = BOOL(WINAPI*)(HWND, LPRECT);
 		using point_conversion_t = BOOL(WINAPI*)(HWND, LPPOINT);
+		using get_raw_input_data_t = UINT(WINAPI*)(HRAWINPUT, UINT, LPVOID, PUINT, UINT);
 
 		get_foreground_window_t original_get_foreground_window{};
 		clip_cursor_t original_clip_cursor{};
@@ -23,6 +26,64 @@ namespace bfvr::hooks
 		get_client_rect_t original_get_client_rect{};
 		point_conversion_t original_screen_to_client{};
 		point_conversion_t original_client_to_screen{};
+		get_raw_input_data_t original_get_raw_input_data{};
+
+		// Synthetic keys (weapon slots, docs/tasks/weapon-swap.md): BF4 reads the keyboard through Raw
+		// Input. A posted WM_INPUT carries a marker handle; GetRawInputData answers it with the key.
+		constexpr std::uintptr_t key_handle_base = 0x7bf5a000;
+		constexpr unsigned key_ring = 32;
+		struct key_event
+		{
+			USHORT make{};
+			USHORT flags{};
+			USHORT vkey{};
+		};
+		key_event key_events[key_ring];
+		std::atomic<unsigned> next_key{};
+		std::atomic<unsigned long long> keys_answered{};
+
+		bool synthetic_key(HRAWINPUT handle, unsigned& index)
+		{
+			const auto value = reinterpret_cast<std::uintptr_t>(handle);
+			if (value < key_handle_base || value >= key_handle_base + key_ring)
+			{
+				return false;
+			}
+			index = static_cast<unsigned>(value - key_handle_base);
+			return true;
+		}
+
+		UINT WINAPI get_raw_input_data_detour(HRAWINPUT handle, UINT command, LPVOID data, PUINT size, UINT header_size)
+		{
+			unsigned index{};
+			if (!synthetic_key(handle, index) || !size || header_size != sizeof(RAWINPUTHEADER))
+			{
+				return original_get_raw_input_data(handle, command, data, size, header_size);
+			}
+			RAWINPUT input{};
+			input.header.dwType = RIM_TYPEKEYBOARD;
+			input.header.dwSize = sizeof(RAWINPUT);
+			input.header.wParam = RIM_INPUT;
+			const key_event& key = key_events[index];
+			input.data.keyboard.MakeCode = key.make;
+			input.data.keyboard.Flags = key.flags;
+			input.data.keyboard.VKey = key.vkey;
+			input.data.keyboard.Message = (key.flags & RI_KEY_BREAK) ? WM_KEYUP : WM_KEYDOWN;
+			const UINT needed = command == RID_HEADER ? sizeof(RAWINPUTHEADER) : sizeof(RAWINPUT);
+			if (!data)
+			{
+				*size = needed;
+				return 0;
+			}
+			if (*size < needed)
+			{
+				*size = needed;
+				return static_cast<UINT>(-1);
+			}
+			std::memcpy(data, &input, needed);
+			++keys_answered;
+			return needed;
+		}
 
 		std::atomic<HWND> window{};
 		WNDPROC original_window_procedure{};
@@ -216,6 +277,7 @@ namespace bfvr::hooks
 		hook_api("GetClientRect", reinterpret_cast<void*>(&get_client_rect_detour), reinterpret_cast<void**>(&original_get_client_rect));
 		hook_api("ScreenToClient", reinterpret_cast<void*>(&screen_to_client_detour), reinterpret_cast<void**>(&original_screen_to_client));
 		hook_api("ClientToScreen", reinterpret_cast<void*>(&client_to_screen_detour), reinterpret_cast<void**>(&original_client_to_screen));
+		hook_api("GetRawInputData", reinterpret_cast<void*>(&get_raw_input_data_detour), reinterpret_cast<void**>(&original_get_raw_input_data));
 		focus_kept = config::get_bool("keep_focus", true);
 		log_messages = config::research_enabled();
 		if (focus_kept)
@@ -248,6 +310,26 @@ namespace bfvr::hooks
 		{
 			log::write("window: virtual client size %ux%u", width, height);
 		}
+	}
+
+	bool press_game_key(unsigned short virtual_key, bool down)
+	{
+		const HWND hwnd = window.load();
+		if (!hwnd || !original_get_raw_input_data)
+		{
+			return false;
+		}
+		const unsigned index = next_key++ % key_ring;
+		key_event& key = key_events[index];
+		key.vkey = virtual_key;
+		key.make = static_cast<USHORT>(MapVirtualKeyW(virtual_key, MAPVK_VK_TO_VSC));
+		key.flags = down ? RI_KEY_MAKE : RI_KEY_BREAK;
+		return PostMessageW(hwnd, WM_INPUT, RIM_INPUT, static_cast<LPARAM>(key_handle_base + index)) != FALSE;
+	}
+
+	unsigned long long synthetic_keys_read()
+	{
+		return keys_answered.load();
 	}
 
 	bool point_game_cursor(float u, float v, bool pressed)

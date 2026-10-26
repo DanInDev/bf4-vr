@@ -24,4 +24,9 @@ namespace bfvr::hooks
 	// image and presses the left button while pressed is true. Uses the real cursor (BF4's menus follow
 	// it) when the game is in front, posted mouse messages otherwise. false without a game window.
 	bool point_game_cursor(float u, float v, bool pressed);
+
+	// A key press or release for the game (virtual-key code), through its Raw Input keyboard: a posted
+	// WM_INPUT answered by the GetRawInputData hook. Works without focus. false without a game window.
+	bool press_game_key(unsigned short virtual_key, bool down);
+	unsigned long long synthetic_keys_read(); // synthetic keys the game has read (GetRawInputData)
 }
