@@ -70,3 +70,6 @@ right_stick = look
 turn = snap
 snap_turn_degrees = 30
 stance_flicks = 1
+# Gun hand (issue #9): left mirrors the controllers (sticks, triggers, grips, A/B <-> X/Y, stick
+# clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
+dominant_hand = right

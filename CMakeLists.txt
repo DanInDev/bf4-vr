@@ -89,6 +89,7 @@ add_library(bfvr_runtime STATIC
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
 	src/input/gestures.cpp
+	src/input/handedness.cpp
 	src/input/pointer.cpp
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
@@ -143,6 +144,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_gestures_test tests/gestures_test.cpp src/input/gestures.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_gestures_test PRIVATE bfvr_common)
 
+	# Left-handed role swap of pad and hand poses; exits non-zero on failure.
+	add_executable(bfvr_handedness_test tests/handedness_test.cpp src/input/handedness.cpp)
+	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
+
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
@@ -150,4 +155,5 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
+	add_test(NAME handedness COMMAND bfvr_handedness_test)
 endif()
