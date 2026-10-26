@@ -24,6 +24,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 10b | `tools\settings.ps1`: toggle `hud_show_main/minimap/ammo/bottom` (branch `feature/hud-toggles`), both `hud_mode`s | Each piece disappears/returns at once; nothing else changes | |
 | 11b | `setting "set aim controller"` (branch `feature/controller-aim`) | Bullets go where the right controller points, the view stays with the head; snap turn still turns the view. Expect: walking follows the gun direction, the HUD crosshair no longer marks the aim | |
 | 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
+| 11c | `setting "set dominant_hand left"` (branch `feature/left-handed`) | Right stick moves, left stick looks/turns, left trigger fires, X/Y act as A/B; the gun arm follows the left controller; minimap on the right inner forearm. Known: the body is not mirrored yet, so the right arm reaches across to the left controller | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

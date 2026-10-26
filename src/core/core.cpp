@@ -19,6 +19,7 @@
 #include "hooks/swap_chain_size.hpp"
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
+#include "input/handedness.hpp"
 #include "input/virtual_pad.hpp"
 #include "input/vr_controls.hpp"
 #include "safety/mp_guard.hpp"
@@ -61,6 +62,7 @@ namespace bfvr::core
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
 			input::set_controller_aim(store.text("aim", "head") == "controller");
+			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
 			const std::string render = store.text("stereo_render", "aer");

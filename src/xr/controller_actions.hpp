@@ -16,7 +16,8 @@ namespace bfvr::xr
 	//   A B (right), X Y (left) -> A B X Y   stick clicks -> LS / RS
 	//   left menu button -> Start
 	//
-	// Grip and aim poses of both hands are tracked too (arm IK).
+	// Grip and aim poses of both hands are tracked too (arm IK). dominant_hand = left mirrors all
+	// of this (input/handedness.hpp).
 	class controller_actions
 	{
 	public:

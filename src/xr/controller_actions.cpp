@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "common/log.hpp"
+#include "input/handedness.hpp"
 
 namespace bfvr::xr
 {
@@ -208,7 +209,7 @@ namespace bfvr::xr
 		{
 			sample.valid[hand] = locate_one(grip_spaces_[hand], sample.grip[hand]) && locate_one(aim_spaces_[hand], sample.aim[hand]);
 		}
-		return sample;
+		return input::left_handed() ? input::swapped(sample) : sample;
 	}
 
 	input::gamepad_state controller_actions::sync(XrSession session)
@@ -272,7 +273,7 @@ namespace bfvr::xr
 		if (read_bool(right_stick_click_)) buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
 		if (read_bool(start_)) buttons |= XINPUT_GAMEPAD_START;
 		pad.buttons = buttons;
-		return pad;
+		return input::left_handed() ? input::mirrored(pad) : pad;
 	}
 
 	void controller_actions::destroy()
