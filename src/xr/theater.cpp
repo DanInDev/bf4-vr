@@ -26,6 +26,8 @@
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
 #include "common/settings_store.hpp"
+#include "hooks/game_window.hpp"
+#include "input/pointer.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
@@ -710,6 +712,37 @@ namespace bfvr::xr
 			eye_images_stored += 2;
 		}
 
+		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
+		// pulled last aims; its trigger is the left mouse button.
+		int pointer_hand{ 1 };
+		void point_at_screen(float width, float height)
+		{
+			if (settings::global().text("menu_input", "pointer") != "pointer")
+			{
+				return;
+			}
+			const input::gamepad_state pad = input::latest();
+			const bool triggers[2] = { pad.left_trigger > 128, pad.right_trigger > 128 };
+			if (triggers[0] != triggers[1])
+			{
+				pointer_hand = triggers[0] ? 0 : 1;
+			}
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!hands.valid[pointer_hand])
+			{
+				return;
+			}
+			input::quad_target screen;
+			screen.pose.position[2] = -screen_distance;
+			screen.width = width;
+			screen.height = height;
+			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
+			if (hit.hit)
+			{
+				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
+			}
+		}
+
 		// Stereo: keeps this Present's image as the eye the camera hook rendered it for.
 		void store_eye(ID3D11Texture2D* back_buffer)
 		{
@@ -1052,6 +1085,7 @@ namespace bfvr::xr
 				quad.pose.position.z = -screen_distance;
 				quad.size = { screen_width, screen_width * static_cast<float>(swapchain_height) / static_cast<float>(swapchain_width) };
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
+				point_at_screen(quad.size.width, quad.size.height);
 				layer_count = 1;
 			}
 

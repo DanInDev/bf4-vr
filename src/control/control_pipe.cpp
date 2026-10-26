@@ -17,6 +17,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
+#include "hooks/game_window.hpp"
 #include "hooks/swap_chain_size.hpp"
 #include "input/gamepad.hpp"
 #include "input/vr_controls.hpp"
@@ -580,6 +581,17 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%f", &value);
 				stereo::set_research_aspect(value);
 				return "research_aspect=" + std::to_string(value);
+			}
+			if (command == "pointer")
+			{
+				// Laser-pointer test without a headset: cursor at texture coordinates, button state.
+				float u = 0.0f, v = 0.0f;
+				int pressed = 0;
+				if (sscanf_s(argument.c_str(), "%f %f %d", &u, &v, &pressed) < 2)
+				{
+					return "error: usage: pointer <u> <v> [0|1]  (0..1, 0 0 = top left)";
+				}
+				return hooks::point_game_cursor(u, v, pressed != 0) ? "ok" : "error: no game window or outside 0..1";
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);

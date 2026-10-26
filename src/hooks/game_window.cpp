@@ -250,6 +250,52 @@ namespace bfvr::hooks
 		}
 	}
 
+	bool point_game_cursor(float u, float v, bool pressed)
+	{
+		const HWND hwnd = window.load();
+		if (!hwnd || !(u >= 0.0f && u <= 1.0f && v >= 0.0f && v <= 1.0f))
+		{
+			return false;
+		}
+		RECT client{};
+		if (!(original_get_client_rect ? original_get_client_rect(hwnd, &client) : GetClientRect(hwnd, &client)))
+		{
+			return false;
+		}
+		const LONG x = static_cast<LONG>(u * static_cast<float>(client.right));
+		const LONG y = static_cast<LONG>(v * static_cast<float>(client.bottom));
+		POINT screen{ x, y };
+		if (original_client_to_screen ? !original_client_to_screen(hwnd, &screen) : !ClientToScreen(hwnd, &screen))
+		{
+			return false;
+		}
+		static bool was_pressed{};
+		const HWND foreground = original_get_foreground_window ? original_get_foreground_window() : GetForegroundWindow();
+		if (foreground == hwnd)
+		{
+			original_set_cursor_pos ? original_set_cursor_pos(screen.x, screen.y) : SetCursorPos(screen.x, screen.y);
+			if (pressed != was_pressed)
+			{
+				INPUT input{};
+				input.type = INPUT_MOUSE;
+				input.mi.dwFlags = pressed ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+				SendInput(1, &input, sizeof(input));
+			}
+		}
+		else
+		{
+			// Client coordinates of the real window; the window procedure scales them to the virtual size.
+			const LPARAM position = MAKELPARAM(x, y);
+			PostMessageW(hwnd, WM_MOUSEMOVE, pressed ? MK_LBUTTON : 0, position);
+			if (pressed != was_pressed)
+			{
+				PostMessageW(hwnd, pressed ? WM_LBUTTONDOWN : WM_LBUTTONUP, pressed ? MK_LBUTTON : 0, position);
+			}
+		}
+		was_pressed = pressed;
+		return true;
+	}
+
 	unsigned long long focus_losses_hidden()
 	{
 		return hidden.load();

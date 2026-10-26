@@ -15,6 +15,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 3 | Arm IK + `pair` (`arm_ik = 1`) | Hands on the gun, sizes plausible, shoulders/chest position (note what to tune) | |
 | 4 | Same in `aer` (`tools\pipe.ps1 stereorender aer`) | Which looks better, gun and world | |
 | 6 | `tools\pipe.ps1 rightstick turn` (branch `feature/vr-input`) | Right stick left/right snaps 30°, down flicks crouch then prone, up flicks stand back up; no stick aiming | |
+| 7 | Menus (branch `feature/vr-settings`): point the right or left controller at the menu screen, pull its trigger | Cursor follows the ray, trigger clicks; the hand whose trigger was pulled last points | |
 | 5 | Resolution | Sharper than last time? `status` shows `back_buffer=2160x2160` if the fullscreen fix works | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

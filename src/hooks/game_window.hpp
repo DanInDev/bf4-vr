@@ -19,4 +19,9 @@ namespace bfvr::hooks
 	void attach_game_window(HWND game_window);
 	void set_virtual_client_size(unsigned width, unsigned height); // 0 0 = the real size
 	unsigned long long focus_losses_hidden();
+
+	// Laser pointer (#23): puts the cursor at texture coordinates (0, 0 = top left) of the game's
+	// image and presses the left button while pressed is true. Uses the real cursor (BF4's menus follow
+	// it) when the game is in front, posted mouse messages otherwise. false without a game window.
+	bool point_game_cursor(float u, float v, bool pressed);
 }
