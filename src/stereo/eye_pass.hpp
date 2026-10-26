@@ -19,12 +19,17 @@ namespace bfvr::stereo
 	//   4 = restore slot 0 from a snapshot between the eyes, 8 = eye-2 constants (implies 2; the
 	//   per-view constants are baked into job-filled arenas, see constant_patch.hpp), 32 = also move
 	//   every view-projection built with the game's projection (tested, did not move the gun).
-	// stereo_render = pair uses 1 | 8. Known gap: the gun and arms stay identical in both eyes.
+	// stereo_render = pair uses 1 | 8; flag 8 also moves the first-person (gun and arms) per-view block.
 	std::string set_eye_pass(int mode, float shift_m);
 	// Research: during the next eye-pass frame, records the first eye's constant-buffer bindings and
 	// writes <prefix>-bindings.txt, each bound buffer read back from the GPU (<prefix>-buffer-<ptr>.bin)
 	// and view slot 0 (<prefix>-slot.bin).
-	std::string probe_eye_pass(const std::string& prefix);
+	// second_eye: record the second eye's bindings ('R' lines = redirected to our eye buffer) and draws.
+	std::string probe_eye_pass(const std::string& prefix, bool second_eye = false);
+	// Research: "V 2 512" = every VS slot-2 binding of 512 bytes gets zeros in the second eye; "off".
+	std::string set_eye_poison(const std::string& spec);
+	// Research: indexed draws [from, to) of the second eye are skipped (0 0 = none).
+	std::string set_eye_skip(unsigned from, unsigned to);
 	// stereo_render = pair: the camera hook sets the right eye's offset (metres along the left eye's
 	// right axis) every frame.
 	void set_eye_pass_shift(float metres);
@@ -36,5 +41,6 @@ namespace bfvr::stereo
 	// Present thread: tracks the back buffer the first eye is copied from.
 	void eye_pass_on_present(IDXGISwapChain* swap_chain);
 	// The first eye's image of the latest frame (back-buffer format and size), or null.
-	ID3D11Texture2D* eye_pass_image();
+	// eye 1: the second eye's image copied at the same point of the frame (before the post/UI modules).
+	ID3D11Texture2D* eye_pass_image(int eye = 0);
 }

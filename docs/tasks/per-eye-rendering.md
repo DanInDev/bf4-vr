@@ -148,9 +148,10 @@ See approach 2 below, plus the two Overlord additions above. First session:
 **Session 3 results (2026-10-25/26):** eye 2 has its own world constants (`eyepass` flag 8,
 `constant_patch`): correct world disparity on the monitor, 130–140 fps at 1280×720 in Release.
 `stereo_render = pair` submits both eyes of one frame to the headset (pipe `stereorender` switches live).
-**Open:** the gun and arms are identical in both eyes; none of the constant-buffer experiments moved
-them (table in `re/notes/stereo-rendering.md`). Next suspect: skinning/bone buffers bound as shader
-resources. Headset checklist: `docs/HEADSET-TESTS.md` (2026-10-26).
+**Session 4 (2026-10-26 night):** the gun and arms have their own eye offset too: they use a
+first-person per-view block with its own projection, recognised by layout
+(`constant_patch::shift_per_view_block`). Monitor: scope −297 px at 64 mm. Next: headset check
+(`docs/HEADSET-TESTS.md`, "Next"), render size back to 2160×2160 (profile was windowed).
 
 ### 1. Two views through the engine's own multi-view path (ruled out, see above)
 

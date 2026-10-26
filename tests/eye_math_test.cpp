@@ -339,8 +339,93 @@ namespace
 	}
 }
 
+namespace
+{
+	// A 512-byte per-view block (layout of constant_patch::shift_per_view_block) for a camera with
+	// axes rot (rows right, up, back) at p, column-vector convention.
+	void per_view_block(const float (&rot)[9], const float (&p)[3], float sx, float sy, float* block)
+	{
+		const float near_plane = 0.06f;
+		for (int i = 0; i < 128; ++i)
+		{
+			block[i] = 0;
+		}
+		float view[16]{};
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				view[r * 4 + c] = rot[r * 3 + c];
+			}
+			view[r * 4 + 3] = -(rot[r * 3 + 0] * p[0] + rot[r * 3 + 1] * p[1] + rot[r * 3 + 2] * p[2]);
+		}
+		view[15] = 1;
+		const float projection[16] = { sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -1, -near_plane, 0, 0, -1, 0 };
+		for (int r = 0; r < 4; ++r)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				float sum = 0, rotation_only = 0;
+				for (int k = 0; k < 4; ++k)
+				{
+					sum += projection[r * 4 + k] * view[k * 4 + c];
+					rotation_only += projection[r * 4 + k] * (c < 3 || k == 3 ? view[k * 4 + c] : 0.0f);
+				}
+				block[0xb0 / 4 + r * 4 + c] = sum;
+				block[0xf0 / 4 + r * 4 + c] = rotation_only;
+				block[0x70 / 4 + r * 4 + c] = projection[r * 4 + c];
+				block[0x30 / 4 + r * 4 + c] = view[r * 4 + c];
+			}
+		}
+		block[0x130 / 4 + 0] = sx;
+		block[0x130 / 4 + 1] = sy;
+		block[0x130 / 4 + 2] = 1;
+		block[0x130 / 4 + 3] = -near_plane;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			block[0x140 / 4 + axis] = p[axis];
+		}
+	}
+
+	void test_per_view_block()
+	{
+		std::mt19937 random(5);
+		for (int round = 0; round < 100; ++round)
+		{
+			const pose camera = random_pose(random);
+			const float qx = camera.orientation[0], qy = camera.orientation[1], qz = camera.orientation[2], qw = camera.orientation[3];
+			const float rot[9] = { 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy + qz * qw), 2 * (qx * qz - qy * qw),
+				2 * (qx * qy - qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz + qx * qw),
+				2 * (qx * qz + qy * qw), 2 * (qy * qz - qx * qw), 1 - 2 * (qx * qx + qy * qy) };
+			const float p[3] = { 2.0f * camera.position[0], 1.6f + camera.position[1], camera.position[2] };
+			const float d = 0.064f;
+			const float p_eye[3] = { p[0] + d * rot[0], p[1] + d * rot[1], p[2] + d * rot[2] };
+			float block[128], expected[128];
+			per_view_block(rot, p, 2.001f, 2.414f, block);
+			per_view_block(rot, p_eye, 2.001f, 2.414f, expected);
+			expect(constant_patch::shift_per_view_block(block, 128, d), "per-view block not recognised", round);
+			bool ok = true;
+			for (int i = 0; i < 128; ++i)
+			{
+				ok = ok && near(block[i], expected[i], 1e-3f);
+			}
+			expect(ok, "shifted per-view block differs from the moved camera's", round);
+		}
+		// Arbitrary data is not a per-view block.
+		float noise[128];
+		std::mt19937 random_noise(9);
+		std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
+		for (float& value : noise)
+		{
+			value = unit(random_noise);
+		}
+		expect(!constant_patch::shift_per_view_block(noise, 128, 0.064f), "noise taken for a per-view block");
+	}
+}
+
 int main()
 {
+	test_per_view_block();
 	test_view_projection_shift();
 	test_compose();
 	test_fov();

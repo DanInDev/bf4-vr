@@ -2,6 +2,20 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## Next — pair rendering with gun depth (pending)
+
+Build: main after the 2026-10-26 night merge, Release (`tools\dev-run.ps1 -Preset bf4-release -Resume`).
+New since the last test: the gun and arms get their own eye offset in `pair` (first-person per-view
+block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64 mm (expected ≈ 273 px).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| 1 | Gun in `pair` | Gun at a believable distance in your hands, not in the wall/ground; no double image | |
+| 2 | Close one eye, then the other, looking at the gun | Each eye sees it from its own side; brightness may differ a little (view-dependent shine), not a lot | |
+| 3 | Arm IK + `pair` (`arm_ik = 1`) | Hands on the gun, sizes plausible, shoulders/chest position (note what to tune) | |
+| 4 | Same in `aer` (`tools\pipe.ps1 stereorender aer`) | Which looks better, gun and world | |
+| 5 | Resolution | Sharper than last time? `status` shows `back_buffer=2160x2160` if the fullscreen fix works | |
+
 ## 2026-10-26 — pair rendering (both eyes from one game frame)
 
 **Result (user, headset):** "looked amazing, depth and motion was great"; no judder or eye strain; the

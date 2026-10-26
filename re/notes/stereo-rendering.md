@@ -175,3 +175,37 @@ Next suspect: skinning. The first-person meshes are skinned; bone matrices proba
 non-constant buffer (structured buffer / SRV) that jobs fill. Find the gun draws' shader resources
 (`VSSetShaderResources` around the draws using the `+0x80` first-person view-projection) and the
 buffer they read.
+
+## The gun and arms get their eye offset (session 4, 2026-10-26 night)
+
+How they were found (all research pipe commands, pair mode with `fakehead 0.064`):
+
+| Step | Result |
+| --- | --- |
+| `eyepoison <stage> <slot> <bytes>` (zero one constant category in eye 2; `tools/poison_sweep.ps1`) | VS slot 0 256-byte = static world (vanishes), VS slot 0 3072-byte = skinned arms (bone palettes), VS slot 2 512-byte = per-view constants (all white); the gun survived every category it was not drawn with |
+| `eyeskip <from> <to>` (skip eye-2 draws; `tools/skip_sweep.py`) | Draws 40–80 of eye 2 draw the gun (black silhouette when skipped); the first-person pass comes first in the frame |
+| `eyeprobe2` (record eye 2's bindings, draw markers `D`, redirects `R`) | The first-person draws bind VS slot-2 512-byte blocks that were **never redirected** |
+
+The first-person per-view block has the world block's layout but its own camera and projection:
+
+| Offset | Content (first-person, pair mode, 1280×720) |
+| --- | --- |
+| `+0x0` | time, time |
+| `+0x10` | viewport w, h, 1/w, 1/h |
+| `+0x30` | view matrix rows `R | t` (soldier-local camera, e.g. at (0.66, 2.09, 0.39)) |
+| `+0x70` | projection (**own FOV**: x/y scale 2.001/2.414 while the world's was 0.932/1.125) |
+| `+0xB0` | view-projection |
+| `+0xF0` | rotation-only view-projection |
+| `+0x130` | (sx, sy, 1.000003, near) |
+| `+0x140` | camera position (= −Rᵀt) |
+
+No RenderView value appears in it (own projection), so the table never matched it and the "world
+projection" rule (flag 32) never did either. `constant_patch::shift_per_view_block` recognises the
+layout by its own consistency and moves the camera by d along its right axis (view t.x −= d,
+view-projection row-0 translation −= d·sx, camera position += d·right); applied to 512-byte blocks the
+table did not change. Unit-tested on random cameras; pitfall: `+0x138` is 1.000003, not 1.
+
+Monitor result (64 mm): world −5/−8 px, gun scope **−297 px** (expected ≈ 0.064·2.0/0.3·640 ≈ 273 px for
+a scope ~0.3 m away). With a 1 mm shift the eyes differ only along the gun's edges (no inconsistency).
+In eye 2 the gun is seen from a visibly different side (12° at 0.3 m) and can look darker; whether that
+matches reality is a headset question.

@@ -129,6 +129,58 @@ namespace bfvr::stereo
 		return shifted;
 	}
 
+	bool constant_patch::shift_per_view_block(float* block, std::size_t floats, float d)
+	{
+		if (floats < 0x150 / 4 || !finite(block, 0x150 / 4))
+		{
+			return false;
+		}
+		float* view = block + 0x30 / 4;          // rows: R | t
+		float* projection = block + 0x70 / 4;
+		float* view_projection = block + 0xb0 / 4;
+		const float* scales = block + 0x130 / 4;
+		float* camera = block + 0x140 / 4;
+		const auto near_value = [](float a, float b) { return std::fabs(a - b) <= 1e-3f * std::fabs(b) + 1e-4f; };
+		for (int r = 0; r < 3; ++r)
+		{
+			const float* row = view + r * 4;
+			if (!near_value(std::sqrt(row[0] * row[0] + row[1] * row[1] + row[2] * row[2]), 1.0f))
+			{
+				return false;
+			}
+		}
+		const float sx = projection[0], sy = projection[5];
+		if (sx <= 0.0f || sy <= 0.0f || !near_value(scales[0], sx) || !near_value(scales[1], sy) || !near_value(scales[2], 1.0f))
+		{
+			return false;
+		}
+		// Camera position = -R^T t.
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			const float expected = -(view[0 * 4 + axis] * view[3] + view[1 * 4 + axis] * view[7] + view[2 * 4 + axis] * view[11]);
+			if (!near_value(camera[axis], expected))
+			{
+				return false;
+			}
+		}
+		// View-projection row 0 = sx * view row 0, translation included (x scale of the same camera).
+		for (int c = 0; c < 4; ++c)
+		{
+			if (!near_value(view_projection[c], sx * view[c]))
+			{
+				return false;
+			}
+		}
+		const float right[3] = { view[0], view[1], view[2] };
+		view[3] -= d;
+		view_projection[3] -= d * sx;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			camera[axis] += d * right[axis];
+		}
+		return true;
+	}
+
 	int constant_patch::apply(float* block, std::size_t floats) const
 	{
 		int replaced = 0;

@@ -25,6 +25,13 @@ namespace bfvr::stereo
 		// by d along its own right axis changes only the clip-x translation, by -d * sx. Handles both
 		// storage orders; pure projections (no translation) are left alone. Returns the count.
 		static int shift_view_projections(float* block, std::size_t floats, float sx, float sy, float d);
+		// Per-view constant block (512 bytes, re/notes/stereo-rendering.md): view matrix rows at +0x30,
+		// projection at +0x70, view-projection at +0xB0, rotation-only view-projection at +0xF0,
+		// (sx, sy, 1, near) at +0x130, camera position at +0x140. The first-person (gun and arms) camera
+		// uses this layout with its own projection, so no RenderView value matches it. Recognised by
+		// its own consistency (camera position = -R^T t, scales repeated); moves the camera by d along
+		// its right axis. Returns true when the block was changed.
+		static bool shift_per_view_block(float* block, std::size_t floats, float d);
 		std::size_t matrices() const { return matrices_.size(); }
 		std::size_t positions() const { return positions_.size(); }
 

@@ -58,14 +58,15 @@ namespace bfvr::control
 			UINT height{};
 			std::vector<std::uint8_t> bgra;
 			bool hud{}; // the HUD layer texture (alpha kept) instead of the back buffer
-			bool eye{}; // the eye pass's first-eye image instead of the back buffer
+			bool eye{}; // an eye pass image instead of the back buffer
+			int eye_index{};
 		};
 		std::mutex shot_lock;
 		shot_request shot;
 
 		// Copies the back buffer (or the HUD layer texture) to CPU memory as BGRA; the back buffer's
 		// alpha is not meaningful on screen and is made opaque. Runs on the present thread.
-		std::string capture(IDXGISwapChain* swap_chain, bool hud, bool eye, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
+		std::string capture(IDXGISwapChain* swap_chain, bool hud, bool eye, int eye_index, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
 		{
 			ComPtr<ID3D11Texture2D> back_buffer;
 			ComPtr<ID3D11Device> device;
@@ -79,7 +80,7 @@ namespace bfvr::control
 			}
 			if (eye)
 			{
-				back_buffer = stereo::eye_pass_image();
+				back_buffer = stereo::eye_pass_image(eye_index);
 				if (!back_buffer)
 				{
 					return "no eye image (eyepass off, or no frame rendered yet)";
@@ -198,7 +199,7 @@ namespace bfvr::control
 			return wide;
 		}
 
-		std::string take_screenshot(const std::string& path, bool hud = false, bool eye = false)
+		std::string take_screenshot(const std::string& path, bool hud = false, bool eye = false, int eye_index = 0)
 		{
 			if (path.empty())
 			{
@@ -210,6 +211,7 @@ namespace bfvr::control
 				shot = {};
 				shot.hud = hud;
 				shot.eye = eye;
+				shot.eye_index = eye_index;
 				shot.pending = true;
 				shot.done = CreateEventW(nullptr, TRUE, FALSE, nullptr);
 			}
@@ -404,7 +406,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -415,7 +417,16 @@ namespace bfvr::control
 			if (command == "shot") return take_screenshot(argument);
 			if (command == "hudshot") return take_screenshot(argument, true);
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
+			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
+			if (command == "eyeskip")
+			{
+				unsigned from = 0, to = 0;
+				sscanf_s(argument.c_str(), "%u %u", &from, &to);
+				return stereo::set_eye_skip(from, to);
+			}
+			if (command == "eyepoison") return stereo::set_eye_poison(argument);
 			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
+			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
@@ -426,9 +437,10 @@ namespace bfvr::control
 				// which would overwrite them every frame). Needs XInput polling, i.e. a physical pad.
 				float lx = 0.0f, ly = 0.0f, rx = 0.0f, ry = 0.0f;
 				unsigned duration_ms = 500;
-				if (sscanf_s(argument.c_str(), "%f %f %f %f %u", &lx, &ly, &rx, &ry, &duration_ms) < 4 || duration_ms > 10000)
+				unsigned buttons = 0;
+				if (sscanf_s(argument.c_str(), "%f %f %f %f %u %x", &lx, &ly, &rx, &ry, &duration_ms, &buttons) < 4 || duration_ms > 10000)
 				{
-					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000]  (axes -1..1)";
+					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000] [hex XINPUT_GAMEPAD buttons]  (axes -1..1)";
 				}
 				const auto axis = [](float value) { return static_cast<std::int16_t>(std::clamp(value, -1.0f, 1.0f) * 32767.0f); };
 				input::gamepad_state pad{};
@@ -437,6 +449,7 @@ namespace bfvr::control
 				pad.left_y = axis(ly);
 				pad.right_x = axis(rx);
 				pad.right_y = axis(ry);
+				pad.buttons = static_cast<std::uint16_t>(buttons);
 				const std::uint64_t generation = ++pad_generation;
 				input::publish(pad);
 				std::thread([generation, duration_ms] {
@@ -721,7 +734,7 @@ namespace bfvr::control
 		if (shot.pending)
 		{
 			shot.copies_at_capture = stereo::stats().copies;
-			shot.error = capture(swap_chain, shot.hud, shot.eye, shot.width, shot.height, shot.bgra);
+			shot.error = capture(swap_chain, shot.hud, shot.eye, shot.eye_index, shot.width, shot.height, shot.bgra);
 			shot.pending = false;
 			SetEvent(shot.done);
 		}

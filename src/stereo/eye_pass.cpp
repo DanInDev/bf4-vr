@@ -71,9 +71,22 @@ namespace bfvr::stereo
 		std::atomic<ID3D11Resource*> back_buffer{};
 		std::mutex image_lock;
 		ComPtr<ID3D11Texture2D> image;
+		ComPtr<ID3D11Texture2D> image_second; // the second eye at the same point of the frame
 
 		// Constant-buffer bindings with offsets (ID3D11DeviceContext1, d3d11_1.h order): every draw
 		// binds 256-byte blocks of two 1 MB dynamic arenas that job threads filled earlier.
+		// Plain bindings and draws, recorded by eyeprobe only (d3d11.h order).
+		constexpr int vs_set_constant_buffers_slot = 7;
+		constexpr int ps_set_constant_buffers_slot = 16;
+		constexpr int draw_indexed_slot = 12;
+		constexpr int draw_indexed_instanced_slot = 20;
+		using set_constant_buffers_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, ID3D11Buffer* const*);
+		using draw_indexed_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, INT);
+		using draw_indexed_instanced_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, UINT, INT, UINT);
+		set_constant_buffers_t original_vs_set_constant_buffers{};
+		set_constant_buffers_t original_ps_set_constant_buffers{};
+		draw_indexed_t original_draw_indexed{};
+		draw_indexed_instanced_t original_draw_indexed_instanced{};
 		constexpr int vs_set_constant_buffers1_slot = 119;
 		constexpr int ps_set_constant_buffers1_slot = 123;
 		constexpr int cs_set_constant_buffers1_slot = 124;
@@ -284,6 +297,7 @@ namespace bfvr::stereo
 		// before the table so the world view-projection is not moved twice.
 		std::atomic<bool> view_projection_rule{};
 		std::atomic<std::uint64_t> view_projections_shifted{};
+		std::atomic<std::uint64_t> per_view_blocks_shifted{};
 		std::atomic<float> eye_shift_metres{};
 		float projection_sx{};
 		float projection_sy{};
@@ -298,7 +312,15 @@ namespace bfvr::stereo
 				view_projections_shifted += static_cast<std::uint64_t>(shifted);
 				changed += shifted;
 			}
-			return changed + patch.apply(block, count * 4);
+			changed += patch.apply(block, count * 4);
+			// Per-view blocks of other cameras (the first-person camera the gun and arms are drawn
+			// with) hold no RenderView value; they are recognised by their layout instead.
+			if (changed == 0 && count == 32 && constant_patch::shift_per_view_block(block, count * 4, eye_shift_metres.load(std::memory_order_relaxed)))
+			{
+				++per_view_blocks_shifted;
+				changed = 1;
+			}
+			return changed;
 		}
 
 		bool patched_copy(ID3D11Buffer* buffer, UINT first, UINT count, float* block)
@@ -450,6 +472,30 @@ namespace bfvr::stereo
 		}
 
 		// Rewrites one binding call for the second eye; false when nothing changed.
+		// eyeprobe: bindings of one first-eye render, then the arenas read back from the GPU.
+		struct binding
+		{
+			char stage{};
+			UINT slot{};
+			ID3D11Buffer* buffer{};
+			UINT first{};
+			UINT count{};
+		};
+		std::vector<binding> probe_bindings;
+		std::atomic<bool> probing{};
+		std::atomic<bool> probe_requested{};
+		std::atomic<bool> probe_second_requested{}; // eyeprobe2: record the second eye instead
+		std::string probe_prefix;
+		std::string probe_result;
+		HANDLE probe_done{};
+
+		// Research (pipe eyepoison): one binding category gets an all-zero block in the second eye, to see
+		// which constants draw what.
+		std::atomic<char> poison_stage{};
+		std::atomic<UINT> poison_slot{};
+		std::atomic<UINT> poison_bytes{};
+		ComPtr<ID3D11Buffer> poison_buffer;
+
 		bool redirect(char stage, UINT start, UINT count, ID3D11Buffer* const* buffers, const UINT* first, const UINT* number,
 			ID3D11Buffer** out_buffers, UINT* out_first, UINT* out_number)
 		{
@@ -463,10 +509,22 @@ namespace bfvr::stereo
 				out_buffers[i] = buffers[i];
 				out_first[i] = first[i];
 				out_number[i] = number[i];
+				if (poison_buffer && stage == poison_stage.load(std::memory_order_relaxed) && start + i == poison_slot.load(std::memory_order_relaxed)
+					&& (poison_bytes.load(std::memory_order_relaxed) == 0 || number[i] * 16 == poison_bytes.load(std::memory_order_relaxed)))
+				{
+					out_buffers[i] = poison_buffer.Get();
+					out_first[i] = 0;
+					changed = true;
+					continue;
+				}
 				const UINT moved = eye_block(buffers[i], first[i], number[i]);
 				count_category(stage, start + i, number[i] * 16, moved != ~0u);
 				if (moved != ~0u)
 				{
+					if (probing.load(std::memory_order_relaxed) && probe_bindings.size() < 20000)
+					{
+						probe_bindings.push_back({ 'R', start + i, eye_buffer.Get(), moved, number[i] });
+					}
 					out_buffers[i] = eye_buffer.Get();
 					out_first[i] = moved;
 					changed = true;
@@ -491,21 +549,6 @@ namespace bfvr::stereo
 		}
 		bool binding_hooks_tried{};
 
-		// eyeprobe: bindings of one first-eye render, then the arenas read back from the GPU.
-		struct binding
-		{
-			char stage{};
-			UINT slot{};
-			ID3D11Buffer* buffer{};
-			UINT first{};
-			UINT count{};
-		};
-		std::vector<binding> probe_bindings;
-		std::atomic<bool> probing{};
-		std::atomic<bool> probe_requested{};
-		std::string probe_prefix;
-		std::string probe_result;
-		HANDLE probe_done{};
 
 		void record(char stage, UINT start, UINT count, ID3D11Buffer* const* buffers, const UINT* first, const UINT* number)
 		{
@@ -524,6 +567,60 @@ namespace bfvr::stereo
 			{
 				probe_bindings.push_back({ stage, start + i, buffers ? buffers[i] : nullptr, first ? first[i] : 0, number ? number[i] : 0 });
 			}
+		}
+
+		void STDMETHODCALLTYPE vs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
+		{
+			record('v', s, n, b, nullptr, nullptr);
+			original_vs_set_constant_buffers(c, s, n, b);
+		}
+
+		void STDMETHODCALLTYPE ps_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
+		{
+			record('p', s, n, b, nullptr, nullptr);
+			original_ps_set_constant_buffers(c, s, n, b);
+		}
+
+		// Research (pipe eyeskip): draws [skip_from, skip_to) of the second eye are not issued.
+		std::atomic<UINT> skip_from{};
+		std::atomic<UINT> skip_to{};
+		UINT eye2_draws{};
+
+		bool skip_draw()
+		{
+			if (!patching)
+			{
+				return false;
+			}
+			const UINT index = eye2_draws++;
+			return index >= skip_from.load(std::memory_order_relaxed) && index < skip_to.load(std::memory_order_relaxed);
+		}
+
+		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
+		void STDMETHODCALLTYPE draw_indexed_detour(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
+		{
+			if (skip_draw())
+			{
+				return;
+			}
+			if (probing.load(std::memory_order_relaxed) && probe_bindings.size() < 20000)
+			{
+				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
+			}
+			original_draw_indexed(c, count, start, base);
+		}
+
+		void STDMETHODCALLTYPE draw_indexed_instanced_detour(ID3D11DeviceContext* c, UINT count, UINT instances, UINT start, INT base, UINT first)
+		{
+			if (skip_draw())
+			{
+				return;
+			}
+			if (probing.load(std::memory_order_relaxed) && probe_bindings.size() < 20000)
+			{
+				probe_bindings.push_back({ 'D', count, nullptr, 0, instances });
+			}
+			original_draw_indexed_instanced(c, count, instances, start, base, first);
 		}
 
 		void STDMETHODCALLTYPE vs_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
@@ -562,6 +659,10 @@ namespace bfvr::stereo
 				{ ps_set_constant_buffers1_slot, &ps_set_constant_buffers1_detour, reinterpret_cast<void**>(&original_ps_set_constant_buffers1) },
 				{ cs_set_constant_buffers1_slot, &cs_set_constant_buffers1_detour, reinterpret_cast<void**>(&original_cs_set_constant_buffers1) },
 				{ map_slot, &map_detour, reinterpret_cast<void**>(&original_map) },
+				{ vs_set_constant_buffers_slot, &vs_set_constant_buffers_detour, reinterpret_cast<void**>(&original_vs_set_constant_buffers) },
+				{ ps_set_constant_buffers_slot, &ps_set_constant_buffers_detour, reinterpret_cast<void**>(&original_ps_set_constant_buffers) },
+				{ draw_indexed_slot, &draw_indexed_detour, reinterpret_cast<void**>(&original_draw_indexed) },
+				{ draw_indexed_instanced_slot, &draw_indexed_instanced_detour, reinterpret_cast<void**>(&original_draw_indexed_instanced) },
 			};
 			for (const auto& entry : table)
 			{
@@ -582,6 +683,13 @@ namespace bfvr::stereo
 				log::write("eye pass: eye constant buffer creation failed");
 			}
 			eye_context = context;
+			std::vector<std::uint8_t> zeros(65536);
+			D3D11_BUFFER_DESC poison_desc{};
+			poison_desc.ByteWidth = 65536;
+			poison_desc.Usage = D3D11_USAGE_IMMUTABLE;
+			poison_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			D3D11_SUBRESOURCE_DATA poison_data{ zeros.data() };
+			device->CreateBuffer(&poison_desc, &poison_data, &poison_buffer);
 		}
 
 		std::string write_file(const std::string& path, const void* data, std::size_t size)
@@ -676,7 +784,7 @@ namespace bfvr::stereo
 		}
 
 		// Render thread, after the first eye's tonemap into the back buffer.
-		void copy_first_eye()
+		void copy_eye(ComPtr<ID3D11Texture2D>& target)
 		{
 			ID3D11Resource* const source = back_buffer.load();
 			if (!source)
@@ -694,25 +802,25 @@ namespace bfvr::stereo
 			texture->GetDesc(&desc);
 			const std::lock_guard guard(image_lock);
 			D3D11_TEXTURE2D_DESC existing{};
-			if (image)
+			if (target)
 			{
-				image->GetDesc(&existing);
+				target->GetDesc(&existing);
 			}
-			if (!image || existing.Width != desc.Width || existing.Height != desc.Height || existing.Format != desc.Format)
+			if (!target || existing.Width != desc.Width || existing.Height != desc.Height || existing.Format != desc.Format)
 			{
 				desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 				desc.MiscFlags = 0;
 				desc.CPUAccessFlags = 0;
 				desc.Usage = D3D11_USAGE_DEFAULT;
-				image.Reset();
-				if (FAILED(device->CreateTexture2D(&desc, nullptr, &image)))
+				target.Reset();
+				if (FAILED(device->CreateTexture2D(&desc, nullptr, &target)))
 				{
 					return;
 				}
 			}
 			ComPtr<ID3D11DeviceContext> context;
 			device->GetImmediateContext(&context);
-			context->CopyResource(image.Get(), source);
+			context->CopyResource(target.Get(), source);
 		}
 
 		void __fastcall per_view_render_detour(void* renderer, std::uint8_t* slot, void* context)
@@ -770,7 +878,7 @@ namespace bfvr::stereo
 			collecting = false;
 			probing = false;
 			pair.rendered(0, frame);
-			copy_first_eye();
+			copy_eye(image);
 			if (probe)
 			{
 				ID3D11Resource* const buffer = back_buffer.load();
@@ -817,6 +925,7 @@ namespace bfvr::stereo
 				patched_blocks.clear();
 				eye_offset = 0;
 				eye_buffer_discarded = false;
+				eye2_draws = 0;
 				LARGE_INTEGER read_start{}, read_end{}, read_frequency{};
 				QueryPerformanceCounter(&read_start);
 				begin_readback();
@@ -827,10 +936,29 @@ namespace bfvr::stereo
 				patching = true;
 			}
 
+			const bool probe_second = probe_second_requested.exchange(false);
+			if (probe_second)
+			{
+				probe_bindings.clear();
+				probing = true;
+			}
 			LARGE_INTEGER start{}, end{}, frequency{};
 			QueryPerformanceCounter(&start);
 			original_per_view_render(renderer, slot, context);
 			patching = false;
+			probing = false;
+			copy_eye(image_second);
+			if (probe_second)
+			{
+				ID3D11Resource* const buffer = back_buffer.load();
+				ComPtr<ID3D11Device> device;
+				if (buffer)
+				{
+					buffer->GetDevice(&device);
+				}
+				probe_result = device ? write_probe(device.Get(), slot) : "error: no device yet";
+				SetEvent(probe_done);
+			}
 			if (patch_constants)
 			{
 				end_readback();
@@ -915,7 +1043,7 @@ namespace bfvr::stereo
 		return text;
 	}
 
-	std::string probe_eye_pass(const std::string& prefix)
+	std::string probe_eye_pass(const std::string& prefix, bool second_eye)
 	{
 		if (prefix.empty())
 		{
@@ -928,9 +1056,10 @@ namespace bfvr::stereo
 		probe_prefix = prefix;
 		probe_result.clear();
 		probe_done = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-		probe_requested = true;
+		(second_eye ? probe_second_requested : probe_requested) = true;
 		const DWORD waited = WaitForSingleObject(probe_done, 5000);
 		probe_requested = false;
+		probe_second_requested = false;
 		CloseHandle(probe_done);
 		probe_done = nullptr;
 		return waited == WAIT_OBJECT_0 ? probe_result : "error: no eye-pass frame within 5 s";
@@ -950,13 +1079,36 @@ namespace bfvr::stereo
 		return pairs.load();
 	}
 
+	std::string set_eye_skip(UINT from, UINT to)
+	{
+		skip_to = 0;
+		skip_from = from;
+		skip_to = to;
+		return "eyeskip " + std::to_string(from) + ".." + std::to_string(to) + " (last eye-2 draw count " + std::to_string(eye2_draws) + ")";
+	}
+
+	std::string set_eye_poison(const std::string& spec)
+	{
+		char stage{};
+		UINT slot{}, bytes{};
+		if (spec == "off" || sscanf_s(spec.c_str(), "%c %u %u", &stage, 1u, &slot, &bytes) < 2)
+		{
+			poison_stage = 0;
+			return "eyepoison off";
+		}
+		poison_slot = slot;
+		poison_bytes = bytes;
+		poison_stage = stage;
+		return std::string("eyepoison ") + stage + " slot " + std::to_string(slot) + " bytes " + std::to_string(bytes);
+	}
+
 	std::string eye_pass_report()
 	{
 		char text[400];
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
-			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu",
+			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
-			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load());
+			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load());
 		return text;
 	}
 
@@ -970,9 +1122,9 @@ namespace bfvr::stereo
 		}
 	}
 
-	ID3D11Texture2D* eye_pass_image()
+	ID3D11Texture2D* eye_pass_image(int eye)
 	{
 		const std::lock_guard guard(image_lock);
-		return image.Get();
+		return eye == 0 ? image.Get() : image_second.Get();
 	}
 }
