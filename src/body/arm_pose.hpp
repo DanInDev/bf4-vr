@@ -14,6 +14,9 @@ namespace bfvr::body
 	void set_arm_ik(bool enabled);
 	// Moves the first-person shoulders relative to the head (head axes: x right, y up, z back; metres).
 	void set_shoulder_offset(float x, float y, float z);
+	// Out of reach, an arm may lengthen by up to this fraction to keep the hand on the controller
+	// (the game's arms can be shorter than the player's, #31). 0 = the rig's length.
+	void set_arm_stretch(float fraction);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres

@@ -154,7 +154,9 @@ namespace bfvr::input
 
 	gamepad_state for_game(const gamepad_state& pad)
 	{
-		if (!stick_turns.load(std::memory_order_relaxed))
+		// With controller aim the stick cannot aim (the aimer follows the controller every frame), so
+		// it turns even in look mode; otherwise it would do nothing at all.
+		if (!stick_turns.load(std::memory_order_relaxed) && !aim_by_controller.load(std::memory_order_relaxed))
 		{
 			return pad;
 		}
@@ -192,17 +194,18 @@ namespace bfvr::input
 		{
 			return;
 		}
+		const bool controller = aim_by_controller.load(std::memory_order_relaxed);
+		if (turn != 0.0f && controller)
+		{
+			body_yaw -= turn; // turning right lowers the camera yaw (camera yaw = -aimer yaw); needs no aimer
+		}
 		const std::uintptr_t aimer = current_aimer();
 		float yaw{};
 		if (!read(aimer + aimer_yaw, yaw) || !std::isfinite(yaw))
 		{
-			return; // scripted sections without an aimer: the turn is dropped
+			return; // scripted sections without an aimer: a head-aim turn is dropped
 		}
-		if (turn != 0.0f && aim_by_controller.load(std::memory_order_relaxed))
-		{
-			body_yaw -= turn; // turning right lowers the camera yaw (camera yaw = -aimer yaw)
-		}
-		else if (turn != 0.0f)
+		if (turn != 0.0f && !controller)
 		{
 			yaw += turn;
 			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
@@ -279,7 +282,7 @@ namespace bfvr::input
 		}
 		char angles[64];
 		std::snprintf(angles, sizeof(angles), " aimer_yaw=%.1f aimer_pitch=%.1f", aim[0] * 57.29578f, aim[1] * 57.29578f);
-		return std::string("right_stick=") + (stick_turns.load() ? "turn" : "look") + " turns=" + std::to_string(turns.load())
+		return std::string("right_stick=") + (stick_turns.load() ? "turn" : "look") + (aim_by_controller.load() ? " aim=controller (stick turns)" : "") + " turns=" + std::to_string(turns.load())
 			+ " stance_commands=" + std::to_string(stance_commands.load()) + " stance=" + std::to_string(stance) + angles;
 	}
 #else

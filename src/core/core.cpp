@@ -59,6 +59,7 @@ namespace bfvr::core
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
+			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);

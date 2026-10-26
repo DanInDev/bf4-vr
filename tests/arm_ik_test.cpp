@@ -95,6 +95,64 @@ int main()
 		expect(length(placed.position - wanted.position) < 1e-4f && placed_alignment > 0.9999f, "set_model_transform misplaced the bone", round);
 	}
 
+	// Out of reach with max_stretch: the arm lengthens (up to the limit) and the wrist lands on the
+	// goal; shoulder, segment directions and the gun's place in the hand are kept.
+	for (int round = 0; round < 200; ++round)
+	{
+		bone_transform local[7];
+		local[0].rotation = random_rotation(random, 3.0f);
+		local[1].position = { 0.2f, 1.5f, 0.0f };
+		local[2].position = { 0.14f, 0.01f, 0.0f };
+		local[3].position = { 0.15f, 0.0f, 0.02f };
+		local[4].position = { 0.10f, 0.0f, 0.0f };
+		local[5].position = { 0.16f, 0.0f, 0.0f };
+		local[6].position = { 0.05f, -0.05f, 0.1f };
+		for (int bone = 1; bone < 7; ++bone)
+		{
+			local[bone].rotation = random_rotation(random, 2.0f);
+		}
+		const vec3 shoulder = model_of(local, parents, 1).position;
+		const float a = length(model_of(local, parents, 3).position - shoulder);
+		const float b = length(model_of(local, parents, 5).position - model_of(local, parents, 3).position);
+		const vec3 direction = normalize(vec3{ unit(random), unit(random), unit(random) });
+		const bool within_stretch = round % 2 == 0;
+		const float factor = within_stretch ? 1.15f : 1.6f;
+		arm_goal goal;
+		goal.wrist = shoulder + direction * ((a + b) * factor);
+		goal.hand = random_rotation(random, 3.0f);
+		goal.pole = shoulder + normalize(cross(direction, vec3{ unit(random), unit(random), unit(random) })) * 0.5f;
+		goal.max_stretch = 0.25f;
+		expect(std::fabs(reach_ratio(local, parents, bones, goal.wrist) - factor) < 1e-3f, "reach ratio", round);
+		const vec3 weapon_before = rotate(conjugate(model_of(local, parents, 5).rotation), model_of(local, parents, 6).position - model_of(local, parents, 5).position);
+
+		expect(solve_arm(local, parents, bones, goal), "stretch: solver refused", round);
+		const bone_transform hand = model_of(local, parents, 5);
+		const vec3 elbow = model_of(local, parents, 3).position;
+		const float limit = within_stretch ? factor : 1.25f;
+		const vec3 expected_wrist = within_stretch ? goal.wrist : shoulder + direction * ((a + b) * limit * 0.9999f);
+		expect(length(hand.position - expected_wrist) < 2e-3f, "stretch: wrist misses", round);
+		expect(length(model_of(local, parents, 1).position - shoulder) < 1e-5f, "stretch: shoulder moved", round);
+		expect(std::fabs(length(elbow - shoulder) - a * limit) < 2e-3f, "stretch: upper arm not scaled by the factor", round);
+		expect(std::fabs(length(hand.position - elbow) - b * limit) < 2e-3f, "stretch: forearm not scaled by the factor", round);
+		const vec3 weapon_after = rotate(conjugate(hand.rotation), model_of(local, parents, 6).position - hand.position);
+		expect(length(weapon_after - weapon_before) < 1e-4f, "stretch: weapon left the hand", round);
+	}
+
+	// Reachable goals are never stretched.
+	{
+		bone_transform local[7];
+		local[1].position = { 0.2f, 1.5f, 0.0f };
+		local[3].position = { 0.3f, 0.0f, 0.0f };
+		local[5].position = { 0.25f, 0.0f, 0.0f };
+		arm_goal goal;
+		goal.wrist = { 0.2f, 1.5f + 0.4f, 0.0f };
+		goal.pole = { 0.2f, 1.5f, 1.0f };
+		goal.max_stretch = 0.5f;
+		const bone_transform fore_before = local[3];
+		expect(solve_arm(local, parents, bones, goal), "reachable: solver refused", -1);
+		expect(length(local[3].position - fore_before.position) < 1e-6f, "reachable goal stretched the arm", -1);
+	}
+
 	std::printf(failures ? "arm_ik_test: %d failures\n" : "arm_ik_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

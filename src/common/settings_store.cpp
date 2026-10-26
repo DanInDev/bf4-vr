@@ -33,6 +33,7 @@ namespace bfvr::settings
 			{ "stereo_render", kind::choice, 0, 0, 0, "aer", "aer|pair", "alternate eyes, or both eyes from one game frame" },
 			{ "shoulder_offset", kind::vec3, -0.3f, 0.3f, 0.0f, "0 0 0", "", "shoulders relative to the head, metres (x right, y up, z back)" },
 			{ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "first-person arms follow the VR controllers" },
+			{ "arm_stretch", kind::real, 0.0f, 0.6f, 0.05f, "0.25", "", "an arm may get this much longer to reach its controller (0 = the game's arm length; pipe arms: reach > 1 = out of reach)" },
 			{ "right_stick", kind::choice, 0, 0, 0, "look", "look|turn", "right stick aims, or turns and changes stance" },
 			{ "turn", kind::choice, 0, 0, 0, "snap", "snap|smooth|off", "right stick turn style (right_stick = turn)" },
 			{ "snap_turn_degrees", kind::integer, 5, 90, 5, "30", "", "angle per snap turn" },

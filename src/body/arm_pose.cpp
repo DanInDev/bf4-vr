@@ -104,6 +104,7 @@ namespace bfvr::body
 			bool solved{};
 			ik::vec3 shoulder, elbow, wrist, goal; // model space
 			ik::vec3 goal_xr;                      // the wrist goal in OpenXR LOCAL (drawn hand)
+			float reach{};                         // goal distance over the animated arm's length (> 1: out of reach)
 			ik::quat aim_xr;                       // the aim rotation used, OpenXR LOCAL
 			ik::vec3 wrist_in_camera;              // OpenXR camera axes
 		};
@@ -134,6 +135,7 @@ namespace bfvr::body
 		ik::quat camera_axes{ 0, 1, 0, 0 };
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
+		std::atomic<float> arm_stretch{ 0.25f }; // live setting: how much longer an arm may get to reach its controller
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -385,10 +387,13 @@ namespace bfvr::body
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
+				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
+				const float reach = ik::reach_ratio(local, rig.parents, bones, goal.wrist);
 				if (ik::solve_arm(local, rig.parents, bones, goal))
 				{
 					any = true;
 					last_arms[hand].solved = true;
+					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
 					last_arms[hand].goal_xr = wrist;
 					last_arms[hand].aim_xr = ik::normalize(aim);
@@ -652,6 +657,11 @@ namespace bfvr::body
 		ik_enabled = enabled;
 	}
 
+	void set_arm_stretch(float fraction)
+	{
+		arm_stretch = std::fmax(0.0f, fraction);
+	}
+
 	bool arm_ik_enabled()
 	{
 		return ik_enabled;
@@ -738,8 +748,8 @@ namespace bfvr::body
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];
-			length += std::snprintf(text + length, sizeof(text) - length, "%s solved=%d shoulder=%s elbow=%s wrist=%s goal=%s wrist_in_camera=%s\n",
-				hand == 0 ? "left " : "right", arm.solved ? 1 : 0, v(arm.shoulder, a), v(arm.elbow, b), v(arm.wrist, c), v(arm.goal, d),
+			length += std::snprintf(text + length, sizeof(text) - length, "%s solved=%d reach=%.2f shoulder=%s elbow=%s wrist=%s goal=%s wrist_in_camera=%s\n",
+				hand == 0 ? "left " : "right", arm.solved ? 1 : 0, arm.reach, v(arm.shoulder, a), v(arm.elbow, b), v(arm.wrist, c), v(arm.goal, d),
 				v(arm.wrist_in_camera, e));
 		}
 		return text;

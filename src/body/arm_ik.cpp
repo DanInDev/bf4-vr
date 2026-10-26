@@ -125,19 +125,50 @@ namespace bfvr::body::ik
 		local[bone].rotation = normalize(local[bone].rotation);
 	}
 
+	float reach_ratio(const bone_transform* local, const int* parents, const arm_bones& bones, vec3 wrist_goal)
+	{
+		const vec3 shoulder = model_of(local, parents, bones.upper).position;
+		const vec3 elbow = model_of(local, parents, bones.fore).position;
+		const float arm = length(elbow - shoulder) + length(model_of(local, parents, bones.hand).position - elbow);
+		return arm > 1e-4f ? length(wrist_goal - shoulder) / arm : 0.0f;
+	}
+
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal)
 	{
 		const bone_transform upper = model_of(local, parents, bones.upper);
-		const bone_transform fore = model_of(local, parents, bones.fore);
-		const bone_transform hand = model_of(local, parents, bones.hand);
+		bone_transform fore = model_of(local, parents, bones.fore);
+		bone_transform hand = model_of(local, parents, bones.hand);
 		const vec3 shoulder = upper.position;
-		const float a = length(fore.position - shoulder);
-		const float b = length(hand.position - fore.position);
+		float a = length(fore.position - shoulder);
+		float b = length(hand.position - fore.position);
 		const vec3 to_goal = goal.wrist - shoulder;
 		const float reach = length(to_goal);
 		if (a < 1e-4f || b < 1e-4f || reach < 1e-4f)
 		{
 			return false;
+		}
+		if (goal.max_stretch > 0 && reach > a + b)
+		{
+			// Every translation between the shoulder and the hand (roll bones included) scales, so
+			// both segments lengthen by the same factor and their directions stay.
+			const float stretch = std::min(reach / (a + b), 1.0f + goal.max_stretch);
+			int bone = bones.hand;
+			while (bone >= 0 && bone != bones.upper)
+			{
+				bone = parents[bone];
+			}
+			if (bone != bones.upper)
+			{
+				return false;
+			}
+			for (bone = bones.hand; bone != bones.upper; bone = parents[bone])
+			{
+				local[bone].position = local[bone].position * stretch;
+			}
+			fore = model_of(local, parents, bones.fore);
+			hand = model_of(local, parents, bones.hand);
+			a *= stretch;
+			b *= stretch;
 		}
 		const vec3 n = to_goal * (1.0f / reach);
 		const float d = std::clamp(reach, std::fabs(a - b) + 1e-4f, (a + b) * 0.9999f);

@@ -59,11 +59,19 @@ namespace bfvr::body::ik
 		vec3 wrist;     // model space
 		quat hand;      // model-space rotation of the hand bone
 		vec3 pole;      // model-space point the elbow bends towards
+		// Out of reach, the arm may lengthen by up to this fraction (0.25 = 25 %) to reach the goal:
+		// the forearm and hand translations are scaled. 0 = the rig's own length, the hand stops short.
+		float max_stretch{};
 	};
 
 	// Two-bone IK: rewrites the local rotations of upper, fore and hand so the wrist reaches
 	// goal.wrist (or points at it when out of reach), the elbow bends towards goal.pole and the
 	// hand takes goal.hand. With a roll bone, half of the change in wrist twist goes to it.
 	// Bone lengths come from the current pose. Returns false (pose untouched) on a degenerate chain.
+	// Rewrites translations too when goal.max_stretch lets the arm lengthen.
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal);
+
+	// Distance from the shoulder to goal.wrist over the arm's length (upper + forearm) in the current
+	// pose; above 1 the goal is out of reach. 0 on a degenerate chain.
+	float reach_ratio(const bone_transform* local, const int* parents, const arm_bones& bones, vec3 wrist_goal);
 }

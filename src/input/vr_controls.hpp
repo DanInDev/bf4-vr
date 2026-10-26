@@ -19,6 +19,7 @@ namespace bfvr::input
 
 	// Controller aim (#12): aim = controller. The camera hook renders from a level body yaw (camera
 	// yaw convention, atan2(look.x, look.z)); snap turns change it; the aimer follows the controller.
+	// The right stick then always turns (and flicks stance), whatever right_stick says.
 	void set_controller_aim(bool enabled);
 	bool controller_aim_active();
 	// Game thread: the body yaw, taken from the game's camera yaw the first time.
