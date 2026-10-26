@@ -90,6 +90,8 @@ grenade = button
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
 holsters = 1
+# Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
+squad_signal = 1
 grenade_throw_scale = 1.5
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.

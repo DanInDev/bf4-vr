@@ -100,7 +100,7 @@ offline mode is the legitimate way to play without a connection.
 | `fakeyaw <deg>` | Research: synthetic head yaw applied like a headset eye pose (world + first-person camera); 0 = off |
 | `pad <lx> <ly> <rx> <ry> [ms] [hex buttons] [lt rt]` | Holds the virtual pad's sticks (−1..1), XINPUT buttons and triggers (0..1) for up to 10 s; needs XInput polling and no running headset session (e.g. `pad 0 0 0 0 3000 0 0 1` fires 3 s) |
 | `key <hex vk> [ms]` | Research: a key press through the game's Raw Input keyboard (works without focus), e.g. `key 31` = 1 |
-| `holster [primary\|secondary\|knife\|gadget1\|gadget2]` | Holsters: state; research: switch as if drawn from that holster |
+| `holster [primary\|secondary\|knife\|gadget1\|gadget2\|order]` | Holsters and the squad signal: state; research: switch as if drawn from that holster, or `order` = the squad order key (Q) |
 | `grenade` / `grenade throw <yaw> <pitch> <m/s> [safe]` | Physical grenades: state; research: a throw from the off hand with that velocity (view-relative degrees), `safe` = no explosion |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |

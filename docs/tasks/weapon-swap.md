@@ -69,5 +69,12 @@ Research pipe `holster [name]`.
 cleanly; with `fakehead`, synthetic gun-hand targets and pad RB the shoulder, chest and hip zones drew
 the SCAR-H, the knife and the AK-12; a grip at the aiming position did nothing.
 
+**Squad order (same day):** `src/weapon/hand_signal.*` (pure, tested): the off hand raised at least
+5 cm above the eyes, 35 cm or more ahead along the head's yaw, within 40 cm sideways, plus a grip
+squeeze = the campaign's "engage" (key Q through Raw Input, 1 s cooldown). Live setting `squad_signal`
+(default on); LB is kept from the game while the hand is in that pose; a grenade in the off hand is
+never an order. Monitor: the support-hand position gave no order, the raised pose did (Q read by the
+game). The engage effect itself needs enemies in view (headset test 17).
+
 **For the headset:** zone positions and radii, the body-yaw slack, whether RB should keep its game action
 outside the zones (not identified yet). **Later:** haptics, zone hints, knife swing = melee, the visor.
