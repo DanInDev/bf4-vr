@@ -143,6 +143,48 @@ namespace bfvr::stereo
 			}
 		}
 
+		// Rows (right, up, back) of a level camera looking along camera yaw c (atan2(look.x, look.z));
+		// looking along +z the right row is -x (RenderView data, re/notes/camera.md).
+		void level_rows(float* rows, float c)
+		{
+			const float s = std::sin(c), k = std::cos(c);
+			const float level[12] = { -k, 0, s, 0, 0, 1, 0, 0, -s, 0, -k, 0 };
+			for (int i = 0; i < 12; ++i)
+			{
+				rows[i] = level[i];
+			}
+		}
+
+		// Controller aim (#12): the world camera turns with the body yaw only (the head adds the rest),
+		// the first-person camera (soldier space) is turned to match, and the aimer follows the right
+		// controller's aim ray.
+		void aim_with_controller(std::uint8_t* params)
+		{
+			auto* world = reinterpret_cast<float*>(params + transform);
+			const float game_yaw = std::atan2(-world[8], -world[10]);
+			const float body = input::body_camera_yaw(game_yaw);
+			level_rows(world, body);
+			if (stereo_first_person)
+			{
+				level_rows(reinterpret_cast<float*>(params + first_person_transform), body - game_yaw);
+			}
+			mark_dirty(params);
+			const hand_sample hands = latest_hand_sample();
+			if (!hands.valid[1])
+			{
+				return;
+			}
+			const float* q = hands.aim[1].orientation;
+			// The aim ray (-z) in LOCAL space, then in world axes (camera local axes = OpenXR axes).
+			const float local[3] = { -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
+			float direction[3];
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				direction[axis] = local[0] * world[axis] + local[1] * world[4 + axis] + local[2] * world[8 + axis];
+			}
+			input::aim_along(direction);
+		}
+
 		// Menus and loading screens use a fixed camera: identity rotation at (0, 1, 0).
 		// Stereo there makes the 2D menu unreadable, so those frames stay mono (theater screen).
 		bool is_menu_camera(const std::uint8_t* view)
@@ -209,6 +251,10 @@ namespace bfvr::stereo
 					{
 						eye_pose.position[axis] = centre.position[axis] + (eye_pose.position[axis] - centre.position[axis]) * scale;
 					}
+				}
+				if (input::controller_aim_active())
+				{
+					aim_with_controller(params);
 				}
 				apply_eye_pose(params, eye_pose);
 

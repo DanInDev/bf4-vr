@@ -409,7 +409,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -596,6 +596,30 @@ namespace bfvr::control
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
+			if (command == "fakehand")
+			{
+				// A fixed right controller (aim and grip) turned yaw/pitch degrees from straight ahead, 30 cm
+				// in front of the head, for controller-aim tests without a headset; "fakehand off" clears it.
+				stereo::hand_sample hands;
+				float yaw = 0.0f, pitch = 0.0f;
+				if (argument != "off" && sscanf_s(argument.c_str(), "%f %f", &yaw, &pitch) >= 1)
+				{
+					const float h = yaw * 3.14159265f / 360.0f, v = pitch * 3.14159265f / 360.0f;
+					// yaw about +y, then pitch about +x
+					const float q[4] = { std::cos(h) * std::sin(v), std::sin(h) * std::cos(v), -std::sin(h) * std::sin(v), std::cos(h) * std::cos(v) };
+					hands.valid[1] = true;
+					for (int i = 0; i < 4; ++i)
+					{
+						hands.aim[1].orientation[i] = q[i];
+						hands.grip[1].orientation[i] = q[i];
+					}
+					hands.aim[1].position[0] = hands.grip[1].position[0] = 0.15f;
+					hands.aim[1].position[1] = hands.grip[1].position[1] = -0.25f;
+					hands.aim[1].position[2] = hands.grip[1].position[2] = -0.3f;
+				}
+				stereo::publish_hand_sample(hands);
+				return hands.valid[1] ? "fakehand yaw=" + std::to_string(yaw) + " pitch=" + std::to_string(pitch) : "fakehand off";
+			}
 			if (command == "fakehead")
 			{
 				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
