@@ -7,7 +7,7 @@
 // Physical reloading in the game (issue #14, reload = physical): the reload state machine
 // (weapon/reload) owns the ammo of the gun in hand, driven by the off hand (weapon/reload_hands)
 // and the shots the game fires. BF4 build 179547, x64 only (re/notes/weapon.md):
-//   - ammo is written into the in-process server's ServerSoldierWeapon; the client copies follow;
+//   - ammo is written into the in-process server's weapon (firing object); the client copies follow;
 //   - the game's magazine never reaches 0 (that starts its own reload): it holds the rounds in the
 //     gun plus a spare, and the trigger is held back while the chamber is empty;
 //   - the game's reload button (pad X) is the AR release / bolt catch and never reaches the game.

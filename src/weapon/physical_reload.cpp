@@ -98,18 +98,18 @@ namespace bfvr::weapon
 			{
 				return weapon;
 			}
-			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, firing{};
+			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
 			if (!read(server_soldier_global, server_soldier) || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
-				|| !read(server_weapon + server_firing, firing) || !read(firing + firing_magazine, weapon.magazine)
-				|| !read(firing + firing_magazine + 4, weapon.reserve))
+				|| !read(server_weapon + server_firing, server_ammo) || !read(server_ammo + firing_magazine, weapon.magazine)
+				|| !read(server_ammo + firing_magazine + 4, weapon.reserve))
 			{
 				return weapon;
 			}
 			// Grenades, the knife and gadgets carry -1: no magazine to reload.
 			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && weapon.capacity > 1 && weapon.capacity <= 500;
 			weapon.slot = static_cast<int>(index);
-			weapon.ammo = firing + firing_magazine;
+			weapon.ammo = server_ammo + firing_magazine;
 			return weapon;
 		}
 

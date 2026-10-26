@@ -13,12 +13,16 @@ client  [0x14230F260] soldier +0x570 weapons component -> current slot (aim.md) 
           +0x49C0 / +0x49C8 -> two ammo blocks, magazine +0x1A0, reserve +0x1A4   (copies)
 server  [0x142311DB8] ServerSoldierEntity +0x7C0 ServerSoldierWeaponsComponent
           +0x828 + 8 * slot -> ServerSoldierWeapon (same slot index as the client)
-          +0x440 int32 rounds in the gun, +0x444 reserve          (authoritative)
+          +0x200 -> weapon firing object: +0x1A0 int32 rounds in the gun, +0x1A4 reserve   (authoritative)
 ```
 
 - Found with `tools/ammo_probe.py` and a value search for the HUD's 31/124 across the client weapon
   and two levels of pointers: three pairs, one inside `ServerSoldierWeapon` (typed by its vtable),
   two in untyped blocks behind the client weapon.
+- Correction (same day): the server pair is not a fixed weapon field. Both sides keep the ammo in a
+  firing object at `+0x1A0` (server: weapon `+0x200`; client: weapon `+0x49C0`/`+0x49C8`). The
+  AK-12's server firing object is embedded at weapon `+0x2A0`, which made `+0x440` look like a field;
+  the SCAR-H's is allocated separately and `+0x440` reads garbage there.
 - The single-player server runs in the game process (209 `ServerSoldierEntity` objects in the
   global scan, typeinfo.md), and it owns the ammo.
 
