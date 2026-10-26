@@ -13,14 +13,13 @@ import argparse
 import json
 import os
 import struct
-import subprocess
 import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # `python -P` leaves the script folder off the path
 
-from camera_probe import peek, peek_many  # noqa: E402
+from camera_probe import command, peek, peek_many  # noqa: E402
 
 SOLDIER_GLOBAL = 0x14230F260
 WEAPON_SIZE = 0x4A40
@@ -72,14 +71,9 @@ def ints(blocks, base, offset):
     return struct.unpack_from('<i', data, offset)[0]
 
 
-def act(*arguments):
-    subprocess.run(['powershell', '-NoProfile', '-File', os.path.join(HERE, 'game.ps1'), *arguments],
-                   check=True, capture_output=True)
-
-
 def fire(shots):
     for _ in range(shots):
-        act('click', '-X', '640', '-Y', '360')
+        command('pad 0 0 0 0 80 0 0 1')  # one tap of the right trigger
         time.sleep(0.6)
     time.sleep(0.5)
 
@@ -100,7 +94,7 @@ def main():
     s1 = snapshot(weapon, extra)
     fire(2)
     s2 = snapshot(weapon, extra)
-    act('keys', '-Keys', 'R')
+    command('pad 0 0 0 0 150 4000')  # X: reload
     time.sleep(4.0)
     s3 = snapshot(weapon, extra)
     print(f'{len(s0)} objects')
