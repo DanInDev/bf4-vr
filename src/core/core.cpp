@@ -29,6 +29,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/reload_sounds.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -72,6 +73,7 @@ namespace bfvr::core
 			input::set_controller_aim(store.text("aim", "head") == "controller");
 			weapon::set_physical_reload(store.text("reload", "button") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
+			weapon::set_reload_sounds(store.boolean("reload_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");

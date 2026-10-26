@@ -119,6 +119,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
+	src/weapon/reload_sounds.cpp
 	src/ui/menu_button.cpp
 	src/ui/panel_canvas.cpp
 	src/ui/settings_panel.cpp
@@ -170,7 +171,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
 	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
-	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/profiles.cpp)
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/reload_sounds.cpp src/weapon/profiles.cpp)
 	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
 
 	# Two-handed grip and the converged shot direction; exits non-zero on failure.

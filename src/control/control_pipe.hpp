@@ -19,4 +19,8 @@ namespace bfvr::control
 
 	// Call from the Present hook: measures frame rate and services screenshot requests.
 	void on_present(IDXGISwapChain* swap_chain);
+
+	// Call on the game thread (view-params copy): runs queued research calls such as
+	// "entityevent" (an engine entity event, re/notes/sound.md), which must not run on the pipe thread.
+	void on_game_thread();
 }

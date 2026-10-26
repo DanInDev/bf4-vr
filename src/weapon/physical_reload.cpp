@@ -21,6 +21,7 @@
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/reload_sounds.hpp"
 
 namespace bfvr::weapon
 {
@@ -175,12 +176,23 @@ namespace bfvr::weapon
 			{
 				return;
 			}
+			play_reload_sound(event);
 			if (recent_count == static_cast<int>(std::size(recent)))
 			{
 				std::memmove(recent, recent + 1, sizeof(recent) - sizeof(recent[0]));
 				--recent_count;
 			}
 			recent[recent_count++] = event_name(event);
+		}
+
+		// AR: the release drops the magazine out of the gun (magazine_dropped), which must sound like a
+		// magazine coming out; a magazine dropped from the hand must not.
+		void sound_if_magazine_left(bool was_in, const reload& gun)
+		{
+			if (was_in && !gun.state().magazine_in && !gun.state().holding)
+			{
+				play_reload_sound(reload_event::magazine_out);
+			}
 		}
 
 		// The game's magazine for our state: rounds in the gun plus the spare (empty: only the
@@ -335,6 +347,7 @@ namespace bfvr::weapon
 			hands.reset();
 			current_slot = weapon.slot;
 		}
+		reload_sounds_weapon(weapon.name);
 		slot_memory& memory = found->second;
 		reload& gun = memory.gun;
 		gun.configure({ discard.load(std::memory_order_relaxed) });
@@ -376,11 +389,13 @@ namespace bfvr::weapon
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = grip && !accessory_busy.load(std::memory_order_relaxed);
 		frame.button = (pad.buttons & XINPUT_GAMEPAD_X) != 0;
+		const bool magazine_was_in = gun.state().magazine_in;
 		const hand_result result = hands.update(gun, frame);
 		for (int i = 0; i < result.count; ++i)
 		{
 			remember(result.events[i]);
 		}
+		sound_if_magazine_left(magazine_was_in, gun);
 
 		const int wanted = game_magazine(gun);
 		if (wanted != weapon.magazine)
@@ -467,6 +482,7 @@ namespace bfvr::weapon
 				return "error: no physical reload active (reload = physical, a magazine weapon in hand)";
 			}
 			reload& gun = found->second.gun;
+			const bool magazine_was_in = gun.state().magazine_in;
 			reload_event event = reload_event::none;
 			if (argument == "fire") event = gun.fire();
 			else if (argument == "button") event = gun.press_button(false);
@@ -479,6 +495,7 @@ namespace bfvr::weapon
 			else if (argument == "rack") event = gun.rack();
 			else return "error: usage: reload [fire|button|catch|grab|take|letgo|stow|insert|rack]";
 			remember(event);
+			sound_if_magazine_left(magazine_was_in, gun);
 		}
 		const body::weapon_points points = body::latest_weapon_points();
 		char touch[256];

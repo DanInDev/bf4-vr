@@ -32,6 +32,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/reload_sounds.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -325,6 +326,133 @@ namespace bfvr::control
 			return hex;
 		}
 
+		// "entityevent <hex entity> <hex event id> [vtable slot]": calls the entity's event handler
+		// (Entity vtable slot 5 for SoundEntity in this build) with an EntityEvent whose id sits at +8,
+		// on the game thread. Research only; an exception is caught and reported.
+		struct entity_call
+		{
+			std::uintptr_t entity{};
+			std::uint32_t id{};
+			int slot{ 5 };
+			bool done{};
+			std::string result;
+		};
+		std::mutex game_calls_lock;
+		std::vector<entity_call*> game_calls;
+
+		DWORD call_entity_event(std::uintptr_t entity, std::uint32_t id, int slot)
+		{
+			alignas(16) std::uint8_t event[0x40]{};
+			std::memcpy(event + 8, &id, sizeof(id));
+			__try
+			{
+				const auto* vtable = *reinterpret_cast<void* const* const*>(entity);
+				const auto handler = reinterpret_cast<void(__fastcall*)(void*, void*)>(vtable[slot]);
+				handler(reinterpret_cast<void*>(entity), event);
+				return 0;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return GetExceptionCode();
+			}
+		}
+
+		std::string entity_event(const std::string& argument)
+		{
+			entity_call call;
+			unsigned long long entity = 0;
+			unsigned id = 0;
+			if (sscanf_s(argument.c_str(), "%llx %x %d", &entity, &id, &call.slot) < 2 || !entity || call.slot < 0 || call.slot > 64)
+			{
+				return "error: usage: entityevent <hex entity> <hex event id> [vtable slot]";
+			}
+			call.entity = static_cast<std::uintptr_t>(entity);
+			call.id = id;
+			{
+				const std::lock_guard guard(game_calls_lock);
+				game_calls.push_back(&call);
+			}
+			for (int waited = 0; waited < 200; ++waited)
+			{
+				{
+					const std::lock_guard guard(game_calls_lock);
+					if (call.done)
+					{
+						return call.result;
+					}
+				}
+				Sleep(5);
+			}
+			const std::lock_guard guard(game_calls_lock);
+			game_calls.erase(std::remove(game_calls.begin(), game_calls.end(), &call), game_calls.end());
+			return call.done ? call.result : "error: the game thread did not run it within 1 s";
+		}
+
+		// The game may free a region while it is searched: an access violation ends that region only.
+		std::size_t find_pattern(const std::uint8_t* begin, std::size_t size, const std::uint8_t* pattern, std::size_t length, std::uintptr_t* out, std::size_t max)
+		{
+			std::size_t count = 0;
+			__try
+			{
+				for (std::size_t i = 0; i + length <= size && count < max; ++i)
+				{
+					if (begin[i] == pattern[0] && std::memcmp(begin + i, pattern, length) == 0)
+					{
+						out[count++] = reinterpret_cast<std::uintptr_t>(begin + i);
+					}
+				}
+			}
+			__except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+			{
+			}
+			return count;
+		}
+
+		// Byte-pattern search over committed read/write private memory (heap and stacks, not the image):
+		// "scan <hex bytes> [max]" -> one hex address per match.
+		std::string scan(const std::string& argument)
+		{
+			char hex[257]{};
+			unsigned max = 64;
+			if (sscanf_s(argument.c_str(), "%256s %u", hex, static_cast<unsigned>(sizeof(hex)), &max) < 1 || std::strlen(hex) % 2 || std::strlen(hex) < 4 || max == 0)
+			{
+				return "error: usage: scan <hex bytes, 2..128> [max matches]";
+			}
+			std::vector<std::uint8_t> pattern(std::strlen(hex) / 2);
+			for (std::size_t i = 0; i < pattern.size(); ++i)
+			{
+				unsigned value = 0;
+				if (sscanf_s(hex + 2 * i, "%2x", &value) != 1)
+				{
+					return "error: bad hex";
+				}
+				pattern[i] = static_cast<std::uint8_t>(value);
+			}
+			std::string result;
+			unsigned matches = 0;
+			MEMORY_BASIC_INFORMATION region{};
+			for (std::uintptr_t at = 0x10000; matches < max && VirtualQuery(reinterpret_cast<LPCVOID>(at), &region, sizeof(region)) == sizeof(region);
+				at = reinterpret_cast<std::uintptr_t>(region.BaseAddress) + region.RegionSize)
+			{
+				const DWORD writable = PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE;
+				if (region.State != MEM_COMMIT || region.Type != MEM_PRIVATE || !(region.Protect & writable) || (region.Protect & PAGE_GUARD))
+				{
+					continue;
+				}
+				std::uintptr_t found[64];
+				const std::size_t count = find_pattern(static_cast<const std::uint8_t*>(region.BaseAddress), region.RegionSize, pattern.data(), pattern.size(),
+					found, std::min<std::size_t>(64, max - matches));
+				for (std::size_t i = 0; i < count; ++i)
+				{
+					char line[24];
+					std::snprintf(line, sizeof(line), "%llx\n", static_cast<unsigned long long>(found[i]));
+					result += line;
+					++matches;
+				}
+			}
+			return result.empty() ? "no match" : result;
+		}
+
 		// Many reads in one round trip: "peekmany <length> <hex address>..." -> one line per address,
 		// hex bytes or "-" when unreadable. Each pipe connection costs ~20 ms, so scans batch here.
 		std::string peek_many(const std::string& argument)
@@ -413,7 +541,7 @@ namespace bfvr::control
 			if (command == "status") return status();
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
-			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
+			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
 				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key" };
 			for (const char* research : research_commands)
 			{
@@ -438,6 +566,8 @@ namespace bfvr::control
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
+			if (command == "scan") return scan(argument);
+			if (command == "entityevent") return entity_event(argument);
 			if (command == "poke") return poke(argument);
 			if (command == "pad")
 			{
@@ -621,7 +751,7 @@ namespace bfvr::control
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
-			if (command == "reload") return weapon::reload_pipe_command(argument);
+			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::reload_sounds_report();
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report();
 			if (command == "panel") return ui::panel_pipe_command(argument);
@@ -720,7 +850,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
@@ -769,6 +899,21 @@ namespace bfvr::control
 		{
 			CloseHandle(thread);
 		}
+	}
+
+	void on_game_thread()
+	{
+		const std::lock_guard guard(game_calls_lock);
+		for (entity_call* call : game_calls)
+		{
+			const DWORD code = call_entity_event(call->entity, call->id, call->slot);
+			char text[96];
+			std::snprintf(text, sizeof(text), code ? "error: exception %08lx in the handler" : "ok event %08x sent to %llx", code ? code : call->id,
+				static_cast<unsigned long long>(call->entity));
+			call->result = text;
+			call->done = true;
+		}
+		game_calls.clear();
 	}
 
 	void on_present(IDXGISwapChain* swap_chain)

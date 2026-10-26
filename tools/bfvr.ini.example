@@ -86,6 +86,8 @@ dominant_hand = right
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
 # magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
 reload = button
+# Physical reload plays the game's own reload sounds at each step (magazine out, in, bolt; #30).
+reload_sounds = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):

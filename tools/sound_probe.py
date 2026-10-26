@@ -72,6 +72,17 @@ SCENARIOS = {
         ('RB hold, grip_spot on', [pad(RB, 1200)], 4.0),
         ('grip_spot back off', ['setting set grip_spot 0'], 2.0),
     ],
+    # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
+    'physical_ar': [
+        ('setup: physical reload', ['setting set reload physical'], 3.0),
+        ('release button (drop)', ['reload button'], 2.5),
+        ('take from chest', ['reload take'], 2.5),
+        ('insert', ['reload insert'], 2.5),
+        ('rack', ['reload rack'], 2.5),
+        ('release with the hand on it', ['reload catch'], 2.5),
+        ('stow at chest', ['reload stow'], 2.5),
+        ('back to button reload', ['setting set reload button'], 2.0),
+    ],
     'physical': [
         ('setup: physical reload', ['setting set reload physical'], 3.0),
         ('grab magazine (pull out)', ['reload grab'], 2.5),
@@ -87,6 +98,19 @@ SCENARIOS = {
         ('back to button reload', ['setting set reload button'], 2.0),
     ],
 }
+
+
+# Input events of Weapon_SourcePatch_Reload_AR (tools/weapon_sound_probe.py on the reload entity):
+# two named by the hash dictionary, six not.
+RELOAD_EVENTS = [('Grab', 0x7C7F4233), ('Bolt', 0x7C80C030), ('0c87faa9', 0x0C87FAA9), ('1c998f75', 0x1C998F75),
+                 ('9d874880', 0x9D874880), ('c46cf22f', 0xC46CF22F), ('abea067c', 0xABEA067C), ('95e4238c', 0x95E4238C)]
+
+
+def stage_steps(name):
+    """Each reload graph event sent to the reload SoundEntity whose sound name contains `name`."""
+    from reload_sound_probe import reload_entities
+    entity = next(e for e, n, _, _ in reload_entities() if name in n)
+    return [(f'reload event {label}', [f'entityevent {entity:x} {value:x}'], 3.0) for label, value in RELOAD_EVENTS]
 
 
 def record(scenario, out):
@@ -171,12 +195,15 @@ def analyse(wav, references):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('scenario', choices=sorted(SCENARIOS))
+    parser.add_argument('scenario', choices=sorted(SCENARIOS) + ['stages'])
+    parser.add_argument('--weapon', default='AK12', help='stages: reload entity name part')
     parser.add_argument('--out', default=os.path.join(ROOT, 're', 'dumps', 'sound'))
     parser.add_argument('--analyse-only', action='store_true')
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
     wav = os.path.join(args.out, f'{args.scenario}.wav')
+    if args.scenario == 'stages':
+        SCENARIOS['stages'] = stage_steps(args.weapon)
     if not args.analyse_only:
         wav = record(args.scenario, args.out)
     reference_file = os.path.join(args.out, 'references.json')

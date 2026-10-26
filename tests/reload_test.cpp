@@ -15,6 +15,7 @@
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/reload_sounds.hpp"
 
 using namespace bfvr::weapon;
 
@@ -618,8 +619,27 @@ namespace
 	}
 }
 
+// Each physical reload event plays the stage of the game's reload patch matched to it (re/notes/sound.md).
+static void test_reload_sound_cues()
+{
+	using namespace bfvr::weapon;
+	sound_cue cues[2]{};
+	expect(cues_for(reload_event::magazine_out, cues) == 1 && cues[0].event == reload_sound::magazine_out && cues[0].delay_ms == 0, "cue: magazine out");
+	expect(cues_for(reload_event::magazine_in, cues) == 2 && cues[0].event == reload_sound::magazine_in && cues[1].event == reload_sound::magazine_seat
+		&& cues[1].delay_ms > 0, "cue: magazine in, then seated");
+	expect(cues_for(reload_event::flicked_in, cues) == 2 && cues[0].event == reload_sound::magazine_in, "cue: flicked in");
+	expect(cues_for(reload_event::chambered, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: chambered");
+	expect(cues_for(reload_event::racked_empty, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: racked empty");
+	expect(cues_for(reload_event::magazine_stowed, cues) == 1 && cues[0].event == reload_sound::settle, "cue: stowed");
+	for (const reload_event silent : { reload_event::none, reload_event::shot, reload_event::dry_fire, reload_event::magazine_taken, reload_event::magazine_dropped })
+	{
+		expect(cues_for(silent, cues) == 0, "cue: no sound");
+	}
+}
+
 int main()
 {
+	test_reload_sound_cues();
 	test_load();
 	test_ar_empty_reload();
 	test_ar_tactical_catch_and_stow();

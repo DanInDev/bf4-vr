@@ -20,7 +20,7 @@ start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
 | 6b | Shoulders: `shoulder_width` 0, 0.05, 0.1 in `tools\settings.ps1` (`shoulder_offset` now ±0.5 m) | Which width makes the arms look natural? | |
 | 7 | Reload and grenades while two-handed | Grabbing a magazine or a grenade releases the two-handed hold cleanly | |
 | 9 | Hold the left menu button ~0.6 s (in a level and in the main menu) | The settings panel appears ahead of you; point with either controller, the trigger clicks -/+, toggles and tabs; Save says "saved to bfvr.ini"; Close or holding the button again closes it. A short press still opens the game's pause menu (on release). The game ignores the triggers while the panel is open. Monitor first: pipe `panel open`, `panel shot <file.bmp>` | |
-| 10 | `reload = physical`: full reload while squeezing both grips as you naturally would | No spot/voice call-outs any more (`grip_spot = 0`); still no magazine sounds (the game's reload foley is not played yet, #30) | |
+| 10 | `reload = physical`: full reload while squeezing both grips as you naturally would (AK-12, then SCAR-H) | No spot/voice call-outs (`grip_spot = 0`); the game's own sounds at each step: magazine out, magazine in, bolt when racking; nothing when taking or dropping. Do they sound right and on time? | |
 | 8 | Vehicle with aim = controller | Right stick now turns the body, not the turret (known risk); report what happens | |
 
 ## 2026-10-26 late — feedback on `main` 22da57a (recorded afterwards)

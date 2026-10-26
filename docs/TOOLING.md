@@ -103,6 +103,8 @@ offline mode is the legitimate way to play without a connection.
 | `holster [primary\|secondary\|knife\|gadget1\|gadget2\|order]` | Holsters and the squad signal: state; research: switch as if drawn from that holster, or `order` = the squad order key (Q) |
 | `grenade` / `grenade throw <yaw> <pitch> <m/s> [safe]` | Physical grenades: state; research: a throw from the off hand with that velocity (view-relative degrees), `safe` = no explosion |
 | `panel [open\|close\|hover <u> <v>\|click <u> <v>\|shot <path.bmp>]` | In-VR settings panel (#7): state; open/close it, hover or click at texture coordinates (0,0 top left) without a headset, or write the panel image as a BMP |
+| `scan <hex bytes> [max]` | Research: addresses of a byte pattern in committed private read/write memory (heap), e.g. a vtable to find live objects |
+| `entityevent <entity> <event id> [slot]` | Research: on the game thread, call the entity's event handler (vtable slot, default 5) with that event id (`re/notes/sound.md`) |
 | `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
@@ -143,6 +145,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`, `settings`, `right_stick`, `gestures`, `handedness`, `reload`, `launcher`); see `docs/tasks/testing.md` |
 | `tools/slot_probe.py [--press <hex>]` | Live: weapon slots and names, the current slot; times a pad press until the slot changes |
 | `tools/sound_probe.py <reference\|buttons\|physical\|grip_spot>` | Live: records the playback device (`bfvr_audio_loopback`) while the pipe drives one step at a time; per step the sound onset and rise, clips in `re/dumps/sound/` (`re/notes/sound.md`) |
+| `tools/reload_sound_probe.py [--event <name> --name <part>]` | Live: the reload SoundEntity of every gun (pipe `scan`), and sends one entity event to one (pipe `entityevent`) |
 | `tools/weapon_sound_probe.py [--slot n]` | Live: the gun's sound asset, its sound patch graph events and parameters with hash-matched names |
 | `tools/grenade_probe.py [--slot 6]` | Live: the grenade weapon's launch data (shot, hold-and-release, projectile) and its count (`re/notes/weapon.md` "Grenades") |
 | `tools/ammo_probe.py` | Live: fires and reloads with the pad and lists int fields that follow the magazine and reserve (`re/notes/weapon.md`) |
