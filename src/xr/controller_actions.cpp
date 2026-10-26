@@ -104,6 +104,46 @@ namespace bfvr::xr
 			bindings.push_back({ *spec.action, path });
 		}
 
+		// Pose actions: one per pose kind, per hand through subaction paths.
+		XrPath hands[2]{};
+		if (!ok(instance, xrStringToPath(instance, "/user/hand/left", &hands[0]), "xrStringToPath")
+			|| !ok(instance, xrStringToPath(instance, "/user/hand/right", &hands[1]), "xrStringToPath"))
+		{
+			return false;
+		}
+		struct pose_spec
+		{
+			XrAction* action;
+			const char* name;
+			const char* paths[2];
+		};
+		const pose_spec poses[] = {
+			{ &grip_pose_, "grip_pose", { "/user/hand/left/input/grip/pose", "/user/hand/right/input/grip/pose" } },
+			{ &aim_pose_, "aim_pose", { "/user/hand/left/input/aim/pose", "/user/hand/right/input/aim/pose" } },
+		};
+		for (const pose_spec& spec : poses)
+		{
+			XrActionCreateInfo info{ XR_TYPE_ACTION_CREATE_INFO };
+			info.actionType = XR_ACTION_TYPE_POSE_INPUT;
+			strcpy_s(info.actionName, spec.name);
+			strcpy_s(info.localizedActionName, spec.name);
+			info.countSubactionPaths = 2;
+			info.subactionPaths = hands;
+			if (!ok(instance, xrCreateAction(action_set_, &info, spec.action), "xrCreateAction"))
+			{
+				return false;
+			}
+			for (const char* binding : spec.paths)
+			{
+				XrPath path{};
+				if (!ok(instance, xrStringToPath(instance, binding, &path), "xrStringToPath"))
+				{
+					return false;
+				}
+				bindings.push_back({ *spec.action, path });
+			}
+		}
+
 		XrPath profile{};
 		if (!ok(instance, xrStringToPath(instance, "/interaction_profiles/oculus/touch_controller", &profile), "xrStringToPath"))
 		{
@@ -126,8 +166,49 @@ namespace bfvr::xr
 			return false;
 		}
 
+		// Without pose spaces the pad still works; only the arms stay animated.
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			XrActionSpaceCreateInfo space_info{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
+			space_info.subactionPath = hands[hand];
+			space_info.poseInActionSpace.orientation.w = 1.0f;
+			space_info.action = grip_pose_;
+			if (!ok(instance, xrCreateActionSpace(session, &space_info, &grip_spaces_[hand]), "xrCreateActionSpace"))
+			{
+				break;
+			}
+			space_info.action = aim_pose_;
+			if (!ok(instance, xrCreateActionSpace(session, &space_info, &aim_spaces_[hand]), "xrCreateActionSpace"))
+			{
+				break;
+			}
+		}
+
 		log::write("controllers: gamepad actions ready (Oculus Touch bindings)");
 		return true;
+	}
+
+	stereo::hand_sample controller_actions::locate(XrSpace base, XrTime time) const
+	{
+		stereo::hand_sample sample;
+		constexpr XrSpaceLocationFlags tracked = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+		const auto locate_one = [&](XrSpace space, stereo::pose& out)
+		{
+			XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
+			if (space == XR_NULL_HANDLE || XR_FAILED(xrLocateSpace(space, base, time, &location)) || (location.locationFlags & tracked) != tracked)
+			{
+				return false;
+			}
+			const XrPosef& pose = location.pose;
+			out = { { pose.position.x, pose.position.y, pose.position.z },
+				{ pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w } };
+			return true;
+		};
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			sample.valid[hand] = locate_one(grip_spaces_[hand], sample.grip[hand]) && locate_one(aim_spaces_[hand], sample.aim[hand]);
+		}
+		return sample;
 	}
 
 	input::gamepad_state controller_actions::sync(XrSession session)

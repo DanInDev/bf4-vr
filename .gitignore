@@ -8,6 +8,7 @@ out/
 # Reverse-engineering artefacts: never commit (see docs/SAFETY.md)
 re/dumps/
 re/projects/
+re/assets/
 *.dmp
 *.gpr
 *.rep/
@@ -35,3 +36,4 @@ __pycache__/
 .vs/
 .vscode/
 .agents/
+.claude/worktrees/

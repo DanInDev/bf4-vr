@@ -13,10 +13,23 @@
 #include <thread>
 #include <vector>
 
+#include "body/arm_pose.hpp"
+#include "common/config.hpp"
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
+#include "hooks/game_window.hpp"
+#include "hooks/swap_chain_size.hpp"
 #include "input/gamepad.hpp"
+#include "input/vr_controls.hpp"
+#include "safety/mp_guard.hpp"
+#include "control/frame_trace.hpp"
+#include "control/thread_stacks.hpp"
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/eye_pass.hpp"
+#include "stereo/hud_capture.hpp"
+#include "stereo/tracking.hpp"
+#include "stereo/world_pass.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -47,16 +60,36 @@ namespace bfvr::control
 			UINT width{};
 			UINT height{};
 			std::vector<std::uint8_t> bgra;
+			bool hud{}; // the HUD layer texture (alpha kept) instead of the back buffer
+			bool eye{}; // an eye pass image instead of the back buffer
+			int eye_index{};
 		};
 		std::mutex shot_lock;
 		shot_request shot;
 
-		// Copies the back buffer to CPU memory as opaque BGRA. Runs on the present thread.
-		std::string capture(IDXGISwapChain* swap_chain, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
+		// Copies the back buffer (or the HUD layer texture) to CPU memory as BGRA; the back buffer's
+		// alpha is not meaningful on screen and is made opaque. Runs on the present thread.
+		std::string capture(IDXGISwapChain* swap_chain, bool hud, bool eye, int eye_index, UINT& width, UINT& height, std::vector<std::uint8_t>& bgra)
 		{
 			ComPtr<ID3D11Texture2D> back_buffer;
 			ComPtr<ID3D11Device> device;
-			if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer))) || FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
+			if (hud)
+			{
+				back_buffer = stereo::latest_hud().texture;
+				if (!back_buffer)
+				{
+					return "no HUD texture (hud_layer = 0, or no frame captured yet)";
+				}
+			}
+			if (eye)
+			{
+				back_buffer = stereo::eye_pass_image(eye_index);
+				if (!back_buffer)
+				{
+					return "no eye image (eyepass off, or no frame rendered yet)";
+				}
+			}
+			if ((!hud && !eye && FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) || FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
 			{
 				return "back buffer unavailable";
 			}
@@ -117,7 +150,7 @@ namespace bfvr::control
 					target[x * 4 + 0] = source[x * 4 + (swap_red_blue ? 2 : 0)];
 					target[x * 4 + 1] = source[x * 4 + 1];
 					target[x * 4 + 2] = source[x * 4 + (swap_red_blue ? 0 : 2)];
-					target[x * 4 + 3] = 0xFF; // the game's alpha is not meaningful on screen
+					target[x * 4 + 3] = hud ? source[x * 4 + 3] : 0xFF;
 				}
 			}
 			context->Unmap(staging.Get(), 0);
@@ -169,7 +202,7 @@ namespace bfvr::control
 			return wide;
 		}
 
-		std::string take_screenshot(const std::string& path)
+		std::string take_screenshot(const std::string& path, bool hud = false, bool eye = false, int eye_index = 0)
 		{
 			if (path.empty())
 			{
@@ -179,6 +212,9 @@ namespace bfvr::control
 			{
 				const std::lock_guard guard(shot_lock);
 				shot = {};
+				shot.hud = hud;
+				shot.eye = eye;
+				shot.eye_index = eye_index;
 				shot.pending = true;
 				shot.done = CreateEventW(nullptr, TRUE, FALSE, nullptr);
 			}
@@ -370,7 +406,30 @@ namespace bfvr::control
 			const std::string argument = space == std::string::npos ? std::string() : line.substr(space + 1);
 
 			if (command == "status") return status();
+			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
+			// Memory research and test overrides: off in release builds unless research = 1.
+			static constexpr const char* research_commands[] = { "dump", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2" };
+			for (const char* research : research_commands)
+			{
+				if (command == research && !config::research_enabled())
+				{
+					return "error: '" + command + "' needs research = 1 in bfvr.ini";
+				}
+			}
 			if (command == "shot") return take_screenshot(argument);
+			if (command == "hudshot") return take_screenshot(argument, true);
+			if (command == "eyeshot") return take_screenshot(argument, false, true);
+			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
+			if (command == "eyeskip")
+			{
+				unsigned from = 0, to = 0;
+				sscanf_s(argument.c_str(), "%u %u", &from, &to);
+				return stereo::set_eye_skip(from, to);
+			}
+			if (command == "eyepoison") return stereo::set_eye_poison(argument);
+			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
+			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
@@ -381,9 +440,10 @@ namespace bfvr::control
 				// which would overwrite them every frame). Needs XInput polling, i.e. a physical pad.
 				float lx = 0.0f, ly = 0.0f, rx = 0.0f, ry = 0.0f;
 				unsigned duration_ms = 500;
-				if (sscanf_s(argument.c_str(), "%f %f %f %f %u", &lx, &ly, &rx, &ry, &duration_ms) < 4 || duration_ms > 10000)
+				unsigned buttons = 0;
+				if (sscanf_s(argument.c_str(), "%f %f %f %f %u %x", &lx, &ly, &rx, &ry, &duration_ms, &buttons) < 4 || duration_ms > 10000)
 				{
-					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000]  (axes -1..1)";
+					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000] [hex XINPUT_GAMEPAD buttons]  (axes -1..1)";
 				}
 				const auto axis = [](float value) { return static_cast<std::int16_t>(std::clamp(value, -1.0f, 1.0f) * 32767.0f); };
 				input::gamepad_state pad{};
@@ -392,6 +452,7 @@ namespace bfvr::control
 				pad.left_y = axis(ly);
 				pad.right_x = axis(rx);
 				pad.right_y = axis(ry);
+				pad.buttons = static_cast<std::uint16_t>(buttons);
 				const std::uint64_t generation = ++pad_generation;
 				input::publish(pad);
 				std::thread([generation, duration_ms] {
@@ -424,6 +485,130 @@ namespace bfvr::control
 					return "error: usage: pin <slot 0..3> <hex offset in view params, 4-aligned, 0 = off> <float>";
 				}
 				return "pin " + std::to_string(slot) + " offset=" + std::to_string(offset) + " value=" + std::to_string(value);
+			}
+			if (command == "viewcrop")
+			{
+				float horizontal = 0.0f, vertical = 0.0f;
+				if (sscanf_s(argument.c_str(), "%f %f", &horizontal, &vertical) == 2)
+				{
+					stereo::set_view_crop(horizontal, vertical);
+				}
+				stereo::current_view_crop(horizontal, vertical);
+				return "view_crop=" + std::to_string(horizontal) + " " + std::to_string(vertical);
+			}
+			if (command == "rendersize") return hooks::render_size_report();
+			if (command == "frametrace") return trace_frame(argument);
+			if (command == "threads") return thread_stacks();
+			if (command == "worldpass")
+			{
+				int passes = 1, target = 0;
+				float shift = 0.0f;
+				sscanf_s(argument.c_str(), "%d %f %d", &passes, &shift, &target);
+				return stereo::set_world_pass(passes, shift, target);
+			}
+			if (command == "eyepass")
+			{
+				int mode = -1;
+				float shift = 0.064f;
+				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
+				return stereo::set_eye_pass(mode, shift); // no argument = report only
+			}
+			if (command == "viewcount")
+			{
+				int count = 0, viewport = 0;
+				float shift = 0.0f;
+				sscanf_s(argument.c_str(), "%d %f %d", &count, &shift, &viewport);
+				return stereo::set_view_count(count, shift, viewport); // count 0 = report only
+			}
+			if (command == "gunscale")
+			{
+				float scale = 0.0f;
+				if (!argument.empty() && sscanf_s(argument.c_str(), "%f", &scale) == 1)
+				{
+					stereo::set_gun_scale(scale);
+				}
+				return "gun_scale=" + std::to_string(stereo::current_gun_scale());
+			}
+			if (command == "arms") return body::report();
+			if (command == "armik")
+			{
+				if (argument == "0" || argument == "1")
+				{
+					body::set_arm_ik(argument == "1");
+				}
+				return std::string("arm_ik=") + (body::arm_ik_enabled() ? "1" : "0");
+			}
+			if (command == "hand")
+			{
+				char side = 0;
+				float position[3]{}, yaw = 0.0f, pitch = 0.0f;
+				const int fields = sscanf_s(argument.c_str(), "%c %f %f %f %f %f", &side, 1u, &position[0], &position[1], &position[2], &yaw, &pitch);
+				const int hand = side == 'l' ? 0 : side == 'r' ? 1 : -1;
+				const bool off = argument.size() > 2 && argument.substr(2) == "off";
+				if (hand < 0 || (!off && fields < 4))
+				{
+					return "error: usage: hand <l|r> <x> <y> <z> [yaw deg] [pitch deg]  (camera axes: x right, y up, -z forward) | hand <l|r> off";
+				}
+				body::set_hand_target(hand, !off, position, yaw, pitch);
+				return off ? "hand target off" : "hand target set";
+			}
+			if (command == "armaxes")
+			{
+				float rotation[4]{};
+				if (sscanf_s(argument.c_str(), "%f %f %f %f", &rotation[0], &rotation[1], &rotation[2], &rotation[3]) != 4)
+				{
+					return "error: usage: armaxes <qx> <qy> <qz> <qw>  (OpenXR camera axes -> CameraJoint axes)";
+				}
+				body::set_camera_axes(rotation);
+				return "camera axes set";
+			}
+			if (command == "bone")
+			{
+				int bone = -1;
+				float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+				if (sscanf_s(argument.c_str(), "%d %f %f %f", &bone, &dx, &dy, &dz) < 1)
+				{
+					return "error: usage: bone <index, -1 = off> <dx> <dy> <dz>";
+				}
+				body::set_bone_offset(bone, dx, dy, dz);
+				const body::arm_pose_stats seen = body::stats();
+				return "bone " + std::to_string(bone) + " offset=(" + std::to_string(dx) + "," + std::to_string(dy) + "," + std::to_string(dz)
+					+ ") conversions=" + std::to_string(seen.conversions) + " matched=" + std::to_string(seen.matched);
+			}
+			if (command == "aspect")
+			{
+				float value = 0.0f;
+				sscanf_s(argument.c_str(), "%f", &value);
+				stereo::set_research_aspect(value);
+				return "research_aspect=" + std::to_string(value);
+			}
+			if (command == "pointer")
+			{
+				// Laser-pointer test without a headset: cursor at texture coordinates, button state.
+				float u = 0.0f, v = 0.0f;
+				int pressed = 0;
+				if (sscanf_s(argument.c_str(), "%f %f %d", &u, &v, &pressed) < 2)
+				{
+					return "error: usage: pointer <u> <v> [0|1]  (0..1, 0 0 = top left)";
+				}
+				return hooks::point_game_cursor(u, v, pressed != 0) ? "ok" : "error: no game window or outside 0..1";
+			}
+			if (command == "setting") return settings::pipe_command(argument);
+			if (command == "rightstick") return input::set_right_stick_mode(argument);
+			if (command == "stereorender") return stereo::set_stereo_render(argument);
+			if (command == "fakehead")
+			{
+				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
+				// without a headset; "fakehead off" clears it. The XR thread overwrites it when tracking.
+				stereo::head_sample head;
+				float ipd = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f", &ipd) == 1 && ipd > 0.0f && ipd < 0.1f;
+				head.eyes[0].position[0] = -0.5f * ipd;
+				head.eyes[1].position[0] = 0.5f * ipd;
+				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
+				head.fovs[1] = { -0.698f, 0.942f, 0.768f, -0.890f };
+				stereo::publish_head_sample(head);
+				return head.valid ? "fakehead ipd=" + std::to_string(ipd) : "fakehead off";
 			}
 			if (command == "fakeyaw")
 			{
@@ -480,7 +665,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
@@ -533,6 +718,7 @@ namespace bfvr::control
 
 	void on_present(IDXGISwapChain* swap_chain)
 	{
+		frame_trace_on_present(swap_chain);
 		static LARGE_INTEGER frequency{};
 		static LARGE_INTEGER window_start{};
 		static unsigned frames{};
@@ -564,7 +750,7 @@ namespace bfvr::control
 		if (shot.pending)
 		{
 			shot.copies_at_capture = stereo::stats().copies;
-			shot.error = capture(swap_chain, shot.width, shot.height, shot.bgra);
+			shot.error = capture(swap_chain, shot.hud, shot.eye, shot.eye_index, shot.width, shot.height, shot.bgra);
 			shot.pending = false;
 			SetEvent(shot.done);
 		}

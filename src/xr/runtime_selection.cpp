@@ -69,6 +69,11 @@ namespace bfvr::xr
 		}
 	}
 
+	bool steamvr_running()
+	{
+		return process_running(L"vrserver.exe");
+	}
+
 	std::string select_runtime()
 	{
 		// Re-evaluated on every instance creation; only a value we did not set ourselves is the user's.

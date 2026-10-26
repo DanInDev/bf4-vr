@@ -8,7 +8,7 @@ Alternate-eye stereo implemented (`stereo = 1`), awaiting the first headset test
 | Step | Value | How verified |
 | --- | --- | --- |
 | Global `GameRenderer*` | `[0x142672378]` (in `.data`) | Live reads (`tools/camera_probe.py`) |
-| View params | `[GameRenderer + 0x60]` → block of **three RenderViews** (`+0x0` world camera, `+0x4E0` probably first-person view, `+0x9C0` unknown) plus extra data | Disassembly of the copy function below |
+| View params | `[GameRenderer + 0x60]` → view block (stride 0x1020): `+0x0` world camera RenderView, `+0x4E0` the **previous frame**'s RenderView (corrected 2026-10-25, see stereo-rendering.md), first-person transforms at `+0xED0` | Disassembly of the copy function below |
 | Camera world transform | `RenderView + 0x40`: rows right, up, forward, position (row vectors, x right / y up / z forward, metres) | Strafing moved position along row 0 |
 | Vertical FOV | `RenderView + 0xB4` (radians). `+0xB8` = 0.96 rad = the player's FOV setting (BF4's "70 (Hor+ 86)" = 55.3° vertical) | Overriding `+0xB4` to 1.6 rebuilt the projection to exactly 91.7° vertical |
 | Aspect | `RenderView + 0xC4` (1.778 = 16:9) | Projection m11/m00 = 1.778 |
@@ -56,6 +56,18 @@ Experiments (mono, `pipe view <i> <fov> <shift>`, screenshots `re/screenshots/vi
 - View 2: 90° × 90°, aspect 1.333, at the origin looking +z, flags 0xF; role unknown (environment/reflection?).
 - **The weapon is drawn in a separate first-person pass with its own camera and FOV, locked to the screen.** In alternate-eye stereo it sits at the same screen spot in both eyes, so it reads as distant and head-locked, and it is drawn with its ~55° FOV inside a 110° image (looks oversized). The fix needs that pass's camera: apply the inverse head pose there so the gun stays where the soldier aims while the head looks around. Next research target.
 - The HUD crosshair is likewise screen-locked; the true aim point is the game camera's forward axis.
+
+## Per-eye aspect (2026-10-25)
+
+The world view's aspect (+0xC4) is set once per frame after our copy hook by `0x140B89D60`
+(RenderView set-aspect: stores +0xC4 = viewport width/height, recomputes the horizontal FOV at
++0x250, marks the matrices dirty; prologue `40 53 48 83 EC 30 0F 29 74 24 20 0F 28 F1 48 8B D9`;
+caller `0x140848E4C`). Writing +0xC4 ourselves is overwritten. The hook replaces the value: with
+`aspect 1.0` the projection became m00 = m11 = 2.414 (horizontal FOV 72.7° → 45°) and the world and
+the gun stretched together, so the first-person pass uses the same aspect. In stereo
+(`stereo_aspect = headset`) the aspect is tan(half horizontal)/tan(half vertical) of the headset's
+widest eye FOVs, so the 1920×1080 image covers exactly the lens FOV (anamorphic; the compositor maps
+it with the submitted FOV). Window resizing does not help: the game keeps a 1920×1080 borderless window.
 
 ## Open questions
 

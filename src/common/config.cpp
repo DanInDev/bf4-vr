@@ -11,6 +11,18 @@
 
 namespace bfvr::config
 {
+	std::wstring ini_path()
+	{
+		wchar_t path[MAX_PATH]{};
+		const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
+		wchar_t* separator = length && length < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
+		if (!separator || wcscpy_s(separator + 1, MAX_PATH - (separator + 1 - path), L"bfvr.ini") != 0)
+		{
+			return {};
+		}
+		return path;
+	}
+
 	namespace
 	{
 		std::string trim(const std::string& text)
@@ -36,10 +48,8 @@ namespace bfvr::config
 			static std::once_flag loaded;
 			std::call_once(loaded, []
 			{
-				wchar_t path[MAX_PATH]{};
-				const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
-				wchar_t* separator = length && length < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-				if (!separator || wcscpy_s(separator + 1, MAX_PATH - (separator + 1 - path), L"bfvr.ini") != 0)
+				const std::wstring path = ini_path();
+				if (path.empty())
 				{
 					return;
 				}
@@ -81,5 +91,15 @@ namespace bfvr::config
 	{
 		const std::string value = lower(get(key, fallback ? "1" : "0"));
 		return !(value == "0" || value == "false" || value == "off" || value == "no");
+	}
+
+	bool research_enabled()
+	{
+#if defined(NDEBUG)
+		static const bool enabled = get_bool("research", false);
+#else
+		static const bool enabled = get_bool("research", true);
+#endif
+		return enabled;
 	}
 }

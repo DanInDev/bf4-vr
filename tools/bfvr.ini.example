@@ -11,9 +11,62 @@ theater = 1
 #   <path>   any runtime manifest, e.g. a simulator: C:\Tools\MetaXRSimulator\meta_openxr_simulator.json
 xr_runtime = auto
 
+# Offer BF4 a fake XInput pad at start-up so the VR controllers work without a physical pad
+# plugged in (re/notes/gamepad.md). 0 = only a real pad makes BF4 read the controllers.
+virtual_pad = 1
+
 # Stage 2: alternate-eye stereo with head tracking (replaces the virtual screen once both eyes
 # have an image). Experimental; set to 0 to return to theater mode.
 stereo = 0
 # Also apply the eye pose to the first-person pass camera (view params +0xED0), so the gun stays
 # where the soldier aims while the head looks around (re/notes/first_person.md). 0 = gun follows the head.
 stereo_first_person = 1
+# Per-eye image shape: headset = render each eye at the headset's own aspect (anamorphic 16:9
+# image covering exactly the lens FOV, re/notes/camera.md); game = the window's 16:9 (wider than the lens).
+stereo_aspect = headset
+# Apparent size of the gun and arms: 1 = the game's own (drawn with its own FOV, so it looks large
+# in the headset's wide view); smaller values shrink it around the view centre. Tune in the headset.
+gun_scale = 1.0
+# Part of the headset's reported FOV that is rendered (0.4-1, tangent space). The Quest 3 via
+# Steam Link reports more than its lenses show; cropping makes the visible image sharper. Too
+# small shows black edges. Tune in the headset (pipe: viewcrop <h> <v>).
+view_crop_h = 1.0
+view_crop_v = 1.0
+# First-person arms follow the VR controllers (two-bone IK on the arm bones, the gun stays in the
+# right hand). 0 = the game's animated arms. Pipe: armik 0|1, arms (diagnostics).
+arm_ik = 1
+# The gun keeps its animated grip in the right hand (its bones hang from Wep_Root, not the hand).
+arm_ik_weapon = 1
+# Wrist relative to the controller grip pose (metres, grip axes: -z along the handle, right hand;
+# mirrored for the left). Tune in the headset.
+arm_ik_wrist = 0 0 0.06
+# Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
+arm_ik_pole = 0.5 -1 0.3
+
+# Render size for the eye images (re/notes/render-quality.md). 0 = the monitor's mode (1920x1080).
+# <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
+# shows a scaled preview). 2160x2160 runs at the 120 fps VR cap on an RTX 5070.
+render_size = 0
+# With render_size: ignore the game leaving fullscreen. Experiment: the game then resizes to its
+# windowed size anyway, so leave it at 0.
+keep_fullscreen = 0
+# Hide focus loss from the game, so it keeps rendering at full rate and resolution when the SteamVR
+# dashboard, Steam Link or another window takes focus. 0 = the game's own behaviour.
+keep_focus = 1
+# The game's HUD on its own head-locked layer instead of inside each eye image: sharp, inside the
+# visible lens area, no HUD in the lens corners. 0 = HUD in the image (old behaviour).
+hud_layer = 1
+# Distance and width of the HUD layer in metres (1.3 m at 1.5 m is about 47 degrees wide).
+hud_distance = 1.5
+hud_width = 1.3
+# How the two eyes are rendered with stereo = 1. aer = alternate eyes (one eye per game frame, the
+# default); pair = both eyes from one game frame, world and gun (monitor-verified 2026-10-26; the
+# world was headset-verified). Switch live with pipe `stereorender aer|pair`.
+stereo_render = aer
+# Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
+# smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
+# pipe `rightstick look|turn`.
+right_stick = look
+turn = snap
+snap_turn_degrees = 30
+stance_flicks = 1

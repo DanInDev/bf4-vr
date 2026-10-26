@@ -14,33 +14,19 @@ namespace bfvr::hooks
 	namespace
 	{
 		// Vtable slots: IUnknown 0-2, IDXGIObject 3-6, IDXGIFactory 7-11, IDXGIFactory1 12-13, IDXGIFactory2 14+.
-		constexpr int create_swap_chain_slot = 10;
+		// CreateSwapChain (10) belongs to the swap chain size hooks, which log it too.
 		constexpr int is_windowed_stereo_enabled_slot = 14;
 		constexpr int create_swap_chain_for_hwnd_slot = 15;
 		constexpr int register_stereo_status_window_slot = 18;
 
-		using create_swap_chain_t = HRESULT(STDMETHODCALLTYPE*)(IDXGIFactory*, IUnknown*, DXGI_SWAP_CHAIN_DESC*, IDXGISwapChain**);
 		using is_windowed_stereo_enabled_t = BOOL(STDMETHODCALLTYPE*)(IDXGIFactory2*);
 		using create_swap_chain_for_hwnd_t = HRESULT(STDMETHODCALLTYPE*)(IDXGIFactory2*, IUnknown*, HWND,
 			const DXGI_SWAP_CHAIN_DESC1*, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC*, IDXGIOutput*, IDXGISwapChain1**);
 		using register_stereo_status_window_t = HRESULT(STDMETHODCALLTYPE*)(IDXGIFactory2*, HWND, UINT, DWORD*);
 
-		create_swap_chain_t original_create_swap_chain{};
 		is_windowed_stereo_enabled_t original_is_windowed_stereo_enabled{};
 		create_swap_chain_for_hwnd_t original_create_swap_chain_for_hwnd{};
 		register_stereo_status_window_t original_register_stereo_status_window{};
-
-		HRESULT STDMETHODCALLTYPE create_swap_chain_detour(IDXGIFactory* factory, IUnknown* device, DXGI_SWAP_CHAIN_DESC* desc, IDXGISwapChain** swap_chain)
-		{
-			const HRESULT result = original_create_swap_chain(factory, device, desc, swap_chain);
-			if (desc)
-			{
-				log::write("dxgi: CreateSwapChain %ux%u format=%d buffers=%u effect=%d windowed=%d -> 0x%08lX",
-					desc->BufferDesc.Width, desc->BufferDesc.Height, desc->BufferDesc.Format, desc->BufferCount,
-					desc->SwapEffect, desc->Windowed, result);
-			}
-			return result;
-		}
 
 		BOOL STDMETHODCALLTYPE is_windowed_stereo_enabled_detour(IDXGIFactory2* factory)
 		{
@@ -100,9 +86,7 @@ namespace bfvr::hooks
 		}
 		void** const vtable = *reinterpret_cast<void***>(factory.Get());
 
-		const bool ok = hook(vtable[create_swap_chain_slot], reinterpret_cast<void*>(&create_swap_chain_detour),
-				reinterpret_cast<void**>(&original_create_swap_chain), "CreateSwapChain")
-			&& hook(vtable[is_windowed_stereo_enabled_slot], reinterpret_cast<void*>(&is_windowed_stereo_enabled_detour),
+		const bool ok = hook(vtable[is_windowed_stereo_enabled_slot], reinterpret_cast<void*>(&is_windowed_stereo_enabled_detour),
 				reinterpret_cast<void**>(&original_is_windowed_stereo_enabled), "IsWindowedStereoEnabled")
 			&& hook(vtable[create_swap_chain_for_hwnd_slot], reinterpret_cast<void*>(&create_swap_chain_for_hwnd_detour),
 				reinterpret_cast<void**>(&original_create_swap_chain_for_hwnd), "CreateSwapChainForHwnd")

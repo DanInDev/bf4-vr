@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 
@@ -11,6 +12,10 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "safety/mp_guard.hpp"
+#include "input/vr_controls.hpp"
+#include "stereo/eye_math.hpp"
+#include "stereo/eye_pass.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -42,6 +47,19 @@ namespace bfvr::stereo
 
 		using view_params_copy_t = void*(__fastcall*)(void* destination, const void* source);
 		view_params_copy_t original_copy{};
+
+		// RenderView set-aspect: called each frame after the copy with the viewport's width/height;
+		// stores +0xC4, recomputes the horizontal FOV (+0x250) and marks the matrices dirty.
+		// Replacing the value renders an anamorphic image with the headset's per-eye aspect.
+		constexpr std::uint64_t view_set_aspect = 0x140b89d60;
+		// push rbx; sub rsp,30h; movaps [rsp+20h],xmm6; movaps xmm6,xmm1; mov rbx,rcx
+		constexpr std::uint8_t set_aspect_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x30, 0x0f, 0x29, 0x74, 0x24, 0x20, 0x0f, 0x28, 0xf1, 0x48, 0x8b, 0xd9 };
+		using view_set_aspect_t = void(__fastcall*)(void* view, float aspect);
+		view_set_aspect_t original_set_aspect{};
+		// Aspect for the world view this frame (0 = the game's own), set by the copy hook.
+		std::atomic<float> aspect_override{};
+		std::atomic<float> research_aspect{};
+		bool stereo_headset_aspect{};
 		std::atomic<float> offset_metres{};
 		std::atomic<DWORD> copy_thread{};
 		std::atomic<std::uint64_t> copies{};
@@ -53,6 +71,15 @@ namespace bfvr::stereo
 		// Research: a synthetic head yaw (degrees) applied like an eye pose when no headset drives
 		// the camera, to check that the world and the gun turn together.
 		std::atomic<float> fake_yaw_degrees{};
+		// Apparent size of the gun and arms (1 = the game's). The foreground pass has its own fixed
+		// FOV; multiplying the first-person camera's right and up rows by g scales the drawn gun by g
+		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
+		std::atomic<float> gun_scale{ 1.0f };
+		std::atomic<float> ipd_scale{ 1.0f };
+		// Fraction (tangent space) of the headset's reported FOV that is rendered, horizontal and
+		// vertical (1 = all of it); config view_crop_h / view_crop_v.
+		std::atomic<float> view_crop_h{ 1.0f };
+		std::atomic<float> view_crop_v{ 1.0f };
 		std::atomic<float> view_fov[3]{};
 		std::atomic<float> view_shift[3]{};
 		// Research: shift any transform (rows right, up, forward, position) inside the view-params
@@ -65,6 +92,8 @@ namespace bfvr::stereo
 		std::atomic<std::uint32_t> pin_offset[4]{};
 		std::atomic<float> pin_value[4]{};
 		bool stereo_enabled{};
+		// stereo_render = pair (research): both eyes from one game frame (stereo/eye_pass.hpp).
+		std::atomic<bool> pair_render{};
 		bool stereo_first_person{};
 
 		std::uint8_t* renderer_view_params()
@@ -95,49 +124,11 @@ namespace bfvr::stereo
 			mark_dirty(view);
 		}
 
-		// Composes an OpenXR LOCAL-space eye pose onto the game camera. Game transforms are row
-		// vectors (world = local * M). The camera's local axes match OpenXR's (x right, y up,
-		// looking along -z): a z-mirrored conversion made yaw and pitch run backwards in the
-		// headset (2026-10-23 test), so the pose is used unchanged.
-		void compose_pose(float* camera, const pose& eye) // 4 rows x float4
+		// A z-mirrored conversion made yaw and pitch run backwards in the headset (2026-10-23
+		// test), so the OpenXR pose is composed unchanged (eye_math::compose_pose).
+		void compose_pose(float* camera, const pose& eye)
 		{
-			const float qx = eye.orientation[0], qy = eye.orientation[1], qz = eye.orientation[2], qw = eye.orientation[3];
-			// Column-vector rotation matrix of the converted quaternion.
-			const float m[3][3] = {
-				{ 1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw) },
-				{ 2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw) },
-				{ 2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy) },
-			};
-			const float local_position[3] = { eye.position[0], eye.position[1], eye.position[2] };
-
-			float result[4][3]{};
-			// Rotation rows: row i of the eye transform (column i of m) times the camera rotation.
-			for (int i = 0; i < 3; ++i)
-			{
-				for (int k = 0; k < 3; ++k)
-				{
-					for (int axis = 0; axis < 3; ++axis)
-					{
-						result[i][axis] += m[k][i] * camera[k * 4 + axis];
-					}
-				}
-			}
-			// Position: eye offset expressed in camera axes, plus the camera position.
-			for (int axis = 0; axis < 3; ++axis)
-			{
-				result[3][axis] = camera[12 + axis];
-				for (int k = 0; k < 3; ++k)
-				{
-					result[3][axis] += local_position[k] * camera[k * 4 + axis];
-				}
-			}
-			for (int row = 0; row < 4; ++row)
-			{
-				for (int axis = 0; axis < 3; ++axis)
-				{
-					camera[row * 4 + axis] = result[row][axis];
-				}
-			}
+			eye_math::compose_pose(camera, eye);
 		}
 
 		// The eye pose goes onto the world camera and, unless disabled, onto the first-person
@@ -178,36 +169,64 @@ namespace bfvr::stereo
 				return result;
 			}
 			copy_thread = GetCurrentThreadId();
+			input::apply_view_turn();
 			const std::uint64_t index = ++copies;
 
 			rendered_view tag;
 			tag.copy_index = index;
 
-			const head_sample head = stereo_enabled && !is_menu_camera(params) ? latest_head_sample() : head_sample{};
+			// Head-tracked stereo only inside a loaded campaign level; menus and loading screens stay
+			// mono and appear on the theater screen.
+			const bool menu = is_menu_camera(params) || !safety::campaign_level_loaded();
+			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			if (head.valid)
 			{
-				// Alternate-eye rendering: odd copies left eye, even copies right eye.
-				const int eye = static_cast<int>(index % 2 == 1 ? 0 : 1);
+				// Alternate-eye rendering: odd copies left eye, even copies right eye. Pair rendering:
+				// every copy is the left eye; the eye pass renders the right eye from the same frame.
+				const bool pair = pair_render.load(std::memory_order_relaxed);
+				const int eye = pair ? 0 : static_cast<int>(index % 2 == 1 ? 0 : 1);
 
-				// Render with a vertical FOV covering both eyes, at the game's aspect ratio.
-				float half_vertical = 0.0f;
-				for (const fov& f : head.fovs)
-				{
-					half_vertical = std::fmax(half_vertical, std::fmax(f.up, -f.down));
-				}
+				// Render a symmetric frustum covering both eyes' FOVs. With the headset aspect the
+				// 16:9 image is anamorphic and spends its pixels only on what the lens shows; with
+				// the game's aspect it is wider than the lens.
+				// The runtime's FOV can be wider than what the lens shows (Quest 3 via Steam Link:
+				// headset test 2026-10-25). Cropping (in tangent space) spends the pixels on the
+				// visible part; the compositor still gets exactly the FOV that was rendered.
+				const eye_math::render_fov rendered = eye_math::symmetric_fov(head.fovs, view_crop_h.load(std::memory_order_relaxed),
+					view_crop_v.load(std::memory_order_relaxed), stereo_headset_aspect, *reinterpret_cast<const float*>(params + aspect));
+				const float half_horizontal = rendered.half_horizontal;
+				const float half_vertical = rendered.half_vertical;
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
-				const float view_aspect = *reinterpret_cast<const float*>(params + aspect);
-				const float half_horizontal = std::atan(std::tan(half_vertical) * view_aspect);
+				aspect_override = rendered.aspect;
 
-				apply_eye_pose(params, head.eyes[eye]);
+				// ipd_scale (world scale): eyes moved apart around their midpoint.
+				pose eye_pose = head.eyes[eye];
+				const float scale = ipd_scale.load(std::memory_order_relaxed);
+				if (scale != 1.0f)
+				{
+					const pose centre = eye_math::centre_pose(head);
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						eye_pose.position[axis] = centre.position[axis] + (eye_pose.position[axis] - centre.position[axis]) * scale;
+					}
+				}
+				apply_eye_pose(params, eye_pose);
 
 				tag.stereo = true;
 				tag.eye = eye;
-				tag.eye_pose = head.eyes[eye];
+				tag.eye_pose = eye_pose;
 				tag.rendered_fov = { -half_horizontal, half_horizontal, half_vertical, -half_vertical };
+				if (pair)
+				{
+					const float ipd = eye_math::eye_distance(head) * scale;
+					set_eye_pass_shift(ipd);
+					tag.pair = true;
+					tag.second_pose = eye_math::moved_along_right(eye_pose, ipd);
+				}
 			}
 			else
 			{
+				aspect_override = research_aspect.load(std::memory_order_relaxed);
 				const float override_fov = fov_override.load(std::memory_order_relaxed);
 				if (override_fov > 0.0f)
 				{
@@ -263,8 +282,26 @@ namespace bfvr::stereo
 				}
 			}
 
+			if (const float scale = gun_scale.load(std::memory_order_relaxed); scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
+			{
+				auto* rows = reinterpret_cast<float*>(params + first_person_transform);
+				for (int i = 0; i < 8; ++i) // right and up rows (4 floats each; w stays 0)
+				{
+					rows[i] *= scale;
+				}
+			}
+
 			publish_rendered_view(tag);
 			return result;
+		}
+
+		void __fastcall set_aspect_detour(void* view, float value)
+		{
+			if (const float wanted = aspect_override.load(std::memory_order_relaxed); wanted > 0.0f && view == renderer_view_params())
+			{
+				value = wanted;
+			}
+			original_set_aspect(view, value);
 		}
 	}
 
@@ -288,7 +325,29 @@ namespace bfvr::stereo
 				log::write("camera: hooking %p failed: %s", target, MH_StatusToString(status));
 				return false;
 			}
-			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d)", target, stereo_enabled, stereo_first_person);
+			log::write("camera: hook installed on view-params copy %p (stereo=%d first_person=%d headset_aspect=%d pair=%d)", target,
+				stereo_enabled, stereo_first_person, stereo_headset_aspect, pair_render.load());
+			if (pair_render)
+			{
+				// Render twice per frame with eye-2 constants (flags 1 | 8); the shift follows the IPD.
+				log::write("camera: pair rendering: %s", set_eye_pass(9, 0.064f).c_str());
+			}
+
+			// Optional second hook; without it stereo still works at the game's aspect.
+			auto* const aspect_target = reinterpret_cast<void*>(static_cast<std::uintptr_t>(view_set_aspect));
+			std::uint8_t bytes[sizeof(set_aspect_prologue)]{};
+			if (!ReadProcessMemory(GetCurrentProcess(), aspect_target, bytes, sizeof(bytes), nullptr)
+				|| std::memcmp(bytes, set_aspect_prologue, sizeof(bytes)) != 0)
+			{
+				log::write("camera: set-aspect %p does not match build 179547; per-eye aspect unavailable", aspect_target);
+				return true;
+			}
+			status = MH_CreateHook(aspect_target, reinterpret_cast<void*>(&set_aspect_detour), reinterpret_cast<void**>(&original_set_aspect));
+			if (status == MH_OK)
+			{
+				status = MH_EnableHook(aspect_target);
+			}
+			log::write("camera: set-aspect hook at %p: %s", aspect_target, MH_StatusToString(status));
 			return true;
 		}
 
@@ -299,6 +358,10 @@ namespace bfvr::stereo
 			std::uint8_t bytes[sizeof(expected_prologue)]{};
 			for (int attempt = 0; attempt < 600; ++attempt)
 			{
+				if (safety::mod_disabled())
+				{
+					return 0;
+				}
 				if (ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(view_params_copy)), bytes, sizeof(bytes), nullptr)
 					&& std::memcmp(bytes, expected_prologue, sizeof(bytes)) == 0)
 				{
@@ -321,6 +384,11 @@ namespace bfvr::stereo
 		stereo_enabled = config::get_bool("stereo", false);
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
+		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
+		pair_render = stereo_enabled && config::get("stereo_render", "aer") == "pair";
+		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
+		set_view_crop(static_cast<float>(std::atof(config::get("view_crop_h", "1.0").c_str())),
+			static_cast<float>(std::atof(config::get("view_crop_v", "1.0").c_str())));
 		const HANDLE thread = CreateThread(nullptr, 0, &wait_and_hook, nullptr, 0, nullptr);
 		if (!thread)
 		{
@@ -370,6 +438,63 @@ namespace bfvr::stereo
 		pin_value[slot] = value;
 		pin_offset[slot] = offset;
 		return true;
+	}
+
+	void set_gun_scale(float scale)
+	{
+		// Out-of-range or non-finite values would give the engine degenerate camera rows.
+		gun_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.25f), 4.0f) : 1.0f;
+	}
+
+	void set_ipd_scale(float scale)
+	{
+		ipd_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.5f), 2.0f) : 1.0f;
+	}
+
+	float current_gun_scale()
+	{
+		return gun_scale;
+	}
+
+	void set_view_crop(float horizontal, float vertical)
+	{
+		const auto clamp = [](float value) { return std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.4f), 1.0f) : 1.0f; };
+		view_crop_h = clamp(horizontal);
+		view_crop_v = clamp(vertical);
+	}
+
+	void current_view_crop(float& horizontal, float& vertical)
+	{
+		horizontal = view_crop_h;
+		vertical = view_crop_v;
+	}
+
+	void set_research_aspect(float value)
+	{
+		research_aspect = std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.2f), 5.0f) : 0.0f;
+	}
+
+	std::string set_stereo_render(const std::string& name)
+	{
+		if (name == "pair" || name == "aer")
+		{
+			const bool pair = name == "pair";
+			// The eye pass must run before the camera hook tags copies as pairs, and stop after.
+			if (pair)
+			{
+				const std::string result = set_eye_pass(9, 0.064f);
+				if (result.rfind("error", 0) == 0)
+				{
+					return result;
+				}
+			}
+			pair_render = pair && stereo_enabled;
+			if (!pair)
+			{
+				set_eye_pass(0, 0.064f);
+			}
+		}
+		return std::string("stereo_render=") + (pair_render.load() ? "pair" : "aer");
 	}
 
 	void set_fake_yaw(float degrees)

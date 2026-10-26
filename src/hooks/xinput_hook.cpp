@@ -12,6 +12,9 @@
 
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "safety/mp_guard.hpp"
+#include "input/virtual_pad.hpp"
+#include "input/vr_controls.hpp"
 
 namespace bfvr::hooks
 {
@@ -38,6 +41,12 @@ namespace bfvr::hooks
 		std::atomic<std::uint64_t> state_calls{};
 		std::atomic<std::uint64_t> capability_calls{};
 
+		// The game accepted the virtual pad as an XInput device (see input/virtual_pad.cpp).
+		bool virtual_pad_present()
+		{
+			return input::virtual_pad_counts().xinput_answers > 0 && !safety::mod_disabled();
+		}
+
 		DWORD merge_state(DWORD result, DWORD user_index, XINPUT_STATE* state)
 		{
 			++state_calls;
@@ -46,9 +55,18 @@ namespace bfvr::hooks
 				return result;
 			}
 
-			const input::gamepad_state pad = input::latest();
+			const input::gamepad_state pad = input::for_game(input::latest());
 			if (!pad.connected)
 			{
+				// The game creates its pad object once at startup and treats a failed first read as
+				// "no pad" for good, so the virtual pad must look present (idle) until the VR
+				// controllers drive it.
+				if (result != ERROR_SUCCESS && virtual_pad_present())
+				{
+					*state = {};
+					state->dwPacketNumber = packet_number;
+					return ERROR_SUCCESS;
+				}
 				return result;
 			}
 
@@ -73,7 +91,8 @@ namespace bfvr::hooks
 		DWORD merge_capabilities(DWORD result, DWORD user_index, XINPUT_CAPABILITIES* capabilities)
 		{
 			++capability_calls;
-			if (user_index != virtual_user_index || !capabilities || result == ERROR_SUCCESS || !input::latest().connected)
+			if (user_index != virtual_user_index || !capabilities || result == ERROR_SUCCESS
+				|| !(input::latest().connected || virtual_pad_present()))
 			{
 				return result;
 			}

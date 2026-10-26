@@ -23,5 +23,9 @@
     { "name": "bf4-release", "configurePreset": "bf4", "configuration": "Release" },
     { "name": "bf3-debug", "configurePreset": "bf3", "configuration": "Debug" },
     { "name": "bf3-release", "configurePreset": "bf3", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "bf4-debug", "configurePreset": "bf4", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "bf3-debug", "configurePreset": "bf3", "configuration": "Debug", "output": { "outputOnFailure": true } }
   ]
 }

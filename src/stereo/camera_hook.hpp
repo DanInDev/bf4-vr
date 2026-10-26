@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace bfvr::stereo
 {
@@ -39,7 +40,24 @@ namespace bfvr::stereo
 	// marks view 0 dirty (slot 0..3; offset 0 = off).
 	bool set_pin(int slot, std::uint32_t offset, float value);
 
+	// Apparent size of the first-person gun and arms (1 = the game's; config key gun_scale).
+	void set_gun_scale(float scale);
+	// Eye distance multiplier (world scale), 0.5..2; 1 = the runtime's IPD.
+	void set_ipd_scale(float scale);
+	float current_gun_scale();
+
+	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
+	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.
+	void set_view_crop(float horizontal, float vertical);
+	void current_view_crop(float& horizontal, float& vertical);
+
+	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,
+	// when not in stereo (0 = the game's own).
+	void set_research_aspect(float value);
+
 	// Research: a synthetic head yaw (degrees, 0 = off) applied like a headset eye pose when not
 	// in stereo; world and first-person camera turn together.
+	// stereo_render at runtime: "pair" (both eyes from one frame, eye pass) or "aer" (alternate eyes).
+	std::string set_stereo_render(const std::string& name);
 	void set_fake_yaw(float degrees);
 }

@@ -16,20 +16,23 @@ PIPE = r'\\.\pipe\bfvr'
 
 def command(line: str) -> str:
     # The single pipe instance is briefly absent while the server re-creates it; retry for ~2 s.
+    # Only connecting is retried: once a command is sent it is never resent (poke and pad change state).
     for attempt in range(40):
         try:
-            with open(PIPE, 'r+b', buffering=0) as pipe:
-                pipe.write(line.encode())
-                chunks = []
-                try:
-                    while chunk := pipe.read(1 << 20):  # large replies arrive in several reads
-                        chunks.append(chunk)
-                except OSError:  # the server's disconnect shows up as EINVAL/broken pipe, not as EOF
-                    if not chunks:
-                        raise
-                return b''.join(chunks).decode().strip()
+            pipe = open(PIPE, 'r+b', buffering=0)
         except OSError:  # not found, busy (EINVAL) or access denied while the server re-creates it
             time.sleep(0.05)
+            continue
+        with pipe:
+            pipe.write(line.encode())
+            chunks = []
+            try:
+                while chunk := pipe.read(1 << 20):  # large replies arrive in several reads
+                    chunks.append(chunk)
+            except OSError:  # the server's disconnect shows up as EINVAL/broken pipe, not as EOF
+                if not chunks:
+                    raise RuntimeError(f'no reply to {line.split()[0]!r}')
+            return b''.join(chunks).decode().strip()
     raise RuntimeError('bf-vr control pipe not available')
 
 
