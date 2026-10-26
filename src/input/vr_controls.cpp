@@ -42,6 +42,7 @@ namespace bfvr::input
 		std::atomic<bool> stick_turns{};
 		std::atomic<bool> grips_to_game{};
 		std::atomic<bool> ads_trigger{};
+		std::atomic<bool> x_menu{ true };
 		std::mutex lock;
 		right_stick stick;
 		LARGE_INTEGER last_poll{};
@@ -168,6 +169,11 @@ namespace bfvr::input
 		{
 			pad.left_trigger = 0;
 		}
+		// Left X opens the game's menu (Start); the reload is the right B (weapon/physical_reload).
+		if (x_menu.load(std::memory_order_relaxed) && (pad.buttons & XINPUT_GAMEPAD_X))
+		{
+			pad.buttons = static_cast<std::uint16_t>((pad.buttons & ~XINPUT_GAMEPAD_X) | XINPUT_GAMEPAD_START);
+		}
 		if (!stick_turns.load(std::memory_order_relaxed))
 		{
 			return pad;
@@ -278,10 +284,11 @@ namespace bfvr::input
 		pitch_neutral = enabled;
 	}
 
-	void set_game_buttons(bool grips, bool ads)
+	void set_game_buttons(bool grips, bool ads, bool x_opens_menu)
 	{
 		grips_to_game = grips;
 		ads_trigger = ads;
+		x_menu = x_opens_menu;
 	}
 
 	std::string set_right_stick_mode(const std::string& mode)
@@ -304,7 +311,7 @@ namespace bfvr::input
 	}
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
-	void set_game_buttons(bool, bool) {}
+	void set_game_buttons(bool, bool, bool) {}
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}

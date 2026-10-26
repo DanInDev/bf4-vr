@@ -262,6 +262,14 @@ namespace
 		return frame;
 	}
 
+	// The magazine top right at the hand (the tests below place the hand at the magwell).
+	hand_config flat_hold()
+	{
+		hand_config config;
+		config.hold_ar = config.hold_ak = { 0.0f, 0.0f, 0.0f };
+		return config;
+	}
+
 	bool has(const hand_result& result, reload_event event)
 	{
 		for (int i = 0; i < result.count; ++i)
@@ -278,7 +286,7 @@ namespace
 	{
 		reload gun(ak);
 		gun.load(11, 60);
-		reload_hands hands;
+		reload_hands hands(flat_hold());
 		hands.update(gun, at(away, false));
 		hand_result r = hands.update(gun, at(magwell, true));
 		expect(has(r, reload_event::magazine_out) && r.draw == magazine_draw::in_hand, "grip at the magwell pulls the AK magazine");
@@ -307,7 +315,7 @@ namespace
 	{
 		reload gun(ar);
 		gun.load(16, 30);
-		reload_hands hands;
+		reload_hands hands(flat_hold());
 		hands.update(gun, at(away, false));
 		hand_result r = hands.update(gun, at(away, false, true));
 		expect(has(r, reload_event::magazine_dropped) && r.draw == magazine_draw::falling, "X drops the AR magazine, it falls");
@@ -340,14 +348,14 @@ namespace
 	{
 		reload gun(ak, { false });
 		gun.load(11, 60);
-		reload_hands hands;
+		reload_hands hands(flat_hold());
 		hands.update(gun, at(chest, true));
 		hand_result r = hands.update(gun, at(magwell, true));
 		expect(has(r, reload_event::flicked_in) && r.draw == magazine_draw::with_gun, "new magazine knocks the old one out");
 		expect(gun.rounds_in_gun() == 31 && gun.state().reserve == 40, "old rounds back (discard off)");
 		hand_frame lost = at(magwell, false);
 		lost.hands_valid = false;
-		reload_hands blind;
+		reload_hands blind(flat_hold());
 		r = blind.update(gun, lost);
 		lost.grip = true;
 		r = blind.update(gun, lost);
@@ -616,6 +624,45 @@ namespace
 		frame.head_valid = false;
 		expect(!signal.update(frame, 0.02f).raised, "no head tracking: nothing");
 	}
+	void test_hold_and_handle()
+	{
+		// AR: held from below, the magazine top 13 cm above the hand (controller up = +y).
+		reload gun(ar);
+		gun.load(0, 60);
+		gun.press_button(false); // empty magazine out
+		reload_hands hands;
+		hands.update(gun, at(chest, true));
+		hand_frame frame = at({ magwell.x, magwell.y - 0.13f, magwell.z + 0.03f }, true);
+		hand_result r = hands.update(gun, frame);
+		expect(has(r, reload_event::magazine_in), "AR: the magazine top, 13 cm above the hand, meets the magwell");
+		// The held magazine turns with the off hand: hand rolled 90 deg about z, top now to the left.
+		reload gun2(ar);
+		gun2.load(0, 60);
+		reload_hands hands2;
+		hand_frame rolled = at(chest, true);
+		rolled.off_rotation = { 0.0f, 0.0f, 0.70710678f, 0.70710678f };
+		hands2.update(gun2, rolled);
+		r = hands2.update(gun2, rolled);
+		expect(r.draw == magazine_draw::in_hand && r.magazine_position.x < chest.x - 0.1f, "held magazine follows the off hand's rotation");
+		// Charging handle from the gun frame: AK above the magazine, AR at the rear.
+		reload ak_gun(ak);
+		ak_gun.load(0, 60);
+		ak_gun.take_from_chest();
+		ak_gun.insert();
+		reload_hands rack_hands;
+		hand_frame f = at(away, false);
+		f.has_root = true;
+		f.root = { 0.0f, -0.2f, 0.0f };
+		f.root_rotation = { 0.0f, 1.0f, 0.0f, 0.0f }; // gun frame +z = world -z (barrel ahead)
+		rack_hands.update(ak_gun, f);
+		f.off_hand = { 0.0f, -0.17f, -0.40f }; // handle: root + (0, 0.03, 0.40) turned
+		f.grip = true;
+		rack_hands.update(ak_gun, f);
+		f.off_hand = { 0.0f, -0.17f, -0.33f }; // pulled 7 cm back toward the shooter
+		f.grip = false;
+		r = rack_hands.update(ak_gun, f);
+		expect(has(r, reload_event::chambered), "AK: rack at the handle above the magazine, pulled back");
+	}
 }
 
 int main()
@@ -638,6 +685,7 @@ int main()
 	test_grenade_drop_and_put_back();
 	test_holsters();
 	test_hand_signal();
+	test_hold_and_handle();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

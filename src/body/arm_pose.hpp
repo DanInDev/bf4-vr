@@ -41,6 +41,9 @@ namespace bfvr::body
 		float magazine_rotation[4]{ 0, 0, 0, 1 };
 		bool has_slide{};
 		float slide[3]{};      // Wep_Slide (bolt / charging handle)
+		bool has_root{};
+		float root[3]{};       // Wep_Root: the gun's frame (+z along the barrel, +y up)
+		float root_rotation[4]{ 0, 0, 0, 1 };
 		bool has_optic{};
 		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
 		bool has_rail{};

@@ -69,7 +69,7 @@ namespace bfvr::core
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
 			weapon::set_holsters(store.boolean("holsters", true));
-			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false));
+			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.0f), store.real("shoulder_width", 0.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");

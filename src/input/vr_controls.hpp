@@ -35,6 +35,7 @@ namespace bfvr::input
 	// Pipe: "rightstick look|turn" switches live; no argument reports.
 	std::string set_right_stick_mode(const std::string& mode);
 	// grips_to_game: the controller grips reach the game as LB/RB; ads_trigger: the left trigger as
-	// LT (aim down sights). Both off by default (the grips are the mod's).
-	void set_game_buttons(bool grips, bool ads);
+	// LT (aim down sights). Both off by default (the grips are the mod's). x_opens_menu: left X is
+	// Start (the game's menu).
+	void set_game_buttons(bool grips, bool ads, bool x_opens_menu);
 }

@@ -363,6 +363,10 @@ namespace bfvr::weapon
 		frame.seconds = seconds;
 		frame.hands_valid = hands_valid;
 		frame.off_hand = v(points.hand[0]);
+		frame.off_rotation = q(points.hand_rotation[0]);
+		frame.has_root = points.has_root;
+		frame.root = v(points.root);
+		frame.root_rotation = q(points.root_rotation);
 		frame.gun_hand = v(points.hand[1]);
 		frame.gun_rotation = q(points.hand_rotation[1]);
 		frame.magwell = v(points.magazine);
@@ -375,7 +379,7 @@ namespace bfvr::weapon
 		}
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = grip && !accessory_busy.load(std::memory_order_relaxed);
-		frame.button = (pad.buttons & XINPUT_GAMEPAD_X) != 0;
+		frame.button = (pad.buttons & XINPUT_GAMEPAD_B) != 0; // right B: release / bolt catch
 		const hand_result result = hands.update(gun, frame);
 		for (int i = 0; i < result.count; ++i)
 		{
@@ -433,9 +437,14 @@ namespace bfvr::weapon
 		}
 		if (!active.load(std::memory_order_relaxed))
 		{
+			// reload = button: B is the game's reload (X opens the menu, the stick crouches).
+			if (!physical.load(std::memory_order_relaxed) && (out.buttons & XINPUT_GAMEPAD_B))
+			{
+				out.buttons = static_cast<std::uint16_t>((out.buttons & ~XINPUT_GAMEPAD_B) | XINPUT_GAMEPAD_X);
+			}
 			return out;
 		}
-		out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_X);
+		out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_B);
 		if (block_grip.load(std::memory_order_relaxed))
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);

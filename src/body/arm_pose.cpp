@@ -499,6 +499,15 @@ namespace bfvr::body
 				}
 			};
 			publish(rig.optic, points.has_optic, points.optic);
+			publish(rig.weapon, points.has_root, points.root);
+			if (points.has_root)
+			{
+				const ik::quat root_xr = to_xr * ik::model_of(local, rig.parents, rig.weapon).rotation;
+				points.root_rotation[0] = root_xr.x;
+				points.root_rotation[1] = root_xr.y;
+				points.root_rotation[2] = root_xr.z;
+				points.root_rotation[3] = root_xr.w;
+			}
 			publish(rig.rail, points.has_rail, points.rail);
 			for (int hand = 0; hand < 2; ++hand)
 			{
