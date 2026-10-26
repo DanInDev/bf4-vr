@@ -62,6 +62,7 @@ namespace bfvr::core
 			body::set_arm_ik(store.boolean("arm_ik", true));
 			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
 			body::set_shoulder_width(store.real("shoulder_width", 0.0f));
+			body::set_shoulder_reach(store.real("shoulder_reach", 0.12f));
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);

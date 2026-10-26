@@ -32,6 +32,7 @@ namespace bfvr::settings
 			{ "hud_show_bottom", kind::boolean, 0, 0, 0, "1", "", "HUD: weapon and stance icons at the bottom" },
 			{ "stereo_render", kind::choice, 0, 0, 0, "aer", "aer|pair", "alternate eyes, or both eyes from one game frame" },
 			{ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders relative to the head, metres (x right, y up, z back)" },
+			{ "shoulder_reach", kind::real, 0.0f, 0.3f, 0.01f, "0.12", "", "a shoulder moves up to this far towards a hand out of reach before the arm stretches, metres" },
 			{ "shoulder_width", kind::real, -0.1f, 0.3f, 0.01f, "0", "", "each shoulder this much further out to its side, metres (wider chest)" },
 			{ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "first-person arms follow the VR controllers" },
 			{ "arm_stretch", kind::real, 0.0f, 0.6f, 0.05f, "0.25", "", "an arm may get this much longer to reach its controller (0 = the game's arm length; pipe arms: reach > 1 = out of reach)" },

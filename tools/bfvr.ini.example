@@ -43,8 +43,10 @@ arm_ik_wrist = 0 0 0.06
 # Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
 arm_ik_pole = 0.5 -1 0.3
 # The game's arms can be shorter than yours, so a hand reaching out stopped short of its controller
-# (and the gun with it). An arm may get up to this much longer (0.25 = 25 %); 0 = the game's length.
+# (and the gun with it). First the shoulder reaches forward up to shoulder_reach metres, then the arm
+# may get up to arm_stretch longer (0.25 = 25 %); 0 = off.
 # Pipe `arms` shows reach (goal distance / arm length; above 1 = out of reach). Issue #31.
+shoulder_reach = 0.12
 arm_stretch = 0.25
 # Each shoulder this much further out to its side (metres): a wider chest, elbows further apart.
 shoulder_width = 0

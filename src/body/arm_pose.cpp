@@ -136,7 +136,8 @@ namespace bfvr::body
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> shoulder_width{}; // live setting: each shoulder joint moved out to its side, metres
-		std::atomic<float> arm_stretch{ 0.25f }; // live setting: how much longer an arm may get to reach its controller
+		std::atomic<float> arm_stretch{ 0.25f };
+		std::atomic<float> shoulder_reach{ 0.12f }; // live setting: how far a shoulder may move towards an out-of-reach hand // live setting: how much longer an arm may get to reach its controller
 		std::mutex gun_hand_lock;
 		bool gun_hand_override{};
 		ik::quat gun_hand_rotation;
@@ -407,6 +408,7 @@ namespace bfvr::body
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
+				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
 				const float reach = ik::reach_ratio(local, rig.parents, bones, goal.wrist);
 				if (ik::solve_arm(local, rig.parents, bones, goal))
 				{
@@ -686,6 +688,11 @@ namespace bfvr::body
 	void set_shoulder_width(float metres)
 	{
 		shoulder_width = metres;
+	}
+
+	void set_shoulder_reach(float metres)
+	{
+		shoulder_reach = std::fmax(0.0f, metres);
 	}
 
 	void set_arm_stretch(float fraction)

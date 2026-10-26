@@ -11,7 +11,7 @@ start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |
 | 1 | `setting "set aim controller"`, right stick left/right | View snap-turns (also with `right_stick = look`); pipe `rightstick` shows `aim=controller (stick turns)` and `turns` counting up | |
-| 2 | Reach both arms straight out; pipe `arms` | `reach` above 1 means the game's arms are too short; with `arm_stretch` 0.25 the hands should now stay on the controllers. Try `arm_stretch` 0, 0.25, 0.4 in `tools\settings.ps1`: what looks natural? | |
+| 2 | Reach both arms straight out; pipe `arms` | `reach` above 1 means the game's arms are too short; with `arm_stretch` 0.25 the hands should now stay on the controllers. The shoulder now reaches forward first (`shoulder_reach` 0.12 m), then the arm stretches (`arm_stretch` 0.25). Try `shoulder_reach` 0 / 0.12 / 0.2 and `arm_stretch` 0 / 0.25 in `tools\settings.ps1`: what looks natural? | |
 | 3 | Rifle: left hand on the handguard, squeeze the grip | No jump at the grab; moving the left hand steers the barrel; letting go blends back within ~0.1 s; no grenade thrown (LB is held back while you hold the gun). Pipe `twohand`: `held=1` | |
 | 4 | Two-handed, aim at a wall mark ~25 m away and fire (aim = controller) | Bullets hit where the barrel points; at 5–10 m they land a little off (try `aim_convergence`) | |
 | 5 | One-handed, same | Same as 4 | |

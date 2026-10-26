@@ -135,17 +135,28 @@ namespace bfvr::body::ik
 
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal)
 	{
-		const bone_transform upper = model_of(local, parents, bones.upper);
+		bone_transform upper = model_of(local, parents, bones.upper);
 		bone_transform fore = model_of(local, parents, bones.fore);
 		bone_transform hand = model_of(local, parents, bones.hand);
-		const vec3 shoulder = upper.position;
+		vec3 shoulder = upper.position;
 		float a = length(fore.position - shoulder);
 		float b = length(hand.position - fore.position);
-		const vec3 to_goal = goal.wrist - shoulder;
-		const float reach = length(to_goal);
+		vec3 to_goal = goal.wrist - shoulder;
+		float reach = length(to_goal);
 		if (a < 1e-4f || b < 1e-4f || reach < 1e-4f)
 		{
 			return false;
+		}
+		if (goal.max_protraction > 0 && reach > a + b)
+		{
+			// The shoulder reaches forward first, the whole arm moving with it.
+			upper.position = shoulder + to_goal * (std::min(reach - (a + b), goal.max_protraction) / reach);
+			set_model_transform(local, parents, bones.upper, upper);
+			fore = model_of(local, parents, bones.fore);
+			hand = model_of(local, parents, bones.hand);
+			shoulder = upper.position;
+			to_goal = goal.wrist - shoulder;
+			reach = length(to_goal);
 		}
 		if (goal.max_stretch > 0 && reach > a + b)
 		{

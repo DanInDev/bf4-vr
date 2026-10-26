@@ -17,6 +17,9 @@ namespace bfvr::body
 	// Out of reach, an arm may lengthen by up to this fraction to keep the hand on the controller
 	// (the game's arms can be shorter than the player's, #31). 0 = the rig's length.
 	void set_arm_stretch(float fraction);
+	// Out of reach, a shoulder first moves up to this far (metres) towards its hand; stretching
+	// covers the rest.
+	void set_shoulder_reach(float metres);
 	// Moves each shoulder joint this far out to its side (metres; negative = narrower).
 	void set_shoulder_width(float metres);
 	// Two-handed weapon (#29): the gun hand takes this rotation (OpenXR LOCAL, x y z w) instead of

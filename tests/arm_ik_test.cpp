@@ -138,6 +138,52 @@ int main()
 		expect(length(weapon_after - weapon_before) < 1e-4f, "stretch: weapon left the hand", round);
 	}
 
+	// Out of reach with protraction (and stretch): the shoulder moves towards the goal by up to
+	// max_protraction first, segment lengths unchanged; stretch only covers the rest.
+	for (int round = 0; round < 200; ++round)
+	{
+		bone_transform local[7];
+		local[0].rotation = random_rotation(random, 3.0f);
+		local[1].position = { 0.2f, 1.5f, 0.0f };
+		local[2].position = { 0.14f, 0.01f, 0.0f };
+		local[3].position = { 0.15f, 0.0f, 0.02f };
+		local[4].position = { 0.10f, 0.0f, 0.0f };
+		local[5].position = { 0.16f, 0.0f, 0.0f };
+		for (int bone = 1; bone < 7; ++bone)
+		{
+			local[bone].rotation = random_rotation(random, 2.0f);
+		}
+		const vec3 shoulder = model_of(local, parents, 1).position;
+		const float a = length(model_of(local, parents, 3).position - shoulder);
+		const float b = length(model_of(local, parents, 5).position - model_of(local, parents, 3).position);
+		const vec3 direction = normalize(vec3{ unit(random), unit(random), unit(random) });
+		const bool protraction_covers = round % 2 == 0;
+		const float excess = protraction_covers ? 0.08f : 0.4f;
+		arm_goal goal;
+		goal.wrist = shoulder + direction * (a + b + excess);
+		goal.hand = random_rotation(random, 3.0f);
+		goal.pole = shoulder + normalize(cross(direction, vec3{ unit(random), unit(random), unit(random) })) * 0.5f;
+		goal.max_protraction = 0.12f;
+		goal.max_stretch = protraction_covers ? 0.0f : 0.25f;
+
+		expect(solve_arm(local, parents, bones, goal), "protraction: solver refused", round);
+		const vec3 moved = model_of(local, parents, 1).position;
+		const float shift = protraction_covers ? excess : 0.12f;
+		expect(length(moved - (shoulder + direction * shift)) < 1e-3f, "protraction: shoulder not moved towards the goal", round);
+		const vec3 elbow = model_of(local, parents, 3).position;
+		const vec3 wrist = model_of(local, parents, 5).position;
+		if (protraction_covers)
+		{
+			expect(length(wrist - goal.wrist) < 2e-3f, "protraction: wrist misses", round);
+			expect(std::fabs(length(elbow - moved) - a) < 1e-3f && std::fabs(length(wrist - elbow) - b) < 1e-3f, "protraction: arm length changed", round);
+		}
+		else
+		{
+			const vec3 expected = moved + direction * ((a + b) * 1.25f * 0.9999f);
+			expect(length(wrist - expected) < 2e-3f, "protraction + stretch: wrist misses the stretched reach", round);
+		}
+	}
+
 	// Reachable goals are never stretched.
 	{
 		bone_transform local[7];

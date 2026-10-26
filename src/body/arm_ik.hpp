@@ -62,13 +62,16 @@ namespace bfvr::body::ik
 		// Out of reach, the arm may lengthen by up to this fraction (0.25 = 25 %) to reach the goal:
 		// the forearm and hand translations are scaled. 0 = the rig's own length, the hand stops short.
 		float max_stretch{};
+		// Out of reach, the shoulder first moves up to this far (metres) towards the goal, like a real
+		// shoulder reaching forward; stretching covers what is left. 0 = the shoulder stays.
+		float max_protraction{};
 	};
 
 	// Two-bone IK: rewrites the local rotations of upper, fore and hand so the wrist reaches
 	// goal.wrist (or points at it when out of reach), the elbow bends towards goal.pole and the
 	// hand takes goal.hand. With a roll bone, half of the change in wrist twist goes to it.
 	// Bone lengths come from the current pose. Returns false (pose untouched) on a degenerate chain.
-	// Rewrites translations too when goal.max_stretch lets the arm lengthen.
+	// Rewrites translations too when goal.max_protraction or goal.max_stretch let the arm reach further.
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal);
 
 	// Distance from the shoulder to goal.wrist over the arm's length (upper + forearm) in the current
