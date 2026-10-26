@@ -77,6 +77,7 @@ namespace bfvr::core
 			weapon::set_accessory_trigger(accessory == "trigger");
 			weapon::set_holsters(store.boolean("holsters", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
+			weapon::set_grip_spot(store.boolean("grip_spot", false));
 			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			weapon::set_two_handed(store.boolean("two_handed", true));

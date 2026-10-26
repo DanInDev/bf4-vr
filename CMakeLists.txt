@@ -181,6 +181,12 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
 	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
 
+	# Sound research (re/notes/sound.md): records the default playback device; not a test.
+	add_executable(bfvr_audio_loopback tools/audio_loopback.cpp)
+	target_link_libraries(bfvr_audio_loopback PRIVATE ole32)
+	target_compile_definitions(bfvr_audio_loopback PRIVATE NOMINMAX)
+	target_compile_options(bfvr_audio_loopback PRIVATE /W4 /permissive-)
+
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)

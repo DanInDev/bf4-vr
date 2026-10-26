@@ -43,7 +43,7 @@ namespace bfvr::ui
 				{ "View", { "stereo_render", "ipd_scale", "view_crop_h", "view_crop_v", "gun_scale" } },
 				{ "Body", { "arm_ik", "shoulder_offset", "shoulder_width", "shoulder_reach", "arm_stretch" } },
 				{ "Weapon", { "aim", "two_handed", "aim_convergence", "accessory_toggle", "reload", "drop_discards_ammo", "grenade",
-					"grenade_throw_scale", "holsters", "squad_signal" } },
+					"grenade_throw_scale", "holsters", "squad_signal", "grip_spot" } },
 				{ "HUD", { "hud_mode", "hud_show_main", "hud_show_minimap", "hud_show_ammo", "hud_show_bottom", "hud_distance", "hud_width",
 					"hud_marker_distance", "hud_watch_width", "hud_ammo_width" } },
 				{ "Controls", { "right_stick", "turn", "snap_turn_degrees", "stance_flicks", "neutral_pitch", "dominant_hand", "menu_input", "vr_panel" } },

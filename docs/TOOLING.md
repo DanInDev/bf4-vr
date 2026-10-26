@@ -142,6 +142,8 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `tools/settings.ps1 [-List]` | Live settings (#25): up/down pick, left/right change, `r` reset, `s` save into `bfvr.ini`, `q` quit; pipe `setting list|get|set|step|reset|save` underneath |
 | `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`, `settings`, `right_stick`, `gestures`, `handedness`, `reload`, `launcher`); see `docs/tasks/testing.md` |
 | `tools/slot_probe.py [--press <hex>]` | Live: weapon slots and names, the current slot; times a pad press until the slot changes |
+| `tools/sound_probe.py <reference\|buttons\|physical\|grip_spot>` | Live: records the playback device (`bfvr_audio_loopback`) while the pipe drives one step at a time; per step the sound onset and rise, clips in `re/dumps/sound/` (`re/notes/sound.md`) |
+| `tools/weapon_sound_probe.py [--slot n]` | Live: the gun's sound asset, its sound patch graph events and parameters with hash-matched names |
 | `tools/grenade_probe.py [--slot 6]` | Live: the grenade weapon's launch data (shot, hold-and-release, projectile) and its count (`re/notes/weapon.md` "Grenades") |
 | `tools/ammo_probe.py` | Live: fires and reloads with the pad and lists int fields that follow the magazine and reserve (`re/notes/weapon.md`) |
 | `tools/soak.ps1 [-Minutes 10] [-MinFps 60] [-Command 'eyepass 1']` | Samples `status` once a second while the game sits in a level; fails on a stall, low fps or rejected eye pairs and saves a `threads` sample (`re/dumps/soak-*`) |

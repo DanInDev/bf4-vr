@@ -102,6 +102,7 @@ namespace bfvr::weapon
 
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> grip_claimed{};
+		std::atomic<bool> grip_spot{};
 		// Squad order (campaign "engage", key Q) by hand signal.
 		constexpr unsigned short order_key = 'Q';
 		std::atomic<bool> signal_enabled{ true };
@@ -220,6 +221,11 @@ namespace bfvr::weapon
 		}
 	}
 
+	void set_grip_spot(bool on)
+	{
+		grip_spot = on;
+	}
+
 	void set_holsters(bool on)
 	{
 		enabled = on;
@@ -296,7 +302,7 @@ namespace bfvr::weapon
 	input::gamepad_state filter_swap_pad(const input::gamepad_state& pad)
 	{
 		input::gamepad_state out = pad;
-		if (grip_claimed.load(std::memory_order_relaxed))
+		if (grip_claimed.load(std::memory_order_relaxed) || !grip_spot.load(std::memory_order_relaxed))
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_RIGHT_SHOULDER);
 		}
