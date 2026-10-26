@@ -44,6 +44,11 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.build }} --parallel
 
+      # Offline tests (docs/tasks/testing.md layers 1-3); release has no test preset.
+      - name: Test
+        if: matrix.build != 'bf4-release'
+        run: ctest --preset ${{ matrix.build }}
+
       - name: Upload dinput8.dll
         if: matrix.build == 'bf4-release'
         uses: actions/upload-artifact@v7
