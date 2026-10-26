@@ -3,6 +3,7 @@
 #include <openxr/openxr.h>
 
 #include "input/gamepad.hpp"
+#include "stereo/tracking.hpp"
 
 namespace bfvr::xr
 {
@@ -14,6 +15,8 @@ namespace bfvr::xr
 	//   left/right trigger -> LT / RT        left/right grip -> LB / RB
 	//   A B (right), X Y (left) -> A B X Y   stick clicks -> LS / RS
 	//   left menu button -> Start
+	//
+	// Grip and aim poses of both hands are tracked too (arm IK).
 	class controller_actions
 	{
 	public:
@@ -22,7 +25,11 @@ namespace bfvr::xr
 		bool create(XrInstance instance, XrSession session);
 		// Call once per frame while the session is running.
 		input::gamepad_state sync(XrSession session);
-		// Destroys the actions; call before the instance is destroyed.
+		// Grip and aim poses relative to base at the given display time; uses the state of the
+		// last sync.
+		stereo::hand_sample locate(XrSpace base, XrTime time) const;
+		// Destroys the actions; call before the instance is destroyed. The pose spaces belong to
+		// the session and go with it.
 		void destroy();
 
 	private:
@@ -40,6 +47,10 @@ namespace bfvr::xr
 		XrAction left_stick_click_{ XR_NULL_HANDLE };
 		XrAction right_stick_click_{ XR_NULL_HANDLE };
 		XrAction start_{ XR_NULL_HANDLE };
+		XrAction grip_pose_{ XR_NULL_HANDLE };
+		XrAction aim_pose_{ XR_NULL_HANDLE };
+		XrSpace grip_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE }; // 0 = left, 1 = right
+		XrSpace aim_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 		bool left_grip_held_{};
 		bool right_grip_held_{};
 	};

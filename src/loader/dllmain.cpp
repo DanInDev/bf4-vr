@@ -1,13 +1,17 @@
 // The game loads this file as dinput8.dll. It forwards DirectInput8Create to the
 // real system DLL, logs that we are in-process and starts the runtime (core).
+// The game's IDirectInput8A is wrapped to offer a virtual pad (input/virtual_pad.hpp).
 
 #include <windows.h>
 #include <unknwn.h>
+
+#include <intrin.h>
 
 #include <cwchar>
 
 #include "common/log.hpp"
 #include "core/core.hpp"
+#include "input/virtual_pad.hpp"
 
 namespace
 {
@@ -51,6 +55,10 @@ extern "C" HRESULT WINAPI proxy_direct_input8_create(HINSTANCE instance, DWORD v
 
 	const HRESULT result = target(instance, version, interface_id, output, outer);
 	bfvr::log::write("DirectInput8Create(version=0x%04lX) forwarded, hr=0x%08lX", version, result);
+	if (SUCCEEDED(result))
+	{
+		bfvr::input::wrap_direct_input(interface_id, outer, _ReturnAddress(), output);
+	}
 	return result;
 }
 

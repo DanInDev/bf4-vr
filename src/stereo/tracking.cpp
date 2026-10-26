@@ -8,7 +8,20 @@ namespace bfvr::stereo
 	{
 		std::mutex lock;
 		head_sample head;
+		hand_sample hands;
 		rendered_view rendered;
+	}
+
+	void publish_hand_sample(const hand_sample& sample)
+	{
+		const std::lock_guard guard(lock);
+		hands = sample;
+	}
+
+	hand_sample latest_hand_sample()
+	{
+		const std::lock_guard guard(lock);
+		return hands;
 	}
 
 	void publish_head_sample(const head_sample& sample)

@@ -28,6 +28,18 @@ namespace bfvr::stereo
 	void publish_head_sample(const head_sample& sample);
 	head_sample latest_head_sample();
 
+	// Controller poses for the same display time as the head sample, OpenXR LOCAL space.
+	// grip: palm centre, -z along the handle; aim: pointing ray, -z forward.
+	struct hand_sample
+	{
+		bool valid[2]{}; // 0 = left, 1 = right; position and orientation both tracked
+		pose grip[2];
+		pose aim[2];
+	};
+
+	void publish_hand_sample(const hand_sample& sample);
+	hand_sample latest_hand_sample();
+
 	// What the game was told to render for the most recent view copy (alternate-eye rendering).
 	struct rendered_view
 	{
@@ -36,6 +48,10 @@ namespace bfvr::stereo
 		pose eye_pose;      // eye pose used, OpenXR LOCAL space
 		fov rendered_fov;   // symmetric FOV the game rendered with
 		std::uint64_t copy_index{};
+		// stereo_render = pair: this copy is the left eye of a frame whose right eye the eye pass
+		// renders (stereo/eye_pass.hpp); second_pose is that right eye as rendered.
+		bool pair{};
+		pose second_pose;
 	};
 
 	void publish_rendered_view(const rendered_view& view);

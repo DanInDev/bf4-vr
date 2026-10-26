@@ -9,6 +9,7 @@
 #include <openxr/openxr_platform.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -24,6 +25,14 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "common/settings_store.hpp"
+#include "hooks/game_window.hpp"
+#include "input/gestures.hpp"
+#include "input/pointer.hpp"
+#include "stereo/eye_math.hpp"
+#include "stereo/hud_layout.hpp"
+#include "stereo/eye_pass.hpp"
+#include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
@@ -128,6 +137,7 @@ namespace bfvr::xr
 		XrSystemId system{ XR_NULL_SYSTEM_ID };
 		XrSession session{ XR_NULL_HANDLE };
 		XrSpace space{ XR_NULL_HANDLE };
+		XrSpace view_space{ XR_NULL_HANDLE }; // head-locked layers (HUD)
 		bool session_running{};
 
 		// xrWaitFrame runs on its own thread so a throttled headset (taken off, dashboard open)
@@ -138,6 +148,26 @@ namespace bfvr::xr
 		bool waiter_stop{};
 		bool wait_requested{};
 		bool frame_ready{};
+		std::atomic<std::uint64_t> hidden_frames{}; // completed on the waiter (not shown by the headset)
+		bool warned_hidden_frame{};
+		bool fov_logged{}; // the headset's per-eye FOV, once per process
+		bool waiting_for_steamvr_logged{};
+		std::atomic<bool> steamvr_restart_pending{}; // set on EXITING (Present thread), read by the instance worker
+		std::atomic<bool> runtime_is_steamvr{};      // written by the instance worker
+		// Every runtime call from the game's Present and the waiter's hidden-frame begin/end are
+		// serialised: concurrent calls froze the game when Steam Link reconnected (2026-10-25).
+		std::mutex xr_calls;
+		std::atomic<const char*> stage{ "idle" };
+		std::atomic<ULONGLONG> stage_since{};
+
+		void enter(const char* name)
+		{
+			stage = name;
+			stage_since = GetTickCount64();
+		}
+		// Predicted display time of the newest waited frame; the controllers are located for it on
+		// the Present thread, under xr_calls like every other call that thread makes.
+		std::atomic<XrTime> latest_display_time{};
 		XrResult ready_result{};
 		XrFrameState ready_frame{ XR_TYPE_FRAME_STATE };
 
@@ -161,7 +191,18 @@ namespace bfvr::xr
 		stereo::pose eye_poses[2];
 		stereo::fov eye_fovs[2];
 		std::uint64_t last_stored_copy{};
+		std::uint64_t last_stored_pair{};
 		std::uint64_t eye_images_stored{};
+
+		// HUD layer (hud_layer = 1, stereo/hud_capture.hpp): the game's HUD on a head-locked quad in
+		// front of the eyes, at a size and distance that keep it inside the visible lens area.
+		const bool hud_mode{ stereo_mode && config::get_bool("hud_layer", false) };
+		XrSwapchain hud_swapchain{ XR_NULL_HANDLE };
+		std::vector<XrSwapchainImageD3D11KHR> hud_images;
+		UINT hud_swapchain_width{};
+		UINT hud_swapchain_height{};
+		std::uint64_t hud_seen_frame{};
+		int hud_idle_frames{};
 
 		~state()
 		{
@@ -209,6 +250,23 @@ namespace bfvr::xr
 				log::write("theater: OpenXR runtime: %s", runtime.c_str());
 				last_runtime_choice = runtime;
 			}
+			runtime_is_steamvr = runtime.rfind("steamvr", 0) == 0;
+			// Never be the one that starts SteamVR: wait until the user's headset connection has.
+			// After SteamVR exited, wait for its server to disappear before waiting for a new one.
+			if (steamvr_restart_pending && !steamvr_running())
+			{
+				steamvr_restart_pending = false;
+			}
+			if (runtime_is_steamvr && (steamvr_restart_pending || !steamvr_running()))
+			{
+				if (!waiting_for_steamvr_logged)
+				{
+					log::write("theater: waiting for SteamVR to be started (connect the headset, e.g. Steam Link)");
+					waiting_for_steamvr_logged = true;
+				}
+				return XR_NULL_HANDLE;
+			}
+			waiting_for_steamvr_logged = false;
 			const char* const extensions[] = { XR_KHR_D3D11_ENABLE_EXTENSION_NAME };
 
 			XrInstanceCreateInfo info{ XR_TYPE_INSTANCE_CREATE_INFO };
@@ -322,6 +380,11 @@ namespace bfvr::xr
 			{
 				return false;
 			}
+			space_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+			if (!check(xrCreateReferenceSpace(session, &space_info, &view_space), "xrCreateReferenceSpace(VIEW)"))
+			{
+				return false;
+			}
 
 			log::write("theater: session created on '%ls'", adapter_desc.Description);
 			// Controller input is optional: without it the screen still works.
@@ -355,10 +418,19 @@ namespace bfvr::xr
 				set_phase(phase::waiting_for_session);
 				break;
 			case XR_SESSION_STATE_EXITING:
-				// The user or runtime ended VR (e.g. quitting SteamVR). Reconnecting would relaunch
-				// the runtime or keep the game registered while it shuts down, so stay out until restart.
+				// The user or runtime ended VR (e.g. quitting SteamVR). With SteamVR, reconnect only
+				// after its server has gone and been started again by the user; never while it shuts
+				// down. Other runtimes stay out until the game restarts.
 				destroy_all();
-				set_phase(phase::stopped);
+				if (runtime_is_steamvr)
+				{
+					steamvr_restart_pending = true;
+					retry_later();
+				}
+				else
+				{
+					set_phase(phase::stopped);
+				}
 				break;
 			case XR_SESSION_STATE_LOSS_PENDING:
 				// Connection lost (headset unplugged, link dropped): rebuild later, choosing the runtime again.
@@ -513,6 +585,244 @@ namespace bfvr::xr
 			return true;
 		}
 
+		bool ensure_hud_swapchain(const D3D11_TEXTURE2D_DESC& hud)
+		{
+			if (hud_swapchain != XR_NULL_HANDLE && hud.Width == hud_swapchain_width && hud.Height == hud_swapchain_height)
+			{
+				return true;
+			}
+			destroy_hud_swapchain();
+			std::uint32_t count{};
+			if (!check(xrEnumerateSwapchainFormats(session, 0, &count, nullptr), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			std::vector<std::int64_t> formats(count);
+			if (!check(xrEnumerateSwapchainFormats(session, count, &count, formats.data()), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			DXGI_FORMAT chosen = DXGI_FORMAT_UNKNOWN;
+			for (const DXGI_FORMAT candidate : format_preferences(hud.Format))
+			{
+				if (std::find(formats.begin(), formats.end(), static_cast<std::int64_t>(candidate)) != formats.end())
+				{
+					chosen = candidate;
+					break;
+				}
+			}
+			if (chosen == DXGI_FORMAT_UNKNOWN)
+			{
+				return false;
+			}
+			XrSwapchainCreateInfo info{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+			info.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+			info.format = chosen;
+			info.sampleCount = 1;
+			info.width = hud.Width;
+			info.height = hud.Height;
+			info.faceCount = 1;
+			info.arraySize = 1;
+			info.mipCount = 1;
+			if (!check(xrCreateSwapchain(session, &info, &hud_swapchain), "xrCreateSwapchain(HUD)")
+				|| !check(xrEnumerateSwapchainImages(hud_swapchain, 0, &count, nullptr), "xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			hud_images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+			if (!check(xrEnumerateSwapchainImages(hud_swapchain, count, &count,
+					reinterpret_cast<XrSwapchainImageBaseHeader*>(hud_images.data())), "xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			hud_swapchain_width = hud.Width;
+			hud_swapchain_height = hud.Height;
+			log::write("theater: HUD swap chain %ux%u, format %d", hud.Width, hud.Height, chosen);
+			return true;
+		}
+
+		// The latest captured HUD into its swap chain; false when there is none to show.
+		bool copy_hud_to_swapchain()
+		{
+			const stereo::hud_frame hud = stereo::latest_hud();
+			if (!hud.texture)
+			{
+				return false;
+			}
+			// The HUD is not drawn on every frame type (cutscenes, loading); hide a stale one.
+			hud_idle_frames = hud.frame == hud_seen_frame ? hud_idle_frames + 1 : 0;
+			hud_seen_frame = hud.frame;
+			if (hud.frame == 0 || hud_idle_frames > 30)
+			{
+				return false;
+			}
+			D3D11_TEXTURE2D_DESC desc{};
+			hud.texture->GetDesc(&desc);
+			if (!ensure_hud_swapchain(desc))
+			{
+				return false;
+			}
+			std::uint32_t index{};
+			XrSwapchainImageAcquireInfo acquire{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+			if (!check(xrAcquireSwapchainImage(hud_swapchain, &acquire, &index), "xrAcquireSwapchainImage(HUD)"))
+			{
+				return false;
+			}
+			XrSwapchainImageWaitInfo wait{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+			wait.timeout = XR_INFINITE_DURATION;
+			if (!check(xrWaitSwapchainImage(hud_swapchain, &wait), "xrWaitSwapchainImage(HUD)"))
+			{
+				return false;
+			}
+			ComPtr<ID3D11DeviceContext> context;
+			device->GetImmediateContext(&context);
+			context->CopySubresourceRegion(hud_images[index].texture, 0, 0, 0, 0, hud.texture, 0, nullptr);
+			XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+			return check(xrReleaseSwapchainImage(hud_swapchain, &release), "xrReleaseSwapchainImage(HUD)");
+		}
+
+		void destroy_hud_swapchain()
+		{
+			if (hud_swapchain != XR_NULL_HANDLE)
+			{
+				xrDestroySwapchain(hud_swapchain);
+				hud_swapchain = XR_NULL_HANDLE;
+			}
+			hud_images.clear();
+			hud_swapchain_width = hud_swapchain_height = 0;
+		}
+
+		// Pair rendering: the eye pass's first image is the left eye, this Present's image the right
+		// eye of the same game frame. Only a pair completed since the last one is taken.
+		void store_pair(ID3D11Texture2D* back_buffer, const stereo::rendered_view& tag)
+		{
+			const std::uint64_t completed = stereo::eye_pass_pairs();
+			ID3D11Texture2D* const left = stereo::eye_pass_image();
+			if (completed == last_stored_pair || !left || !eye_textures[0] || !eye_textures[1])
+			{
+				return;
+			}
+			ComPtr<ID3D11DeviceContext> context;
+			device->GetImmediateContext(&context);
+			context->CopyResource(eye_textures[0].Get(), left);
+			context->CopyResource(eye_textures[1].Get(), back_buffer);
+			eye_poses[0] = tag.eye_pose;
+			eye_poses[1] = tag.second_pose;
+			eye_fovs[0] = eye_fovs[1] = tag.rendered_fov;
+			eye_ready[0] = eye_ready[1] = true;
+			last_stored_pair = completed;
+			last_stored_copy = tag.copy_index;
+			eye_images_stored += 2;
+		}
+
+		// HUD on the body (hud_mode = body, #26/#27, docs/tasks/hud-gestures.md). The HUD texture is
+		// shown in pieces: everything but the minimap and the ammo counter projected like the eye
+		// images of the frame (markers on their targets), the minimap on the left forearm while it is
+		// glanced at, the ammo counter beside the gun after a steady inspect. Rectangles measured at
+		// 2160x2160 (2026-10-26).
+		static constexpr stereo::hud_layout::uv_rect minimap_rect{ 0.013f, 0.824f, 0.154f, 0.997f };
+		static constexpr stereo::hud_layout::uv_rect ammo_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
+		static constexpr stereo::hud_layout::uv_rect upper_rect{ 0.0f, 0.0f, 1.0f, 0.82f };
+		static constexpr stereo::hud_layout::uv_rect lower_middle_rect{ 0.16f, 0.82f, 0.87f, 1.0f };
+		input::gestures::forearm_glance minimap_gesture;
+		input::gestures::gun_inspect ammo_gesture;
+		LARGE_INTEGER last_gesture_time{};
+
+		void fill_quad(XrCompositionLayerQuad& layer, const stereo::hud_layout::quad& placed)
+		{
+			layer = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			layer.space = space;
+			layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			layer.subImage.swapchain = hud_swapchain;
+			const auto w = static_cast<float>(hud_swapchain_width);
+			const auto h = static_cast<float>(hud_swapchain_height);
+			layer.subImage.imageRect.offset = { static_cast<std::int32_t>(placed.rect.u0 * w), static_cast<std::int32_t>(placed.rect.v0 * h) };
+			layer.subImage.imageRect.extent = { static_cast<std::int32_t>((placed.rect.u1 - placed.rect.u0) * w),
+				static_cast<std::int32_t>((placed.rect.v1 - placed.rect.v0) * h) };
+			const stereo::pose& p = placed.placement;
+			layer.pose.position = { p.position[0], p.position[1], p.position[2] };
+			layer.pose.orientation = { p.orientation[0], p.orientation[1], p.orientation[2], p.orientation[3] };
+			layer.size = { placed.width, placed.height };
+		}
+
+		int body_hud_layers(XrCompositionLayerQuad (&out)[4])
+		{
+			if (!eye_ready[0] || !eye_ready[1] || !hud_swapchain_width || !hud_swapchain_height)
+			{
+				return 0;
+			}
+			settings::registry& store = settings::global();
+			// The frame's rendered view: the eye midpoint with the left eye's orientation.
+			stereo::pose view = eye_poses[0];
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				view.position[axis] = 0.5f * (eye_poses[0].position[axis] + eye_poses[1].position[axis]);
+			}
+			const float distance = store.real("hud_marker_distance", 10.0f);
+			int count = 0;
+			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, upper_rect));
+			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, lower_middle_rect));
+
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = last_gesture_time.QuadPart
+				? std::fmin(0.1f, static_cast<float>(now.QuadPart - last_gesture_time.QuadPart) / static_cast<float>(frequency.QuadPart)) : 0.0f;
+			last_gesture_time = now;
+			const stereo::head_sample head_sample = stereo::latest_head_sample();
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!head_sample.valid)
+			{
+				return count;
+			}
+			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
+			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
+			const float aspect = static_cast<float>(hud_swapchain_width) / static_cast<float>(hud_swapchain_height);
+			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds))
+			{
+				const float offset[3] = { 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
+			}
+			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds))
+			{
+				const float offset[3] = { -0.06f, 0.05f, -0.10f }; // beside the gun's left side
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], offset, eye, store.real("hud_ammo_width", 0.10f), ammo_rect, aspect));
+			}
+			return count;
+		}
+
+		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
+		// pulled last aims; its trigger is the left mouse button.
+		int pointer_hand{ 1 };
+		void point_at_screen(float width, float height)
+		{
+			if (settings::global().text("menu_input", "pointer") != "pointer")
+			{
+				return;
+			}
+			const input::gamepad_state pad = input::latest();
+			const bool triggers[2] = { pad.left_trigger > 128, pad.right_trigger > 128 };
+			if (triggers[0] != triggers[1])
+			{
+				pointer_hand = triggers[0] ? 0 : 1;
+			}
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!hands.valid[pointer_hand])
+			{
+				return;
+			}
+			input::quad_target screen;
+			screen.pose.position[2] = -screen_distance;
+			screen.width = width;
+			screen.height = height;
+			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
+			if (hit.hit)
+			{
+				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
+			}
+		}
+
 		// Stereo: keeps this Present's image as the eye the camera hook rendered it for.
 		void store_eye(ID3D11Texture2D* back_buffer)
 		{
@@ -521,6 +831,11 @@ namespace bfvr::xr
 			{
 				// Mono frame (menu, loading, no tracking): fall back to the theater screen.
 				eye_ready[0] = eye_ready[1] = false;
+				return;
+			}
+			if (tag.pair)
+			{
+				store_pair(back_buffer, tag);
 				return;
 			}
 			if (tag.copy_index == last_stored_copy || !eye_textures[tag.eye])
@@ -585,6 +900,17 @@ namespace bfvr::xr
 						{ pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w } };
 					sample.fovs[eye] = { views[eye].fov.angleLeft, views[eye].fov.angleRight, views[eye].fov.angleUp, views[eye].fov.angleDown };
 				}
+				if (!fov_logged)
+				{
+					constexpr float degrees = 57.29578f;
+					for (int eye = 0; eye < 2; ++eye)
+					{
+						const XrFovf& f = views[eye].fov;
+						log::write("theater: %s eye FOV left %.1f right %.1f up %.1f down %.1f deg", eye == 0 ? "left" : "right",
+							f.angleLeft * degrees, f.angleRight * degrees, f.angleUp * degrees, f.angleDown * degrees);
+					}
+					fov_logged = true;
+				}
 			}
 			stereo::publish_head_sample(sample);
 		}
@@ -625,17 +951,22 @@ namespace bfvr::xr
 
 		void waiter_loop()
 		{
+			bool wait_again = false; // the previous frame was completed here; no request needed
 			for (;;)
 			{
 				{
 					std::unique_lock guard(waiter_lock);
-					waiter_wake.wait(guard, [this] { return waiter_stop || wait_requested; });
+					if (!wait_again)
+					{
+						waiter_wake.wait(guard, [this] { return waiter_stop || wait_requested; });
+						wait_requested = false;
+					}
 					if (waiter_stop)
 					{
 						return;
 					}
-					wait_requested = false;
 				}
+				wait_again = false;
 
 				XrFrameWaitInfo wait_info{ XR_TYPE_FRAME_WAIT_INFO };
 				XrFrameState frame{ XR_TYPE_FRAME_STATE };
@@ -643,6 +974,40 @@ namespace bfvr::xr
 				if (stereo_mode && XR_SUCCEEDED(result))
 				{
 					publish_head_sample(frame.predictedDisplayTime);
+				}
+				if (XR_SUCCEEDED(result))
+				{
+					latest_display_time = frame.predictedDisplayTime;
+				}
+
+				// A frame the headset will not show (headset off, dashboard) is begun and ended
+				// here: SteamVR throttles those calls to ~5 Hz for a hidden app, which held the
+				// game's Present for ~200 ms per frame (7 fps) when done there.
+				if (XR_SUCCEEDED(result) && !frame.shouldRender)
+				{
+					std::unique_lock xr(xr_calls, std::defer_lock);
+					while (!xr.try_lock())
+					{
+						if (waiter_stop_requested())
+						{
+							return;
+						}
+						Sleep(1);
+					}
+					XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
+					XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
+					end_info.displayTime = frame.predictedDisplayTime;
+					end_info.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+					const XrResult begun = xrBeginFrame(session, &begin_info);
+					const XrResult ended = XR_SUCCEEDED(begun) ? xrEndFrame(session, &end_info) : begun;
+					if (XR_FAILED(ended) && !warned_hidden_frame)
+					{
+						log::write("theater: completing a hidden frame failed: XrResult %d", static_cast<int>(ended));
+						warned_hidden_frame = true;
+					}
+					++hidden_frames;
+					wait_again = true;
+					continue;
 				}
 
 				const std::lock_guard guard(waiter_lock);
@@ -652,11 +1017,18 @@ namespace bfvr::xr
 			}
 		}
 
+		bool waiter_stop_requested()
+		{
+			const std::lock_guard guard(waiter_lock);
+			return waiter_stop;
+		}
+
 		void start_waiter()
 		{
 			stop_waiter();
 			waiter_stop = false;
 			frame_ready = false;
+			latest_display_time = 0;
 			wait_requested = true;
 			waiter = std::thread([this] { waiter_loop(); });
 		}
@@ -730,6 +1102,7 @@ namespace bfvr::xr
 				can_copy = desc.SampleDesc.Count == 1 && ensure_swapchain(desc);
 			}
 
+			enter("begin frame");
 			XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
 			if (!check(xrBeginFrame(session, &begin_info), "xrBeginFrame"))
 			{
@@ -738,11 +1111,14 @@ namespace bfvr::xr
 			}
 
 			XrCompositionLayerQuad quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			XrCompositionLayerQuad hud_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerProjection projection{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
 			XrCompositionLayerProjectionView views[2]{ { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW }, { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW } };
-			const XrCompositionLayerBaseHeader* layers[1]{};
+			XrCompositionLayerQuad body_quads[4]{};
+			const XrCompositionLayerBaseHeader* layers[6]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
+			enter("copy to swap chain");
 			if (frame.shouldRender && stereo_frame && copy_eyes_to_swapchain())
 			{
 				// Each eye is shown with exactly the pose and FOV it was rendered with; the
@@ -762,6 +1138,31 @@ namespace bfvr::xr
 				projection.views = views;
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection);
 				layer_count = 1;
+
+				if (hud_mode && settings::global().text("hud_mode", "head") == "body" && copy_hud_to_swapchain())
+				{
+					const int added = body_hud_layers(body_quads);
+					for (int i = 0; i < added; ++i)
+					{
+						layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&body_quads[i]);
+					}
+				}
+				else if (hud_mode && copy_hud_to_swapchain())
+				{
+					// The texture holds the HUD over transparent black: premultiplied alpha.
+					hud_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+					hud_quad.space = view_space;
+					hud_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+					hud_quad.subImage.swapchain = hud_swapchain;
+					hud_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(hud_swapchain_width), static_cast<std::int32_t>(hud_swapchain_height) };
+					hud_quad.pose.orientation.w = 1.0f;
+					// Live settings (hud_distance, hud_width), read per frame.
+					const float hud_distance = settings::global().real("hud_distance", 1.5f);
+					const float hud_width = settings::global().real("hud_width", 1.3f);
+					hud_quad.pose.position.z = -hud_distance;
+					hud_quad.size = { hud_width, hud_width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width) };
+					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&hud_quad);
+				}
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
 			{
@@ -773,9 +1174,11 @@ namespace bfvr::xr
 				quad.pose.position.z = -screen_distance;
 				quad.size = { screen_width, screen_width * static_cast<float>(swapchain_height) / static_cast<float>(swapchain_width) };
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
+				point_at_screen(quad.size.width, quad.size.height);
 				layer_count = 1;
 			}
 
+			enter("end frame");
 			XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
 			end_info.displayTime = frame.predictedDisplayTime;
 			end_info.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
@@ -815,6 +1218,12 @@ namespace bfvr::xr
 		{
 			stop_waiter();
 			destroy_swapchain();
+			destroy_hud_swapchain();
+			if (view_space != XR_NULL_HANDLE)
+			{
+				xrDestroySpace(view_space);
+				view_space = XR_NULL_HANDLE;
+			}
 			if (space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(space);
@@ -833,6 +1242,7 @@ namespace bfvr::xr
 			destroy_session();
 			actions.destroy();
 			actions_ready = false;
+			stereo::publish_hand_sample({});
 			input::publish({});
 			if (instance != XR_NULL_HANDLE)
 			{
@@ -909,9 +1319,12 @@ namespace bfvr::xr
 			return;
 		}
 
+		const std::lock_guard xr(s.xr_calls);
+		s.enter("poll events");
 		s.poll_events();
 		if (s.session_running)
 		{
+			s.enter("sync actions");
 			LARGE_INTEGER frequency{}, t0{}, t1{}, t2{};
 			QueryPerformanceFrequency(&frequency);
 			QueryPerformanceCounter(&t0);
@@ -919,6 +1332,10 @@ namespace bfvr::xr
 			{
 				const input::gamepad_state pad = s.actions.sync(s.session);
 				input::publish(pad);
+				if (const XrTime time = s.latest_display_time.load(); time != 0)
+				{
+					stereo::publish_hand_sample(s.actions.locate(s.space, time));
+				}
 				// Non-neutral input is logged at most once per second, for diagnosing bindings.
 				const bool active = pad.buttons || pad.left_trigger > 64 || pad.right_trigger > 64
 					|| std::abs(pad.left_x) > 8000 || std::abs(pad.left_y) > 8000 || std::abs(pad.right_x) > 8000 || std::abs(pad.right_y) > 8000;
@@ -931,6 +1348,7 @@ namespace bfvr::xr
 			}
 			if (s.stereo_mode)
 			{
+				s.enter("store eye");
 				ComPtr<ID3D11Texture2D> back_buffer;
 				if (SUCCEEDED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer))))
 				{
@@ -943,6 +1361,7 @@ namespace bfvr::xr
 				}
 			}
 			QueryPerformanceCounter(&t1);
+			s.enter("submit");
 			s.submit_frame(swap_chain);
 			QueryPerformanceCounter(&t2);
 			const double ticks_per_ms = static_cast<double>(frequency.QuadPart) / 1000.0;
@@ -953,12 +1372,15 @@ namespace bfvr::xr
 		{
 			input::publish({});
 		}
+		s.enter("idle");
 	}
 
 	theater_status theater::status() const
 	{
 		const state& s = *state_;
+		const char* stage = s.stage.load();
+		const double stage_ms = std::strcmp(stage, "idle") == 0 ? 0.0 : static_cast<double>(GetTickCount64() - s.stage_since.load());
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
-			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored };
+			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms };
 	}
 }

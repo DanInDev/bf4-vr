@@ -66,6 +66,8 @@ target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
 add_library(bfvr_common STATIC
 	src/common/config.cpp
 	src/common/log.cpp
+	src/common/settings.cpp
+	src/common/settings_store.cpp
 )
 target_include_directories(bfvr_common PUBLIC src)
 target_compile_definitions(bfvr_common PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN BFVR_GAME_NAME="${BFVR_GAME}")
@@ -74,20 +76,39 @@ target_compile_options(bfvr_common PUBLIC /W4 /permissive-)
 # Everything that runs inside the game: hooks, OpenXR, start-up.
 add_library(bfvr_runtime STATIC
 	src/control/control_pipe.cpp
+	src/control/crash_log.cpp
+	src/control/frame_trace.cpp
+	src/control/thread_stacks.cpp
 	src/control/watchpoint.cpp
 	src/core/core.cpp
 	src/hooks/dxgi_probe.cpp
+	src/hooks/game_window.cpp
 	src/hooks/nvapi_hook.cpp
 	src/hooks/present_hook.cpp
+	src/hooks/swap_chain_size.cpp
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
+	src/input/gestures.cpp
+	src/input/pointer.cpp
+	src/input/right_stick.cpp
+	src/input/virtual_pad.cpp
+	src/input/vr_controls.cpp
+	src/safety/mp_guard.cpp
+	src/body/arm_ik.cpp
+	src/body/arm_pose.cpp
 	src/stereo/camera_hook.cpp
+	src/stereo/constant_patch.cpp
+	src/stereo/eye_math.cpp
+	src/stereo/eye_pass.cpp
+	src/stereo/hud_capture.cpp
+	src/stereo/hud_layout.cpp
 	src/stereo/tracking.cpp
+	src/stereo/world_pass.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
 )
-target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi windowscodecs ole32)
+target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid windowscodecs ole32)
 
 # Loaded by the game as dinput8.dll; forwards to the system DLL and starts the runtime.
 add_library(bfvr_loader SHARED
@@ -101,6 +122,34 @@ if(BFVR_BUILD_TESTS)
 	# Drives the Present hook and theater mode from a plain D3D11 window, without the game.
 	add_executable(bfvr_smoke_theater tests/smoke_theater.cpp)
 	target_link_libraries(bfvr_smoke_theater PRIVATE bfvr_runtime d3d11 dxgi)
+
+	# Arm IK solver on a synthetic chain; exits non-zero on failure.
+	add_executable(bfvr_arm_ik_test tests/arm_ik_test.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_arm_ik_test PRIVATE bfvr_common)
+
+	# Per-eye maths: pose composition, rendered frustum, complete pairs; exits non-zero on failure.
+	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp src/stereo/constant_patch.cpp src/stereo/hud_layout.cpp)
+	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
+
+	# Settings registry: ini load, pipe text, write-back; exits non-zero on failure.
+	add_executable(bfvr_settings_test tests/settings_test.cpp)
+	target_link_libraries(bfvr_settings_test PRIVATE bfvr_common)
+
+	# Right-stick turn/stance state machine; exits non-zero on failure.
+	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
+	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
+
+	# HUD gesture detectors and the laser-pointer hit on synthetic poses; exits non-zero on failure.
+	add_executable(bfvr_gestures_test tests/gestures_test.cpp src/input/gestures.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_gestures_test PRIVATE bfvr_common)
+
+	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
+	enable_testing()
+	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
+	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
+	add_test(NAME settings COMMAND bfvr_settings_test)
+	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
+	add_test(NAME gestures COMMAND bfvr_gestures_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.
@@ -126,5 +175,6 @@ if(BFVR_GAME STREQUAL "bf4")
 	if(BFVR_BUILD_TESTS)
 		add_executable(bfvr_launcher_test tests/launcher_test.cpp)
 		target_link_libraries(bfvr_launcher_test PRIVATE bfvr_launcher_core)
+		add_test(NAME launcher COMMAND bfvr_launcher_test)
 	endif()
 endif()
