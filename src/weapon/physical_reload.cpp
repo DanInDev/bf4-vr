@@ -16,6 +16,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "stereo/tracking.hpp"
+#include "weapon/accessory_touch.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
@@ -119,6 +120,13 @@ namespace bfvr::weapon
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
 		std::atomic<bool> block_grip{};
+		// Accessory toggle by touch (any gun, either reload mode): D-pad up pulse until this tick.
+		std::atomic<bool> touch_enabled{ true };
+		std::atomic<bool> accessory_busy{};
+		std::atomic<ULONGLONG> pulse_until{};
+		constexpr ULONGLONG pulse_ms = 120;
+		accessory_touch toucher;
+		std::uint64_t accessory_toggles{};
 
 		struct slot_memory
 		{
@@ -251,6 +259,11 @@ namespace bfvr::weapon
 		discard = value;
 	}
 
+	void set_accessory_touch(bool enabled)
+	{
+		touch_enabled = enabled;
+	}
+
 	void update_physical_reload()
 	{
 #if defined(_M_X64)
@@ -260,6 +273,32 @@ namespace bfvr::weapon
 		QueryPerformanceFrequency(&frequency);
 		const float seconds = last_update.QuadPart ? std::fmin(static_cast<float>(now.QuadPart - last_update.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
 		last_update = now;
+
+		const body::weapon_points points = body::latest_weapon_points();
+		const input::gamepad_state pad = input::latest();
+		const bool hands_valid = points.valid && points.hand_valid[0] && points.hand_valid[1] && GetTickCount64() - points.at < points_max_age_ms;
+		const bool grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+		{
+			const auto held = slots.find(current_slot);
+			accessory_frame touch;
+			touch.hands_valid = hands_valid;
+			touch.off_hand = v(points.hand[0]);
+			touch.has_optic = points.has_optic;
+			touch.optic = v(points.optic);
+			touch.has_rail = points.has_rail;
+			touch.rail = v(points.rail);
+			touch.magwell = v(points.magazine);
+			touch.holding = held != slots.end() && held->second.gun.state().holding;
+			touch.grip = grip;
+			const accessory_result touched = toucher.update(touch);
+			const bool enabled = touch_enabled.load(std::memory_order_relaxed);
+			accessory_busy = enabled && touched.busy;
+			if (enabled && touched.toggle)
+			{
+				pulse_until = GetTickCount64() + pulse_ms;
+				++accessory_toggles;
+			}
+		}
 
 		const game_weapon weapon = read_game_weapon();
 		if (!physical.load(std::memory_order_relaxed) || !weapon.valid)
@@ -318,11 +357,9 @@ namespace bfvr::weapon
 			}
 		}
 
-		const body::weapon_points points = body::latest_weapon_points();
-		const input::gamepad_state pad = input::latest();
 		hand_frame frame;
 		frame.seconds = seconds;
-		frame.hands_valid = points.valid && points.hand_valid[0] && points.hand_valid[1] && GetTickCount64() - points.at < points_max_age_ms;
+		frame.hands_valid = hands_valid;
 		frame.off_hand = v(points.hand[0]);
 		frame.gun_hand = v(points.hand[1]);
 		frame.gun_rotation = q(points.hand_rotation[1]);
@@ -334,7 +371,8 @@ namespace bfvr::weapon
 		{
 			frame.chest = { 0.0f, -0.35f, -0.1f };
 		}
-		frame.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+		// A grip on an accessory toggles it; the reload does not see it.
+		frame.grip = grip && !accessory_busy.load(std::memory_order_relaxed);
 		frame.button = (pad.buttons & XINPUT_GAMEPAD_X) != 0;
 		const hand_result result = hands.update(gun, frame);
 		for (int i = 0; i < result.count; ++i)
@@ -381,11 +419,19 @@ namespace bfvr::weapon
 
 	input::gamepad_state filter_pad(const input::gamepad_state& pad)
 	{
+		input::gamepad_state out = pad;
+		if (accessory_busy.load(std::memory_order_relaxed))
+		{
+			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
+		}
+		if (GetTickCount64() < pulse_until.load(std::memory_order_relaxed))
+		{
+			out.buttons |= XINPUT_GAMEPAD_DPAD_UP;
+		}
 		if (!active.load(std::memory_order_relaxed))
 		{
-			return pad;
+			return out;
 		}
-		input::gamepad_state out = pad;
 		out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_X);
 		if (block_grip.load(std::memory_order_relaxed))
 		{
@@ -426,15 +472,19 @@ namespace bfvr::weapon
 			else return "error: usage: reload [fire|button|catch|grab|take|letgo|stow|insert|rack]";
 			remember(event);
 		}
+		const body::weapon_points points = body::latest_weapon_points();
+		char touch[256];
+		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
+			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
+			points.optic[2], points.has_optic ? "" : " none", points.rail[0], points.rail[1], points.rail[2], points.has_rail ? "" : " none");
 		char text[768];
 		if (found == slots.end())
 		{
 			std::snprintf(text, sizeof(text), "reload=%s active=0 (no magazine weapon in hand, or not in a level)", physical ? "physical" : "button");
-			return text;
+			return text + std::string(touch);
 		}
 		const reload& gun = found->second.gun;
 		const gun_state& s = gun.state();
-		const body::weapon_points points = body::latest_weapon_points();
 		int length = std::snprintf(text, sizeof(text),
 			"reload=%s active=%d weapon=%s slot=%d variant=%s capacity=%d\n"
 			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d reserve=%d game_written=%d shots=%llu\n"
@@ -448,6 +498,6 @@ namespace bfvr::weapon
 		{
 			length += std::snprintf(text + length, sizeof(text) - length, " %s", recent[i]);
 		}
-		return text;
+		return text + std::string(touch);
 	}
 }

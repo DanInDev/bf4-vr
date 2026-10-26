@@ -65,6 +65,7 @@ namespace bfvr::core
 			input::set_controller_aim(store.text("aim", "head") == "controller");
 			weapon::set_physical_reload(store.text("reload", "button") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
+			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.

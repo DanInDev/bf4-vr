@@ -76,6 +76,8 @@ namespace bfvr::body
 			int weapon{ -1 };      // Wep_Root: the gun's bones hang from it, not from the hand
 			int magazine{ -1 };    // Wep_Mag (child of Wep_Root): the magazine mesh, physical reload (#14)
 			int slide{ -1 };       // Wep_Slide: bolt / charging handle
+			int optic{ -1 };       // Wep_Scope1: sight / magnifier (accessory toggle)
+			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -230,6 +232,8 @@ namespace bfvr::body
 			fresh.weapon = find_bone(bone_names, fresh.bones, "Wep_Root");
 			fresh.magazine = find_bone(bone_names, fresh.bones, "Wep_Mag");
 			fresh.slide = find_bone(bone_names, fresh.bones, "Wep_Slide");
+			fresh.optic = find_bone(bone_names, fresh.bones, "Wep_Scope1");
+			fresh.rail = find_bone(bone_names, fresh.bones, "Wep_Extra1");
 			if (fresh.magazine >= 0 && fresh.parents[fresh.magazine] != fresh.weapon)
 			{
 				fresh.magazine = -1;
@@ -450,6 +454,19 @@ namespace bfvr::body
 				points.slide[1] = slide.y;
 				points.slide[2] = slide.z;
 			}
+			const auto publish = [&](int bone, bool& has, float (&out)[3])
+			{
+				has = bone >= 0;
+				if (has)
+				{
+					const ik::vec3 p = ik::rotate(to_xr, ik::model_of(local, rig.parents, bone).position - camera.position);
+					out[0] = p.x;
+					out[1] = p.y;
+					out[2] = p.z;
+				}
+			};
+			publish(rig.optic, points.has_optic, points.optic);
+			publish(rig.rail, points.has_rail, points.rail);
 			for (int hand = 0; hand < 2; ++hand)
 			{
 				const arm_report& arm = last_arms[hand];

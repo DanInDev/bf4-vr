@@ -110,6 +110,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/hud_layout.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
+	src/weapon/accessory_touch.cpp
 	src/weapon/physical_reload.cpp
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
@@ -158,7 +159,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
 	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
-	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/profiles.cpp)
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/profiles.cpp)
 	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
 
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.

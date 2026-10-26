@@ -1,9 +1,11 @@
 // Checks the physical reload state machine (src/weapon/reload): AK and AR variants, chest stow and
 // take, drop with and without drop_discards_ammo, bolt lock, bolt catch, racking and the AK flick;
-// the hand gestures (src/weapon/reload_hands) and the weapon profiles (src/weapon/profiles).
+// the hand gestures (src/weapon/reload_hands), the weapon profiles (src/weapon/profiles) and the
+// accessory toggle by touch (src/weapon/accessory_touch).
 #include <cstdio>
 #include <initializer_list>
 
+#include "weapon/accessory_touch.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
@@ -345,6 +347,51 @@ namespace
 		r = blind.update(gun, lost);
 		expect(r.count == 0, "no gestures without hand tracking");
 	}
+	void test_accessory_touch()
+	{
+		accessory_frame frame;
+		frame.hands_valid = true;
+		frame.has_optic = true;
+		frame.optic = { 0.0f, -0.12f, -0.35f };
+		frame.has_rail = true;
+		frame.rail = { -0.03f, -0.18f, -0.7f };
+		frame.magwell = magwell;
+		accessory_touch touch;
+		frame.off_hand = away;
+		accessory_result r = touch.update(frame);
+		expect(!r.busy && !r.toggle, "hand away: nothing");
+		frame.off_hand = { 0.0f, -0.10f, -0.36f };
+		r = touch.update(frame);
+		expect(r.busy && !r.toggle, "hand on the optic claims the grip before it closes");
+		frame.grip = true;
+		r = touch.update(frame);
+		expect(r.toggle, "grip on the optic toggles");
+		r = touch.update(frame);
+		expect(!r.toggle && r.busy, "held grip toggles once");
+		frame.grip = false;
+		touch.update(frame);
+		frame.off_hand = { -0.02f, -0.17f, -0.68f };
+		frame.grip = true;
+		expect(touch.update(frame).toggle, "grip on the front rail toggles");
+		frame.grip = false;
+		touch.update(frame);
+		frame.off_hand = { 0.0f, -0.17f, -0.39f }; // 6 cm from the optic, 3 cm from the magwell
+		frame.grip = true;
+		r = touch.update(frame);
+		expect(!r.busy && !r.toggle, "closer to the magwell: the reload's");
+		frame.grip = false;
+		touch.update(frame);
+		frame.off_hand = { 0.0f, -0.10f, -0.36f };
+		frame.holding = true;
+		frame.grip = true;
+		expect(!touch.update(frame).toggle, "no toggling with a magazine in the hand");
+		frame.holding = false;
+		frame.has_optic = frame.has_rail = false;
+		frame.grip = false;
+		touch.update(frame);
+		frame.grip = true;
+		expect(!touch.update(frame).toggle, "a gun without optic or rail bones has nothing to touch");
+	}
 }
 
 int main()
@@ -362,6 +409,7 @@ int main()
 	test_hands_ak();
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();
+	test_accessory_touch();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

@@ -15,6 +15,9 @@ namespace bfvr::weapon
 {
 	void set_physical_reload(bool enabled);
 	void set_drop_discards_ammo(bool discard);
+	// Off hand on the optic or forward rail + grip = the game's accessory toggle (D-pad up), in
+	// either reload mode (weapon/accessory_touch).
+	void set_accessory_touch(bool enabled);
 
 	// Present thread, once per frame: hands, shots, ammo writes, magazine drawing.
 	void update_physical_reload();

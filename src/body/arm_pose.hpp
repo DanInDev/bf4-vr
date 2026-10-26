@@ -38,6 +38,10 @@ namespace bfvr::body
 		float magazine_rotation[4]{ 0, 0, 0, 1 };
 		bool has_slide{};
 		float slide[3]{};      // Wep_Slide (bolt / charging handle)
+		bool has_optic{};
+		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
+		bool has_rail{};
+		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
 		bool hand_valid[2]{};  // arm solved this evaluation; 0 = left, 1 = right (the rig's arms)
 		float hand[2][3]{};    // wrist goals (drawn hands)
 		float hand_rotation[2][4]{};
