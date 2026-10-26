@@ -27,6 +27,7 @@
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/physical_reload.hpp"
 #include "xr/theater.hpp"
 
 namespace bfvr::core
@@ -62,6 +63,8 @@ namespace bfvr::core
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
 			input::set_controller_aim(store.text("aim", "head") == "controller");
+			weapon::set_physical_reload(store.text("reload", "button") == "physical");
+			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
@@ -83,6 +86,7 @@ namespace bfvr::core
 		{
 			present_thread = GetCurrentThreadId();
 			apply_settings();
+			weapon::update_physical_reload();
 			if (control_enabled)
 			{
 				control::on_present(swap_chain);

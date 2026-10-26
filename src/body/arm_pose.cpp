@@ -74,6 +74,8 @@ namespace bfvr::body
 			int parents[max_bones]{};
 			int camera{ -1 };
 			int weapon{ -1 };      // Wep_Root: the gun's bones hang from it, not from the hand
+			int magazine{ -1 };    // Wep_Mag (child of Wep_Root): the magazine mesh, physical reload (#14)
+			int slide{ -1 };       // Wep_Slide: bolt / charging handle
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -99,6 +101,8 @@ namespace bfvr::body
 		{
 			bool solved{};
 			ik::vec3 shoulder, elbow, wrist, goal; // model space
+			ik::vec3 goal_xr;                      // the wrist goal in OpenXR LOCAL (drawn hand)
+			ik::quat aim_xr;                       // the aim rotation used, OpenXR LOCAL
 			ik::vec3 wrist_in_camera;              // OpenXR camera axes
 		};
 
@@ -131,6 +135,11 @@ namespace bfvr::body
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
+		// Physical reload: where the gun's magazine and slide are (published each evaluation) and
+		// where the magazine should be drawn (set by weapon/physical_reload).
+		weapon_points points;
+		magazine_pose magazine_request;
+		bone_memory magazine_memory;
 
 		std::atomic<std::uint64_t> conversions{};
 		std::atomic<std::uint64_t> matched{};
@@ -219,6 +228,12 @@ namespace bfvr::body
 			read_string(skeleton + 0x10, fresh.name);
 			fresh.camera = find_bone(bone_names, fresh.bones, "CameraJoint");
 			fresh.weapon = find_bone(bone_names, fresh.bones, "Wep_Root");
+			fresh.magazine = find_bone(bone_names, fresh.bones, "Wep_Mag");
+			fresh.slide = find_bone(bone_names, fresh.bones, "Wep_Slide");
+			if (fresh.magazine >= 0 && fresh.parents[fresh.magazine] != fresh.weapon)
+			{
+				fresh.magazine = -1;
+			}
 			fresh.arms[0] = { find_bone(bone_names, fresh.bones, "LeftArm"), find_bone(bone_names, fresh.bones, "LeftForeArm"),
 				find_bone(bone_names, fresh.bones, "LeftHand"), find_bone(bone_names, fresh.bones, "LeftForeArmRoll") };
 			fresh.arms[1] = { find_bone(bone_names, fresh.bones, "RightArm"), find_bone(bone_names, fresh.bones, "RightForeArm"),
@@ -240,6 +255,8 @@ namespace bfvr::body
 			{
 				rig = fresh;
 				rig_pose = local_pose;
+				magazine_memory = {};
+				points = {};
 				edited_count = 0;
 				for (const ik::arm_bones& arm : rig.arms)
 				{
@@ -369,6 +386,8 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_arms[hand].goal = goal.wrist;
+					last_arms[hand].goal_xr = wrist;
+					last_arms[hand].aim_xr = ik::normalize(aim);
 					if (carry_weapon)
 					{
 						ik::set_model_transform(local, rig.parents, rig.weapon,
@@ -386,6 +405,76 @@ namespace bfvr::body
 					memory[i].has_written = true;
 				}
 			}
+		}
+
+		// Called with rig_lock held, after edit_arms: publishes the magazine and slide in OpenXR LOCAL
+		// and draws the magazine where physical_reload wants it (in the hand, falling, hidden).
+		void edit_weapon(ik::bone_transform* local)
+		{
+			if (rig.magazine < 0 || rig.weapon < 0)
+			{
+				points.valid = false;
+				return;
+			}
+			ik::bone_transform& current = local[rig.magazine];
+			if (magazine_memory.has_written && std::memcmp(&current, &magazine_memory.written, sizeof(current)) == 0)
+			{
+				current = magazine_memory.animated;
+			}
+			else
+			{
+				magazine_memory.animated = current;
+			}
+			magazine_memory.has_written = false;
+
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const ik::quat to_xr = ik::conjugate(frame);
+			const ik::bone_transform magazine = ik::model_of(local, rig.parents, rig.magazine);
+			const ik::vec3 magazine_xr = ik::rotate(to_xr, magazine.position - camera.position);
+			const ik::quat magazine_rotation_xr = to_xr * magazine.rotation;
+			points.valid = true;
+			points.at = GetTickCount64();
+			points.magazine[0] = magazine_xr.x;
+			points.magazine[1] = magazine_xr.y;
+			points.magazine[2] = magazine_xr.z;
+			points.magazine_rotation[0] = magazine_rotation_xr.x;
+			points.magazine_rotation[1] = magazine_rotation_xr.y;
+			points.magazine_rotation[2] = magazine_rotation_xr.z;
+			points.magazine_rotation[3] = magazine_rotation_xr.w;
+			points.has_slide = rig.slide >= 0;
+			if (points.has_slide)
+			{
+				const ik::vec3 slide = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.slide).position - camera.position);
+				points.slide[0] = slide.x;
+				points.slide[1] = slide.y;
+				points.slide[2] = slide.z;
+			}
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				const arm_report& arm = last_arms[hand];
+				points.hand_valid[hand] = arm.solved;
+				points.hand[hand][0] = arm.goal_xr.x;
+				points.hand[hand][1] = arm.goal_xr.y;
+				points.hand[hand][2] = arm.goal_xr.z;
+				points.hand_rotation[hand][0] = arm.aim_xr.x;
+				points.hand_rotation[hand][1] = arm.aim_xr.y;
+				points.hand_rotation[hand][2] = arm.aim_xr.z;
+				points.hand_rotation[hand][3] = arm.aim_xr.w;
+			}
+
+			if (!magazine_request.detached)
+			{
+				return;
+			}
+			const float* p = magazine_request.position;
+			const float* q = magazine_request.rotation;
+			ik::bone_transform placed = magazine;
+			placed.position = camera.position + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+			placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
+			magazine_memory.written = current;
+			magazine_memory.has_written = true;
 		}
 
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
@@ -458,6 +547,7 @@ namespace bfvr::body
 				{
 					apply_research_offset(local);
 					edit_arms(local);
+					edit_weapon(local);
 				}
 			}
 			original_conversion(pose);
@@ -576,6 +666,18 @@ namespace bfvr::body
 	{
 		const std::lock_guard guard(rig_lock);
 		camera_axes = ik::normalize(ik::quat{ rotation[0], rotation[1], rotation[2], rotation[3] });
+	}
+
+	weapon_points latest_weapon_points()
+	{
+		const std::lock_guard guard(rig_lock);
+		return points;
+	}
+
+	void set_magazine_pose(const magazine_pose& pose)
+	{
+		const std::lock_guard guard(rig_lock);
+		magazine_request = pose;
 	}
 
 	arm_pose_stats stats()

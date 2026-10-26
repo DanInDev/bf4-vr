@@ -28,6 +28,31 @@ namespace bfvr::body
 	// first-person skeleton (index < 0 = off).
 	void set_bone_offset(int bone, float dx, float dy, float dz);
 
+	// Physical reload (#14): the gun's magazine and slide and the drawn hands, OpenXR LOCAL, from the
+	// last first-person pose evaluation (after the arm IK moved the gun).
+	struct weapon_points
+	{
+		bool valid{};          // the rig has a Wep_Mag under Wep_Root
+		unsigned long long at{}; // GetTickCount64 of the evaluation
+		float magazine[3]{};   // Wep_Mag where the gun holds it
+		float magazine_rotation[4]{ 0, 0, 0, 1 };
+		bool has_slide{};
+		float slide[3]{};      // Wep_Slide (bolt / charging handle)
+		bool hand_valid[2]{};  // arm solved this evaluation; 0 = left, 1 = right (the rig's arms)
+		float hand[2][3]{};    // wrist goals (drawn hands)
+		float hand_rotation[2][4]{};
+	};
+	weapon_points latest_weapon_points();
+
+	// Where to draw the magazine: with the gun (detached = false) or at a pose in OpenXR LOCAL.
+	struct magazine_pose
+	{
+		bool detached{};
+		float position[3]{};
+		float rotation[4]{ 0, 0, 0, 1 };
+	};
+	void set_magazine_pose(const magazine_pose& pose);
+
 	struct arm_pose_stats
 	{
 		unsigned long long conversions{}; // pose conversions seen (all animated objects)

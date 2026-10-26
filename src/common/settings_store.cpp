@@ -37,6 +37,8 @@ namespace bfvr::settings
 			{ "turn", kind::choice, 0, 0, 0, "snap", "snap|smooth|off", "right stick turn style (right_stick = turn)" },
 			{ "snap_turn_degrees", kind::integer, 5, 90, 5, "30", "", "angle per snap turn" },
 			{ "dominant_hand", kind::choice, 0, 0, 0, "right", "right|left", "gun hand: left mirrors the pad and swaps the hand roles" },
+			{ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload: the game's button, or by hand (AK: pull the magazine, AR: X releases it; chest pouch)" },
+			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|pad", "menus: point with a controller and pull the trigger, or the pad only" },
 			{ "aim", kind::choice, 0, 0, 0, "head", "head|controller", "what aims the gun: the view (game default) or the right controller" },
 			{ "neutral_pitch", kind::boolean, 0, 0, 0, "0", "", "hold the game's aim pitch at 0: only the head pitches the view (level horizon)" },

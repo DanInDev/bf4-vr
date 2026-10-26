@@ -78,6 +78,8 @@ namespace bfvr::weapon
 		// The gun as the game left it (switching weapons, level start): rounds in the gun counting
 		// the chamber, and the reserve. Nothing held, bolt forward.
 		void load(int rounds_in_gun, int reserve);
+		// The game changed the reserve (ammo pickup, resupply): take its number.
+		void set_reserve(int reserve) { state_.reserve = reserve < 0 ? 0 : reserve; }
 		const gun_state& state() const { return state_; }
 		int rounds_in_gun() const { return state_.magazine_rounds + (state_.chamber ? 1 : 0); }
 

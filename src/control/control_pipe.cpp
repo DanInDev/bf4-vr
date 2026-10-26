@@ -30,6 +30,7 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/physical_reload.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -441,9 +442,10 @@ namespace bfvr::control
 				float lx = 0.0f, ly = 0.0f, rx = 0.0f, ry = 0.0f;
 				unsigned duration_ms = 500;
 				unsigned buttons = 0;
-				if (sscanf_s(argument.c_str(), "%f %f %f %f %u %x", &lx, &ly, &rx, &ry, &duration_ms, &buttons) < 4 || duration_ms > 10000)
+				float lt = 0.0f, rt = 0.0f;
+				if (sscanf_s(argument.c_str(), "%f %f %f %f %u %x %f %f", &lx, &ly, &rx, &ry, &duration_ms, &buttons, &lt, &rt) < 4 || duration_ms > 10000)
 				{
-					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000] [hex XINPUT_GAMEPAD buttons]  (axes -1..1)";
+					return "error: usage: pad <lx> <ly> <rx> <ry> [ms <= 10000] [hex XINPUT_GAMEPAD buttons] [lt rt]  (axes -1..1, triggers 0..1)";
 				}
 				const auto axis = [](float value) { return static_cast<std::int16_t>(std::clamp(value, -1.0f, 1.0f) * 32767.0f); };
 				input::gamepad_state pad{};
@@ -453,6 +455,8 @@ namespace bfvr::control
 				pad.right_x = axis(rx);
 				pad.right_y = axis(ry);
 				pad.buttons = static_cast<std::uint16_t>(buttons);
+				pad.left_trigger = static_cast<std::uint8_t>(std::clamp(lt, 0.0f, 1.0f) * 255.0f);
+				pad.right_trigger = static_cast<std::uint8_t>(std::clamp(rt, 0.0f, 1.0f) * 255.0f);
 				const std::uint64_t generation = ++pad_generation;
 				input::publish(pad);
 				std::thread([generation, duration_ms] {
@@ -595,6 +599,7 @@ namespace bfvr::control
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
+			if (command == "reload") return weapon::reload_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "fakehand")
 			{
