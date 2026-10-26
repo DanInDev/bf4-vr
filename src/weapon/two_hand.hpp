@@ -34,7 +34,9 @@ namespace bfvr::weapon
 		bool held{};            // the off hand holds the gun
 		float weight{};         // 0 one-handed .. 1 two-handed (blends after grab and release)
 		float rotation[4]{ 0, 0, 0, 1 }; // gun-hand aim rotation to draw and fire with (x, y, z, w)
-		bool claim_grip{};      // keep the off-hand grip from the game (pad LB is the grenade)
+		bool claim_grip{};      // keep the off-hand grip from the game (pad LB is the grenade); also while
+		                        // the off hand is on the handguard before the grip closes, so the
+		                        // press that grabs never reaches the game
 		// Off-hand trigger pressed while holding the gun: the game's accessory toggle (laser, light,
 		// magnifier). A trigger already held at the grab does not count.
 		bool toggle_accessory{};

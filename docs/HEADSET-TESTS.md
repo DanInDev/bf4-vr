@@ -6,8 +6,15 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
 Build: `feature/two-hand-aim`, Release. New: two-handed grip (#29), shots converge on the barrel line
 (#29), shoulder reach and arm stretch (#31), right stick turns under controller aim (#22), in-VR
-settings panel (#7). Not yet run in the game at all:
-start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
+settings panel (#7), the game's own reload sounds (#30).
+
+Monitor-verified 2026-10-27 (fakehead + fakehand, no headset): the right stick snap-turns 30° in `look`
+mode under controller aim; two-handed grab with no jump, the barrel and shot direction follow the off
+hand (20 cm right = 35°), released cleanly, the grenade button never reached the game; the panel opens
+and closes on a long Start, clicks change tabs and settings, a short Start opens the pause menu; arm
+reach to a target 0.75 m ahead: `reach 1.60`, wrist 0.415 m ahead without fixes, 0.534 m with
+`shoulder_reach`, 0.675 m with `arm_stretch` as well. Reload sounds verified by recording (row 10). What
+needs the headset: feel, sizes, aim accuracy against real targets.
 
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |

@@ -128,6 +128,14 @@ namespace
 		expect(near(out.weight, 0) && near(barrel(out).z, -1.0f, 1e-4f), "one-handed again after the blend");
 	}
 
+	void test_grip_claimed_before_the_grab()
+	{
+		two_hand_grip grip;
+		expect(grip.update(frame_with(level_gun, handguard, false)).claim_grip, "hand on the handguard: grip held back before it closes");
+		expect(!grip.update(frame_with(level_gun, vec3{ -0.3f, -0.3f, -0.2f }, false)).claim_grip, "hand elsewhere: grip is the game's");
+		expect(!grip.update(frame_with(level_gun, handguard, false, true)).claim_grip, "busy hand on the handguard: the reload owns it");
+	}
+
 	void test_refusals()
 	{
 		two_hand_grip grip;
@@ -213,6 +221,7 @@ int main()
 	test_grab_and_steer();
 	test_blend_and_release();
 	test_refusals();
+	test_grip_claimed_before_the_grab();
 	test_accessory_trigger();
 	test_converged_aim();
 	if (failures)

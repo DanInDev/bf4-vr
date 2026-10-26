@@ -88,7 +88,7 @@ namespace bfvr::weapon
 		two_hand_output output;
 		output.held = held_;
 		output.weight = weight_;
-		output.claim_grip = held_;
+		output.claim_grip = held_ || (input.tracked && !input.busy && on_handguard(input.gun, input.off_hand, config_));
 		output.claim_trigger = held_;
 		output.toggle_accessory = held_ && trigger_down_ && !trigger_was_down;
 		store(weight_ > 0 ? blend(one_handed, to_quat(two_handed_), weight_) : one_handed, output.rotation);
