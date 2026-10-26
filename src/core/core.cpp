@@ -72,7 +72,8 @@ namespace bfvr::core
 			weapon::set_holsters(store.boolean("holsters", true));
 			weapon::set_sounds(store.boolean("reload_sounds", true));
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
-			body::set_arm_shape(store.real("arm_length", 1.0f), store.real("shoulder_width", 0.0f));
+			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
+			body::set_legs_hidden(store.boolean("hide_legs", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
@@ -133,7 +134,8 @@ namespace bfvr::core
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
-				+ "\neyepass " + stereo::eye_pass_report();
+				+ "\neyepass " + stereo::eye_pass_report() + "\nhud captured=" + std::to_string(stereo::latest_hud().frame)
+				+ " ui_on_screen=" + (stereo::ui_on_screen() ? "1" : "0");
 		}
 
 		DWORD WINAPI start_thread(LPVOID)

@@ -1071,6 +1071,7 @@ namespace bfvr::xr
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
+		bool menu_shown{};
 		void point_at_screen(float width, float height)
 		{
 			pointer_beam_visible = pointer_dot_visible = false;
@@ -1394,7 +1395,15 @@ namespace bfvr::xr
 			XrCompositionLayerQuad body_quads[4]{};
 			const XrCompositionLayerBaseHeader* layers[6]{};
 			std::uint32_t layer_count = 0;
-			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
+			// The pause menu (and other menus over a running level) is drawn straight into the image, not
+			// on a head-tracked frame: show the flat screen with the pointer while it is up.
+			const bool ui_on_screen = stereo::ui_on_screen();
+			if (ui_on_screen != menu_shown)
+			{
+				menu_shown = ui_on_screen;
+				log::write("theater: %s", ui_on_screen ? "menu over the level: flat screen" : "back to the level: stereo");
+			}
+			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1] && !ui_on_screen;
 			enter("copy to swap chain");
 			if (frame.shouldRender && stereo_frame && copy_eyes_to_swapchain())
 			{

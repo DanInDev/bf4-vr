@@ -42,6 +42,8 @@ namespace bfvr::stereo
 		std::uint64_t presents{};
 		std::uint64_t cleared_for{};
 		std::atomic<std::uint64_t> captured_frame{};
+		// The UI module drew straight into the image (not a head-tracked frame): pause menu, menus.
+		std::atomic<std::uint64_t> uncaptured_frame{};
 
 		void __fastcall ui_render_detour(void* module, std::uint64_t slot, void* context, std::uint64_t flags, std::uint64_t a, std::uint64_t b)
 		{
@@ -49,6 +51,10 @@ namespace bfvr::stereo
 			// move their HUD to the layer.
 			const bool capture = enabled && view && (every_frame || latest_rendered_view().stereo);
 			in_hud = capture;
+			if (!capture)
+			{
+				uncaptured_frame = presents;
+			}
 			original_ui_render(module, slot, context, flags, a, b);
 			in_hud = false;
 		}
@@ -186,8 +192,14 @@ namespace bfvr::stereo
 		}
 	}
 
+	bool ui_on_screen()
+	{
+		const std::uint64_t at = uncaptured_frame.load();
+		return enabled && at != 0 && presents - at <= 5;
+	}
+
 	hud_frame latest_hud()
 	{
-		return { texture.Get(), captured_frame.load() };
+		return { texture.Get(), captured_frame.load(), uncaptured_frame.load(), presents };
 	}
 }

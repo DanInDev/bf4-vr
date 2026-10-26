@@ -78,6 +78,7 @@ namespace bfvr::body
 			int slide{ -1 };       // Wep_Slide: bolt / charging handle
 			int optic{ -1 };       // Wep_Scope1: sight / magnifier (accessory toggle)
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
+			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -136,6 +137,7 @@ namespace bfvr::body
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> arm_length{ 1.0f };   // live setting: forearm and hand offsets scaled (reach)
 		std::atomic<float> shoulder_width{};     // live setting: clavicles moved outwards, metres per side
+		std::atomic<bool> legs_hidden{ true };   // live setting hide_legs
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -236,6 +238,8 @@ namespace bfvr::body
 			fresh.slide = find_bone(bone_names, fresh.bones, "Wep_Slide");
 			fresh.optic = find_bone(bone_names, fresh.bones, "Wep_Scope1");
 			fresh.rail = find_bone(bone_names, fresh.bones, "Wep_Extra1");
+			fresh.legs[0] = find_bone(bone_names, fresh.bones, "LeftUpLeg");
+			fresh.legs[1] = find_bone(bone_names, fresh.bones, "RightUpLeg");
 			if (fresh.magazine >= 0 && fresh.parents[fresh.magazine] != fresh.weapon)
 			{
 				fresh.magazine = -1;
@@ -605,6 +609,18 @@ namespace bfvr::body
 				if (local_pose == rig.local_pose)
 				{
 					apply_research_offset(local);
+					if (legs_hidden.load(std::memory_order_relaxed))
+					{
+						// Scale collapses the legs onto the hips (children inherit it); set, never multiplied,
+						// so a pose the animation skipped stays the same.
+						for (const int leg : rig.legs)
+						{
+							if (leg >= 0)
+							{
+								local[leg].scale = 0.001f;
+							}
+						}
+					}
 					edit_arms(local);
 					edit_weapon(local);
 				}
@@ -697,6 +713,11 @@ namespace bfvr::body
 	bool arm_ik_enabled()
 	{
 		return ik_enabled;
+	}
+
+	void set_legs_hidden(bool hidden)
+	{
+		legs_hidden = hidden;
 	}
 
 	void set_arm_shape(float length, float width)
