@@ -5,7 +5,8 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 ## Next — two-handed weapon, barrel aim, arm reach, right stick (branch `feature/two-hand-aim`)
 
 Build: `feature/two-hand-aim`, Release. New: two-handed grip (#29), shots converge on the barrel line
-(#29), arm stretch (#31), right stick turns under controller aim (#22). Not yet run in the game at all:
+(#29), shoulder reach and arm stretch (#31), right stick turns under controller aim (#22), in-VR
+settings panel (#7). Not yet run in the game at all:
 start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
 
 | # | Check | Look for | Result |
@@ -18,6 +19,7 @@ start with rows 1–2 on the monitor (pipe `twohand`, `arms`, `rightstick`).
 | 6 | Holding two-handed, press the off-hand trigger (gun with a laser, light or magnifier) | Toggles once per press (`accessory_toggle = trigger`, the default); no zoom from that trigger while holding; grabbing anywhere on the handguard, rail included, never toggles | |
 | 6b | Shoulders: `shoulder_width` 0, 0.05, 0.1 in `tools\settings.ps1` (`shoulder_offset` now ±0.5 m) | Which width makes the arms look natural? | |
 | 7 | Reload and grenades while two-handed | Grabbing a magazine or a grenade releases the two-handed hold cleanly | |
+| 9 | Hold the left menu button ~0.6 s (in a level and in the main menu) | The settings panel appears ahead of you; point with either controller, the trigger clicks -/+, toggles and tabs; Save says "saved to bfvr.ini"; Close or holding the button again closes it. A short press still opens the game's pause menu (on release). The game ignores the triggers while the panel is open. Monitor first: pipe `panel open`, `panel shot <file.bmp>` | |
 | 8 | Vehicle with aim = controller | Right stick now turns the body, not the turret (known risk); report what happens | |
 
 ## 2026-10-26 late — feedback on `main` 22da57a (recorded afterwards)

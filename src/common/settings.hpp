@@ -61,6 +61,7 @@ namespace bfvr::settings
 		bool reset(std::string_view name);
 
 		std::optional<value> get(std::string_view name) const;
+		std::optional<definition> definition_of(std::string_view name) const;
 		// Typed reads; fallback when the name is unknown or of another kind.
 		bool boolean(std::string_view name, bool fallback = false) const;
 		int integer(std::string_view name, int fallback = 0) const;
@@ -71,6 +72,8 @@ namespace bfvr::settings
 		std::uint64_t revision() const;
 		std::vector<std::string> names() const;
 		bool changed() const;
+		// Changed since load() or the last save.
+		bool changed(std::string_view name) const;
 
 		// Pipe protocol, one line in, text out:
 		//   list | get <name> | set <name> <value> | step <name> <+n|-n> | reset <name>

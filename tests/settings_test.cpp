@@ -65,6 +65,12 @@ namespace
 		expect(wrist && wrist->number[2] == 0.06f && wrist->text == "0 0 0.06", "vec3 default");
 		expect(settings.real("hud_layer", -1) == -1, "typed read of another kind returns the fallback");
 		expect(settings.real("missing", 7) == 7, "unknown name returns the fallback");
+		const auto mode = settings.definition_of("STEREO_RENDER");
+		expect(mode && mode->type == kind::choice && mode->choices == "aer|pair", "definition_of");
+		expect(!settings.definition_of("missing"), "definition_of unknown");
+		expect(!settings.changed("gun_scale"), "nothing changed yet");
+		settings.set("gun_scale", "0.5");
+		expect(settings.changed("gun_scale") && !settings.changed("hud_layer"), "changed per setting");
 	}
 
 	void test_parse()

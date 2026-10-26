@@ -83,7 +83,7 @@ EA app and opens `bfvr.log`. **Remove mod (required before multiplayer)** takes 
 | Right grip · left grip | RB · LB | as bound in BF4 |
 | A · B (right) | A · B | Jump · crouch |
 | X · Y (left) | X · Y | Reload · switch weapon |
-| Left menu (≡) | Start | Pause menu |
+| Left menu (≡) | Start | Pause menu (short press). **Hold it** for the bf-vr settings panel: point with either controller, trigger clicks, Save writes `bfvr.ini` |
 
 No D-pad or Back yet. BF4 reads the pad through its own XInput calls, merged with any real pad on slot 1.
 Keep the BF4 window focused on the desktop: unfocused, the game drops to 30 fps.

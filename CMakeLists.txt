@@ -119,6 +119,10 @@ add_library(bfvr_runtime STATIC
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
+	src/ui/menu_button.cpp
+	src/ui/panel_canvas.cpp
+	src/ui/settings_panel.cpp
+	src/ui/vr_panel.cpp
 	src/weapon/two_hand.cpp
 	src/weapon/two_handed.cpp
 	src/weapon/weapon_swap.cpp
@@ -173,6 +177,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_two_hand_test tests/two_hand_test.cpp src/weapon/two_hand.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_two_hand_test PRIVATE bfvr_common)
 
+	# In-VR settings panel: pages, hit tests, clicks, GDI rasterising; with a path it writes a BMP snapshot.
+	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
+	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
+
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
@@ -183,6 +191,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
+	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.

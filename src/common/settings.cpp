@@ -436,6 +436,20 @@ namespace bfvr::settings
 		return item ? std::optional<value>(item->current) : std::nullopt;
 	}
 
+	std::optional<definition> registry::definition_of(std::string_view name) const
+	{
+		std::lock_guard lock(mutex_);
+		const entry* item = find(name);
+		return item ? std::optional<definition>(item->setting) : std::nullopt;
+	}
+
+	bool registry::changed(std::string_view name) const
+	{
+		std::lock_guard lock(mutex_);
+		const entry* item = find(name);
+		return item && item->changed;
+	}
+
 	bool registry::boolean(std::string_view name, bool fallback) const
 	{
 		std::lock_guard lock(mutex_);

@@ -47,6 +47,7 @@ namespace bfvr::settings
 			{ "grenade_throw_scale", kind::real, 0.5f, 4.0f, 0.1f, "1.5", "", "physical grenades: launch speed = hand speed times this" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
 			{ "accessory_toggle", kind::choice, 0, 0, 0, "trigger", "trigger|touch|off", "accessory toggle (laser, light, magnifier: D-pad up): trigger = holding the gun two-handed, press the off-hand trigger; touch = off hand on the optic or front rail + grip" },
+			{ "vr_panel", kind::boolean, 0, 0, 0, "1", "", "hold the left menu button to open this panel (a short press stays the game's Start)" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|pad", "menus: point with a controller and pull the trigger, or the pad only" },
 			{ "aim", kind::choice, 0, 0, 0, "head", "head|controller", "what aims the gun: the view (game default) or the right controller" },
 			{ "two_handed", kind::boolean, 0, 0, 0, "1", "", "off hand + grip on the handguard holds the gun with both hands: the barrel points along the line between them" },

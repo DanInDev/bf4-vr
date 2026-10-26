@@ -32,6 +32,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 
@@ -623,6 +624,7 @@ namespace bfvr::control
 			if (command == "reload") return weapon::reload_pipe_command(argument);
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report();
+			if (command == "panel") return ui::panel_pipe_command(argument);
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "fakehand")

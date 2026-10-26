@@ -29,6 +29,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "xr/theater.hpp"
@@ -104,6 +105,7 @@ namespace bfvr::core
 			weapon::update_physical_reload();
 			weapon::update_physical_grenades();
 			weapon::update_two_handed();
+			ui::update_vr_panel();
 			weapon::update_weapon_swap();
 			if (control_enabled)
 			{
