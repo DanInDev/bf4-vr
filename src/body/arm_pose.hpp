@@ -12,6 +12,8 @@ namespace bfvr::body
 
 	// Arms follow the controllers (or synthetic targets) while enabled.
 	void set_arm_ik(bool enabled);
+	// Moves the first-person shoulders relative to the head (head axes: x right, y up, z back; metres).
+	void set_shoulder_offset(float x, float y, float z);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres

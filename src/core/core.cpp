@@ -55,6 +55,10 @@ namespace bfvr::core
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
+			if (const auto shoulders = store.get("shoulder_offset"))
+			{
+				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
+			}
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
 			const std::string render = store.text("stereo_render", "aer");

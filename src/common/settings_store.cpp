@@ -27,6 +27,7 @@ namespace bfvr::settings
 			{ "hud_watch_width", kind::real, 0.05f, 0.3f, 0.01f, "0.12", "", "hud_mode = body: minimap width on the forearm, metres" },
 			{ "hud_ammo_width", kind::real, 0.05f, 0.3f, 0.01f, "0.1", "", "hud_mode = body: ammo counter width beside the gun, metres" },
 			{ "stereo_render", kind::choice, 0, 0, 0, "aer", "aer|pair", "alternate eyes, or both eyes from one game frame" },
+			{ "shoulder_offset", kind::vec3, -0.3f, 0.3f, 0.0f, "0 0 0", "", "shoulders relative to the head, metres (x right, y up, z back)" },
 			{ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "first-person arms follow the VR controllers" },
 			{ "right_stick", kind::choice, 0, 0, 0, "look", "look|turn", "right stick aims, or turns and changes stance" },
 			{ "turn", kind::choice, 0, 0, 0, "snap", "snap|smooth|off", "right stick turn style (right_stick = turn)" },

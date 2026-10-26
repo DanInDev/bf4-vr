@@ -20,6 +20,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 9 | `hud_mode = body`: look at the inside of your left forearm | Minimap appears on the forearm after ~¼ s, leaves when you look away (`hud_watch_width`) | |
 | 10 | `hud_mode = body`: turn the gun sideways, look at it, hold still ~1 s | Ammo counter appears beside the gun, stays until you look away; never while aiming down the sights or sprinting | |
 | 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
+| 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 | 5 | Resolution | Sharper than last time? `status` shows `back_buffer=2160x2160` if the fullscreen fix works | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

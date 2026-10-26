@@ -127,6 +127,7 @@ namespace bfvr::body
 		// OpenXR camera axes -> CameraJoint axes (the joint's x points left, z forward).
 		ik::quat camera_axes{ 0, 1, 0, 0 };
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
+		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -339,6 +340,10 @@ namespace bfvr::body
 					const stereo::pose& grip = hands.grip[hand];
 					const ik::quat grip_rotation{ grip.orientation[0], grip.orientation[1], grip.orientation[2], grip.orientation[3] };
 					wrist = ik::vec3{ grip.position[0], grip.position[1], grip.position[2] } + ik::rotate(grip_rotation, wrist_offset[hand]);
+					// shoulder_offset: the shoulders sit fixed under the camera, so moving them by an
+					// offset (head axes) equals moving the hands by minus that offset.
+					const ik::vec3 shoulders{ shoulder_offset[0].load(), shoulder_offset[1].load(), shoulder_offset[2].load() };
+					wrist = wrist - ik::rotate(head_rotation, shoulders);
 					const float* q = hands.aim[hand].orientation;
 					aim = { q[0], q[1], q[2], q[3] };
 				}
@@ -543,6 +548,13 @@ namespace bfvr::body
 	bool arm_ik_enabled()
 	{
 		return ik_enabled;
+	}
+
+	void set_shoulder_offset(float x, float y, float z)
+	{
+		shoulder_offset[0] = x;
+		shoulder_offset[1] = y;
+		shoulder_offset[2] = z;
 	}
 
 	void set_hand_target(int hand, bool active, const float position[3], float yaw_degrees, float pitch_degrees)
