@@ -47,6 +47,9 @@ arm_ik_pole = 0.5 -1 0.3
 # <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
 # shows a scaled preview). 2160x2160 runs at the 120 fps VR cap on an RTX 5070.
 render_size = 0
+# With render_size: ignore the game leaving fullscreen. Experiment: the game then resizes to its
+# windowed size anyway, so leave it at 0.
+keep_fullscreen = 0
 # Hide focus loss from the game, so it keeps rendering at full rate and resolution when the SteamVR
 # dashboard, Steam Link or another window takes focus. 0 = the game's own behaviour.
 keep_focus = 1

@@ -145,6 +145,8 @@ namespace bfvr::stereo
 		readback readbacks[8];
 		int readback_count{};
 
+		// Before the first eye: the job-written blocks it binds are complete, the render thread's own
+		// blocks of eye 1 are not (eye 2 never binds those, it writes its own).
 		void begin_readback()
 		{
 			arena current[8];
@@ -183,6 +185,11 @@ namespace bfvr::stereo
 				eye_context->CopyResource(r.staging.Get(), r.arena.Get());
 			}
 			readback_count = count;
+		}
+
+		// After the first eye: the copies were queued before its draws, so this waits only for them.
+		void map_readbacks()
+		{
 			for (int i = 0; i < readback_count; ++i)
 			{
 				readback& r = readbacks[i];
@@ -873,6 +880,7 @@ namespace bfvr::stereo
 			{
 				first_eye_blocks.clear();
 				collecting = true;
+				begin_readback();
 			}
 			original_per_view_render(renderer, slot, context);
 			collecting = false;
@@ -928,7 +936,7 @@ namespace bfvr::stereo
 				eye2_draws = 0;
 				LARGE_INTEGER read_start{}, read_end{}, read_frequency{};
 				QueryPerformanceCounter(&read_start);
-				begin_readback();
+				map_readbacks();
 				prepare_eye_blocks();
 				QueryPerformanceCounter(&read_end);
 				QueryPerformanceFrequency(&read_frequency);

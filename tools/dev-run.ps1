@@ -34,8 +34,17 @@ function Wait-Seconds([int]$seconds) {
 function Click-Relative([double]$x, [double]$y) {
 	$size = Invoke-Tool 'game.ps1' @('size')
 	if ($size -notmatch '(\d+)x(\d+)') { throw "unexpected size: $size" }
-	$px = [int]([double]$Matches[1] * $x / 1920.0)
-	$py = [int]([double]$Matches[2] * $y / 1080.0)
+	$cw = [double]$Matches[1]; $ch = [double]$Matches[2]
+	# With render_size the game sees a virtual client of the back buffer's size (mouse coordinates
+	# are scaled), and taller than 16:9 the menu sits in a centred 16:9 band.
+	$w = $cw; $h = $ch
+	$report = @(Invoke-Tool 'pipe.ps1' @('rendersize')) -join ' '
+	if ($report -match ' buffer=(\d+)x(\d+)') { $w = [double]$Matches[1]; $h = [double]$Matches[2] }
+	$band = [math]::Min($h, $w * 9.0 / 16.0)
+	$vx = $w * $x / 1920.0
+	$vy = ($h - $band) / 2.0 + $band * $y / 1080.0
+	$px = [int]($vx * $cw / $w)
+	$py = [int]($vy * $ch / $h)
 	Invoke-Tool 'game.ps1' @('click', '-X', $px, '-Y', $py) | Out-Null
 }
 

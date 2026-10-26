@@ -53,6 +53,8 @@ namespace bfvr::hooks
 		unsigned mode_width{};
 		unsigned mode_height{};
 		std::atomic<bool> virtual_fullscreen{};
+		bool keep_fullscreen{}; // keep_fullscreen in bfvr.ini (experiment; made it worse, 2026-10-26)
+		unsigned ignored_leaves{};
 		std::atomic<unsigned> buffer_width{};
 		std::atomic<unsigned> buffer_height{};
 		std::atomic<unsigned long long> resizes{};
@@ -199,8 +201,22 @@ namespace bfvr::hooks
 		{
 			if (overriding() && is_game_swap_chain(swap_chain))
 			{
+				// Leaving fullscreen drops the eye images to a 1280x720 window, and the game does it on
+				// activation changes it should never see (scripted clicks, 2026-10-26); the fullscreen is
+				// virtual anyway, so the request is ignored once the game is in it.
+				if (!fullscreen && virtual_fullscreen && keep_fullscreen)
+				{
+					if (ignored_leaves++ < 8)
+					{
+						log::write("dxgi: SetFullscreenState 0 ignored (virtual fullscreen kept)");
+					}
+					return S_OK;
+				}
 				virtual_fullscreen = fullscreen != FALSE;
-				set_virtual_client_size(fullscreen ? mode_width : 0, fullscreen ? mode_height : 0);
+				// The game also leaves fullscreen on its own (settings re-applied on level loads, 2026-10-26);
+				// in windowed mode it sizes its buffers from the client rect, so the render size is reported
+				// there too and the eye images keep their size either way.
+				set_virtual_client_size(mode_width, mode_height);
 				log::write("dxgi: SetFullscreenState %d (virtual)", fullscreen);
 				return S_OK;
 			}
@@ -418,7 +434,10 @@ namespace bfvr::hooks
 		{
 			mode_width = width;
 			mode_height = height;
-			log::write("dxgi: render_size %ux%u (virtual fullscreen mode)", width, height);
+			keep_fullscreen = config::get_bool("keep_fullscreen", false);
+			// Windowed (profile or after leaving fullscreen) the game sizes its buffers from the client rect.
+			set_virtual_client_size(width, height);
+			log::write("dxgi: render_size %ux%u (virtual fullscreen mode, keep_fullscreen=%d)", width, height, keep_fullscreen ? 1 : 0);
 		}
 
 		const MH_STATUS status = MH_Initialize();

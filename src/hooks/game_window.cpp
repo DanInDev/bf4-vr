@@ -52,8 +52,35 @@ namespace bfvr::hooks
 			return true;
 		}
 
+		// Research: window messages that can change the game's fullscreen state, logged (first 80) to
+		// find what makes it leave its virtual fullscreen (2026-10-26).
+		std::atomic<int> logged_messages{};
+		bool log_messages{};
+
+		void log_message(UINT message, WPARAM wparam, LPARAM lparam)
+		{
+			switch (message)
+			{
+			case WM_ACTIVATEAPP: case WM_ACTIVATE: case WM_NCACTIVATE: case WM_SETFOCUS: case WM_KILLFOCUS: case WM_SIZE:
+			case WM_SYSCOMMAND: case WM_WINDOWPOSCHANGED: case WM_DISPLAYCHANGE: case WM_ENTERSIZEMOVE: case WM_EXITSIZEMOVE:
+			case WM_SHOWWINDOW: case WM_STYLECHANGED:
+				if (logged_messages++ < 80)
+				{
+					log::write("window: message 0x%04X wparam 0x%llX lparam 0x%llX", message, static_cast<unsigned long long>(wparam),
+						static_cast<unsigned long long>(lparam));
+				}
+				break;
+			default:
+				break;
+			}
+		}
+
 		LRESULT CALLBACK window_procedure(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 		{
+			if (log_messages)
+			{
+				log_message(message, wparam, lparam);
+			}
 			if (focus_kept)
 			{
 				switch (message)
@@ -190,6 +217,7 @@ namespace bfvr::hooks
 		hook_api("ScreenToClient", reinterpret_cast<void*>(&screen_to_client_detour), reinterpret_cast<void**>(&original_screen_to_client));
 		hook_api("ClientToScreen", reinterpret_cast<void*>(&client_to_screen_detour), reinterpret_cast<void**>(&original_client_to_screen));
 		focus_kept = config::get_bool("keep_focus", true);
+		log_messages = config::research_enabled();
 		if (focus_kept)
 		{
 			hook_api("ClipCursor", reinterpret_cast<void*>(&clip_cursor_detour), reinterpret_cast<void**>(&original_clip_cursor));
