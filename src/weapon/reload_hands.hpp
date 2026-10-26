@@ -46,7 +46,7 @@ namespace bfvr::weapon
 		static constexpr int max_events = 4;
 		reload_event events[max_events]{};
 		int count{};
-		bool off_hand_busy{}; // the off-hand grip belongs to the reload: do not pass it to the game
+		bool off_hand_busy{}; // the off-hand grip belongs to the reload (hand in a reload zone): keep it from the game
 		magazine_draw draw{ magazine_draw::with_gun };
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;

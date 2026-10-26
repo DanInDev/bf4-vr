@@ -124,6 +124,7 @@ namespace bfvr::weapon
 			std::uintptr_t ammo{}; // server weapon ammo: a new object (respawn, level) starts fresh
 			reload gun;
 			int written{ -1 };     // magazine value we last wrote into the game
+			int written_reserve{ -1 };
 		};
 
 		std::mutex lock;
@@ -308,9 +309,10 @@ namespace bfvr::weapon
 				log::write("reload: the game raised %s's magazine %d -> %d; taking its rounds", weapon.name, memory.written, weapon.magazine);
 				gun.load(weapon.magazine - spare_rounds, weapon.reserve);
 			}
-			else if (weapon.reserve != gun.state().reserve)
+			else if (memory.written_reserve >= 0 && weapon.reserve != memory.written_reserve)
 			{
-				gun.set_reserve(weapon.reserve);
+				// The game itself changed the reserve since our write (pickup, resupply).
+				gun.set_reserve(gun.state().reserve + weapon.reserve - memory.written_reserve);
 			}
 		}
 
@@ -348,6 +350,7 @@ namespace bfvr::weapon
 			write(weapon.ammo + 4, gun.state().reserve);
 		}
 		memory.written = wanted;
+		memory.written_reserve = gun.state().reserve;
 
 		if (result.draw == magazine_draw::with_gun || !points.valid)
 		{

@@ -324,6 +324,8 @@ namespace
 		expect(has(r, reload_event::magazine_dropped) && r.draw == magazine_draw::falling, "let go away from the chest drops it");
 		r = hands.update(gun, at(away, true));
 		expect(!r.off_hand_busy && r.count == 0, "a grip away from gun and chest stays the game's");
+		r = hands.update(gun, at(magwell, false));
+		expect(r.off_hand_busy, "hand at the magwell: the grip is claimed before it closes");
 	}
 
 	void test_hands_flick()

@@ -151,7 +151,8 @@ namespace bfvr::weapon
 			}
 		}
 
-		result.off_hand_busy = frame.grip && (gun.state().holding || racking_ || near_magwell || near_chest);
+		// Also before the grip closes: the game must never see the press that starts a gesture.
+		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < config_.reach_slide;
 
 		if (gun.state().holding && valid)
 		{
