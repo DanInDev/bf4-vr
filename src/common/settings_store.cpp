@@ -38,6 +38,7 @@ namespace bfvr::settings
 			{ "snap_turn_degrees", kind::integer, 5, 90, 5, "30", "", "angle per snap turn" },
 			{ "dominant_hand", kind::choice, 0, 0, 0, "right", "right|left", "gun hand: left mirrors the pad and swaps the hand roles" },
 			{ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload: the game's button, or by hand (AK: pull the magazine, AR: X releases it; chest pouch)" },
+			{ "holsters", kind::boolean, 0, 0, 0, "1", "", "weapon holsters on the body: gun hand + grip over the shoulder (primary), at the hip (secondary), chest (knife), belt (gadgets)" },
 			{ "grenade", kind::choice, 0, 0, 0, "button", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },
 			{ "grenade_throw_scale", kind::real, 0.5f, 4.0f, 0.1f, "1.5", "", "physical grenades: launch speed = hand speed times this" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },

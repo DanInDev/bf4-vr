@@ -2,13 +2,14 @@
 // take, drop with and without drop_discards_ammo, bolt lock, bolt catch, racking and the AK flick;
 // the hand gestures (src/weapon/reload_hands), the weapon profiles (src/weapon/profiles) and the
 // accessory toggle by touch (src/weapon/accessory_touch) and the grenade gestures
-// (src/weapon/grenade_hands).
+// (src/weapon/grenade_hands), and the weapon holsters (src/weapon/holsters).
 #include <cmath>
 #include <cstdio>
 #include <initializer_list>
 
 #include "weapon/accessory_touch.hpp"
 #include "weapon/grenade_hands.hpp"
+#include "weapon/holsters.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
@@ -519,6 +520,63 @@ namespace
 		lost.frame.hands_valid = false;
 		expect(lost.step().event == grenade_event::put_back, "tracking lost: the grenade goes back, never thrown");
 	}
+	holster draw_at(holsters& h, holster_frame frame, v3 hand)
+	{
+		frame.gun_hand = hand;
+		frame.gun_grip = false;
+		h.update(frame);
+		frame.gun_grip = true;
+		const holster drawn = h.update(frame).draw;
+		frame.gun_grip = false;
+		h.update(frame);
+		return drawn;
+	}
+
+	void test_holsters()
+	{
+		holster_frame frame;
+		frame.head_valid = frame.hand_valid = true;
+		holsters h;
+		expect(draw_at(h, frame, { 0.2f, 0.05f, 0.15f }) == holster::primary, "over the right shoulder: primary");
+		expect(draw_at(h, frame, { 0.24f, -0.72f, 0.02f }) == holster::secondary, "right hip: secondary");
+		expect(draw_at(h, frame, { -0.12f, -0.3f, -0.12f }) == holster::knife, "left chest: knife");
+		expect(draw_at(h, frame, { -0.2f, -0.7f, -0.05f }) == holster::gadget1, "left belt front: gadget 1");
+		expect(draw_at(h, frame, { -0.2f, -0.7f, 0.18f }) == holster::gadget2, "left belt back: gadget 2");
+		expect(draw_at(h, frame, { 0.15f, -0.25f, -0.35f }) == holster::none, "aiming position: nothing");
+		frame.gun_hand = { 0.15f, -0.25f, -0.35f };
+		frame.gun_grip = true;
+		h.update(frame);
+		frame.gun_hand = { 0.2f, 0.05f, 0.15f };
+		expect(h.update(frame).draw == holster::none, "a grip held into the zone does not draw");
+		frame.gun_grip = false;
+		expect(h.update(frame).zone == holster::primary, "zone reported while the hand is there");
+
+		holster_frame left = frame;
+		left.left_handed = true;
+		holsters mirrored;
+		expect(draw_at(mirrored, left, { -0.2f, 0.05f, 0.15f }) == holster::primary, "left-handed: primary over the left shoulder");
+		expect(draw_at(mirrored, left, { 0.12f, -0.3f, -0.12f }) == holster::knife, "left-handed: knife on the right chest");
+
+		holsters turning;
+		holster_frame turn = frame;
+		turning.update(turn);
+		turn.head_yaw = 0.3f;
+		turning.update(turn);
+		expect(std::fabs(turning.body_yaw()) < 1e-5f, "small head turn: body stays");
+		for (int i = 0; i <= 20; ++i)
+		{
+			turn.head_yaw = 1.5707963f * static_cast<float>(i) / 20.0f;
+			turning.update(turn);
+		}
+		expect(std::fabs(turning.body_yaw() - (1.5707963f - 0.6f)) < 1e-4f, "big head turn: body follows to the slack");
+		// Body yaw 0.97 rad (turned left): the primary sits right-back of that body.
+		const float b = turning.body_yaw();
+		const v3 primary{ 0.2f * std::cos(b) + 0.15f * std::sin(b), 0.05f, -0.2f * std::sin(b) + 0.15f * std::cos(b) };
+		expect(draw_at(turning, turn, primary) == holster::primary, "zones turn with the body");
+		holster_frame blind = frame;
+		blind.head_valid = false;
+		expect(draw_at(h, blind, { 0.2f, 0.05f, 0.15f }) == holster::none, "no head tracking: no holsters");
+	}
 }
 
 int main()
@@ -539,6 +597,7 @@ int main()
 	test_accessory_touch();
 	test_grenade_throw();
 	test_grenade_drop_and_put_back();
+	test_holsters();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

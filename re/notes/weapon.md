@@ -89,6 +89,26 @@ future two-hand grip.
   player has the `_SP` variant); still restore the data right after the spawn.
 - Lesson: a grenade bouncing off the ceiling indoors killed the player (checkpoint reload).
 
+## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
+
+Slots in this checkpoint: 0 `U_SCAR-H`, 1 `U_AK12`, 6 `U_M67_SP`, 7 `U_Knife`, 8 `U_SP_Visor`; 2-5 empty.
+
+| Input | Slot after | Time |
+| --- | --- | --- |
+| pad Y | 0 <-> 1 (next gun) | 0.15-0.18 s |
+| pad right stick click | 7 (knife) during the stab, then back | 0.02 s |
+| pad A, B, X, left stick click, D-pad left/right/down | no change | |
+| key 1 / 2 | 0 / 1 | < 0.25 s |
+| key 3 / 4 | no change (no gadgets in this kit; gadget slots expected) | |
+| key 5 | 6 (grenade in hand) | < 0.25 s |
+| key 6 | 7 (knife, stays) | < 0.25 s |
+| key F | 7 during the stab, then back | |
+| keys 7, 8, E, Q, T, V | no change (the visor's input is still unknown) | |
+
+- **The keyboard is Raw Input**: the image imports `GetRawInputData` / `RegisterRawInputDevices`; no
+  DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
+  with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds
