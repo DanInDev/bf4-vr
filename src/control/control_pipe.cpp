@@ -754,6 +754,14 @@ namespace bfvr::control
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::reload_sounds_report();
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report();
+			if (command == "motion")
+			{
+				float yaw_rate{}, speed{};
+				stereo::body_motion(yaw_rate, speed);
+				char text[96];
+				std::snprintf(text, sizeof(text), "body yaw_rate=%.2f rad/s speed=%.2f m/s", yaw_rate, speed);
+				return text;
+			}
 			if (command == "panel") return ui::panel_pipe_command(argument);
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);

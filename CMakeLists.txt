@@ -123,6 +123,7 @@ add_library(bfvr_runtime STATIC
 	src/ui/menu_button.cpp
 	src/ui/panel_canvas.cpp
 	src/ui/settings_panel.cpp
+	src/ui/vignette.cpp
 	src/ui/vr_panel.cpp
 	src/weapon/two_hand.cpp
 	src/weapon/two_handed.cpp
@@ -182,6 +183,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
 	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
 
+	# Comfort vignette strength and texture; exits non-zero on failure.
+	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp)
+	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
+
 	# Sound research (re/notes/sound.md): records the default playback device; not a test.
 	add_executable(bfvr_audio_loopback tools/audio_loopback.cpp)
 	target_link_libraries(bfvr_audio_loopback PRIVATE ole32)
@@ -199,6 +204,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME reload COMMAND bfvr_reload_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
+	add_test(NAME vignette COMMAND bfvr_vignette_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.

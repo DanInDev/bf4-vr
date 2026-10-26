@@ -60,4 +60,9 @@ namespace bfvr::stereo
 	// stereo_render at runtime: "pair" (both eyes from one frame, eye pass) or "aer" (alternate eyes).
 	std::string set_stereo_render(const std::string& name);
 	void set_fake_yaw(float degrees);
+
+	// The game camera's own motion before the head pose is applied (stick turning and aiming,
+	// walking, vehicles): yaw rate (rad/s) and speed (m/s), smoothed; 0 outside head-tracked frames.
+	// Drives the comfort vignette (#10).
+	void body_motion(float& yaw_rate, float& speed);
 }

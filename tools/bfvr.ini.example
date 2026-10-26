@@ -51,6 +51,12 @@ arm_stretch = 0.25
 # Each shoulder this much further out to its side (metres): a wider chest, elbows further apart.
 shoulder_width = 0
 
+# Comfort vignette (issue #10): darkens the edge of the view while the game turns or moves you (stick
+# turning and aiming, walking, vehicles; never your own head): off | turning | moving | both, and how
+# far it closes in. Seated play needs no setting: recenter while seated (the view starts at your head).
+vignette = off
+vignette_strength = 0.7
+
 # Render size for the eye images (re/notes/render-quality.md). 0 = the monitor's mode (1920x1080).
 # <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
 # shows a scaled preview). 2160x2160 runs at the 120 fps VR cap on an RTX 5070.

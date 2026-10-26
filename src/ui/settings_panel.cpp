@@ -40,7 +40,7 @@ namespace bfvr::ui
 		const std::vector<group>& groups()
 		{
 			static const std::vector<group> table = {
-				{ "View", { "stereo_render", "ipd_scale", "view_crop_h", "view_crop_v", "gun_scale" } },
+				{ "View", { "stereo_render", "ipd_scale", "view_crop_h", "view_crop_v", "gun_scale", "vignette", "vignette_strength" } },
 				{ "Body", { "arm_ik", "shoulder_offset", "shoulder_width", "shoulder_reach", "arm_stretch" } },
 				{ "Weapon", { "aim", "two_handed", "aim_convergence", "accessory_toggle", "reload", "reload_sounds", "drop_discards_ammo", "grenade",
 					"grenade_throw_scale", "holsters", "squad_signal", "grip_spot" } },

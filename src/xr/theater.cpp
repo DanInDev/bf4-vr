@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -31,10 +32,12 @@
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/hud_layout.hpp"
+#include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/settings_panel.hpp"
+#include "ui/vignette.hpp"
 #include "ui/vr_panel.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
@@ -683,19 +686,32 @@ namespace bfvr::xr
 			return check(xrReleaseSwapchainImage(hud_swapchain, &release), "xrReleaseSwapchainImage(HUD)");
 		}
 
-		// In-VR settings panel (#7, ui/vr_panel): its own swap chain, filled only when the image
-		// changed; a quad keeps showing the last released image.
-		XrSwapchain panel_swapchain{ XR_NULL_HANDLE };
-		std::vector<XrSwapchainImageD3D11KHR> panel_images;
-		ComPtr<ID3D11Texture2D> panel_texture;
-		bool panel_rgba{};       // the runtime took R8G8B8A8: swap the panel's BGRA pixels
-		bool panel_shown{};      // an image was released: the quad may be submitted
+		// Images drawn on the CPU (settings panel, comfort vignette): each has its own swap chain,
+		// filled only when the image changed; a quad keeps showing the last released image.
+		struct cpu_overlay
+		{
+			const char* name{};
+			XrSwapchain swapchain{ XR_NULL_HANDLE };
+			std::vector<XrSwapchainImageD3D11KHR> images;
+			ComPtr<ID3D11Texture2D> texture;
+			std::uint32_t width{};
+			std::uint32_t height{};
+			bool rgba{};  // the runtime took R8G8B8A8: swap the BGRA pixels
+			bool shown{}; // an image was released: the quad may be submitted
+		};
+		cpu_overlay panel_overlay{ "settings panel" };
 		std::uint64_t panel_revision{};
 		std::vector<std::uint32_t> panel_pixels;
+		cpu_overlay vignette_overlay{ "vignette" };
+		ui::vignette comfort_vignette;
+		float vignette_uploaded{ -1.0f };
+		std::vector<std::uint32_t> vignette_pixels;
+		LARGE_INTEGER vignette_last{};
+		static constexpr std::uint32_t vignette_size = 256;
 
-		bool ensure_panel_swapchain()
+		bool ensure_overlay(cpu_overlay& overlay, std::uint32_t width, std::uint32_t height)
 		{
-			if (panel_swapchain != XR_NULL_HANDLE)
+			if (overlay.swapchain != XR_NULL_HANDLE)
 			{
 				return true;
 			}
@@ -720,99 +736,111 @@ namespace bfvr::xr
 			}
 			if (chosen == DXGI_FORMAT_UNKNOWN)
 			{
-				log::write("theater: no 8-bit swap chain format for the settings panel");
+				log::write("theater: no 8-bit swap chain format for the %s", overlay.name);
 				return false;
 			}
 			D3D11_TEXTURE2D_DESC desc{};
-			desc.Width = ui::settings_panel::width;
-			desc.Height = ui::settings_panel::height;
+			desc.Width = width;
+			desc.Height = height;
 			desc.MipLevels = 1;
 			desc.ArraySize = 1;
 			desc.Format = chosen;
 			desc.SampleDesc.Count = 1;
 			desc.Usage = D3D11_USAGE_DEFAULT;
 			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-			if (FAILED(device->CreateTexture2D(&desc, nullptr, &panel_texture)))
+			if (FAILED(device->CreateTexture2D(&desc, nullptr, &overlay.texture)))
 			{
-				log::write("theater: settings panel texture failed");
+				log::write("theater: %s texture failed", overlay.name);
 				return false;
 			}
 			XrSwapchainCreateInfo info{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
 			info.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 			info.format = chosen;
 			info.sampleCount = 1;
-			info.width = desc.Width;
-			info.height = desc.Height;
+			info.width = width;
+			info.height = height;
 			info.faceCount = 1;
 			info.arraySize = 1;
 			info.mipCount = 1;
-			if (!check(xrCreateSwapchain(session, &info, &panel_swapchain), "xrCreateSwapchain(panel)")
-				|| !check(xrEnumerateSwapchainImages(panel_swapchain, 0, &count, nullptr), "xrEnumerateSwapchainImages"))
+			if (!check(xrCreateSwapchain(session, &info, &overlay.swapchain), "xrCreateSwapchain(overlay)")
+				|| !check(xrEnumerateSwapchainImages(overlay.swapchain, 0, &count, nullptr), "xrEnumerateSwapchainImages"))
 			{
 				return false;
 			}
-			panel_images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
-			if (!check(xrEnumerateSwapchainImages(panel_swapchain, count, &count,
-					reinterpret_cast<XrSwapchainImageBaseHeader*>(panel_images.data())), "xrEnumerateSwapchainImages"))
+			overlay.images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+			if (!check(xrEnumerateSwapchainImages(overlay.swapchain, count, &count,
+					reinterpret_cast<XrSwapchainImageBaseHeader*>(overlay.images.data())), "xrEnumerateSwapchainImages"))
 			{
 				return false;
 			}
-			panel_rgba = chosen == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB || chosen == DXGI_FORMAT_R8G8B8A8_UNORM;
-			panel_revision = 0;
-			log::write("theater: settings panel swap chain %ux%u, format %d", desc.Width, desc.Height, chosen);
+			overlay.width = width;
+			overlay.height = height;
+			overlay.rgba = chosen == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB || chosen == DXGI_FORMAT_R8G8B8A8_UNORM;
+			log::write("theater: %s swap chain %ux%u, format %d", overlay.name, width, height, chosen);
 			return true;
 		}
 
-		// Uploads a new panel image if there is one; true when the quad has something to show.
-		bool update_panel_image()
+		// Top-down BGRA pixels into the overlay's next image (swapped in place for RGBA runtimes).
+		void upload_overlay(cpu_overlay& overlay, std::vector<std::uint32_t>& pixels)
 		{
-			if (!ensure_panel_swapchain())
+			if (overlay.rgba)
 			{
-				return false;
-			}
-			if (!ui::vr_panel_pixels(panel_revision, panel_pixels))
-			{
-				return panel_shown;
-			}
-			if (panel_rgba)
-			{
-				for (std::uint32_t& pixel : panel_pixels)
+				for (std::uint32_t& pixel : pixels)
 				{
 					pixel = (pixel & 0xFF00FF00u) | ((pixel & 0xFFu) << 16) | ((pixel >> 16) & 0xFFu);
 				}
 			}
 			ComPtr<ID3D11DeviceContext> context;
 			device->GetImmediateContext(&context);
-			context->UpdateSubresource(panel_texture.Get(), 0, nullptr, panel_pixels.data(), ui::settings_panel::width * 4, 0);
+			context->UpdateSubresource(overlay.texture.Get(), 0, nullptr, pixels.data(), overlay.width * 4, 0);
 			std::uint32_t index{};
 			XrSwapchainImageAcquireInfo acquire{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-			if (!check(xrAcquireSwapchainImage(panel_swapchain, &acquire, &index), "xrAcquireSwapchainImage(panel)"))
+			if (!check(xrAcquireSwapchainImage(overlay.swapchain, &acquire, &index), "xrAcquireSwapchainImage(overlay)"))
 			{
-				return panel_shown;
+				return;
 			}
 			XrSwapchainImageWaitInfo wait{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
 			wait.timeout = XR_INFINITE_DURATION;
-			if (check(xrWaitSwapchainImage(panel_swapchain, &wait), "xrWaitSwapchainImage(panel)"))
+			if (check(xrWaitSwapchainImage(overlay.swapchain, &wait), "xrWaitSwapchainImage(overlay)"))
 			{
-				context->CopyResource(panel_images[index].texture, panel_texture.Get());
+				context->CopyResource(overlay.images[index].texture, overlay.texture.Get());
 			}
 			XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-			panel_shown = check(xrReleaseSwapchainImage(panel_swapchain, &release), "xrReleaseSwapchainImage(panel)") || panel_shown;
-			return panel_shown;
+			overlay.shown = check(xrReleaseSwapchainImage(overlay.swapchain, &release), "xrReleaseSwapchainImage(overlay)") || overlay.shown;
+		}
+
+		void destroy_overlay(cpu_overlay& overlay)
+		{
+			if (overlay.swapchain != XR_NULL_HANDLE)
+			{
+				xrDestroySwapchain(overlay.swapchain);
+				overlay.swapchain = XR_NULL_HANDLE;
+			}
+			overlay.images.clear();
+			overlay.texture.Reset();
+			overlay.shown = false;
 		}
 
 		// Adds the panel quad when it is open; layers has room for it.
 		void add_panel_layer(XrCompositionLayerQuad& panel_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
 			const ui::panel_view view = ui::vr_panel_view();
-			if (!view.open || !update_panel_image())
+			if (!view.open || !ensure_overlay(panel_overlay, ui::settings_panel::width, ui::settings_panel::height))
+			{
+				return;
+			}
+			if (ui::vr_panel_pixels(panel_revision, panel_pixels))
+			{
+				upload_overlay(panel_overlay, panel_pixels);
+			}
+			if (!panel_overlay.shown)
 			{
 				return;
 			}
 			panel_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
 			panel_quad.space = space;
 			panel_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-			panel_quad.subImage.swapchain = panel_swapchain;
+			panel_quad.subImage.swapchain = panel_overlay.swapchain;
 			panel_quad.subImage.imageRect.extent = { ui::settings_panel::width, ui::settings_panel::height };
 			panel_quad.pose.position = { view.pose.position[0], view.pose.position[1], view.pose.position[2] };
 			panel_quad.pose.orientation = { view.pose.orientation[0], view.pose.orientation[1], view.pose.orientation[2], view.pose.orientation[3] };
@@ -820,17 +848,52 @@ namespace bfvr::xr
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&panel_quad);
 		}
 
-		void destroy_panel_swapchain()
+		// Comfort vignette (#10): head-locked, darkens the edge while the game turns or moves the
+		// body (stereo::body_motion). Uploaded only when the strength moved noticeably.
+		void add_vignette_layer(XrCompositionLayerQuad& vignette_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
-			if (panel_swapchain != XR_NULL_HANDLE)
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = vignette_last.QuadPart
+				? std::min(static_cast<float>(now.QuadPart - vignette_last.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+			vignette_last = now;
+
+			const settings::registry& store = settings::global();
+			ui::vignette_config config = comfort_vignette.config();
+			const std::string mode = store.text("vignette", "off");
+			config.mode = mode == "turning" ? ui::vignette_mode::turning : mode == "moving" ? ui::vignette_mode::moving
+				: mode == "both" ? ui::vignette_mode::both : ui::vignette_mode::off;
+			config.strength = store.real("vignette_strength", 0.7f);
+			comfort_vignette.configure(config);
+			float yaw_rate{}, speed{};
+			stereo::body_motion(yaw_rate, speed);
+			const float strength = comfort_vignette.update(yaw_rate, speed, seconds);
+			if (strength <= 0.01f || !ensure_overlay(vignette_overlay, vignette_size, vignette_size))
 			{
-				xrDestroySwapchain(panel_swapchain);
-				panel_swapchain = XR_NULL_HANDLE;
+				return;
 			}
-			panel_images.clear();
-			panel_texture.Reset();
-			panel_shown = false;
-			panel_revision = 0;
+			if (std::fabs(strength - vignette_uploaded) > 0.02f)
+			{
+				ui::vignette_texture(strength, static_cast<int>(vignette_size), vignette_pixels);
+				upload_overlay(vignette_overlay, vignette_pixels);
+				vignette_uploaded = strength;
+			}
+			if (!vignette_overlay.shown)
+			{
+				return;
+			}
+			// 3.2 m wide at 1 m: past the lens edge (about 58 degrees each side), the corners darkest.
+			vignette_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			vignette_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			vignette_quad.space = view_space;
+			vignette_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			vignette_quad.subImage.swapchain = vignette_overlay.swapchain;
+			vignette_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(vignette_size), static_cast<std::int32_t>(vignette_size) };
+			vignette_quad.pose.orientation.w = 1.0f;
+			vignette_quad.pose.position.z = -1.0f;
+			vignette_quad.size = { 3.2f, 3.2f };
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&vignette_quad);
 		}
 
 		void destroy_hud_swapchain()
@@ -1307,7 +1370,8 @@ namespace bfvr::xr
 			XrCompositionLayerProjectionView views[2]{ { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW }, { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW } };
 			XrCompositionLayerQuad body_quads[4]{};
 			XrCompositionLayerQuad panel_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[7]{};
+			XrCompositionLayerQuad vignette_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			const XrCompositionLayerBaseHeader* layers[8]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
 			enter("copy to swap chain");
@@ -1330,6 +1394,8 @@ namespace bfvr::xr
 				projection.views = views;
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection);
 				layer_count = 1;
+				// Under the HUD: the HUD stays readable while the edge darkens.
+				add_vignette_layer(vignette_quad, layers, layer_count);
 
 				if (hud_mode && settings::global().text("hud_mode", "head") == "body" && copy_hud_to_swapchain())
 				{
@@ -1411,7 +1477,8 @@ namespace bfvr::xr
 			stop_waiter();
 			destroy_swapchain();
 			destroy_hud_swapchain();
-			destroy_panel_swapchain();
+			destroy_overlay(panel_overlay);
+			destroy_overlay(vignette_overlay);
 			if (view_space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(view_space);

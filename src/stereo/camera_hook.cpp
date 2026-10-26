@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
@@ -78,6 +79,39 @@ namespace bfvr::stereo
 		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
 		std::atomic<float> gun_scale{ 1.0f };
 		std::atomic<float> ipd_scale{ 1.0f };
+		std::atomic<float> motion_yaw_rate{};
+		std::atomic<float> motion_speed{};
+
+		// Game thread, once per head-tracked copy: the body camera (world rows before the eye pose).
+		void track_body_motion(const float* world)
+		{
+			static LARGE_INTEGER last{};
+			static float last_yaw{}, last_position[3]{};
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float yaw = std::atan2(-world[8], -world[10]);
+			const float seconds = last.QuadPart ? static_cast<float>(now.QuadPart - last.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
+			if (seconds > 1e-4f && seconds < 0.2f)
+			{
+				float turn = yaw - last_yaw;
+				turn += turn > 3.14159265f ? -6.2831853f : turn < -3.14159265f ? 6.2831853f : 0.0f;
+				const float dx = world[12] - last_position[0], dy = world[13] - last_position[1], dz = world[14] - last_position[2];
+				const float speed = std::sqrt(dx * dx + dy * dy + dz * dz) / seconds;
+				const float blend = std::min(seconds / 0.05f, 1.0f);
+				motion_yaw_rate = motion_yaw_rate.load() + (turn / seconds - motion_yaw_rate.load()) * blend;
+				// Longer for speed: pushing against a wall jitters back and forth at 10 m/s. A teleport
+				// (respawn, checkpoint) is not motion.
+				const float speed_blend = std::min(seconds / 0.15f, 1.0f);
+				motion_speed = motion_speed.load() + ((speed < 40.0f ? speed : 0.0f) - motion_speed.load()) * speed_blend;
+			}
+			last = now;
+			last_yaw = yaw;
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				last_position[axis] = world[12 + axis];
+			}
+		}
 		// Fraction (tangent space) of the headset's reported FOV that is rendered, horizontal and
 		// vertical (1 = all of it); config view_crop_h / view_crop_v.
 		std::atomic<float> view_crop_h{ 1.0f };
@@ -267,6 +301,8 @@ namespace bfvr::stereo
 				{
 					aim_with_controller(params);
 				}
+				// The world rows here are the body camera (no head pose yet): head motion never counts.
+				track_body_motion(reinterpret_cast<const float*>(params + transform));
 				apply_eye_pose(params, eye_pose);
 
 				tag.stereo = true;
@@ -552,6 +588,12 @@ namespace bfvr::stereo
 			}
 		}
 		return std::string("stereo_render=") + (pair_render.load() ? "pair" : "aer");
+	}
+
+	void body_motion(float& yaw_rate, float& speed)
+	{
+		yaw_rate = motion_yaw_rate.load(std::memory_order_relaxed);
+		speed = motion_speed.load(std::memory_order_relaxed);
 	}
 
 	void set_fake_yaw(float degrees)

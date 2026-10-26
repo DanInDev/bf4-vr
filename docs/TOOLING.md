@@ -105,6 +105,7 @@ offline mode is the legitimate way to play without a connection.
 | `panel [open\|close\|hover <u> <v>\|click <u> <v>\|shot <path.bmp>]` | In-VR settings panel (#7): state; open/close it, hover or click at texture coordinates (0,0 top left) without a headset, or write the panel image as a BMP |
 | `scan <hex bytes> [max]` | Research: addresses of a byte pattern in committed private read/write memory (heap), e.g. a vtable to find live objects |
 | `entityevent <entity> <event id> [slot]` | Research: on the game thread, call the entity's event handler (vtable slot, default 5) with that event id (`re/notes/sound.md`) |
+| `motion` | The game camera's own yaw rate and speed (no head pose), the comfort vignette's input (#10) |
 | `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
