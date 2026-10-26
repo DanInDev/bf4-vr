@@ -66,6 +66,7 @@ target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
 add_library(bfvr_common STATIC
 	src/common/config.cpp
 	src/common/log.cpp
+	src/common/settings.cpp
 )
 target_include_directories(bfvr_common PUBLIC src)
 target_compile_definitions(bfvr_common PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN BFVR_GAME_NAME="${BFVR_GAME}")
@@ -86,6 +87,9 @@ add_library(bfvr_runtime STATIC
 	src/hooks/swap_chain_size.cpp
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
+	src/input/gestures.cpp
+	src/input/pointer.cpp
+	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
 	src/safety/mp_guard.cpp
 	src/body/arm_ik.cpp
@@ -124,8 +128,23 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp src/stereo/constant_patch.cpp)
 	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
 
+	# Settings registry: ini load, pipe text, write-back; exits non-zero on failure.
+	add_executable(bfvr_settings_test tests/settings_test.cpp)
+	target_link_libraries(bfvr_settings_test PRIVATE bfvr_common)
+
+	# Right-stick turn/stance state machine; exits non-zero on failure.
+	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
+	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
+
+	# HUD gesture detectors and the laser-pointer hit on synthetic poses; exits non-zero on failure.
+	add_executable(bfvr_gestures_test tests/gestures_test.cpp src/input/gestures.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_gestures_test PRIVATE bfvr_common)
+
 	# Offline tests (ctest --preset bf4-debug); the smoke theater needs an XR runtime and is not one.
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
 	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
+	add_test(NAME settings COMMAND bfvr_settings_test)
+	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
+	add_test(NAME gestures COMMAND bfvr_gestures_test)
 endif()
