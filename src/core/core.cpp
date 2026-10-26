@@ -65,12 +65,14 @@ namespace bfvr::core
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
 			input::set_controller_aim(store.text("aim", "head") == "controller");
-			weapon::set_physical_reload(store.text("reload", "button") == "physical");
+			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
 			weapon::set_holsters(store.boolean("holsters", true));
+			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false));
+			body::set_arm_shape(store.real("arm_length", 1.0f), store.real("shoulder_width", 0.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
-			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
+			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
@@ -81,7 +83,7 @@ namespace bfvr::core
 				stereo::set_stereo_render(render);
 			}
 			stereo_render = render;
-			const std::string stick = store.text("right_stick", "look");
+			const std::string stick = store.text("right_stick", "turn");
 			if (!first && stick != right_stick)
 			{
 				input::set_right_stick_mode(stick);

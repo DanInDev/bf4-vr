@@ -66,7 +66,7 @@ stereo_render = aer
 # Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
 # smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
 # pipe `rightstick look|turn`.
-right_stick = look
+right_stick = turn
 turn = snap
 snap_turn_degrees = 30
 stance_flicks = 1
@@ -77,7 +77,7 @@ dominant_hand = right
 # magazine with the off hand to pull it, rack the slide when empty. Others (AR): X releases the magazine
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
 # magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
-reload = button
+reload = physical
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Off hand on the optic or the front rail + grip = the game's accessory toggle (D-pad up: magnifier,
@@ -86,12 +86,22 @@ accessory_touch = 1
 # Grenades (docs/tasks/grenades.md): button = the game's LB throw; physical = take one at the belt with
 # the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
 # letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
-grenade = button
+grenade = physical
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
 holsters = 1
 # Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
 squad_signal = 1
+# The controller grips are the mod's (holding the gun, reload, grenades, holsters, signals); 1 also
+# sends them to the game as LB/RB (grenade throw, and fire in some layouts).
+grips_to_game = 0
+# Left trigger = the game's aim down sights (zooms the view, uncomfortable in VR).
+ads_trigger = 0
+# The game's crosshair in the middle of the HUD (aim with the sights).
+hud_show_crosshair = 0
+# First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).
+arm_length = 1.0
+shoulder_width = 0.0
 grenade_throw_scale = 1.5
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.

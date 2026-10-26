@@ -48,7 +48,7 @@ namespace bfvr::weapon
 		holster_zone zones[5]{
 			{ holster::primary, { 0.20f, 0.05f, 0.15f }, 0.15f },     // over the gun-side shoulder, behind the head
 			{ holster::secondary, { 0.22f, -0.75f, 0.0f }, 0.13f },   // gun-side hip
-			{ holster::knife, { -0.12f, -0.30f, -0.12f }, 0.10f },    // chest, off-hand side
+			{ holster::knife, { -0.12f, -0.30f, -0.12f }, 0.14f },    // chest, off-hand side
 			{ holster::gadget1, { -0.20f, -0.70f, -0.05f }, 0.12f },  // off-hand belt, front
 			{ holster::gadget2, { -0.20f, -0.70f, 0.18f }, 0.12f },   // off-hand belt, back
 		};

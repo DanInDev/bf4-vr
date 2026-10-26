@@ -641,6 +641,38 @@ namespace bfvr::xr
 			return true;
 		}
 
+		// hud_show_crosshair = 0: the middle of the HUD texture (the game's crosshair) is cleared to
+		// transparent with a copy from a small zero texture. Markers passing the middle lose a few pixels.
+		ComPtr<ID3D11Texture2D> crosshair_clear;
+		void hide_crosshair(ID3D11DeviceContext* context, ID3D11Texture2D* target)
+		{
+			D3D11_TEXTURE2D_DESC desc{};
+			target->GetDesc(&desc);
+			const UINT box = std::max<UINT>(8, desc.Width / 25); // 4 % of the width: 86 px at 2160
+			D3D11_TEXTURE2D_DESC have{};
+			if (crosshair_clear)
+			{
+				crosshair_clear->GetDesc(&have);
+			}
+			if (!crosshair_clear || have.Format != desc.Format || have.Width != box)
+			{
+				crosshair_clear.Reset();
+				D3D11_TEXTURE2D_DESC clear{};
+				clear.Width = clear.Height = box;
+				clear.MipLevels = clear.ArraySize = 1;
+				clear.Format = desc.Format;
+				clear.SampleDesc.Count = 1;
+				clear.Usage = D3D11_USAGE_DEFAULT;
+				std::vector<std::uint8_t> zeros(static_cast<std::size_t>(box) * box * 16);
+				const D3D11_SUBRESOURCE_DATA data{ zeros.data(), box * 16, 0 };
+				if (FAILED(device->CreateTexture2D(&clear, &data, &crosshair_clear)))
+				{
+					return;
+				}
+			}
+			context->CopySubresourceRegion(target, 0, (desc.Width - box) / 2, (desc.Height - box) / 2, 0, crosshair_clear.Get(), 0, nullptr);
+		}
+
 		// The latest captured HUD into its swap chain; false when there is none to show.
 		bool copy_hud_to_swapchain()
 		{
@@ -677,6 +709,10 @@ namespace bfvr::xr
 			ComPtr<ID3D11DeviceContext> context;
 			device->GetImmediateContext(&context);
 			context->CopySubresourceRegion(hud_images[index].texture, 0, 0, 0, 0, hud.texture, 0, nullptr);
+			if (!settings::global().boolean("hud_show_crosshair", false))
+			{
+				hide_crosshair(context.Get(), hud_images[index].texture);
+			}
 			XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
 			return check(xrReleaseSwapchainImage(hud_swapchain, &release), "xrReleaseSwapchainImage(HUD)");
 		}
@@ -832,11 +868,212 @@ namespace bfvr::xr
 			return count;
 		}
 
+		// The pointer's beam and the dot where it hits: two quads from one static 4x4 swap chain of a
+		// single colour.
+		XrSwapchain pointer_swapchain{ XR_NULL_HANDLE };
+		bool pointer_swapchain_failed{};
+		XrCompositionLayerQuad pointer_beam{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+		XrCompositionLayerQuad pointer_dot{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+		bool pointer_beam_visible{};
+		bool pointer_dot_visible{};
+
+		bool ensure_pointer_swapchain()
+		{
+			if (pointer_swapchain != XR_NULL_HANDLE || pointer_swapchain_failed)
+			{
+				return pointer_swapchain != XR_NULL_HANDLE;
+			}
+			pointer_swapchain_failed = true; // one attempt per session
+			std::uint32_t count{};
+			if (!check(xrEnumerateSwapchainFormats(session, 0, &count, nullptr), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			std::vector<std::int64_t> formats(count);
+			if (!check(xrEnumerateSwapchainFormats(session, count, &count, formats.data()), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			DXGI_FORMAT chosen = DXGI_FORMAT_UNKNOWN;
+			for (const DXGI_FORMAT candidate : { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_UNORM })
+			{
+				if (std::find(formats.begin(), formats.end(), static_cast<std::int64_t>(candidate)) != formats.end())
+				{
+					chosen = candidate;
+					break;
+				}
+			}
+			if (chosen == DXGI_FORMAT_UNKNOWN)
+			{
+				return false;
+			}
+			XrSwapchainCreateInfo info{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+			info.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
+			info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+			info.format = chosen;
+			info.sampleCount = 1;
+			info.width = info.height = 4;
+			info.faceCount = info.arraySize = info.mipCount = 1;
+			XrSwapchain created{ XR_NULL_HANDLE };
+			if (!check(xrCreateSwapchain(session, &info, &created), "xrCreateSwapchain(pointer)"))
+			{
+				return false;
+			}
+			std::vector<XrSwapchainImageD3D11KHR> pointer_images;
+			std::uint32_t index{};
+			XrSwapchainImageAcquireInfo acquire{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+			XrSwapchainImageWaitInfo wait{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+			wait.timeout = XR_INFINITE_DURATION;
+			bool filled = check(xrEnumerateSwapchainImages(created, 0, &count, nullptr), "xrEnumerateSwapchainImages");
+			if (filled)
+			{
+				pointer_images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+				filled = check(xrEnumerateSwapchainImages(created, count, &count, reinterpret_cast<XrSwapchainImageBaseHeader*>(pointer_images.data())), "xrEnumerateSwapchainImages")
+					&& check(xrAcquireSwapchainImage(created, &acquire, &index), "xrAcquireSwapchainImage(pointer)")
+					&& check(xrWaitSwapchainImage(created, &wait), "xrWaitSwapchainImage(pointer)");
+			}
+			if (filled)
+			{
+				ComPtr<ID3D11RenderTargetView> target;
+				D3D11_RENDER_TARGET_VIEW_DESC view{};
+				view.Format = chosen;
+				view.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+				ComPtr<ID3D11DeviceContext> context;
+				device->GetImmediateContext(&context);
+				const float colour[4] = { 0.25f, 0.85f, 1.0f, 1.0f };
+				if (SUCCEEDED(device->CreateRenderTargetView(pointer_images[index].texture, &view, &target)))
+				{
+					context->ClearRenderTargetView(target.Get(), colour);
+				}
+				XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+				filled = check(xrReleaseSwapchainImage(created, &release), "xrReleaseSwapchainImage(pointer)");
+			}
+			if (!filled)
+			{
+				xrDestroySwapchain(created);
+				return false;
+			}
+			pointer_swapchain = created;
+			pointer_swapchain_failed = false;
+			log::write("theater: pointer beam ready");
+			return true;
+		}
+
+		void destroy_pointer_swapchain()
+		{
+			if (pointer_swapchain != XR_NULL_HANDLE)
+			{
+				xrDestroySwapchain(pointer_swapchain);
+				pointer_swapchain = XR_NULL_HANDLE;
+			}
+			pointer_swapchain_failed = false;
+		}
+
+		// Beam from the controller to where it points (or 3 m along the ray), turned about its own axis
+		// to face the head; a 3 cm dot on the screen at the hit.
+		void place_pointer_visual(const stereo::pose& aim, const input::pointer_hit& hit)
+		{
+			pointer_beam_visible = pointer_dot_visible = false;
+			if (!ensure_pointer_swapchain())
+			{
+				return;
+			}
+			const float* q = aim.orientation;
+			const float* p = aim.position;
+			// The ray: -z of the aim rotation.
+			const float d[3] = { -2.0f * (q[0] * q[2] + q[1] * q[3]), -2.0f * (q[1] * q[2] - q[0] * q[3]), -(1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1])) };
+			const float length = hit.hit ? hit.distance : 3.0f;
+			const float end[3] = { p[0] + d[0] * length, p[1] + d[1] * length, p[2] + d[2] * length };
+			float head[3]{};
+			if (const stereo::head_sample h = stereo::latest_head_sample(); h.valid)
+			{
+				for (int i = 0; i < 3; ++i)
+				{
+					head[i] = 0.5f * (h.eyes[0].position[i] + h.eyes[1].position[i]);
+				}
+			}
+			// Basis: x along the ray, z (the quad's normal) toward the head, y = z cross x.
+			float z[3] = { head[0] - 0.5f * (p[0] + end[0]), head[1] - 0.5f * (p[1] + end[1]), head[2] - 0.5f * (p[2] + end[2]) };
+			const float along = z[0] * d[0] + z[1] * d[1] + z[2] * d[2];
+			for (int i = 0; i < 3; ++i)
+			{
+				z[i] -= along * d[i];
+			}
+			const float zl = std::sqrt(z[0] * z[0] + z[1] * z[1] + z[2] * z[2]);
+			if (zl < 1e-4f)
+			{
+				return;
+			}
+			for (float& c : z)
+			{
+				c /= zl;
+			}
+			const float y[3] = { z[1] * d[2] - z[2] * d[1], z[2] * d[0] - z[0] * d[2], z[0] * d[1] - z[1] * d[0] };
+			// Rotation matrix with columns (d, y, z) to a quaternion.
+			const float m00 = d[0], m11 = y[1], m22 = z[2];
+			float w{}, x{}, yy{}, zz{};
+			const float trace = m00 + m11 + m22;
+			if (trace > 0.0f)
+			{
+				const float s = 0.5f / std::sqrt(trace + 1.0f);
+				w = 0.25f / s;
+				x = (y[2] - z[1]) * s;
+				yy = (z[0] - d[2]) * s;
+				zz = (d[1] - y[0]) * s;
+			}
+			else if (m00 > m11 && m00 > m22)
+			{
+				const float s = 2.0f * std::sqrt(1.0f + m00 - m11 - m22);
+				w = (y[2] - z[1]) / s;
+				x = 0.25f * s;
+				yy = (y[0] + d[1]) / s;
+				zz = (z[0] + d[2]) / s;
+			}
+			else if (m11 > m22)
+			{
+				const float s = 2.0f * std::sqrt(1.0f + m11 - m00 - m22);
+				w = (z[0] - d[2]) / s;
+				x = (y[0] + d[1]) / s;
+				yy = 0.25f * s;
+				zz = (z[1] + y[2]) / s;
+			}
+			else
+			{
+				const float s = 2.0f * std::sqrt(1.0f + m22 - m00 - m11);
+				w = (d[1] - y[0]) / s;
+				x = (z[0] + d[2]) / s;
+				yy = (z[1] + y[2]) / s;
+				zz = 0.25f * s;
+			}
+			const auto fill = [&](XrCompositionLayerQuad& layer)
+			{
+				layer = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+				layer.space = space;
+				layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+				layer.subImage.swapchain = pointer_swapchain;
+				layer.subImage.imageRect.extent = { 4, 4 };
+			};
+			fill(pointer_beam);
+			pointer_beam.pose.position = { 0.5f * (p[0] + end[0]), 0.5f * (p[1] + end[1]), 0.5f * (p[2] + end[2]) };
+			pointer_beam.pose.orientation = { x, yy, zz, w };
+			pointer_beam.size = { length, 0.004f };
+			pointer_beam_visible = true;
+			if (hit.hit)
+			{
+				fill(pointer_dot);
+				pointer_dot.pose.position = { hit.point[0], hit.point[1], hit.point[2] + 0.005f };
+				pointer_dot.pose.orientation.w = 1.0f;
+				pointer_dot.size = { 0.03f, 0.03f };
+				pointer_dot_visible = true;
+			}
+		}
+
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
 		void point_at_screen(float width, float height)
 		{
+			pointer_beam_visible = pointer_dot_visible = false;
 			if (settings::global().text("menu_input", "pointer") != "pointer")
 			{
 				return;
@@ -857,6 +1094,7 @@ namespace bfvr::xr
 			screen.width = width;
 			screen.height = height;
 			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
+			place_pointer_visual(hands.aim[pointer_hand], hit);
 			if (hit.hit)
 			{
 				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
@@ -1178,7 +1416,7 @@ namespace bfvr::xr
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection);
 				layer_count = 1;
 
-				if (hud_mode && settings::global().text("hud_mode", "head") == "body" && copy_hud_to_swapchain())
+				if (hud_mode && settings::global().text("hud_mode", "body") == "body" && copy_hud_to_swapchain())
 				{
 					const int added = body_hud_layers(body_quads);
 					for (int i = 0; i < added; ++i)
@@ -1208,6 +1446,14 @@ namespace bfvr::xr
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
 				point_at_screen(quad.size.width, quad.size.height);
 				layer_count = 1;
+				if (pointer_beam_visible)
+				{
+					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&pointer_beam);
+				}
+				if (pointer_dot_visible)
+				{
+					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&pointer_dot);
+				}
 			}
 
 			enter("end frame");
@@ -1251,6 +1497,7 @@ namespace bfvr::xr
 			stop_waiter();
 			destroy_swapchain();
 			destroy_hud_swapchain();
+			destroy_pointer_swapchain();
 			if (view_space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(view_space);

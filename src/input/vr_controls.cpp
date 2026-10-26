@@ -40,6 +40,8 @@ namespace bfvr::input
 		constexpr ULONGLONG hold_ms = 900;
 
 		std::atomic<bool> stick_turns{};
+		std::atomic<bool> grips_to_game{};
+		std::atomic<bool> ads_trigger{};
 		std::mutex lock;
 		right_stick stick;
 		LARGE_INTEGER last_poll{};
@@ -148,12 +150,24 @@ namespace bfvr::input
 	void install_vr_controls()
 	{
 		configure_turn(config::get("turn", "snap"), std::atoi(config::get("snap_turn_degrees", "30").c_str()), config::get_bool("stance_flicks", true));
-		stick_turns = config::get("right_stick", "look") == "turn";
+		stick_turns = config::get("right_stick", "turn") == "turn";
 		log::write("controls: right_stick=%s", stick_turns.load() ? "turn" : "look");
 	}
 
-	gamepad_state for_game(const gamepad_state& pad)
+	gamepad_state for_game(const gamepad_state& raw)
 	{
+		// The grips hold the gun and drive the mod's gestures (reload, grenades, holsters, signals);
+		// as LB/RB they would throw grenades and fire. The left trigger (ADS) zooms the view, which in
+		// VR changes the field of view under the player. Both stay out of the game unless enabled.
+		gamepad_state pad = raw;
+		if (!grips_to_game.load(std::memory_order_relaxed))
+		{
+			pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
+		}
+		if (!ads_trigger.load(std::memory_order_relaxed))
+		{
+			pad.left_trigger = 0;
+		}
 		if (!stick_turns.load(std::memory_order_relaxed))
 		{
 			return pad;
@@ -264,6 +278,12 @@ namespace bfvr::input
 		pitch_neutral = enabled;
 	}
 
+	void set_game_buttons(bool grips, bool ads)
+	{
+		grips_to_game = grips;
+		ads_trigger = ads;
+	}
+
 	std::string set_right_stick_mode(const std::string& mode)
 	{
 		if (mode == "turn" || mode == "look")
@@ -284,6 +304,7 @@ namespace bfvr::input
 	}
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
+	void set_game_buttons(bool, bool) {}
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}

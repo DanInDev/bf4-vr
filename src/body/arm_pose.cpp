@@ -124,7 +124,7 @@ namespace bfvr::body
 		std::atomic<ULONGLONG> next_refresh{};
 		std::atomic<ULONGLONG> next_check{};
 		// Bones the IK rewrites: both arms (upper, fore, roll, hand) and the weapon root.
-		constexpr int max_edited = 9;
+		constexpr int max_edited = 11; // + the two shoulder (clavicle) bones for shoulder_width
 		int edited[max_edited]{};
 		int edited_count{};
 		bone_memory memory[max_edited];
@@ -134,6 +134,8 @@ namespace bfvr::body
 		ik::quat camera_axes{ 0, 1, 0, 0 };
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
+		std::atomic<float> arm_length{ 1.0f };   // live setting: forearm and hand offsets scaled (reach)
+		std::atomic<float> shoulder_width{};     // live setting: clavicles moved outwards, metres per side
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -276,6 +278,13 @@ namespace bfvr::body
 				{
 					edited[edited_count++] = rig.weapon;
 				}
+				for (const ik::arm_bones& arm : rig.arms)
+				{
+					if (arm.upper >= 0 && rig.parents[arm.upper] >= 0 && rig.parents[arm.upper] != rig.camera)
+					{
+						edited[edited_count++] = rig.parents[arm.upper];
+					}
+				}
 			}
 		}
 
@@ -347,6 +356,7 @@ namespace bfvr::body
 				head_rotation = { q[0], q[1], q[2], q[3] };
 			}
 			bool any = false;
+			bool shaped = false; // written bones must be remembered even when no arm solves
 			for (int hand = 0; hand < 2; ++hand)
 			{
 				ik::vec3 wrist;
@@ -381,6 +391,29 @@ namespace bfvr::body
 				const bool carry_weapon = hand == 1 && weapon_follows && rig.weapon >= 0;
 				const ik::bone_transform weapon_in_hand = carry_weapon
 					? ik::compose(ik::inverse(hand_model), ik::model_of(local, rig.parents, rig.weapon)) : ik::bone_transform{};
+				// Arm shape (live settings): wider shoulders and longer arms, set before the solve, which
+				// takes its bone lengths from the pose. The weapon keeps its authored grip (measured above).
+				const float width = shoulder_width.load(std::memory_order_relaxed);
+				if (width != 0.0f && bones.upper >= 0 && rig.parents[bones.upper] >= 0)
+				{
+					const int clavicle = rig.parents[bones.upper];
+					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
+					moved.position = moved.position + ik::rotate(frame, ik::vec3{ hand == 0 ? -width : width, 0.0f, 0.0f });
+					ik::set_model_transform(local, rig.parents, clavicle, moved);
+					shaped = true;
+				}
+				const float length = arm_length.load(std::memory_order_relaxed);
+				if (length != 1.0f)
+				{
+					for (const int bone : { bones.fore, bones.roll, bones.hand })
+					{
+						if (bone >= 0)
+						{
+							local[bone].position = local[bone].position * length;
+						}
+					}
+					shaped = true;
+				}
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
@@ -399,7 +432,7 @@ namespace bfvr::body
 					}
 				}
 			}
-			if (any)
+			if (any || shaped)
 			{
 				++solved;
 				// Bones of an arm left alone are rewritten unchanged; that is harmless.
@@ -655,6 +688,12 @@ namespace bfvr::body
 	bool arm_ik_enabled()
 	{
 		return ik_enabled;
+	}
+
+	void set_arm_shape(float length, float width)
+	{
+		arm_length = length > 0.5f && length < 2.0f ? length : 1.0f;
+		shoulder_width = width;
 	}
 
 	void set_shoulder_offset(float x, float y, float z)
