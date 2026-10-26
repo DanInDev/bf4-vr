@@ -20,12 +20,7 @@ namespace bfvr::stereo
 	{
 		ID3D11Texture2D* texture{}; // premultiplied alpha, back-buffer size; owned by the capture
 		std::uint64_t frame{};      // Present count of the last frame whose HUD was captured
-		std::uint64_t uncaptured{}; // Present count of the last frame whose UI went into the image
-		std::uint64_t presents{};   // Present count now
 	};
 	hud_frame latest_hud();
-	// The UI was drawn straight into the image within the last frames (not on a head-tracked frame):
-	// a menu over the level (pause menu). The theater then shows the flat screen.
-	bool ui_on_screen();
 	bool hud_capture_enabled();
 }

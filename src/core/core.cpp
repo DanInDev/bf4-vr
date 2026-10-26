@@ -134,8 +134,7 @@ namespace bfvr::core
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
-				+ "\neyepass " + stereo::eye_pass_report() + "\nhud captured=" + std::to_string(stereo::latest_hud().frame)
-				+ " ui_on_screen=" + (stereo::ui_on_screen() ? "1" : "0");
+				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0");
 		}
 
 		DWORD WINAPI start_thread(LPVOID)

@@ -1072,6 +1072,92 @@ namespace bfvr::xr
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
 		bool menu_shown{};
+
+		// Menus over a running level (the pause menu) are not part of the eye images: the game draws
+		// them straight into its image, in the 16:9 band with exact black above and below, while the
+		// world fills the whole square. Two rows near the top and bottom edge are read back (async,
+		// every 4th frame); both exactly black = a menu is up, and the flat screen is shown instead.
+		ComPtr<ID3D11Texture2D> letterbox_rows;
+		bool letterbox_pending{};
+		bool letterboxed{};
+		unsigned letterbox_tick{};
+
+		void watch_letterbox(ID3D11Texture2D* back_buffer)
+		{
+			D3D11_TEXTURE2D_DESC desc{};
+			back_buffer->GetDesc(&desc);
+			const bool four_bytes = desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM || desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+				|| desc.Format == DXGI_FORMAT_R8G8B8A8_TYPELESS || desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM
+				|| desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB || desc.Format == DXGI_FORMAT_B8G8R8A8_TYPELESS
+				|| desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM;
+			if (!four_bytes || desc.SampleDesc.Count != 1 || desc.Height < 400)
+			{
+				return;
+			}
+			ComPtr<ID3D11DeviceContext> context;
+			device->GetImmediateContext(&context);
+			D3D11_TEXTURE2D_DESC have{};
+			if (letterbox_rows)
+			{
+				letterbox_rows->GetDesc(&have);
+			}
+			if (!letterbox_rows || have.Width != desc.Width || have.Format != desc.Format)
+			{
+				letterbox_rows.Reset();
+				letterbox_pending = false;
+				D3D11_TEXTURE2D_DESC rows{};
+				rows.Width = desc.Width;
+				rows.Height = 2;
+				rows.MipLevels = rows.ArraySize = 1;
+				rows.Format = desc.Format;
+				rows.SampleDesc.Count = 1;
+				rows.Usage = D3D11_USAGE_STAGING;
+				rows.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				if (FAILED(device->CreateTexture2D(&rows, nullptr, &letterbox_rows)))
+				{
+					return;
+				}
+			}
+			if (letterbox_pending)
+			{
+				D3D11_MAPPED_SUBRESOURCE mapped{};
+				const HRESULT hr = context->Map(letterbox_rows.Get(), 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT, &mapped);
+				if (hr == DXGI_ERROR_WAS_STILL_DRAWING)
+				{
+					return;
+				}
+				if (SUCCEEDED(hr))
+				{
+					bool black = true;
+					for (UINT row = 0; row < 2 && black; ++row)
+					{
+						const auto* pixels = static_cast<const std::uint32_t*>(mapped.pData) + row * (mapped.RowPitch / 4);
+						for (UINT x = desc.Width / 64; x < desc.Width; x += desc.Width / 32)
+						{
+							if ((pixels[x] & 0x00FFFFFFu) != 0)
+							{
+								black = false;
+								break;
+							}
+						}
+					}
+					context->Unmap(letterbox_rows.Get(), 0);
+					letterboxed = black;
+				}
+				letterbox_pending = false;
+			}
+			if (++letterbox_tick % 4 != 0)
+			{
+				return;
+			}
+			const UINT rows_y[2] = { desc.Height / 20, desc.Height - desc.Height / 20 };
+			for (UINT row = 0; row < 2; ++row)
+			{
+				const D3D11_BOX box{ 0, rows_y[row], 0, desc.Width, rows_y[row] + 1, 1 };
+				context->CopySubresourceRegion(letterbox_rows.Get(), 0, 0, row, 0, back_buffer, 0, &box);
+			}
+			letterbox_pending = true;
+		}
 		void point_at_screen(float width, float height)
 		{
 			pointer_beam_visible = pointer_dot_visible = false;
@@ -1397,7 +1483,11 @@ namespace bfvr::xr
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
-			const bool ui_on_screen = stereo::ui_on_screen();
+			if (stereo_mode && back_buffer)
+			{
+				watch_letterbox(back_buffer.Get());
+			}
+			const bool ui_on_screen = stereo_mode && letterboxed;
 			if (ui_on_screen != menu_shown)
 			{
 				menu_shown = ui_on_screen;
@@ -1669,6 +1759,6 @@ namespace bfvr::xr
 		const char* stage = s.stage.load();
 		const double stage_ms = std::strcmp(stage, "idle") == 0 ? 0.0 : static_cast<double>(GetTickCount64() - s.stage_since.load());
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
-			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms };
+			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown };
 	}
 }

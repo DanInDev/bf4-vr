@@ -21,6 +21,7 @@ namespace bfvr::xr
 		// Step the game's frame is in inside the VR code, and for how long (diagnoses freezes).
 		const char* stage{};
 		double stage_ms{};
+		bool menu_over_level{}; // a menu is up over the level: the flat screen is shown
 	};
 
 	// Stage 1: shows the game's back buffer on a virtual screen in the headset.
