@@ -58,6 +58,8 @@ namespace bfvr::weapon
 		const float separation = body::ik::length(line);
 		const bool pressed = input.grip && !last_grip_;
 		last_grip_ = input.grip;
+		const bool trigger_was_down = trigger_down_;
+		trigger_down_ = trigger_down_ ? input.trigger > config_.trigger_release : input.trigger >= config_.trigger_press;
 
 		if (!held_ && pressed && input.tracked && !input.busy && on_handguard(input.gun, input.off_hand, config_))
 		{
@@ -87,6 +89,8 @@ namespace bfvr::weapon
 		output.held = held_;
 		output.weight = weight_;
 		output.claim_grip = held_;
+		output.claim_trigger = held_;
+		output.toggle_accessory = held_ && trigger_down_ && !trigger_was_down;
 		store(weight_ > 0 ? blend(one_handed, to_quat(two_handed_), weight_) : one_handed, output.rotation);
 		return output;
 	}

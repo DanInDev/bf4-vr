@@ -135,6 +135,7 @@ namespace bfvr::body
 		ik::quat camera_axes{ 0, 1, 0, 0 };
 		ik::vec3 wrist_offset[2]; // wrist relative to the grip pose, grip axes
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
+		std::atomic<float> shoulder_width{}; // live setting: each shoulder joint moved out to its side, metres
 		std::atomic<float> arm_stretch{ 0.25f }; // live setting: how much longer an arm may get to reach its controller
 		std::mutex gun_hand_lock;
 		bool gun_hand_override{};
@@ -387,6 +388,13 @@ namespace bfvr::body
 				}
 
 				const ik::arm_bones& bones = rig.arms[hand];
+				if (const float width = shoulder_width.load(std::memory_order_relaxed); width != 0.0f)
+				{
+					// Rig arm 0 is the left arm: out = -x in camera axes.
+					ik::bone_transform shoulder = ik::model_of(local, rig.parents, bones.upper);
+					shoulder.position = shoulder.position + ik::rotate(frame, ik::vec3{ hand == 1 ? width : -width, 0, 0 });
+					ik::set_model_transform(local, rig.parents, bones.upper, shoulder);
+				}
 				// The controller turns the animated hand: pointing straight ahead keeps the authored grip.
 				const ik::bone_transform hand_model = ik::model_of(local, rig.parents, bones.hand);
 				const ik::quat hand_animated = hand_model.rotation;
@@ -673,6 +681,11 @@ namespace bfvr::body
 		const std::lock_guard guard(gun_hand_lock);
 		gun_hand_override = active;
 		gun_hand_rotation = { rotation[0], rotation[1], rotation[2], rotation[3] };
+	}
+
+	void set_shoulder_width(float metres)
+	{
+		shoulder_width = metres;
 	}
 
 	void set_arm_stretch(float fraction)

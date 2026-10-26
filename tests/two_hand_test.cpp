@@ -2,6 +2,7 @@
 // steering the barrel with the hand line, blending, release rules, and the converged shot direction.
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 
 #include "body/arm_ik.hpp"
 #include "weapon/two_hand.hpp"
@@ -147,6 +148,45 @@ namespace
 		expect(!grip.update(frame_with(level_gun, vec3{ 0.2f, -0.3f, -0.6f } + vec3{ 0.3f, 0, 0 }, true)).held, "press away from the gun does not grab");
 	}
 
+	two_hand_input with_trigger(two_hand_input input, float trigger)
+	{
+		input.trigger = trigger;
+		return input;
+	}
+
+	void test_accessory_trigger()
+	{
+		two_hand_grip grip;
+		two_hand_output out = grip.update(with_trigger(frame_with(level_gun, handguard, false), 1.0f));
+		expect(!out.toggle_accessory && !out.claim_trigger, "trigger without holding the gun is the game's");
+		grip.update(frame_with(level_gun, handguard, false));
+
+		out = grip.update(frame_with(level_gun, handguard, true));
+		expect(out.held && out.claim_trigger && !out.toggle_accessory, "holding claims the trigger");
+		out = grip.update(with_trigger(frame_with(level_gun, handguard, true), 1.0f));
+		expect(out.toggle_accessory, "trigger press while holding toggles");
+		int toggles = 0;
+		for (const float value : { 1.0f, 0.9f, 0.4f, 0.8f, 1.0f })
+		{
+			toggles += grip.update(with_trigger(frame_with(level_gun, handguard, true), value)).toggle_accessory ? 1 : 0;
+		}
+		expect(toggles == 0, "held trigger and wobble above the release do not repeat");
+		grip.update(with_trigger(frame_with(level_gun, handguard, true), 0.1f));
+		expect(grip.update(with_trigger(frame_with(level_gun, handguard, true), 0.7f)).toggle_accessory, "release and press again toggles again");
+
+		// Trigger already held when the gun is grabbed: no toggle until it is pressed anew.
+		two_hand_grip second;
+		second.update(with_trigger(frame_with(level_gun, handguard, false), 1.0f));
+		out = second.update(with_trigger(frame_with(level_gun, handguard, true), 1.0f));
+		expect(out.held && !out.toggle_accessory, "trigger held at the grab does not toggle");
+		second.update(with_trigger(frame_with(level_gun, handguard, true), 0.0f));
+		expect(second.update(with_trigger(frame_with(level_gun, handguard, true), 1.0f)).toggle_accessory, "then a new press toggles");
+
+		// Letting go of the grip hands the trigger back.
+		out = second.update(with_trigger(frame_with(level_gun, handguard, false), 0.0f));
+		expect(!out.claim_trigger, "release gives the trigger back");
+	}
+
 	void test_converged_aim()
 	{
 		const float origin[3]{ 0, 0, 0 };
@@ -173,6 +213,7 @@ int main()
 	test_grab_and_steer();
 	test_blend_and_release();
 	test_refusals();
+	test_accessory_trigger();
 	test_converged_aim();
 	if (failures)
 	{

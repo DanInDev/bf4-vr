@@ -61,6 +61,7 @@ namespace bfvr::core
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
 			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
+			body::set_shoulder_width(store.real("shoulder_width", 0.0f));
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
@@ -69,7 +70,9 @@ namespace bfvr::core
 			input::set_controller_aim(store.text("aim", "head") == "controller");
 			weapon::set_physical_reload(store.text("reload", "button") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
-			weapon::set_accessory_touch(store.boolean("accessory_touch", true));
+			const std::string accessory = store.text("accessory_toggle", "trigger");
+			weapon::set_accessory_touch(accessory == "touch");
+			weapon::set_accessory_trigger(accessory == "trigger");
 			weapon::set_holsters(store.boolean("holsters", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");

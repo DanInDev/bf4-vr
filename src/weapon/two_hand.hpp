@@ -14,6 +14,8 @@ namespace bfvr::weapon
 		float grab_far{ 0.65f };    // and ends here
 		float min_separation{ 0.08f }; // hands closer than this: the line between them says nothing
 		float blend_time{ 0.12f };  // seconds to blend between one- and two-handed
+		float trigger_press{ 0.6f };   // off-hand trigger: a press past this toggles the accessory
+		float trigger_release{ 0.3f }; // and must fall below this before the next
 	};
 
 	struct two_hand_input
@@ -22,6 +24,7 @@ namespace bfvr::weapon
 		stereo::pose gun;       // gun hand: position = grip, orientation = aim rotation (-z down the barrel)
 		float off_hand[3]{};    // off-hand grip position
 		bool grip{};            // off-hand grip held
+		float trigger{};        // off-hand trigger, 0..1
 		bool busy{};            // reload, grenade, accessory or holster owns the off hand
 		float seconds{};
 	};
@@ -32,6 +35,10 @@ namespace bfvr::weapon
 		float weight{};         // 0 one-handed .. 1 two-handed (blends after grab and release)
 		float rotation[4]{ 0, 0, 0, 1 }; // gun-hand aim rotation to draw and fire with (x, y, z, w)
 		bool claim_grip{};      // keep the off-hand grip from the game (pad LB is the grenade)
+		// Off-hand trigger pressed while holding the gun: the game's accessory toggle (laser, light,
+		// magnifier). A trigger already held at the grab does not count.
+		bool toggle_accessory{};
+		bool claim_trigger{};   // keep the off-hand trigger (pad LT, zoom) from the game while holding
 	};
 
 	class two_hand_grip
@@ -47,6 +54,7 @@ namespace bfvr::weapon
 		two_hand_config config_;
 		bool held_{};
 		bool last_grip_{};
+		bool trigger_down_{};
 		float weight_{};
 		float line_in_gun_[3]{};          // hand line at the grab, gun-hand axes
 		float two_handed_[4]{ 0, 0, 0, 1 }; // last two-handed rotation (kept for the release blend)

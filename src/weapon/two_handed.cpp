@@ -25,6 +25,11 @@ namespace bfvr::weapon
 		std::atomic<bool> enabled{ true };
 		std::atomic<float> convergence{ 25.0f };
 		std::atomic<bool> claim{};
+		std::atomic<bool> trigger_toggles{ true };
+		std::atomic<bool> claim_trigger{};
+		std::atomic<ULONGLONG> pulse_until{};
+		constexpr ULONGLONG pulse_ms = 120;
+		std::uint64_t toggles{};
 		std::mutex lock;
 		two_hand_grip grip;
 		two_hand_output last;
@@ -39,6 +44,7 @@ namespace bfvr::weapon
 			last = {};
 			shot_valid = false;
 			claim = false;
+			claim_trigger = false;
 			const float identity[4]{ 0, 0, 0, 1 };
 			const float none[3]{};
 			body::set_gun_hand_rotation(false, identity);
@@ -54,6 +60,11 @@ namespace bfvr::weapon
 	void set_aim_convergence(float metres)
 	{
 		convergence = metres;
+	}
+
+	void set_accessory_trigger(bool on)
+	{
+		trigger_toggles = on;
 	}
 
 	void update_two_handed()
@@ -82,7 +93,9 @@ namespace bfvr::weapon
 			std::copy(std::begin(hands.aim[1].orientation), std::end(hands.aim[1].orientation), input.gun.orientation);
 			std::copy(std::begin(hands.grip[1].position), std::end(hands.grip[1].position), input.gun.position);
 			std::copy(std::begin(hands.grip[0].position), std::end(hands.grip[0].position), input.off_hand);
-			input.grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+			const input::gamepad_state pad = input::latest();
+			input.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+			input.trigger = static_cast<float>(pad.left_trigger) / 255.0f;
 			input.busy = grenade_in_hand() || reload_owns_off_hand();
 			input.seconds = seconds;
 			out = grip.update(input);
@@ -97,6 +110,13 @@ namespace bfvr::weapon
 		}
 		last = out;
 		claim = out.claim_grip;
+		const bool by_trigger = trigger_toggles.load(std::memory_order_relaxed);
+		claim_trigger = by_trigger && out.claim_trigger;
+		if (by_trigger && out.toggle_accessory)
+		{
+			pulse_until = GetTickCount64() + pulse_ms;
+			++toggles;
+		}
 		body::set_gun_hand_rotation(out.weight > 0, out.rotation);
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
@@ -112,6 +132,15 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}
+		if (claim_trigger.load(std::memory_order_relaxed))
+		{
+			out.left_trigger = 0;
+		}
+		if (GetTickCount64() < pulse_until.load(std::memory_order_relaxed))
+		{
+			out.buttons |= XINPUT_GAMEPAD_DPAD_UP;
+			out.connected = true;
+		}
 		return out;
 	}
 
@@ -120,9 +149,10 @@ namespace bfvr::weapon
 		const std::lock_guard guard(lock);
 		const float* q = last.rotation;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
-		char text[320];
-		std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) convergence=%.1f aim_controller=%d",
-			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), barrel[0], barrel[1], barrel[2],
+		char text[384];
+		std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) convergence=%.1f aim_controller=%d",
+			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
+			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], convergence.load(), input::controller_aim_active() ? 1 : 0);
 		return text;
 	}

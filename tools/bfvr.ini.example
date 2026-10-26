@@ -46,6 +46,8 @@ arm_ik_pole = 0.5 -1 0.3
 # (and the gun with it). An arm may get up to this much longer (0.25 = 25 %); 0 = the game's length.
 # Pipe `arms` shows reach (goal distance / arm length; above 1 = out of reach). Issue #31.
 arm_stretch = 0.25
+# Each shoulder this much further out to its side (metres): a wider chest, elbows further apart.
+shoulder_width = 0
 
 # Render size for the eye images (re/notes/render-quality.md). 0 = the monitor's mode (1920x1080).
 # <w>x<h> offers the game a virtual fullscreen mode of that size (the window stays monitor-sized and
@@ -84,9 +86,11 @@ dominant_hand = right
 reload = button
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
-# Off hand on the optic or the front rail + grip = the game's accessory toggle (D-pad up: magnifier,
-# variable zoom, light, laser). Works with either reload mode.
-accessory_touch = 1
+# The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
+#   trigger  hold the gun with both hands (off hand + grip on the handguard), press the off-hand trigger
+#   touch    off hand on the optic or the front rail + grip
+#   off
+accessory_toggle = trigger
 # Grenades (docs/tasks/grenades.md): button = the game's LB throw; physical = take one at the belt with
 # the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
 # letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
