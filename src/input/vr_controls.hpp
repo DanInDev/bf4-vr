@@ -17,6 +17,15 @@ namespace bfvr::input
 	// XInput thread, every poll: the pad the game sees (stick replaced, stance presses added).
 	gamepad_state for_game(const gamepad_state& pad);
 
+	// Controller aim (#12): aim = controller. The camera hook renders from a level body yaw (camera
+	// yaw convention, atan2(look.x, look.z)); snap turns change it; the aimer follows the controller.
+	void set_controller_aim(bool enabled);
+	bool controller_aim_active();
+	// Game thread: the body yaw, taken from the game's camera yaw the first time.
+	float body_camera_yaw(float game_yaw);
+	// Game thread: points the aimer along a world direction (bullets go there).
+	void aim_along(const float (&direction)[3]);
+
 	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
 	void set_neutral_pitch(bool enabled);
 

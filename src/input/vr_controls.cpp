@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <mutex>
 
@@ -46,6 +47,11 @@ namespace bfvr::input
 		ULONGLONG pulse_until{};
 		std::atomic<float> pending_yaw{};
 		std::atomic<bool> pitch_neutral{};
+		// Controller aim (#12): the view turns with our own body yaw (camera yaw convention:
+		// atan2(look.x, look.z)), the aimer follows the controller.
+		std::atomic<bool> aim_by_controller{};
+		bool body_yaw_known{};
+		float body_yaw{};
 		std::atomic<std::uint64_t> turns{};
 		std::atomic<std::uint64_t> stance_commands{};
 
@@ -192,7 +198,11 @@ namespace bfvr::input
 		{
 			return; // scripted sections without an aimer: the turn is dropped
 		}
-		if (turn != 0.0f)
+		if (turn != 0.0f && aim_by_controller.load(std::memory_order_relaxed))
+		{
+			body_yaw -= turn; // turning right lowers the camera yaw (camera yaw = -aimer yaw)
+		}
+		else if (turn != 0.0f)
 		{
 			yaw += turn;
 			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
@@ -205,6 +215,49 @@ namespace bfvr::input
 		}
 	}
 
+
+	void set_controller_aim(bool enabled)
+	{
+		if (!enabled)
+		{
+			body_yaw_known = false;
+		}
+		aim_by_controller = enabled;
+	}
+
+	bool controller_aim_active()
+	{
+		return aim_by_controller.load(std::memory_order_relaxed);
+	}
+
+	float body_camera_yaw(float game_yaw)
+	{
+		if (!body_yaw_known)
+		{
+			body_yaw = game_yaw;
+			body_yaw_known = true;
+		}
+		return body_yaw;
+	}
+
+	void aim_along(const float (&direction)[3])
+	{
+		const float length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
+		const std::uintptr_t aimer = current_aimer();
+		float yaw{};
+		if (length < 1e-6f || !read(aimer + aimer_yaw, yaw) || !std::isfinite(yaw))
+		{
+			return;
+		}
+		// Camera yaw = -aimer yaw (re/notes/aim.md); keep the aimer continuous across the wrap.
+		const float target = -std::atan2(direction[0], direction[2]);
+		float delta = std::fmod(target - yaw, 6.2831853f);
+		delta += delta > 3.14159265f ? -6.2831853f : delta < -3.14159265f ? 6.2831853f : 0.0f;
+		yaw += delta;
+		const float pitch = std::asin(std::fmax(-1.0f, std::fmin(1.0f, direction[1] / length)));
+		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
+		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_pitch), &pitch, sizeof(pitch), nullptr);
+	}
 
 	void set_neutral_pitch(bool enabled)
 	{
@@ -219,14 +272,25 @@ namespace bfvr::input
 		}
 		std::uint32_t stance{ 99 };
 		read(local_soldier() + soldier_stance, stance);
+		float aim[2]{ NAN, NAN };
+		if (const std::uintptr_t aimer = current_aimer())
+		{
+			read(aimer + aimer_yaw, aim);
+		}
+		char angles[64];
+		std::snprintf(angles, sizeof(angles), " aimer_yaw=%.1f aimer_pitch=%.1f", aim[0] * 57.29578f, aim[1] * 57.29578f);
 		return std::string("right_stick=") + (stick_turns.load() ? "turn" : "look") + " turns=" + std::to_string(turns.load())
-			+ " stance_commands=" + std::to_string(stance_commands.load()) + " stance=" + std::to_string(stance);
+			+ " stance_commands=" + std::to_string(stance_commands.load()) + " stance=" + std::to_string(stance) + angles;
 	}
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}
+	void set_controller_aim(bool) {}
+	bool controller_aim_active() { return false; }
+	float body_camera_yaw(float game_yaw) { return game_yaw; }
+	void aim_along(const float (&)[3]) {}
 	gamepad_state for_game(const gamepad_state& pad) { return pad; }
 	void apply_view_turn() {}
 	std::string set_right_stick_mode(const std::string&) { return "right_stick=look (x64 only)"; }

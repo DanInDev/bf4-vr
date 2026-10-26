@@ -21,6 +21,7 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 8 | `tools\pipe.ps1 setting "set hud_mode body"` (branch `feature/vr-settings`) | Squad/objective markers sit on their targets; crosshair centred; HUD corners out of the way (`hud_marker_distance`, default 10 m) | |
 | 9 | `hud_mode = body`: look at the inside of your left forearm | Minimap appears on the forearm after ~¼ s, leaves when you look away (`hud_watch_width`) | |
 | 10 | `hud_mode = body`: turn the gun sideways, look at it, hold still ~1 s | Ammo counter appears beside the gun, stays until you look away; never while aiming down the sights or sprinting | |
+| 11b | `setting "set aim controller"` (branch `feature/controller-aim`) | Bullets go where the right controller points, the view stays with the head; snap turn still turns the view. Expect: walking follows the gun direction, the HUD crosshair no longer marks the aim | |
 | 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
