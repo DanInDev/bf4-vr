@@ -98,7 +98,8 @@ offline mode is the legitimate way to play without a connection.
 | `tshift <slot> <hex offset> <m>` | Research: every copy, shift the transform at a view-params offset along its right row (0 m = off) |
 | `pin <slot> <hex offset> <float>` | Research: every copy, write a float at a view-params offset and mark view 0 dirty (offset 0 = off) |
 | `fakeyaw <deg>` | Research: synthetic head yaw applied like a headset eye pose (world + first-person camera); 0 = off |
-| `pad <lx> <ly> <rx> <ry> [ms]` | Holds the virtual pad's sticks (−1..1) for up to 10 s; needs XInput polling (a physical pad) and no running headset session |
+| `pad <lx> <ly> <rx> <ry> [ms] [hex buttons] [lt rt]` | Holds the virtual pad's sticks (−1..1), XINPUT buttons and triggers (0..1) for up to 10 s; needs XInput polling and no running headset session (e.g. `pad 0 0 0 0 3000 0 0 1` fires 3 s) |
+| `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |
 | `fov <rad>` | Research: override the vertical FOV (`RenderView+0xB4`; 0 = off) |
@@ -134,7 +135,8 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | Test tool | Use |
 | --- | --- |
 | `tools/settings.ps1 [-List]` | Live settings (#25): up/down pick, left/right change, `r` reset, `s` save into `bfvr.ini`, `q` quit; pipe `setting list|get|set|step|reset|save` underneath |
-| `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`); see `docs/tasks/testing.md` |
+| `ctest --preset bf4-debug` | Offline tests (`arm_ik`, `eye_math`, `settings`, `right_stick`, `gestures`, `handedness`, `reload`, `launcher`); see `docs/tasks/testing.md` |
+| `tools/ammo_probe.py` | Live: fires and reloads with the pad and lists int fields that follow the magazine and reserve (`re/notes/weapon.md`) |
 | `tools/soak.ps1 [-Minutes 10] [-MinFps 60] [-Command 'eyepass 1']` | Samples `status` once a second while the game sits in a level; fails on a stall, low fps or rejected eye pairs and saves a `threads` sample (`re/dumps/soak-*`) |
 
 Disable with `control_pipe = 0` in `bfvr.ini`. Local clients only (`PIPE_REJECT_REMOTE_CLIENTS`).

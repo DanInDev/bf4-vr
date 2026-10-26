@@ -25,6 +25,8 @@ block, `re/notes/stereo-rendering.md`). Monitor: scope disparity −297 px at 64
 | 11b | `setting "set aim controller"` | Bullets go where the right controller points, the view stays with the head; snap turn still turns the view. Expect: walking follows the gun direction, the HUD crosshair no longer marks the aim | |
 | 11 | `tools\settings.ps1` with the headset on | Change gun_scale, hud_distance, ipd_scale live; `s` saves | |
 | 11c | `setting "set dominant_hand left"` | Right stick moves, left stick looks/turns, left trigger fires, X/Y act as A/B; the gun arm follows the left controller; minimap on the right inner forearm. Known: the body is not mirrored yet, so the right arm reaches across to the left controller | |
+| 13 | `setting "set reload physical"`, AK-12: empty it, grip the magazine with the left hand and pull, drop it; grip at the chest, bring the new one to the gun; grip the slide and pull back | Magazine follows the left hand and falls when dropped; new one seats at the magwell; rack chambers. Judge: grab distances (8 cm magwell, 7 cm slide, 20 cm chest), where the slide point sits (bone origin), magazine orientation in the hand | |
+| 13b | Same with the SCAR-H (AR): fire dry, X, new magazine, X | Bolt locks open on empty, X drops the magazine, X after the new one chambers | |
 | 12 | Sizing (#24), `tools\settings.ps1`: tune `gun_scale`, `shoulder_offset` (x right, y up, z back), `ipd_scale` until the gun and arms feel right in `pair`; `s` saves | Note the values that feel right | |
 
 ## 2026-10-26 — pair rendering (both eyes from one game frame)

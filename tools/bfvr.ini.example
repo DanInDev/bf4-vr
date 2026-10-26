@@ -73,6 +73,13 @@ stance_flicks = 1
 # Gun hand (issue #9): left mirrors the controllers (sticks, triggers, grips, A/B <-> X/Y, stick
 # clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
 dominant_hand = right
+# Reload (issue #14): button = the game's reload; physical = by hand. AK-pattern rifles: grip the
+# magazine with the off hand to pull it, rack the slide when empty. Others (AR): X releases the magazine
+# (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
+# magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
+reload = button
+# Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
+drop_discards_ammo = 1
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
 gamepad = 1
