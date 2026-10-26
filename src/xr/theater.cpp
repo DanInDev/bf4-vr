@@ -722,17 +722,21 @@ namespace bfvr::xr
 		// 2160x2160 (2026-10-26).
 		static constexpr stereo::hud_layout::uv_rect minimap_rect{ 0.013f, 0.824f, 0.154f, 0.997f };
 		static constexpr stereo::hud_layout::uv_rect ammo_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
+		// The texture split into four pieces without overlap, each with a hud_show_<piece> toggle (#28):
+		// main = crosshair, markers, objective text; bottom = weapon/stance icons between minimap and ammo.
 		static constexpr stereo::hud_layout::uv_rect upper_rect{ 0.0f, 0.0f, 1.0f, 0.82f };
 		static constexpr stereo::hud_layout::uv_rect lower_middle_rect{ 0.16f, 0.82f, 0.87f, 1.0f };
+		static constexpr stereo::hud_layout::uv_rect minimap_piece{ 0.0f, 0.82f, 0.16f, 1.0f };
+		static constexpr stereo::hud_layout::uv_rect ammo_piece{ 0.87f, 0.82f, 1.0f, 1.0f };
 		input::gestures::forearm_glance minimap_gesture;
 		input::gestures::gun_inspect ammo_gesture;
 		LARGE_INTEGER last_gesture_time{};
 
-		void fill_quad(XrCompositionLayerQuad& layer, const stereo::hud_layout::quad& placed)
+		void fill_quad(XrCompositionLayerQuad& layer, const stereo::hud_layout::quad& placed, XrSpace in_space = XR_NULL_HANDLE)
 		{
 			layer = { XR_TYPE_COMPOSITION_LAYER_QUAD };
 			layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-			layer.space = space;
+			layer.space = in_space != XR_NULL_HANDLE ? in_space : space;
 			layer.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 			layer.subImage.swapchain = hud_swapchain;
 			const auto w = static_cast<float>(hud_swapchain_width);
@@ -744,6 +748,36 @@ namespace bfvr::xr
 			layer.pose.position = { p.position[0], p.position[1], p.position[2] };
 			layer.pose.orientation = { p.orientation[0], p.orientation[1], p.orientation[2], p.orientation[3] };
 			layer.size = { placed.width, placed.height };
+		}
+
+		// hud_mode = head: the pieces at their places on the head-locked quad (VIEW space).
+		int head_hud_layers(XrCompositionLayerQuad (&out)[4])
+		{
+			settings::registry& store = settings::global();
+			const float distance = store.real("hud_distance", 1.5f);
+			const float width = store.real("hud_width", 1.3f);
+			const float height = width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width);
+			const struct { const char* toggle; stereo::hud_layout::uv_rect rect; } pieces[] = {
+				{ "hud_show_main", upper_rect }, { "hud_show_bottom", lower_middle_rect },
+				{ "hud_show_minimap", minimap_piece }, { "hud_show_ammo", ammo_piece },
+			};
+			int count = 0;
+			for (const auto& piece : pieces)
+			{
+				if (!store.boolean(piece.toggle, true))
+				{
+					continue;
+				}
+				stereo::hud_layout::quad placed;
+				placed.rect = piece.rect;
+				placed.width = (piece.rect.u1 - piece.rect.u0) * width;
+				placed.height = (piece.rect.v1 - piece.rect.v0) * height;
+				placed.placement.position[0] = (0.5f * (piece.rect.u0 + piece.rect.u1) - 0.5f) * width;
+				placed.placement.position[1] = (0.5f - 0.5f * (piece.rect.v0 + piece.rect.v1)) * height;
+				placed.placement.position[2] = -distance;
+				fill_quad(out[count++], placed, view_space);
+			}
+			return count;
 		}
 
 		int body_hud_layers(XrCompositionLayerQuad (&out)[4])
@@ -761,8 +795,14 @@ namespace bfvr::xr
 			}
 			const float distance = store.real("hud_marker_distance", 10.0f);
 			int count = 0;
-			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, upper_rect));
-			fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, lower_middle_rect));
+			if (store.boolean("hud_show_main", true))
+			{
+				fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, upper_rect));
+			}
+			if (store.boolean("hud_show_bottom", true))
+			{
+				fill_quad(out[count++], stereo::hud_layout::projected(view, eye_fovs[0], distance, lower_middle_rect));
+			}
 
 			LARGE_INTEGER now{}, frequency{};
 			QueryPerformanceCounter(&now);
@@ -779,12 +819,12 @@ namespace bfvr::xr
 			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
 			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
 			const float aspect = static_cast<float>(hud_swapchain_width) / static_cast<float>(hud_swapchain_height);
-			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds))
+			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds) && store.boolean("hud_show_minimap", true))
 			{
 				const float offset[3] = { 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
 			}
-			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds))
+			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds) && store.boolean("hud_show_ammo", true))
 			{
 				const float offset[3] = { -0.06f, 0.05f, -0.10f }; // beside the gun's left side
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], offset, eye, store.real("hud_ammo_width", 0.10f), ammo_rect, aspect));
@@ -1111,7 +1151,6 @@ namespace bfvr::xr
 			}
 
 			XrCompositionLayerQuad quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			XrCompositionLayerQuad hud_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerProjection projection{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
 			XrCompositionLayerProjectionView views[2]{ { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW }, { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW } };
 			XrCompositionLayerQuad body_quads[4]{};
@@ -1150,18 +1189,11 @@ namespace bfvr::xr
 				else if (hud_mode && copy_hud_to_swapchain())
 				{
 					// The texture holds the HUD over transparent black: premultiplied alpha.
-					hud_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-					hud_quad.space = view_space;
-					hud_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-					hud_quad.subImage.swapchain = hud_swapchain;
-					hud_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(hud_swapchain_width), static_cast<std::int32_t>(hud_swapchain_height) };
-					hud_quad.pose.orientation.w = 1.0f;
-					// Live settings (hud_distance, hud_width), read per frame.
-					const float hud_distance = settings::global().real("hud_distance", 1.5f);
-					const float hud_width = settings::global().real("hud_width", 1.3f);
-					hud_quad.pose.position.z = -hud_distance;
-					hud_quad.size = { hud_width, hud_width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width) };
-					layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&hud_quad);
+					const int added = head_hud_layers(body_quads);
+					for (int i = 0; i < added; ++i)
+					{
+						layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&body_quads[i]);
+					}
 				}
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
