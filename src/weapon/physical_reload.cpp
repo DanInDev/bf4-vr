@@ -429,6 +429,7 @@ namespace bfvr::weapon
 		if (GetTickCount64() < pulse_until.load(std::memory_order_relaxed))
 		{
 			out.buttons |= XINPUT_GAMEPAD_DPAD_UP;
+			out.connected = true;
 		}
 		if (!active.load(std::memory_order_relaxed))
 		{
