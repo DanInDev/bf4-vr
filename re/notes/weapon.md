@@ -105,6 +105,13 @@ Slots in this checkpoint: 0 `U_SCAR-H`, 1 `U_AK12`, 6 `U_M67_SP`, 7 `U_Knife`, 8
 | key F | 7 during the stab, then back | |
 | keys 7, 8, E, Q, T, V | no change (the visor's input is still unknown) | |
 
+2026-10-27, second probe for the visor (slot 8), each press watched 1.5 s after release, nothing but
+pad Y (0 <-> 1) changed the slot: pad Back, D-pad up/left/right/down, RB, left stick click, Y (1.2 s
+holds each), Back and D-pad up taps; keys 7 and 8 held 1.2 s, 9, 0, B, Z, X, C, F1, F2, Q and T held.
+LB (quick grenade) left out. The visor is most likely granted only by mission scripts; this checkpoint
+has no player-selectable gadget, so gadget hand poses (their Wep_Root frames, like the knife's in
+skeleton.md) need a checkpoint whose kit has one.
+
 - **The keyboard is Raw Input**: the image imports `GetRawInputData` / `RegisterRawInputDevices`; no
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
