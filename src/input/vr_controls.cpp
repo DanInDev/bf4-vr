@@ -57,6 +57,11 @@ namespace bfvr::input
 		constexpr std::size_t aiming_aimer = 0x10;
 		constexpr std::size_t aimer_yaw = 0x14;
 		constexpr std::size_t aimer_pitch = 0x18;
+		// The render path's aim prediction (0x140FBA340): yaw/pitch at +0x60/+0x64, frame time at +0x68.
+		// While that time is positive and the game has seen pad input, the next aimer update
+		// (0x140FB9610) starts from the prediction, not from +0x14/+0x18 (re/notes/aim.md).
+		constexpr std::size_t aimer_predicted = 0x60 - aimer_yaw;
+		constexpr std::size_t aimer_predicted_time = 0x68;
 
 		// Button presses for a stance change (pad crouch = B: tap toggles crouch, hold goes prone;
 		// A = jump, stands up). Verified with tools/pose_probe.py 2026-10-26.
@@ -97,6 +102,18 @@ namespace bfvr::input
 		bool read(std::uintptr_t address, T& value)
 		{
 			return address && ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), &value, sizeof(value), nullptr);
+		}
+
+		// Sets the aimer's yaw (aimer_yaw) or pitch (aimer_pitch), and the pending prediction the next
+		// update would start from, so the game keeps the value.
+		void write_aim(std::uintptr_t aimer, std::size_t angle, float value)
+		{
+			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + angle), &value, sizeof(value), nullptr);
+			float predicted_time{};
+			if (read(aimer + aimer_predicted_time, predicted_time) && predicted_time > 0.0f)
+			{
+				WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + angle + aimer_predicted), &value, sizeof(value), nullptr);
+			}
 		}
 
 		std::uintptr_t local_soldier()
@@ -287,14 +304,12 @@ namespace bfvr::input
 		}
 		if (turn != 0.0f && !controller)
 		{
-			yaw += turn;
-			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
+			write_aim(aimer, aimer_yaw, yaw + turn);
 		}
 		if (level)
 		{
 			// neutral_pitch: the head alone pitches the view, the horizon stays level (#5).
-			const float zero = 0.0f;
-			WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_pitch), &zero, sizeof(zero), nullptr);
+			write_aim(aimer, aimer_pitch, 0.0f);
 		}
 	}
 
@@ -338,8 +353,8 @@ namespace bfvr::input
 		delta += delta > 3.14159265f ? -6.2831853f : delta < -3.14159265f ? 6.2831853f : 0.0f;
 		yaw += delta;
 		const float pitch = std::asin(std::fmax(-1.0f, std::fmin(1.0f, direction[1] / length)));
-		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_yaw), &yaw, sizeof(yaw), nullptr);
-		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_pitch), &pitch, sizeof(pitch), nullptr);
+		write_aim(aimer, aimer_yaw, yaw);
+		write_aim(aimer, aimer_pitch, pitch);
 	}
 
 	void set_move_reference(move_reference reference)

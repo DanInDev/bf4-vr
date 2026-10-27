@@ -42,6 +42,16 @@ rendered camera by exactly that angle and the value persists (the game integrate
 ## Use for #5 (comfort)
 
 - **Snap/smooth turn:** add to aimer +0x14 (once per frame, game thread; e.g. from the view-params hook).
+  **And to the prediction** (2026-10-27): the render path's aim prediction `0x140FBA340` (called from
+  `0x140FA6BFF`) writes predicted yaw/pitch to aimer +0x60/+0x64 and the frame time to +0x68. The next
+  aimer update `0x140FB9610` copies +0x60/+0x64 over +0x14/+0x18 (`0x140FB993A`..`0x140FB9950`) when
+  +0x68 > 0 and its input's byte +0x188 is set, then clears +0x68. That byte stays set once the game
+  has seen pad stick input, after which a write to +0x14/+0x18 alone is lost every frame. Symptom:
+  snap turns counted but the view stayed put after one use of the stick in look mode (fresh checkpoint:
+  0 -> 30 -> 60 deg; after look input: 60 -> 60). `input::write_aim` writes both when +0x68 > 0: after
+  the fix 60 -> 90 -> 120 deg, and controller aim followed a fake controller +-40 deg. Hardware watch:
+  +0x14 written only at `0x140FB994A` (the copy), `0x140FB9989`, `0x140FB99C2`; +0x60 only at
+  `0x140FBA529`. Likely the headset's "right stick does not turn" (2026-10-26).
 - **Neutralise game pitch:** hold aimer +0x18 at 0 (head pitch only), or hook after `0x140FB9610`.
 - **Recenter:** set aimer yaw from the head's yaw.
 - Writing the aimer also moves where bullets go; aiming with the controller (#12) will replace this.
