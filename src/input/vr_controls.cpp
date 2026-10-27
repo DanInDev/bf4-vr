@@ -71,6 +71,7 @@ namespace bfvr::input
 		std::atomic<bool> stick_turns{};
 		std::atomic<bool> grips_to_game{};
 		std::atomic<bool> ads_trigger{};
+		std::atomic<bool> item_trigger{};
 		std::atomic<bool> x_menu{ true };
 		std::mutex lock;
 		right_stick stick;
@@ -217,7 +218,7 @@ namespace bfvr::input
 		{
 			pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
 		}
-		if (!ads_trigger.load(std::memory_order_relaxed))
+		if (!ads_trigger.load(std::memory_order_relaxed) && !item_trigger.load(std::memory_order_relaxed))
 		{
 			pad.left_trigger = 0;
 		}
@@ -374,6 +375,11 @@ namespace bfvr::input
 		x_menu = x_opens_menu;
 	}
 
+	void set_item_left_trigger(bool passes)
+	{
+		item_trigger = passes;
+	}
+
 	std::string set_right_stick_mode(const std::string& mode)
 	{
 		if (mode == "turn" || mode == "look")
@@ -395,6 +401,7 @@ namespace bfvr::input
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void set_game_buttons(bool, bool, bool) {}
+	void set_item_left_trigger(bool) {}
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}

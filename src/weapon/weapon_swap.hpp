@@ -22,6 +22,8 @@ namespace bfvr::weapon
 	// use_reach: the off hand reaching out ahead (away from the gun) + grip holds the game's interact
 	// (E: pick up, doors, use prompts; weapon/use_reach, #15).
 	void set_use_reach(bool enabled);
+	// c4_trigger: with the C4 out, the off-hand (left) trigger reaches the game: it throws a C4.
+	void set_c4_trigger(bool enabled);
 
 	// Present thread, once per frame.
 	void update_weapon_swap();

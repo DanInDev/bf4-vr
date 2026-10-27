@@ -16,6 +16,7 @@
 #include "common/log.hpp"
 #include "hooks/game_window.hpp"
 #include "input/handedness.hpp"
+#include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
@@ -119,6 +120,7 @@ namespace bfvr::weapon
 		// Melee by hand (#15): pad right-stick click for one stab.
 		std::atomic<bool> melee_enabled{ true };
 		std::atomic<bool> knife_grip{ true };
+		std::atomic<bool> c4_trigger{ true };
 
 		// Use by reaching (#15): the game's interact key while the off hand reaches out and grips.
 		constexpr unsigned short use_key = 'E';
@@ -274,6 +276,11 @@ namespace bfvr::weapon
 		use_enabled = on;
 	}
 
+	void set_c4_trigger(bool on)
+	{
+		c4_trigger = on;
+	}
+
 	void set_holsters(bool on)
 	{
 		enabled = on;
@@ -292,6 +299,8 @@ namespace bfvr::weapon
 		advance(now);
 		const slot_state held = read_slot();
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "Knife") != nullptr);
+		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
+		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
 		QueryPerformanceCounter(&counter);
 		QueryPerformanceFrequency(&frequency);

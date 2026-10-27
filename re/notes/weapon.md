@@ -112,6 +112,20 @@ LB (quick grenade) left out. The visor is most likely granted only by mission sc
 has no player-selectable gadget, so gadget hand poses (their Wep_Root frames, like the knife's in
 skeleton.md) need a checkpoint whose kit has one.
 
+## Gadgets from the stash (2026-10-27, same checkpoint)
+
+- The gadget stash is the green crate stack with "[E] OPEN GADGET STASH" next to the start; the prompt
+  shows when facing it, E opens its menu (pad: the interact button). The menu (Gadget One / Gadget
+  Two, items, DONE) takes clicks through the mod's pointer (pipe `pointer u v 0|1`).
+- Picked C4 + M320 HE: slots 2 `U_SP_C4`, 5 `U_SP_M320_HE`; holster keys 3 / 4 draw them.
+- **C4**: the gun hand holds the detonator. The aim button (left trigger) makes the off hand throw a
+  pack; fire (right trigger) sets them off (monitor: LT = pack in flight, RT = explosion 3 m ahead).
+  With `ads_trigger` off the left trigger never reached the game, so the C4 could not be thrown:
+  `c4_trigger` (default on) lets it through while `_C4` is held.
+- Hand poses under a fake controller: the detonator's animated hold is already a natural
+  remote-in-hand pose and turns with the hand (unlike the knife). The M320's Wep_Root is gun-like:
+  (0,-1,0,0) ahead, follows pitch/yaw exactly (up 60 -> (0,-0.868,-0.496,0)). No per-item fix needed.
+
 - **The keyboard is Raw Input**: the image imports `GetRawInputData` / `RegisterRawInputDevices`; no
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).

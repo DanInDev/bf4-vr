@@ -55,4 +55,7 @@ namespace bfvr::input
 	// LT (aim down sights). Both off by default (the grips are the mod's). x_opens_menu: left X is
 	// Start (the game's menu).
 	void set_game_buttons(bool grips, bool ads, bool x_opens_menu);
+	// The held item uses the left trigger for its own action (the C4's throw), not zoom: it reaches
+	// the game even with ads_trigger off.
+	void set_item_left_trigger(bool passes);
 }

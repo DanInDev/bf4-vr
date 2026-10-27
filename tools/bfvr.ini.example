@@ -156,6 +156,9 @@ knife_pitch = 30
 # Use (pick up, doors, prompts; the game's E): reach the off hand out ahead, away from the gun and
 # below the eyes, and squeeze its grip. With physical reload the pad's own use (X) is not reachable.
 use_reach = 1
+# With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
+# ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
+c4_trigger = 1
 # The pause menu (and other menus drawn over a level) is shown on the flat screen with the pointer.
 pause_flat = 1
 
