@@ -31,6 +31,18 @@ namespace bfvr::input
 	void set_aim_direction(bool valid, const float (&direction)[3]);
 	bool aim_direction(float (&direction)[3]);
 
+	// The game walks relative to its own camera (the body, before the head pose: measured on the
+	// monitor in both aim modes), so a player who turns in the room would walk the old way. The left
+	// stick is turned by the head's (or the gun hand's) yaw in LOCAL space: move_direction =
+	// head | gun | body (body: the game's own behaviour).
+	enum class move_reference
+	{
+		body,
+		head,
+		gun,
+	};
+	void set_move_reference(move_reference reference);
+
 	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
 	void set_neutral_pitch(bool enabled);
 

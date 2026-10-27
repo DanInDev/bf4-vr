@@ -45,3 +45,14 @@ rendered camera by exactly that angle and the value persists (the game integrate
 - **Neutralise game pitch:** hold aimer +0x18 at 0 (head pitch only), or hook after `0x140FB9610`.
 - **Recenter:** set aimer yaw from the head's yaw.
 - Writing the aimer also moves where bullets go; aiming with the controller (#12) will replace this.
+
+## Walking direction (2026-10-27, monitor, fakehead/fakehand)
+
+- The game walks relative to its own camera (the body: the view before our head pose), in both aim
+  modes. With `aim = controller` and the gun turned 90 deg, stick forward still walked straight ahead
+  of the body; the aimer does not steer walking.
+- So a player who turns in the room (head yaw relative to the body) walked the old way. `move_direction`
+  (`input::for_game`) turns the left stick by the head's LOCAL yaw (default `head`), or the gun hand's
+  (`gun`), or not at all (`body`). Measured with the head turned 90 deg left: `body` walked 90 deg off
+  where you look, `head` 0 deg, in both aim modes.
+

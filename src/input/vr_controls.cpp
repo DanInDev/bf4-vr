@@ -15,6 +15,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/right_stick.hpp"
+#include "stereo/tracking.hpp"
 
 namespace bfvr::input
 {
@@ -76,6 +77,17 @@ namespace bfvr::input
 		bool body_yaw_known{};
 		float body_yaw{};
 		std::atomic<std::uint64_t> turns{};
+		std::atomic<move_reference> move_from{ move_reference::head };
+		std::atomic<float> move_rotation{};
+
+		// Yaw of a pose's forward (-z) in LOCAL, positive to the left; 0 when it points straight up/down.
+		float yaw_left(const stereo::pose& p)
+		{
+			const float* q = p.orientation;
+			const float x = -2 * (q[0] * q[2] + q[1] * q[3]);
+			const float z = -(1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+			return x * x + z * z > 1e-6f ? std::atan2(-x, -z) : 0.0f;
+		}
 		std::atomic<std::uint64_t> stance_commands{};
 
 		template <typename T>
@@ -175,8 +187,34 @@ namespace bfvr::input
 		log::write("controls: right_stick=%s", stick_turns.load() ? "turn" : "look");
 	}
 
-	gamepad_state for_game(const gamepad_state& pad)
+	gamepad_state for_game(const gamepad_state& raw)
 	{
+		gamepad_state pad = raw;
+		const move_reference reference = move_from.load(std::memory_order_relaxed);
+		float angle = 0.0f;
+		if (reference != move_reference::body)
+		{
+			const stereo::head_sample head = stereo::latest_head_sample();
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (reference == move_reference::head && head.valid)
+			{
+				angle = yaw_left(head.eyes[0]);
+			}
+			else if (reference == move_reference::gun && hands.valid[1])
+			{
+				angle = yaw_left(hands.aim[1]);
+			}
+		}
+		move_rotation = angle;
+		if (angle != 0.0f)
+		{
+			// Stick x right, y forward: turning the frame left by angle turns the stick vector the same way.
+			const float x = pad.left_x / 32767.0f, y = pad.left_y / 32767.0f;
+			const float c = std::cos(angle), s = std::sin(angle);
+			const auto axis = [](float v) { return static_cast<std::int16_t>(std::lround(std::fmax(-1.0f, std::fmin(1.0f, v)) * 32767.0f)); };
+			pad.left_x = axis(x * c - y * s);
+			pad.left_y = axis(y * c + x * s);
+		}
 		// With controller aim the stick cannot aim (the aimer follows the controller every frame), so
 		// it turns even in look mode; otherwise it would do nothing at all.
 		if (!stick_turns.load(std::memory_order_relaxed) && !aim_by_controller.load(std::memory_order_relaxed))
@@ -285,6 +323,11 @@ namespace bfvr::input
 		WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(aimer + aimer_pitch), &pitch, sizeof(pitch), nullptr);
 	}
 
+	void set_move_reference(move_reference reference)
+	{
+		move_from = reference;
+	}
+
 	void set_neutral_pitch(bool enabled)
 	{
 		pitch_neutral = enabled;
@@ -305,7 +348,7 @@ namespace bfvr::input
 		}
 		char angles[64];
 		std::snprintf(angles, sizeof(angles), " aimer_yaw=%.1f aimer_pitch=%.1f", aim[0] * 57.29578f, aim[1] * 57.29578f);
-		return std::string("right_stick=") + (stick_turns.load() ? "turn" : "look") + (aim_by_controller.load() ? " aim=controller (stick turns)" : "") + " turns=" + std::to_string(turns.load())
+		return std::string("right_stick=") + (stick_turns.load() ? "turn" : "look") + (aim_by_controller.load() ? " aim=controller (stick turns)" : "") + " move_rotation=" + std::to_string(move_rotation.load() * 57.29578f) + " turns=" + std::to_string(turns.load())
 			+ " stance_commands=" + std::to_string(stance_commands.load()) + " stance=" + std::to_string(stance) + angles;
 	}
 #else
@@ -313,6 +356,7 @@ namespace bfvr::input
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}
+	void set_move_reference(move_reference) {}
 	void set_controller_aim(bool) {}
 	bool controller_aim_active() { return false; }
 	float body_camera_yaw(float game_yaw) { return game_yaw; }

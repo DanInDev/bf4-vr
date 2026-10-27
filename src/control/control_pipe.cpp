@@ -808,11 +808,19 @@ namespace bfvr::control
 			{
 				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
 				// without a headset; "fakehead off" clears it. The XR thread overwrites it when tracking.
+				// An optional second number turns the head left by that many degrees.
 				stereo::head_sample head;
-				float ipd = 0.0f;
-				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f", &ipd) == 1 && ipd > 0.0f && ipd < 0.1f;
-				head.eyes[0].position[0] = -0.5f * ipd;
-				head.eyes[1].position[0] = 0.5f * ipd;
+				float ipd = 0.0f, yaw = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f", &ipd, &yaw) >= 1 && ipd > 0.0f && ipd < 0.1f;
+				const float half = yaw * 3.14159265f / 360.0f;
+				for (int eye = 0; eye < 2; ++eye)
+				{
+					const float side = eye == 0 ? -0.5f * ipd : 0.5f * ipd;
+					head.eyes[eye].orientation[1] = std::sin(half);
+					head.eyes[eye].orientation[3] = std::cos(half);
+					head.eyes[eye].position[0] = side * std::cos(2 * half);
+					head.eyes[eye].position[2] = -side * std::sin(2 * half);
+				}
 				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
 				head.fovs[1] = { -0.698f, 0.942f, 0.768f, -0.890f };
 				stereo::publish_head_sample(head);
@@ -873,7 +881,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

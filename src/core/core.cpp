@@ -71,6 +71,8 @@ namespace bfvr::core
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
 			input::set_controller_aim(store.text("aim", "head") == "controller");
+			const std::string move = store.text("move_direction", "head");
+			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
 			weapon::set_physical_reload(store.text("reload", "button") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_reload_sounds(store.boolean("reload_sounds", true));
