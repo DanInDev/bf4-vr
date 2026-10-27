@@ -19,9 +19,8 @@ Settings file: `GstInput.Vibration 1` (on).
 
 - `XInputSetState` hook: 19,138 calls, as many as the pad reads, every one with both motors 0 (firing a
   burst, a quick grenade).
-- Rumble setter hook (before the focus gate): also 0, 0 throughout: the manager's effect list stayed
-  empty. Effect producers (weapon fire, explosions, damage) are not yet found; they may check focus or
-  "pad is the active device" themselves. Next: watch the list head while the window has focus.
+- Rumble setter hook (before the focus gate): 0, 0 while firing and for a grenade ~15 m away (too far
+  to rumble); a grenade ~4 m away did come through (table below). Firing never produced game rumble.
 - So the mod makes its own firing feedback: the current weapon's magazine (server ammo, as physical
   reload reads it) dropping = a shot = `input::recoil()` (gun hand, and the off hand while two-handed).
   Verified: 7 shots -> 7 pulses (physical reload), 8 -> 8 (button reload).
