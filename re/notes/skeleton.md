@@ -92,8 +92,19 @@ target relative to the tracked head), `armaxes <q>`. Unit test: `bfvr_arm_ik_tes
 
 ## Open
 
-- Knife and other items: their animated hand pose is not a gun grip, so "aim turns the animated hand"
-  gives the wrong rotation; needs per-item handling (their bones may not hang from Wep_Root either).
+- Other items (gadgets): their animated hand pose is not a gun grip, so "aim turns the animated hand"
+  gives the wrong rotation; needs per-item handling like the knife below.
+
+## Knife (`knife_grip`, 2026-10-27, monitor)
+
+The knife (`U_Knife`, slot 7) hangs from `Wep_Root` like a gun, but its frame differs: the gun's
+Wep_Root sits at (0,-1,0,0) in camera axes when aimed ahead (+z along the barrel, +y up); the knife's
+idle sits at (-0.5,-0.5,0.5,0.5) and its blade lies about 30 degrees off -z towards +y, edge on +y,
+saw back on -y (found by turning a fake controller 70 deg up and 80 deg left/right and reading the
+profile). With the knife out, the hand goal is chosen so that Wep_Root = F * aim * Rx(knife_pitch) *
+(0,0,1,0), and the hand = that * (animated hand^-1 * animated Wep_Root)^-1: the blade follows the
+controller ray, edge down, the hand keeps the knife's authored grip. Verified: pitch 70 up = blade up,
+80 left = blade level to the left. `arms` prints `knife=` and `wep_root_in_camera`.
 - Bullets still go where the aimer points, not the gun (decoupled aiming, #12).
 - Left hand on the weapon (`IK_Joint_LeftHand`) for two-handed aiming; shoulder (clavicle) reach;
   tune `arm_ik_wrist` / `arm_ik_pole` in the headset.

@@ -116,6 +116,7 @@ namespace bfvr::weapon
 
 		// Melee by hand (#15): pad right-stick click for one stab.
 		std::atomic<bool> melee_enabled{ true };
+		std::atomic<bool> knife_grip{ true };
 		melee_gesture melee;
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
@@ -238,6 +239,11 @@ namespace bfvr::weapon
 		melee_enabled = on;
 	}
 
+	void set_knife_grip(bool on)
+	{
+		knife_grip = on;
+	}
+
 	void set_holsters(bool on)
 	{
 		enabled = on;
@@ -254,6 +260,8 @@ namespace bfvr::weapon
 		const std::lock_guard guard(lock);
 		const ULONGLONG now = GetTickCount64();
 		advance(now);
+		const slot_state held = read_slot();
+		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "Knife") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
 		QueryPerformanceCounter(&counter);
 		QueryPerformanceFrequency(&frequency);

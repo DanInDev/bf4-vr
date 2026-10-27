@@ -1742,11 +1742,12 @@ namespace bfvr::xr
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
-			if (stereo_mode && back_buffer)
+			const bool pause_flat = settings::global().boolean("pause_flat", true);
+			if (stereo_mode && back_buffer && pause_flat)
 			{
 				watch_letterbox(back_buffer.Get());
 			}
-			const bool ui_on_screen = stereo_mode && letterboxed;
+			const bool ui_on_screen = stereo_mode && pause_flat && letterboxed;
 			if (ui_on_screen != menu_shown)
 			{
 				menu_shown = ui_on_screen;

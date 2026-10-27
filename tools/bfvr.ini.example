@@ -45,6 +45,8 @@ arm_ik_pole = 0.5 -1 0.3
 # The game's arms can be shorter than yours (arm_length below scales them always). A hand still out
 # of reach then moves the shoulder forward up to shoulder_reach metres, and the arm may get up to
 # arm_stretch longer (0.25 = 25 %); 0 = off. Pipe `arms` shows reach (above 1 = out of reach). #31.
+# arm_reach = 0 turns both off.
+arm_reach = 1
 shoulder_reach = 0.12
 arm_stretch = 0.25
 
@@ -147,6 +149,12 @@ gamepad = 1
 
 # Melee (issue #15): a quick forward thrust of the gun hand is the game's melee (the knife stab).
 melee_gesture = 1
+# With the knife out, the blade points along the gun-hand controller (edge down); knife_pitch raises
+# the blade this many degrees to lie on the ray (0 = the knife model's own angle).
+knife_grip = 1
+knife_pitch = 30
+# The pause menu (and other menus drawn over a level) is shown on the flat screen with the pointer.
+pause_flat = 1
 
 # In-VR settings panel (issue #7): hold the left menu button to open it (a short press stays the
 # game's Start); point with either controller, its trigger clicks; Save writes this file.

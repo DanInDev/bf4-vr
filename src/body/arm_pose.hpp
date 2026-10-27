@@ -23,6 +23,11 @@ namespace bfvr::body
 	// Two-handed weapon (#29): the gun hand takes this rotation (OpenXR LOCAL, x y z w) instead of
 	// its controller's aim rotation while active.
 	void set_gun_hand_rotation(bool active, const float (&rotation)[4]);
+	// The knife is in the gun hand: its animated hand is not a gun grip, so the knife itself is turned
+	// to the controller (blade along the aim, edge down) and the hand holds it as animated.
+	void set_knife_in_hand(bool knife);
+	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).
+	void set_knife_pitch(float degrees);
 	// Arm shape: forearm and hand offsets scaled by length (reach), clavicles moved outwards by width
 	// metres per side (a wider torso). 1 and 0 = the rig as authored.
 	void set_arm_shape(float length, float width);

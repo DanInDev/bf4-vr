@@ -16,6 +16,9 @@ namespace bfvr::weapon
 	// melee_gesture: a quick forward thrust of the gun hand is the game's melee (pad right-stick
 	// click, the knife stab; weapon/melee_gesture, #15).
 	void set_melee_gesture(bool enabled);
+	// knife_grip: with the knife out, the blade points along the gun-hand controller
+	// (body::set_knife_in_hand).
+	void set_knife_grip(bool enabled);
 
 	// Present thread, once per frame.
 	void update_weapon_swap();

@@ -63,8 +63,9 @@ namespace bfvr::core
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
-			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
-			body::set_shoulder_reach(store.real("shoulder_reach", 0.12f));
+			const bool reach = store.boolean("arm_reach", true);
+			body::set_arm_stretch(reach ? store.real("arm_stretch", 0.25f) : 0.0f);
+			body::set_shoulder_reach(reach ? store.real("shoulder_reach", 0.12f) : 0.0f);
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
@@ -86,6 +87,8 @@ namespace bfvr::core
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
+			weapon::set_knife_grip(store.boolean("knife_grip", true));
+			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			weapon::set_two_handed(store.boolean("two_handed", true));

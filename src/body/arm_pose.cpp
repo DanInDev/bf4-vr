@@ -116,6 +116,7 @@ namespace bfvr::body
 			float fk_error{ -1 };           // max position error of our FK against the engine's model pose
 			float fk_error_conjugate{ -1 }; // the same with the quaternions read as conjugates
 			ik::bone_transform camera;
+			ik::quat weapon_in_camera; // Wep_Root, OpenXR camera axes ((0,1,0,0) = pointing ahead, upright)
 			arm_report arms[2];
 		};
 
@@ -144,6 +145,8 @@ namespace bfvr::body
 		std::mutex gun_hand_lock;
 		bool gun_hand_override{};
 		ik::quat gun_hand_rotation;
+		std::atomic<bool> knife_in_hand{};
+		std::atomic<float> knife_pitch{ 0.5235988f }; // radians, live setting knife_pitch
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -435,6 +438,15 @@ namespace bfvr::body
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
+				if (carry_weapon && knife_in_hand.load(std::memory_order_relaxed))
+				{
+					// The knife's Wep_Root points its blade about 30 degrees off -z towards +y, edge on +y
+					// (monitor, 2026-10-27): 180 degrees about z from the camera axes, then knife_pitch up,
+					// puts the blade along the controller ray, edge down. The hand follows the knife's grip.
+					const float half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
+					const ik::quat level{ std::sin(half), 0, 0, std::cos(half) };
+					goal.hand = frame * ik::normalize(aim) * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
+				}
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
 				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
@@ -593,6 +605,10 @@ namespace bfvr::body
 			report.fk_error_conjugate = error_conjugate;
 			report.camera = ik::model_of(local, rig.parents, rig.camera);
 			const ik::quat to_camera = ik::conjugate(camera_frame(report.camera));
+			if (rig.weapon >= 0)
+			{
+				report.weapon_in_camera = to_camera * ik::model_of(local, rig.parents, rig.weapon).rotation;
+			}
 			for (int hand = 0; hand < 2; ++hand)
 			{
 				arm_report& arm = report.arms[hand];
@@ -735,6 +751,16 @@ namespace bfvr::body
 		gun_hand_rotation = { rotation[0], rotation[1], rotation[2], rotation[3] };
 	}
 
+	void set_knife_in_hand(bool knife)
+	{
+		knife_in_hand = knife;
+	}
+
+	void set_knife_pitch(float degrees)
+	{
+		knife_pitch = degrees * 3.14159265f / 180.0f;
+	}
+
 	void set_shoulder_reach(float metres)
 	{
 		shoulder_reach = std::fmax(0.0f, metres);
@@ -833,12 +859,14 @@ namespace bfvr::body
 			"arm_ik=%d skeleton=%s bones=%d conversions=%llu matched=%llu solved=%llu\n"
 			"controllers left=%d right=%d targets left=%d right=%d\n"
 			"fk_error=%.5f fk_error_conjugate=%.5f check_age_ms=%llu\n"
-			"camera_joint pos=%s rot=(%.4f,%.4f,%.4f,%.4f) right=%s up=%s back=%s scale=%.3f\n",
+			"camera_joint pos=%s rot=(%.4f,%.4f,%.4f,%.4f) right=%s up=%s back=%s scale=%.3f\n"
+			"knife=%d wep_root_in_camera=(%.3f,%.3f,%.3f,%.3f)\n",
 			ik_enabled.load() ? 1 : 0, rig.camera >= 0 ? rig.name : "-", rig.bones, conversions.load(), matched.load(), solved.load(),
 			hands.valid[0] ? 1 : 0, hands.valid[1] ? 1 : 0, hand_targets[0].active ? 1 : 0, hand_targets[1].active ? 1 : 0,
 			r.fk_error, r.fk_error_conjugate, r.at ? GetTickCount64() - r.at : 0ull,
 			v(r.camera.position, a), q.x, q.y, q.z, q.w, v(ik::rotate(q, { 1, 0, 0 }), b), v(ik::rotate(q, { 0, 1, 0 }), c),
-			v(ik::rotate(q, { 0, 0, 1 }), d), r.camera.scale);
+			v(ik::rotate(q, { 0, 0, 1 }), d), r.camera.scale, knife_in_hand.load() ? 1 : 0, r.weapon_in_camera.x, r.weapon_in_camera.y,
+			r.weapon_in_camera.z, r.weapon_in_camera.w);
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];
