@@ -114,6 +114,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/grenade_hands.cpp
 	src/weapon/hand_signal.cpp
 	src/weapon/holsters.cpp
+	src/weapon/melee_gesture.cpp
 	src/weapon/physical_grenade.cpp
 	src/weapon/physical_reload.cpp
 	src/weapon/profiles.cpp
@@ -187,6 +188,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp)
 	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
 
+	# Melee gesture (thrust detection); exits non-zero on failure.
+	add_executable(bfvr_melee_test tests/melee_test.cpp src/weapon/melee_gesture.cpp)
+	target_link_libraries(bfvr_melee_test PRIVATE bfvr_common)
+
 	# Sound research (re/notes/sound.md): records the default playback device; not a test.
 	add_executable(bfvr_audio_loopback tools/audio_loopback.cpp)
 	target_link_libraries(bfvr_audio_loopback PRIVATE ole32)
@@ -205,6 +210,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
+	add_test(NAME melee COMMAND bfvr_melee_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.

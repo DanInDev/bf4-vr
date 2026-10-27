@@ -16,10 +16,14 @@
 #include "common/log.hpp"
 #include "hooks/game_window.hpp"
 #include "input/handedness.hpp"
+#include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
+#include "ui/vr_panel.hpp"
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
+#include "weapon/melee_gesture.hpp"
 #include "weapon/physical_grenade.hpp"
+#include "weapon/physical_reload.hpp"
 
 namespace bfvr::weapon
 {
@@ -110,6 +114,15 @@ namespace bfvr::weapon
 		hand_signal signal;
 		ULONGLONG order_up_at{};
 		std::uint64_t orders{};
+
+		// Melee by hand (#15): pad right-stick click for one stab.
+		std::atomic<bool> melee_enabled{ true };
+		melee_gesture melee;
+		std::atomic<ULONGLONG> melee_until{};
+		constexpr ULONGLONG melee_pulse_ms = 80;
+		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
+		ULONGLONG last_in_holster{};
+		std::uint64_t strikes{};
 
 		std::mutex lock;
 		holsters zones;
@@ -226,6 +239,11 @@ namespace bfvr::weapon
 		grip_spot = on;
 	}
 
+	void set_melee_gesture(bool on)
+	{
+		melee_enabled = on;
+	}
+
 	void set_holsters(bool on)
 	{
 		enabled = on;
@@ -251,6 +269,21 @@ namespace bfvr::weapon
 		v3 head;
 		float head_yaw{};
 		const bool head_valid = head_pose(head, head_yaw);
+		if (last_zone != holster::none)
+		{
+			last_in_holster = now;
+		}
+		{
+			const stereo::head_sample head_sample = stereo::latest_head_sample();
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			const bool busy = grenade_in_hand() || reload_owns_off_hand() || ui::vr_panel_view().open || now - last_in_holster < after_holster_ms;
+			if (melee_enabled.load(std::memory_order_relaxed) && head_sample.valid
+				&& melee.update(stereo::eye_math::centre_pose(head_sample), hands.grip[1].position, hands.valid[1], busy, seconds))
+			{
+				melee_until = now + melee_pulse_ms;
+				++strikes;
+			}
+		}
 		if (signal_enabled.load(std::memory_order_relaxed))
 		{
 			signal_frame raised;
@@ -310,6 +343,11 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}
+		if (GetTickCount64() < melee_until.load(std::memory_order_relaxed))
+		{
+			out.buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
+			out.connected = true;
+		}
 		return out;
 	}
 
@@ -344,10 +382,10 @@ namespace bfvr::weapon
 		const slot_state slot = read_slot();
 		char text[384];
 		std::snprintf(text, sizeof(text),
-			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu",
+			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
-			static_cast<unsigned long long>(orders));
+			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed());
 		return text;
 	}
 }

@@ -129,6 +129,9 @@ gamepad = 1
 # default it never reaches the game; 1 = it spots as before.
 grip_spot = 0
 
+# Melee (issue #15): a quick forward thrust of the gun hand is the game's melee (the knife stab).
+melee_gesture = 1
+
 # In-VR settings panel (issue #7): hold the left menu button to open it (a short press stays the
 # game's Start); point with either controller, its trigger clicks; Save writes this file.
 vr_panel = 1

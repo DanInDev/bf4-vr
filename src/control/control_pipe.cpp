@@ -769,12 +769,15 @@ namespace bfvr::control
 			{
 				// A fixed right controller (aim and grip) turned yaw/pitch degrees from straight ahead, 30 cm
 				// in front of the head, for controller-aim tests without a headset; with three more numbers a
-				// left controller at that LOCAL position (two-handed tests); "fakehand off" clears it.
+				// left controller at that LOCAL position (two-handed tests), three more the right controller's
+				// position (melee tests); "fakehand off" clears it.
 				stereo::hand_sample hands;
 				float yaw = 0.0f, pitch = 0.0f;
 				float left[3]{};
-				const int given = argument == "off" ? 0 : sscanf_s(argument.c_str(), "%f %f %f %f %f", &yaw, &pitch, &left[0], &left[1], &left[2]);
-				if (given == 5)
+				float right[3]{ 0.15f, -0.25f, -0.3f };
+				const int given = argument == "off" ? 0
+					: sscanf_s(argument.c_str(), "%f %f %f %f %f %f %f %f", &yaw, &pitch, &left[0], &left[1], &left[2], &right[0], &right[1], &right[2]);
+				if (given >= 5)
 				{
 					hands.valid[0] = true;
 					for (int i = 0; i < 3; ++i)
@@ -793,9 +796,10 @@ namespace bfvr::control
 						hands.aim[1].orientation[i] = q[i];
 						hands.grip[1].orientation[i] = q[i];
 					}
-					hands.aim[1].position[0] = hands.grip[1].position[0] = 0.15f;
-					hands.aim[1].position[1] = hands.grip[1].position[1] = -0.25f;
-					hands.aim[1].position[2] = hands.grip[1].position[2] = -0.3f;
+					for (int i = 0; i < 3; ++i)
+					{
+						hands.aim[1].position[i] = hands.grip[1].position[i] = right[i];
+					}
 				}
 				stereo::publish_hand_sample(hands);
 				return hands.valid[1] ? "fakehand yaw=" + std::to_string(yaw) + " pitch=" + std::to_string(pitch) : "fakehand off";
@@ -869,7 +873,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | fakehand <yaw> [pitch] [left x y z] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd>|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

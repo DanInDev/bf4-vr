@@ -44,6 +44,7 @@ namespace bfvr::settings
 			{ "dominant_hand", kind::choice, 0, 0, 0, "right", "right|left", "gun hand: left mirrors the pad and swaps the hand roles" },
 			{ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload: the game's button, or by hand (AK: pull the magazine, AR: X releases it; chest pouch)" },
 			{ "holsters", kind::boolean, 0, 0, 0, "1", "", "weapon holsters on the body: gun hand + grip over the shoulder (primary), at the hip (secondary), chest (knife), belt (gadgets)" },
+			{ "melee_gesture", kind::boolean, 0, 0, 0, "1", "", "a quick forward thrust of the gun hand is the game's melee (knife stab)" },
 			{ "grip_spot", kind::boolean, 0, 0, 0, "0", "", "the gun-hand grip also works as the game's spot button (RB); off: squeezing the grip stays silent" },
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand ahead above your eyes and squeeze the grip" },
 			{ "grenade", kind::choice, 0, 0, 0, "button", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },
