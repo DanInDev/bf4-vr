@@ -123,6 +123,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/reload_sounds.cpp
 	src/ui/menu_button.cpp
 	src/ui/panel_canvas.cpp
+	src/ui/reticle.cpp
 	src/ui/settings_panel.cpp
 	src/ui/vignette.cpp
 	src/ui/vr_panel.cpp
@@ -185,7 +186,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
 
 	# Comfort vignette strength and texture; exits non-zero on failure.
-	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp)
+	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp src/ui/reticle.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
 
 	# Melee gesture (thrust detection); exits non-zero on failure.

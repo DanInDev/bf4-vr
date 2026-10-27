@@ -34,6 +34,7 @@ namespace bfvr::weapon
 		two_hand_grip grip;
 		two_hand_output last;
 		float last_shot[3]{};
+		float last_point[3]{};
 		bool shot_valid{};
 		std::uint64_t grabs{};
 		LARGE_INTEGER last_update{};
@@ -120,9 +121,23 @@ namespace bfvr::weapon
 		body::set_gun_hand_rotation(out.weight > 0, out.rotation);
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
-		converged_aim(origin, hands.grip[1].position, out.rotation, convergence.load(std::memory_order_relaxed), last_shot);
+		const float metres = convergence.load(std::memory_order_relaxed);
+		converged_aim(origin, hands.grip[1].position, out.rotation, metres, last_shot);
+		const float* q = out.rotation;
+		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			last_point[axis] = hands.grip[1].position[axis] + barrel[axis] * std::fmax(metres, 0.5f);
+		}
 		shot_valid = true;
 		input::set_aim_direction(true, last_shot);
+	}
+
+	bool aim_point(float (&point)[3])
+	{
+		const std::lock_guard guard(lock);
+		std::copy(std::begin(last_point), std::end(last_point), point);
+		return shot_valid;
 	}
 
 	input::gamepad_state filter_two_hand_pad(const input::gamepad_state& pad)

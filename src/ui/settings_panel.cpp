@@ -42,7 +42,7 @@ namespace bfvr::ui
 			static const std::vector<group> table = {
 				{ "View", { "stereo_render", "ipd_scale", "view_crop_h", "view_crop_v", "gun_scale", "vignette", "vignette_strength" } },
 				{ "Body", { "arm_ik", "shoulder_offset", "shoulder_width", "shoulder_reach", "arm_stretch" } },
-				{ "Weapon", { "aim", "move_direction", "two_handed", "aim_convergence", "accessory_toggle", "reload", "reload_sounds", "drop_discards_ammo", "grenade",
+				{ "Weapon", { "aim", "move_direction", "reticle", "reticle_size", "two_handed", "aim_convergence", "accessory_toggle", "reload", "reload_sounds", "drop_discards_ammo", "grenade",
 					"grenade_throw_scale", "holsters", "squad_signal", "grip_spot", "melee_gesture" } },
 				{ "HUD", { "hud_mode", "hud_show_main", "hud_show_minimap", "hud_show_ammo", "hud_show_bottom", "hud_distance", "hud_width",
 					"hud_marker_distance", "hud_watch_width", "hud_ammo_width" } },

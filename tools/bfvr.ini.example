@@ -117,6 +117,10 @@ aim = head
 # Left stick forward walks where your head faces (head), where the gun points (gun), or along the
 # body like the game does (body; turning in the room then walks the old way).
 move_direction = head
+# aim = controller: a dot where the shots converge, and its size in degrees (the game's crosshair
+# still marks the head's aim; hide it with hud_show_main = 0 if it distracts).
+reticle = 1
+reticle_size = 1
 # Two-handed weapon (issue #29): off hand on the handguard + grip holds the gun with both hands; the
 # barrel then points along the line between the hands. Pipe `twohand` shows the state.
 two_handed = 1

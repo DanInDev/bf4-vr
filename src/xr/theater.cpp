@@ -37,8 +37,10 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/settings_panel.hpp"
+#include "ui/reticle.hpp"
 #include "ui/vignette.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/two_handed.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
 
@@ -703,6 +705,8 @@ namespace bfvr::xr
 		std::uint64_t panel_revision{};
 		std::vector<std::uint32_t> panel_pixels;
 		cpu_overlay vignette_overlay{ "vignette" };
+		cpu_overlay reticle_overlay{ "reticle" };
+		static constexpr std::uint32_t reticle_pixels_size = 64;
 		ui::vignette comfort_vignette;
 		float vignette_uploaded{ -1.0f };
 		std::vector<std::uint32_t> vignette_pixels;
@@ -846,6 +850,43 @@ namespace bfvr::xr
 			panel_quad.pose.orientation = { view.pose.orientation[0], view.pose.orientation[1], view.pose.orientation[2], view.pose.orientation[3] };
 			panel_quad.size = { view.width, view.height };
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&panel_quad);
+		}
+
+		// Aim reticle (#3, #12): with controller aim, a dot where the shots converge, facing the head,
+		// a constant angular size; world-locked so it sits at that depth in both eyes.
+		void add_reticle_layer(XrCompositionLayerQuad& reticle_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			const settings::registry& store = settings::global();
+			const stereo::head_sample head = stereo::latest_head_sample();
+			float point[3]{};
+			if (!store.boolean("reticle", true) || store.text("aim", "head") != "controller" || !head.valid || !weapon::aim_point(point)
+				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
+			{
+				return;
+			}
+			if (!reticle_overlay.shown)
+			{
+				std::vector<std::uint32_t> pixels;
+				ui::reticle_texture(static_cast<int>(reticle_pixels_size), pixels);
+				upload_overlay(reticle_overlay, pixels);
+				if (!reticle_overlay.shown)
+				{
+					return;
+				}
+			}
+			const stereo::pose centre = stereo::eye_math::centre_pose(head);
+			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
+			const ui::reticle_quad placed = ui::place_reticle(point, eye, store.real("reticle_size", 1.0f) * 3.14159265f / 180.0f);
+			reticle_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			reticle_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			reticle_quad.space = space;
+			reticle_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			reticle_quad.subImage.swapchain = reticle_overlay.swapchain;
+			reticle_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(reticle_pixels_size), static_cast<std::int32_t>(reticle_pixels_size) };
+			reticle_quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };
+			reticle_quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
+			reticle_quad.size = { placed.size, placed.size };
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&reticle_quad);
 		}
 
 		// Comfort vignette (#10): head-locked, darkens the edge while the game turns or moves the
@@ -1371,7 +1412,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad body_quads[4]{};
 			XrCompositionLayerQuad panel_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad vignette_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[8]{};
+			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			const XrCompositionLayerBaseHeader* layers[9]{};
 			std::uint32_t layer_count = 0;
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1];
 			enter("copy to swap chain");
@@ -1414,6 +1456,7 @@ namespace bfvr::xr
 						layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&body_quads[i]);
 					}
 				}
+				add_reticle_layer(reticle_quad, layers, layer_count);
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
 			{
@@ -1479,6 +1522,7 @@ namespace bfvr::xr
 			destroy_hud_swapchain();
 			destroy_overlay(panel_overlay);
 			destroy_overlay(vignette_overlay);
+			destroy_overlay(reticle_overlay);
 			if (view_space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(view_space);

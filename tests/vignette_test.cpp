@@ -1,9 +1,12 @@
 // Checks the comfort vignette (src/ui/vignette): strength from turning and moving per mode, attack
-// and release times, and the overlay texture (clear centre, dark edge, nothing at strength 0).
+// and release times, and the overlay texture (clear centre, dark edge, nothing at strength 0); and
+// the aim reticle (src/ui/reticle): its texture and its placement facing the eye.
 #include <cmath>
 #include <cstdio>
 #include <vector>
 
+#include "body/arm_ik.hpp"
+#include "ui/reticle.hpp"
 #include "ui/vignette.hpp"
 
 using namespace bfvr::ui;
@@ -102,10 +105,32 @@ namespace
 		}
 		expect(monotonic, "darker towards the edge");
 	}
+
+	void test_reticle()
+	{
+		std::vector<std::uint32_t> pixels;
+		reticle_texture(32, pixels);
+		const auto at = [&](int x, int y) { return pixels[static_cast<std::size_t>(y) * 32 + static_cast<std::size_t>(x)]; };
+		expect((at(16, 16) >> 24) == 255 && ((at(16, 16) >> 8) & 0xFF) == 255, "reticle centre: opaque bright dot");
+		expect((at(16 + 9, 16) >> 24) > 150 && ((at(16 + 9, 16) >> 8) & 0xFF) < 40, "reticle ring: dark and mostly opaque");
+		expect(at(0, 0) == 0 && at(31, 16) == 0, "reticle outside: transparent");
+
+		const float ahead[3]{ 0, 0, -25 };
+		const float eye[3]{ 0, 0, 0 };
+		reticle_quad quad = place_reticle(ahead, eye, 1.0f * 3.14159265f / 180.0f);
+		expect(std::fabs(quad.size - 0.4363f) < 1e-3f, "1 degree at 25 m is 0.436 m");
+		expect(std::fabs(quad.pose.orientation[3]) > 0.9999f, "straight ahead: faces the eye unturned");
+		const float side[3]{ 10, 0, 0 };
+		quad = place_reticle(side, eye, 0.02f);
+		const bfvr::body::ik::vec3 normal = bfvr::body::ik::rotate({ quad.pose.orientation[0], quad.pose.orientation[1], quad.pose.orientation[2], quad.pose.orientation[3] }, { 0, 0, 1 });
+		expect(std::fabs(normal.x + 1.0f) < 1e-4f, "to the side: the quad turns to face the eye");
+		expect(std::fabs(quad.size - 2.0f * 10.0f * std::tan(0.01f)) < 1e-4f, "size scales with distance");
+	}
 }
 
 int main()
 {
+	test_reticle();
 	test_modes();
 	test_timing();
 	test_texture();

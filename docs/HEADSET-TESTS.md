@@ -31,6 +31,7 @@ needs the headset: feel, sizes, aim accuracy against real targets.
 | 11 | Panel (View page): `vignette` turning, then both; snap turn, smooth turn, stick aiming, walking, sprinting; also look around with your head only | The edge darkens while the game turns or moves you and fades within ~0.3 s; head movement alone never darkens it; the HUD stays readable. Try `vignette_strength` 0.4–1. Seated: recenter while seated | |
 | 12 | Melee (`melee_gesture` on): thrust the gun hand quickly forward (like a punch or a bayonet jab), then aim, reload, draw from holsters and throw grenades normally | The knife stab plays on the thrust (monitor: slot 7 for ~0.3 s at 4.9 m/s); never while aiming, reloading, drawing or throwing. Too easy or too hard to trigger? (threshold 2.5 m/s forward) | |
 | 13 | Stand still, turn your body to face sideways in the room, push the left stick forward (`move_direction` head, then body, then gun) | head: you walk where you face; body: the old way (sideways); gun: where the gun points | |
+| 14 | `aim = controller`: the aim reticle (green dot with a dark ring) | Sits on the barrel line ~25 m out, about 1° wide, same depth in both eyes; bullets hit it at that distance. Size via `reticle_size` | |
 | 8 | Vehicle with aim = controller | Right stick now turns the body, not the turret (known risk); report what happens | |
 
 ## 2026-10-26 late — feedback on `main` 22da57a (recorded afterwards)

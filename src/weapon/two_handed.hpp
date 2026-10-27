@@ -20,6 +20,10 @@ namespace bfvr::weapon
 	// XInput hook thread: the off-hand grip (pad LB, the game's grenade) and trigger (LT, zoom) while it
 	// holds the gun, plus the accessory toggle's D-pad up tap.
 	input::gamepad_state filter_two_hand_pad(const input::gamepad_state& pad);
+	// Where the shots converge (OpenXR LOCAL): the gun hand's grip plus aim_convergence metres down the
+	// drawn barrel; false without a tracked gun hand. For the aim reticle.
+	bool aim_point(float (&point)[3]);
+
 	// Pipe "twohand": state, weight, barrel and shot directions, grab count.
 	std::string two_hand_report();
 }

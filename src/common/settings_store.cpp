@@ -55,6 +55,8 @@ namespace bfvr::settings
 			{ "vr_panel", kind::boolean, 0, 0, 0, "1", "", "hold the left menu button to open this panel (a short press stays the game's Start)" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|pad", "menus: point with a controller and pull the trigger, or the pad only" },
 			{ "aim", kind::choice, 0, 0, 0, "head", "head|controller", "what aims the gun: the view (game default) or the right controller" },
+			{ "reticle", kind::boolean, 0, 0, 0, "1", "", "aim = controller: a dot where the shots converge (aim_convergence ahead along the barrel)" },
+			{ "reticle_size", kind::real, 0.3f, 3.0f, 0.1f, "1", "", "aim reticle size, degrees" },
 			{ "two_handed", kind::boolean, 0, 0, 0, "1", "", "off hand + grip on the handguard holds the gun with both hands: the barrel points along the line between them" },
 			{ "aim_convergence", kind::real, 2.0f, 100.0f, 1.0f, "25", "", "aim = controller: shots meet the barrel line this far away, metres (bullets leave the game camera, not the gun)" },
 			{ "move_direction", kind::choice, 0, 0, 0, "head", "head|gun|body", "left stick forward walks where your head faces, where the gun points, or along the body (the game's own way)" },
