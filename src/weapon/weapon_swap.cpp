@@ -16,6 +16,7 @@
 #include "common/log.hpp"
 #include "hooks/game_window.hpp"
 #include "input/handedness.hpp"
+#include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
@@ -186,6 +187,7 @@ namespace bfvr::weapon
 			}
 			order_up_at = now + key_hold_ms;
 			++orders;
+			input::haptic(0, input::pulses::click);
 			log::write("squad: order given (Q)");
 		}
 
@@ -200,6 +202,7 @@ namespace bfvr::weapon
 			if (down)
 			{
 				++uses;
+				input::haptic(0, input::pulses::grab);
 				log::write("use: interact (E) held");
 			}
 		}
@@ -226,6 +229,7 @@ namespace bfvr::weapon
 			{
 				++switches;
 				last_result = "switched";
+				input::haptic(1, input::pulses::seat);
 				log::write("holsters: %s -> slot %d %s", holster_name(pending), slot.current, slot.name);
 				pending = holster::none;
 			}
@@ -323,6 +327,7 @@ namespace bfvr::weapon
 			{
 				melee_until = now + melee_pulse_ms;
 				++strikes;
+				input::haptic(1, input::pulses::strike);
 			}
 		}
 		if (signal_enabled.load(std::memory_order_relaxed))
@@ -386,6 +391,10 @@ namespace bfvr::weapon
 		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
 		frame.left_handed = input::left_handed();
 		const holster_result result = zones.update(frame);
+		if (result.zone != holster::none && result.zone != last_zone)
+		{
+			input::haptic(1, input::pulses::tick);
+		}
 		last_zone = result.zone;
 		grip_claimed = result.zone != holster::none;
 		if (result.draw != holster::none)

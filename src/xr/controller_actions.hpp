@@ -3,6 +3,7 @@
 #include <openxr/openxr.h>
 
 #include "input/gamepad.hpp"
+#include "input/haptics.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::xr
@@ -29,6 +30,8 @@ namespace bfvr::xr
 		// Grip and aim poses relative to base at the given display time; uses the state of the
 		// last sync.
 		stereo::hand_sample locate(XrSpace base, XrTime time) const;
+		// This frame's vibration per hand (input/haptics: 1 = gun hand), after sync.
+		void vibrate(XrSession session, const input::haptic_output& output);
 		// Destroys the actions; call before the instance is destroyed. The pose spaces belong to
 		// the session and go with it.
 		void destroy();
@@ -50,6 +53,9 @@ namespace bfvr::xr
 		XrAction start_{ XR_NULL_HANDLE };
 		XrAction grip_pose_{ XR_NULL_HANDLE };
 		XrAction aim_pose_{ XR_NULL_HANDLE };
+		XrAction haptic_{ XR_NULL_HANDLE };
+		XrPath hand_paths_[2]{}; // 0 = left, 1 = right
+		bool vibrating_[2]{};
 		XrSpace grip_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE }; // 0 = left, 1 = right
 		XrSpace aim_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 		bool left_grip_held_{};

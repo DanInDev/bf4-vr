@@ -121,11 +121,12 @@ namespace bfvr::xr
 		const pose_spec poses[] = {
 			{ &grip_pose_, "grip_pose", { "/user/hand/left/input/grip/pose", "/user/hand/right/input/grip/pose" } },
 			{ &aim_pose_, "aim_pose", { "/user/hand/left/input/aim/pose", "/user/hand/right/input/aim/pose" } },
+			{ &haptic_, "haptic", { "/user/hand/left/output/haptic", "/user/hand/right/output/haptic" } },
 		};
 		for (const pose_spec& spec : poses)
 		{
 			XrActionCreateInfo info{ XR_TYPE_ACTION_CREATE_INFO };
-			info.actionType = XR_ACTION_TYPE_POSE_INPUT;
+			info.actionType = spec.action == &haptic_ ? XR_ACTION_TYPE_VIBRATION_OUTPUT : XR_ACTION_TYPE_POSE_INPUT;
 			strcpy_s(info.actionName, spec.name);
 			strcpy_s(info.localizedActionName, spec.name);
 			info.countSubactionPaths = 2;
@@ -166,6 +167,9 @@ namespace bfvr::xr
 		{
 			return false;
 		}
+
+		hand_paths_[0] = hands[0];
+		hand_paths_[1] = hands[1];
 
 		// Without pose spaces the pad still works; only the arms stay animated.
 		for (int hand = 0; hand < 2; ++hand)
@@ -274,6 +278,39 @@ namespace bfvr::xr
 		if (read_bool(start_)) buttons |= XINPUT_GAMEPAD_START;
 		pad.buttons = buttons;
 		return input::left_handed() ? input::mirrored(pad) : pad;
+	}
+
+	void controller_actions::vibrate(XrSession session, const input::haptic_output& output)
+	{
+		if (haptic_ == XR_NULL_HANDLE)
+		{
+			return;
+		}
+		// Output index 1 is the gun hand: the right controller, or the left one when left-handed.
+		const bool left_handed = input::left_handed();
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			const int controller = (hand == 1) != left_handed ? 1 : 0;
+			const float amplitude = output.amplitude[hand];
+			XrHapticActionInfo info{ XR_TYPE_HAPTIC_ACTION_INFO };
+			info.action = haptic_;
+			info.subactionPath = hand_paths_[controller];
+			if (amplitude > 0.0f)
+			{
+				// Renewed every frame; long enough to bridge to the next one.
+				XrHapticVibration vibration{ XR_TYPE_HAPTIC_VIBRATION };
+				vibration.amplitude = amplitude;
+				vibration.duration = 50'000'000; // 50 ms
+				vibration.frequency = XR_FREQUENCY_UNSPECIFIED;
+				xrApplyHapticFeedback(session, &info, reinterpret_cast<const XrHapticBaseHeader*>(&vibration));
+				vibrating_[controller] = true;
+			}
+			else if (vibrating_[controller])
+			{
+				xrStopHapticFeedback(session, &info);
+				vibrating_[controller] = false;
+			}
+		}
 	}
 
 	void controller_actions::destroy()

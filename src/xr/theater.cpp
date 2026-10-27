@@ -29,6 +29,7 @@
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "input/gestures.hpp"
+#include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/hud_layout.hpp"
@@ -182,6 +183,7 @@ namespace bfvr::xr
 		controller_actions actions;
 		bool actions_ready{};
 		ULONGLONG last_input_log{};
+		LARGE_INTEGER last_haptics{};
 
 		XrSwapchain swapchain{ XR_NULL_HANDLE };
 		std::vector<XrSwapchainImageD3D11KHR> images;
@@ -1991,6 +1993,9 @@ namespace bfvr::xr
 				{
 					stereo::publish_hand_sample(s.actions.locate(s.space, time));
 				}
+				const float since = s.last_haptics.QuadPart ? static_cast<float>(t0.QuadPart - s.last_haptics.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
+				s.last_haptics = t0;
+				s.actions.vibrate(s.session, input::haptics_frame(std::fmin(since, 0.1f)));
 				// Non-neutral input is logged at most once per second, for diagnosing bindings.
 				const bool active = pad.buttons || pad.left_trigger > 64 || pad.right_trigger > 64
 					|| std::abs(pad.left_x) > 8000 || std::abs(pad.left_y) > 8000 || std::abs(pad.right_x) > 8000 || std::abs(pad.right_y) > 8000;

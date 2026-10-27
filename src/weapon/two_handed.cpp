@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "body/arm_pose.hpp"
+#include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -103,6 +104,12 @@ namespace bfvr::weapon
 			if (out.held && !last.held)
 			{
 				++grabs;
+				bfvr::input::haptic(0, bfvr::input::pulses::grab);
+				bfvr::input::haptic(1, bfvr::input::pulses::tick);
+			}
+			else if (!out.held && last.held)
+			{
+				bfvr::input::haptic(0, bfvr::input::pulses::tick);
 			}
 		}
 		else
@@ -110,11 +117,13 @@ namespace bfvr::weapon
 			grip.reset();
 		}
 		last = out;
+		bfvr::input::set_two_handed_haptics(out.held);
 		claim = out.claim_grip;
 		const bool by_trigger = trigger_toggles.load(std::memory_order_relaxed);
 		claim_trigger = by_trigger && out.claim_trigger;
 		if (by_trigger && out.toggle_accessory)
 		{
+			bfvr::input::haptic(0, bfvr::input::pulses::click);
 			pulse_until = GetTickCount64() + pulse_ms;
 			++toggles;
 		}

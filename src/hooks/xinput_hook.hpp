@@ -8,6 +8,7 @@ namespace bfvr::hooks
 	{
 		std::uint64_t state_calls{};
 		std::uint64_t capability_calls{};
+		std::uint64_t set_state_calls{}; // the game's rumble, any user index
 	};
 	xinput_stats xinput_call_counts();
 

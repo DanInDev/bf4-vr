@@ -14,6 +14,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "input/haptics.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grenade_hands.hpp"
 #include "weapon/reload_sounds.hpp"
@@ -319,13 +320,21 @@ namespace bfvr::weapon
 		{
 			last_event = event_name(result.event);
 		}
+		// The grenade is in the off hand (0); the gun hand (1) pulls the pin.
 		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
 		{
 			play(cue::cloth);
+			input::haptic(0, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
 		}
 		else if (result.event == grenade_event::pin_pulled)
 		{
 			play(cue::pin);
+			input::haptic(1, input::pulses::grab);
+			input::haptic(0, input::pulses::tick);
+		}
+		else if (result.event == grenade_event::thrown)
+		{
+			input::haptic(0, input::pulses::strike);
 		}
 		if (result.event == grenade_event::thrown || result.event == grenade_event::dropped)
 		{

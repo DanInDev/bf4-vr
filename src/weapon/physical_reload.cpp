@@ -15,6 +15,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "input/haptics.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -193,9 +194,32 @@ namespace bfvr::weapon
 			}
 		}
 
+		// Hand 0 is the off hand (magazines, the bolt), 1 the gun hand.
+		void feel(reload_event event)
+		{
+			switch (event)
+			{
+			case reload_event::dry_fire: input::haptic(1, input::pulses::click); break;
+			case reload_event::bolt_locked: input::haptic(1, input::pulses::grab); break;
+			case reload_event::magazine_out:
+			case reload_event::magazine_taken: input::haptic(0, input::pulses::grab); break;
+			case reload_event::magazine_stowed: input::haptic(0, input::pulses::tick); break;
+			case reload_event::magazine_in:
+			case reload_event::flicked_in:
+			case reload_event::chambered:
+			case reload_event::racked_empty:
+			case reload_event::round_ejected:
+				input::haptic(0, input::pulses::seat);
+				input::haptic(1, input::pulses::grab);
+				break;
+			default: break;
+			}
+		}
+
 		void remember(reload_event event)
 		{
 			sound_for(event);
+			feel(event);
 			if (event == reload_event::none || event == reload_event::shot)
 			{
 				return;
@@ -338,6 +362,18 @@ namespace bfvr::weapon
 		}
 
 		const game_weapon weapon = read_game_weapon();
+		if (!physical.load(std::memory_order_relaxed))
+		{
+			// Button reload: nothing writes the magazine, so any drop is the game firing.
+			static std::uintptr_t seen_ammo{};
+			static int seen_magazine{ -1 };
+			if (weapon.valid && weapon.ammo == seen_ammo && weapon.magazine < seen_magazine)
+			{
+				input::recoil();
+			}
+			seen_ammo = weapon.valid ? weapon.ammo : 0;
+			seen_magazine = weapon.valid ? weapon.magazine : -1;
+		}
 		if (!physical.load(std::memory_order_relaxed) || !weapon.valid)
 		{
 			if (!physical.load(std::memory_order_relaxed))
@@ -382,6 +418,10 @@ namespace bfvr::weapon
 			{
 				remember(gun.fire());
 				++shots;
+			}
+			if (memory.written > weapon.magazine)
+			{
+				input::recoil();
 			}
 			if (weapon.magazine > memory.written)
 			{

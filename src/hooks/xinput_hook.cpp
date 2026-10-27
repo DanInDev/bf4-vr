@@ -11,6 +11,8 @@
 #include <MinHook.h>
 
 #include "common/log.hpp"
+#include "hooks/rumble_hook.hpp"
+#include "input/haptics.hpp"
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/virtual_pad.hpp"
@@ -27,6 +29,7 @@ namespace bfvr::hooks
 	{
 		using get_state_t = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
 		using get_capabilities_t = DWORD(WINAPI*)(DWORD, DWORD, XINPUT_CAPABILITIES*);
+		using set_state_t = DWORD(WINAPI*)(DWORD, XINPUT_VIBRATION*);
 
 		constexpr DWORD virtual_user_index = 0;
 		constexpr const wchar_t* modules[] = { L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll" };
@@ -35,6 +38,7 @@ namespace bfvr::hooks
 		// MinHook returns one trampoline per target, so each DLL gets its own detour instance.
 		get_state_t original_get_state[module_count]{};
 		get_capabilities_t original_get_capabilities[module_count]{};
+		set_state_t original_set_state[module_count]{};
 		DWORD packet_number{};
 
 		SHORT add_axis(SHORT real, std::int16_t extra)
@@ -45,6 +49,7 @@ namespace bfvr::hooks
 		// Diagnostics: does the game poll at all (e.g. without a physical pad plugged in)?
 		std::atomic<std::uint64_t> state_calls{};
 		std::atomic<std::uint64_t> capability_calls{};
+		std::atomic<std::uint64_t> set_state_calls{};
 
 		// The game accepted the virtual pad as an XInput device (see input/virtual_pad.cpp).
 		bool virtual_pad_present()
@@ -113,6 +118,33 @@ namespace bfvr::hooks
 			return ERROR_SUCCESS;
 		}
 
+		// The game's rumble for the virtual pad goes to the VR controllers (input/haptics, #32): the left
+		// motor is the low-frequency one, the right the high-frequency one.
+		DWORD capture_vibration(DWORD result, DWORD user_index, const XINPUT_VIBRATION* vibration)
+		{
+			++set_state_calls;
+			if (!vibration)
+			{
+				return result;
+			}
+			if (user_index != virtual_user_index)
+			{
+				return result;
+			}
+			// BF4 x64: the rumble hook has the levels before the game's focus gate (hooks/rumble_hook).
+			if (!rumble_hook_active())
+			{
+				input::set_game_rumble(vibration->wLeftMotorSpeed / 65535.0f, vibration->wRightMotorSpeed / 65535.0f);
+			}
+			return result != ERROR_SUCCESS && virtual_pad_present() ? ERROR_SUCCESS : result;
+		}
+
+		template <int N>
+		DWORD WINAPI set_state_detour(DWORD user_index, XINPUT_VIBRATION* vibration)
+		{
+			return capture_vibration(original_set_state[N](user_index, vibration), user_index, vibration);
+		}
+
 		template <int N>
 		DWORD WINAPI get_state_detour(DWORD user_index, XINPUT_STATE* state)
 		{
@@ -127,6 +159,7 @@ namespace bfvr::hooks
 
 		constexpr get_state_t get_state_detours[] = { &get_state_detour<0>, &get_state_detour<1>, &get_state_detour<2> };
 		constexpr get_capabilities_t get_capabilities_detours[] = { &get_capabilities_detour<0>, &get_capabilities_detour<1>, &get_capabilities_detour<2> };
+		constexpr set_state_t set_state_detours[] = { &set_state_detour<0>, &set_state_detour<1>, &set_state_detour<2> };
 
 		// Returns true when the target is hooked, including by an earlier module that forwards to it.
 		bool hook(void* target, void* detour, void** original, const char* name)
@@ -151,7 +184,7 @@ namespace bfvr::hooks
 
 	xinput_stats xinput_call_counts()
 	{
-		return { state_calls.load(), capability_calls.load() };
+		return { state_calls.load(), capability_calls.load(), set_state_calls.load() };
 	}
 
 	bool install_xinput_hooks()
@@ -189,6 +222,13 @@ namespace bfvr::hooks
 			{
 				hook(get_capabilities, reinterpret_cast<void*>(get_capabilities_detours[i]),
 					reinterpret_cast<void**>(&original_get_capabilities[i]), "XInputGetCapabilities");
+			}
+			if (void* const set_state = reinterpret_cast<void*>(GetProcAddress(module, "XInputSetState")))
+			{
+				if (hook(set_state, reinterpret_cast<void*>(set_state_detours[i]), reinterpret_cast<void**>(&original_set_state[i]), "XInputSetState"))
+				{
+					log::write("xinput hook: %ls XInputSetState at %p", modules[i], set_state);
+				}
 			}
 		}
 

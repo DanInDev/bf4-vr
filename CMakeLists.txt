@@ -90,6 +90,7 @@ add_library(bfvr_runtime STATIC
 	src/hooks/game_window.cpp
 	src/hooks/nvapi_hook.cpp
 	src/hooks/present_hook.cpp
+	src/hooks/rumble_hook.cpp
 	src/hooks/swap_chain_size.cpp
 	src/hooks/xinput_hook.cpp
 	src/input/gamepad.cpp
@@ -116,6 +117,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/holsters.cpp
 	src/weapon/melee_gesture.cpp
 	src/weapon/use_reach.cpp
+	src/input/haptics.cpp
 	src/weapon/physical_grenade.cpp
 	src/weapon/physical_reload.cpp
 	src/weapon/profiles.cpp
@@ -195,6 +197,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_melee_test tests/melee_test.cpp src/weapon/melee_gesture.cpp)
 	target_link_libraries(bfvr_melee_test PRIVATE bfvr_common)
 
+	# Haptics mixer (game rumble per hand, gesture pulses); exits non-zero on failure.
+	add_executable(bfvr_haptics_test tests/haptics_test.cpp src/input/haptics.cpp)
+	target_link_libraries(bfvr_haptics_test PRIVATE bfvr_common)
+
 	# Use by reaching (the game's interact); exits non-zero on failure.
 	add_executable(bfvr_use_reach_test tests/use_reach_test.cpp src/weapon/use_reach.cpp)
 	target_link_libraries(bfvr_use_reach_test PRIVATE bfvr_common)
@@ -219,6 +225,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
+	add_test(NAME haptics COMMAND bfvr_haptics_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.

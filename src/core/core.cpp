@@ -16,10 +16,12 @@
 #include "hooks/game_window.hpp"
 #include "hooks/nvapi_hook.hpp"
 #include "hooks/present_hook.hpp"
+#include "hooks/rumble_hook.hpp"
 #include "hooks/swap_chain_size.hpp"
 #include "hooks/xinput_hook.hpp"
 #include "input/gamepad.hpp"
 #include "input/handedness.hpp"
+#include "input/haptics.hpp"
 #include "input/virtual_pad.hpp"
 #include "input/vr_controls.hpp"
 #include "safety/mp_guard.hpp"
@@ -90,6 +92,8 @@ namespace bfvr::core
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
 			weapon::set_use_reach(store.boolean("use_reach", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
+			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
+				store.boolean("haptics_gestures", true) });
 			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
@@ -144,13 +148,13 @@ namespace bfvr::core
 			std::snprintf(text, sizeof(text),
 				"game=%s\ntheater=%s session_state=%d presents=%llu submitted=%llu max_sync_ms=%.2f max_frame_ms=%.2f stage=%s stage_ms=%.0f\n"
 				"pad connected=%d buttons=%04X lt=%u rt=%u left=(%d,%d) right=(%d,%d)\n"
-				"xinput get_state_calls=%llu get_capabilities_calls=%llu virtual_pad_offered=%llu virtual_pad_xinput=%llu\n"
+				"xinput get_state_calls=%llu get_capabilities_calls=%llu set_state_calls=%llu virtual_pad_offered=%llu virtual_pad_xinput=%llu\n"
 				"camera copies=%llu copy_thread=%lu present_thread=%lu eye_offset=%.4f stereo=%d eye_images=%llu",
 				BFVR_GAME_NAME, vr.phase, vr.session_state, vr.presents_seen, vr.frames_submitted, vr.max_sync_ms, vr.max_frame_ms,
 				vr.stage ? vr.stage : "-", vr.stage_ms,
 				pad.connected ? 1 : 0, pad.buttons,
 				pad.left_trigger, pad.right_trigger, pad.left_x, pad.left_y, pad.right_x, pad.right_y,
-				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls,
+				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls, hooks::xinput_call_counts().set_state_calls,
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
@@ -224,6 +228,7 @@ namespace bfvr::core
 			if (theater && config::get_bool("gamepad", true))
 			{
 				hooks::install_xinput_hooks();
+				hooks::install_rumble_hook();
 				input::install_vr_controls();
 			}
 			return 0;

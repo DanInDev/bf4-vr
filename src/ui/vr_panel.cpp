@@ -11,6 +11,7 @@
 #include "body/arm_ik.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
+#include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
 #include "ui/menu_button.hpp"
@@ -214,6 +215,7 @@ namespace bfvr::ui
 		panel.hover(over);
 		if (clicked && over.kind != target_kind::none)
 		{
+			input::haptic(pointer_hand, input::pulses::click);
 			apply(panel.click(over, settings::global()));
 		}
 		if (open)
