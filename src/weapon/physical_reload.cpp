@@ -42,6 +42,7 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t weapon_data = 0x30;      // SoldierWeaponData
 		constexpr std::uintptr_t data_firing = 0x90;      // WeaponFiringData
 		constexpr std::uintptr_t firing_primary = 0x10;   // FiringFunctionData
+		constexpr std::uintptr_t firing_rumble = 0x38;    // WeaponFiringData.Rumble: low, high, duration
 		constexpr std::uintptr_t function_capacity = 0x220; // Ammo.MagazineCapacity (counts the chamber)
 		// Server (single player runs it in-process): local ServerSoldierEntity -> weapons component ->
 		// slot array (same slot index as the client) -> weapon firing object -> ammo.
@@ -78,6 +79,7 @@ namespace bfvr::weapon
 			std::uintptr_t ammo{};   // server weapon firing + 0x1A0
 			int magazine{};
 			int reserve{};
+			float rumble[3]{};       // the game's firing rumble: low, high, seconds
 		};
 
 		game_weapon read_game_weapon()
@@ -103,6 +105,7 @@ namespace bfvr::weapon
 			{
 				return weapon;
 			}
+			read(firing + firing_rumble, weapon.rumble);
 			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
 			if (!read(server_soldier_global, server_soldier) || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
@@ -369,7 +372,7 @@ namespace bfvr::weapon
 			static int seen_magazine{ -1 };
 			if (weapon.valid && weapon.ammo == seen_ammo && weapon.magazine < seen_magazine)
 			{
-				input::recoil();
+				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
 			}
 			seen_ammo = weapon.valid ? weapon.ammo : 0;
 			seen_magazine = weapon.valid ? weapon.magazine : -1;
@@ -421,7 +424,7 @@ namespace bfvr::weapon
 			}
 			if (memory.written > weapon.magazine)
 			{
-				input::recoil();
+				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
 			}
 			if (weapon.magazine > memory.written)
 			{

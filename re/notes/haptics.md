@@ -1,8 +1,8 @@
 # Haptics — BF4 build 179547 (#32)
 
-Status: **controller haptics in place, monitor-verified up to the OpenXR call** (2026-10-27). Shots give a
-recoil pulse in both reload modes; the game's own rumble is captured before its focus gate but stayed at
-0 in every test here. The vibration itself needs the headset (rows 17, 18 of docs/HEADSET-TESTS.md).
+Status: **controller haptics in place, monitor-verified up to the OpenXR call** (2026-10-27). Firing,
+nearby explosions and damage all reach the mixer; the vibration itself needs the headset (rows 17, 18
+of docs/HEADSET-TESTS.md).
 
 ## How the game rumbles
 
@@ -26,6 +26,17 @@ Settings file: `GstInput.Vibration 1` (on).
   reload reads it) dropping = a shot = `input::recoil()` (gun hand, and the off hand while two-handed).
   Verified: 7 shots -> 7 pulses (physical reload), 8 -> 8 (button reload).
 
+## What drives each feeling (2026-10-27, monitor)
+
+| Event | Source | Measured |
+| --- | --- | --- |
+| Firing | Our shot detection (magazine drop) with the weapon's own `WeaponFiringData.Rumble` (+0x38: low, high, duration; `RumbleFiringData`) | AK-12: 0.2, 1.0, 0.12 s -> pulse 1.0 for 0.06 s per shot. The game produced no firing rumble in any test (its effect list stayed empty while firing) |
+| Nearby explosion | The game's own rumble, at the setter hook (before its focus gate) | Grenade ~4 m away: low 0.50, high 0.20 -> 0.50 for ~0.35 s, then 0.24 / 0.10 fading; a grenade ~15 m away: nothing. Works with the window unfocused |
+| Damage | Health watch: soldier +0x140 health component, +0x20 health, +0x24 max (100) | The same grenade: 100 -> 28.7 (hit 71.3) -> one hit pulse 1.0 for 0.31 s, both hands; regeneration is ignored |
+
+Explosion and damage rumble in data comes from the sound system: `PadRumbleNodeData` (audio-graph node,
+ports `RumbleHigh` +0x10, `RumbleLow` +0x18). `ClientSettings.PadRumbleEnabled` is at +0xDC.
+
 ## In the mod
 
 - `input/haptics`: mixer (game levels per hand, pulses, strength, toggles), `tests/haptics_test.cpp`.
@@ -33,5 +44,7 @@ Settings file: `GstInput.Vibration 1` (on).
   the fallback (BF3, or if the hook does not match).
 - `xr/controller_actions::vibrate`: `XR_ACTION_TYPE_VIBRATION_OUTPUT` on `/user/hand/{left,right}/output/haptic`,
   renewed every frame (50 ms) while non-zero, stopped once.
+- `weapon/hit_feedback`: the health watch (hits, both hands, `input::hit_pulse`).
+- Firing: `weapon/physical_reload` reads the weapon's rumble with its magazine; `input::firing_pulse`.
 - Gesture taps: reload events, grenade take/pin/throw, two-handed grab/release/accessory, holster
   zone/draw, melee, squad order, use, panel clicks.

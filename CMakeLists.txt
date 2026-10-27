@@ -114,6 +114,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/accessory_touch.cpp
 	src/weapon/grenade_hands.cpp
 	src/weapon/hand_signal.cpp
+	src/weapon/hit_feedback.cpp
 	src/weapon/holsters.cpp
 	src/weapon/melee_gesture.cpp
 	src/weapon/use_reach.cpp

@@ -26,6 +26,13 @@ namespace bfvr::input
 		constexpr haptic_pulse recoil{ 0.9f, 0.035f }; // a shot (full auto chains them)
 	}
 
+	// A shot from the weapon's own rumble (WeaponFiringData +0x38: low, high, duration; AK-12 0.2, 1.0,
+	// 0.12 s), kept short enough that full auto stays a rhythm, not a buzz. Falls back to pulses::recoil.
+	haptic_pulse firing_pulse(float low, float high, float duration);
+	// Taking damage (health points lost of max_health): stronger and longer for bigger hits; a death is
+	// the strongest.
+	haptic_pulse hit_pulse(float damage, float max_health);
+
 	struct haptics_config
 	{
 		bool enabled{ true };
@@ -51,6 +58,8 @@ namespace bfvr::input
 		void pulse(int hand, const haptic_pulse& pulse, bool from_game = false);
 		// A shot (counts as the game's rumble): the gun hand, and the off hand too while it holds the gun.
 		void recoil(const haptic_pulse& pulse);
+		// A hit or blast: both hands.
+		void hit(const haptic_pulse& pulse);
 		// Advances the pulses by seconds and returns this frame's vibration.
 		haptic_output update(float seconds);
 
@@ -77,6 +86,8 @@ namespace bfvr::input
 	void set_two_handed_haptics(bool held);
 	void haptic(int hand, const haptic_pulse& pulse);
 	void recoil(const haptic_pulse& pulse = pulses::recoil);
+	// Damage: both hands, from the game (follows haptics_game).
+	void hit(const haptic_pulse& pulse);
 	haptic_output haptics_frame(float seconds);
 	// Pipe "haptics": settings, the game's motors, the last output, counts. "haptics <hand 0|1>
 	// <amplitude> <ms>" (research) queues a pulse.

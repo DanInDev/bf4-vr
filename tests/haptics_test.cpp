@@ -102,6 +102,23 @@ namespace
 		expect(mixer.update(frame).amplitude[1] == 0.0f, "recoil goes with haptics_game off");
 	}
 
+	void test_game_pulses()
+	{
+		const haptic_pulse ak = firing_pulse(0.2f, 1.0f, 0.12f);
+		expect(near(ak.amplitude, 1.0f) && near(ak.seconds, 0.06f), "AK-12 rumble: full strength, half its duration");
+		expect(near(firing_pulse(0.3f, 0.0f, 1.0f).seconds, 0.08f), "long rumble capped (full auto stays a rhythm)");
+		expect(near(firing_pulse(0, 0, 0).amplitude, pulses::recoil.amplitude), "no rumble data: default recoil");
+		const haptic_pulse graze = hit_pulse(5, 100), heavy = hit_pulse(40, 100), death = hit_pulse(100, 100);
+		expect(graze.amplitude < heavy.amplitude && heavy.amplitude <= death.amplitude, "bigger hits are stronger");
+		expect(graze.seconds < heavy.seconds && heavy.seconds < death.seconds, "and longer");
+		expect(near(death.amplitude, 1.0f) && near(death.seconds, 0.4f), "a death: full and long");
+		expect(near(hit_pulse(500, 100).seconds, 0.4f) && hit_pulse(5, 0).seconds > 0.0f, "clamped; no max health still pulses");
+		haptics_mixer mixer = full_strength();
+		mixer.hit(heavy);
+		const haptic_output out = mixer.update(frame);
+		expect(near(out.amplitude[0], heavy.amplitude) && near(out.amplitude[1], heavy.amplitude), "a hit: both hands");
+	}
+
 	void test_full_list()
 	{
 		haptics_mixer mixer = full_strength();
@@ -144,6 +161,7 @@ int main()
 	test_game_rumble();
 	test_pulses();
 	test_recoil();
+	test_game_pulses();
 	test_full_list();
 	test_settings();
 	test_global();

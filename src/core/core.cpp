@@ -32,6 +32,7 @@
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "weapon/hit_feedback.hpp"
 #include "weapon/reload_sounds.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
@@ -125,6 +126,7 @@ namespace bfvr::core
 			weapon::update_two_handed();
 			ui::update_vr_panel();
 			weapon::update_weapon_swap();
+			weapon::update_hit_feedback();
 			if (control_enabled)
 			{
 				control::on_present(swap_chain);

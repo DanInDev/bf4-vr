@@ -18,6 +18,28 @@ namespace bfvr::input
 		*slot = { hand, std::min(pulse.amplitude, 1.0f), pulse.seconds, from_game };
 	}
 
+	haptic_pulse firing_pulse(float low, float high, float duration)
+	{
+		const float amplitude = std::max(low, high);
+		if (!(amplitude > 0.0f) || !(duration > 0.0f))
+		{
+			return pulses::recoil;
+		}
+		return { std::min(amplitude, 1.0f), std::clamp(duration * 0.5f, 0.025f, 0.08f) };
+	}
+
+	haptic_pulse hit_pulse(float damage, float max_health)
+	{
+		const float share = max_health > 0.0f ? std::clamp(damage / max_health, 0.0f, 1.0f) : 0.0f;
+		return { 0.5f + 0.5f * std::min(share * 3.0f, 1.0f), 0.08f + 0.32f * share };
+	}
+
+	void haptics_mixer::hit(const haptic_pulse& pulse)
+	{
+		this->pulse(0, pulse, true);
+		this->pulse(1, pulse, true);
+	}
+
 	void haptics_mixer::recoil(const haptic_pulse& pulse)
 	{
 		this->pulse(1, pulse, true);
@@ -107,6 +129,13 @@ namespace bfvr::input
 	{
 		const std::lock_guard guard(lock);
 		mixer.recoil(pulse);
+		++pulse_count;
+	}
+
+	void hit(const haptic_pulse& pulse)
+	{
+		const std::lock_guard guard(lock);
+		mixer.hit(pulse);
 		++pulse_count;
 	}
 

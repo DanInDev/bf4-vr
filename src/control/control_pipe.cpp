@@ -31,6 +31,7 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/hit_feedback.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/game_reload_sounds.hpp"
@@ -764,7 +765,7 @@ namespace bfvr::control
 				return text;
 			}
 			if (command == "panel") return ui::panel_pipe_command(argument);
-			if (command == "haptics") return input::haptics_pipe_command(argument);
+			if (command == "haptics") return input::haptics_pipe_command(argument) + "\n" + weapon::hit_feedback_report();
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "fakehand")
