@@ -19,6 +19,9 @@ namespace bfvr::weapon
 	// knife_grip: with the knife out, the blade points along the gun-hand controller
 	// (body::set_knife_in_hand).
 	void set_knife_grip(bool enabled);
+	// use_reach: the off hand reaching out ahead (away from the gun) + grip holds the game's interact
+	// (E: pick up, doors, use prompts; weapon/use_reach, #15).
+	void set_use_reach(bool enabled);
 
 	// Present thread, once per frame.
 	void update_weapon_swap();

@@ -88,6 +88,7 @@ namespace bfvr::core
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
+			weapon::set_use_reach(store.boolean("use_reach", true));
 			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));

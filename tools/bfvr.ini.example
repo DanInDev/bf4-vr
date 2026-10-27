@@ -153,6 +153,9 @@ melee_gesture = 1
 # the blade this many degrees to lie on the ray (0 = the knife model's own angle).
 knife_grip = 1
 knife_pitch = 30
+# Use (pick up, doors, prompts; the game's E): reach the off hand out ahead, away from the gun and
+# below the eyes, and squeeze its grip. With physical reload the pad's own use (X) is not reachable.
+use_reach = 1
 # The pause menu (and other menus drawn over a level) is shown on the flat screen with the pointer.
 pause_flat = 1
 

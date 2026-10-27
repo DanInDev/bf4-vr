@@ -140,6 +140,11 @@ namespace bfvr::weapon
 		return shot_valid;
 	}
 
+	bool off_hand_on_gun()
+	{
+		return claim.load(std::memory_order_relaxed);
+	}
+
 	input::gamepad_state filter_two_hand_pad(const input::gamepad_state& pad)
 	{
 		input::gamepad_state out = pad;

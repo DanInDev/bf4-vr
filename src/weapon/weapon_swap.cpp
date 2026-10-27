@@ -24,6 +24,8 @@
 #include "weapon/melee_gesture.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/two_handed.hpp"
+#include "weapon/use_reach.hpp"
 
 namespace bfvr::weapon
 {
@@ -117,6 +119,14 @@ namespace bfvr::weapon
 		// Melee by hand (#15): pad right-stick click for one stab.
 		std::atomic<bool> melee_enabled{ true };
 		std::atomic<bool> knife_grip{ true };
+
+		// Use by reaching (#15): the game's interact key while the off hand reaches out and grips.
+		constexpr unsigned short use_key = 'E';
+		std::atomic<bool> use_enabled{ true };
+		std::atomic<bool> use_reaching{};
+		use_reach user;
+		bool use_down{};
+		std::uint64_t uses{};
 		melee_gesture melee;
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
@@ -175,6 +185,21 @@ namespace bfvr::weapon
 			order_up_at = now + key_hold_ms;
 			++orders;
 			log::write("squad: order given (Q)");
+		}
+
+		// Called with lock held.
+		void hold_use(bool down)
+		{
+			if (down == use_down || !hooks::press_game_key(use_key, down))
+			{
+				return;
+			}
+			use_down = down;
+			if (down)
+			{
+				++uses;
+				log::write("use: interact (E) held");
+			}
 		}
 
 		// Called with lock held.
@@ -244,6 +269,11 @@ namespace bfvr::weapon
 		knife_grip = on;
 	}
 
+	void set_use_reach(bool on)
+	{
+		use_enabled = on;
+	}
+
 	void set_holsters(bool on)
 	{
 		enabled = on;
@@ -307,6 +337,28 @@ namespace bfvr::weapon
 		{
 			signal_raised = false;
 		}
+		if (use_enabled.load(std::memory_order_relaxed))
+		{
+			use_frame reach;
+			reach.head_valid = head_valid;
+			reach.head = head;
+			reach.head_yaw = head_yaw;
+			const bool fresh = now - points.at < points_max_age_ms;
+			reach.hand_valid = points.hand_valid[0] && fresh;
+			reach.off_hand = { points.hand[0][0], points.hand[0][1], points.hand[0][2] };
+			reach.gun_hand_valid = points.hand_valid[1] && fresh;
+			reach.gun_hand = { points.hand[1][0], points.hand[1][1], points.hand[1][2] };
+			reach.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+			reach.busy = grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ui::vr_panel_view().open;
+			const use_result used = user.update(reach);
+			use_reaching = used.reaching;
+			hold_use(used.use);
+		}
+		else
+		{
+			use_reaching = false;
+			hold_use(false);
+		}
 		if (!enabled.load(std::memory_order_relaxed))
 		{
 			zones.reset();
@@ -341,7 +393,7 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_RIGHT_SHOULDER);
 		}
-		if (signal_raised.load(std::memory_order_relaxed))
+		if (signal_raised.load(std::memory_order_relaxed) || use_reaching.load(std::memory_order_relaxed))
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}
@@ -382,12 +434,14 @@ namespace bfvr::weapon
 			request(which, GetTickCount64());
 		}
 		const slot_state slot = read_slot();
-		char text[384];
+		char text[512];
 		std::snprintf(text, sizeof(text),
-			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f",
+			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
+			"use_reach=%d reaching=%d using=%d uses=%llu",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
-			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed());
+			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
+			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses));
 		return text;
 	}
 }

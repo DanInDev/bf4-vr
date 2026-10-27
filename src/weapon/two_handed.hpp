@@ -23,6 +23,8 @@ namespace bfvr::weapon
 	// Where the shots converge (OpenXR LOCAL): the gun hand's grip plus aim_convergence metres down the
 	// drawn barrel; false without a tracked gun hand. For the aim reticle.
 	bool aim_point(float (&point)[3]);
+	// The off hand holds the gun or is on its handguard (its grip is the two-handed grab's).
+	bool off_hand_on_gun();
 
 	// Pipe "twohand": state, weight, barrel and shot directions, grab count.
 	std::string two_hand_report();
