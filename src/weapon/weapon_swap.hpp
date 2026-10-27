@@ -13,10 +13,6 @@ namespace bfvr::weapon
 	void set_holsters(bool enabled);
 	// Squad order by hand signal (weapon/hand_signal): off hand raised ahead above the eyes + grip = Q.
 	void set_squad_signal(bool enabled);
-	// grip_spot = 0 (default): the gun-hand grip (pad RB) never reaches the game. Its game action is
-	// spot / command rose on release (re/notes/sound.md), so squeezing the grip while holding or
-	// reloading the gun played call-outs.
-	void set_grip_spot(bool enabled);
 	// melee_gesture: a quick forward thrust of the gun hand is the game's melee (pad right-stick
 	// click, the knife stab; weapon/melee_gesture, #15).
 	void set_melee_gesture(bool enabled);
@@ -24,9 +20,9 @@ namespace bfvr::weapon
 	// Present thread, once per frame.
 	void update_weapon_swap();
 
-	// XInput hook thread: the gun-hand grip (RB) stays ours while the hand is in a holster (always with
-	// grip_spot = 0), the off-hand grip (LB) while the off hand gives the squad signal; adds the melee
-	// gesture's right-stick click.
+	// XInput hook thread: the gun-hand grip (RB) stays ours while the hand is in a holster, the
+	// off-hand grip (LB) while the off hand gives the squad signal; adds the melee gesture's
+	// right-stick click. (input::for_game keeps both grips from the game unless grips_to_game.)
 	input::gamepad_state filter_swap_pad(const input::gamepad_state& pad);
 
 	// Pipe "holster": state. "holster <primary|secondary|knife|gadget1|gadget2>" (research): switch as

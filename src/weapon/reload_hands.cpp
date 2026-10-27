@@ -57,12 +57,24 @@ namespace bfvr::weapon
 		last_button_ = frame.button;
 
 		const bool valid = frame.hands_valid;
+		const bool ak = gun.profile().kind == variant::ak;
 		const float to_magwell = valid ? distance(frame.off_hand, frame.magwell) : 1e9f;
 		const float to_chest = valid ? distance(frame.off_hand, frame.chest) : 1e9f;
-		const float to_slide = valid && frame.has_slide ? distance(frame.off_hand, frame.slide) : 1e9f;
+		// The charging handle: from the gun frame per variant, else the slide bone.
+		v3 handle = frame.slide;
+		float handle_reach = config_.reach_slide;
+		if (frame.has_root)
+		{
+			handle = frame.root + rotate(frame.root_rotation, ak ? config_.handle_ak : config_.handle_ar);
+			handle_reach = config_.reach_handle;
+		}
+		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(frame.off_hand, handle) : 1e9f;
 		const bool near_magwell = to_magwell < config_.reach_magazine;
 		const bool near_chest = to_chest < config_.reach_chest;
-		const q4 held_rotation = multiply(frame.gun_rotation, held_relative_);
+		// A held magazine turns with the off hand; its top sits where the hand holds it.
+		const q4 held_rotation = multiply(frame.off_rotation, held_relative_);
+		const v3 held_top = frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
+		const bool held_at_magwell = valid && distance(held_top, frame.magwell) < config_.reach_magazine;
 		const auto start_holding = [&](bool armed)
 		{
 			held_relative_ = multiply(conjugate(frame.gun_rotation), frame.magazine_rotation);
@@ -85,7 +97,7 @@ namespace bfvr::weapon
 
 		if (grip_pressed && valid && !gun.state().holding)
 		{
-			if (to_slide < config_.reach_slide)
+			if (to_slide < handle_reach)
 			{
 				racking_ = true;
 				rack_start_ = frame.off_hand;
@@ -113,11 +125,11 @@ namespace bfvr::weapon
 
 		if (gun.state().holding && valid)
 		{
-			if (to_magwell > config_.rearm_distance)
+			if (distance(held_top, frame.magwell) > config_.rearm_distance)
 			{
 				insert_armed_ = true;
 			}
-			if (frame.grip && insert_armed_ && near_magwell)
+			if (frame.grip && insert_armed_ && held_at_magwell)
 			{
 				const reload_event event = gun.insert();
 				if (event == reload_event::flicked_in)
@@ -133,8 +145,8 @@ namespace bfvr::weapon
 			if (racking_)
 			{
 				racking_ = false;
-				// Back = +z of the aim rotation (the barrel points down -z).
-				const v3 back = rotate(frame.gun_rotation, { 0, 0, 1 });
+				// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
+				const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 				if (valid && dot(frame.off_hand - rack_start_, back) >= config_.rack_pull)
 				{
 					emit(result, gun.rack());
@@ -145,19 +157,19 @@ namespace bfvr::weapon
 				const reload_event event = gun.let_go(near_chest);
 				if (event == reload_event::magazine_dropped)
 				{
-					start_fall(frame.off_hand, held_rotation);
+					start_fall(held_top, held_rotation);
 				}
 				emit(result, event);
 			}
 		}
 
 		// Also before the grip closes: the game must never see the press that starts a gesture.
-		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < config_.reach_slide;
+		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < handle_reach;
 
 		if (gun.state().holding && valid)
 		{
 			result.draw = magazine_draw::in_hand;
-			result.magazine_position = frame.off_hand;
+			result.magazine_position = held_top;
 			result.magazine_rotation = held_rotation;
 		}
 		else if (gun.state().magazine_in)

@@ -13,7 +13,7 @@
 
 #include "common/config.hpp"
 #include "control/control_pipe.hpp"
-#include "weapon/reload_sounds.hpp"
+#include "weapon/game_reload_sounds.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/vr_controls.hpp"
@@ -256,7 +256,7 @@ namespace bfvr::stereo
 			copy_thread = GetCurrentThreadId();
 			input::apply_view_turn();
 			control::on_game_thread();
-			weapon::reload_sounds_on_game_thread();
+			weapon::game_reload_sounds_on_game_thread();
 			const std::uint64_t index = ++copies;
 
 			rendered_view tag;

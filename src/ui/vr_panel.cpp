@@ -257,7 +257,12 @@ namespace bfvr::ui
 			out = {};
 			out.connected = pad.connected;
 		}
-		out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_START);
+		// Only the menu button's own Start waits for its release; a Start mapped from another button
+		// (x_menu: left X) passes straight through.
+		if (input::latest().buttons & XINPUT_GAMEPAD_START)
+		{
+			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_START);
+		}
 		if (GetTickCount64() < pass_start_until.load(std::memory_order_relaxed))
 		{
 			out.buttons |= XINPUT_GAMEPAD_START;

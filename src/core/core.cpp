@@ -29,6 +29,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/game_reload_sounds.hpp"
 #include "weapon/reload_sounds.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
@@ -63,7 +64,6 @@ namespace bfvr::core
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
 			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
-			body::set_shoulder_width(store.real("shoulder_width", 0.0f));
 			body::set_shoulder_reach(store.real("shoulder_reach", 0.12f));
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
@@ -73,17 +73,20 @@ namespace bfvr::core
 			input::set_controller_aim(store.text("aim", "head") == "controller");
 			const std::string move = store.text("move_direction", "head");
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
-			weapon::set_physical_reload(store.text("reload", "button") == "physical");
+			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
-			weapon::set_reload_sounds(store.boolean("reload_sounds", true));
+			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true) && store.boolean("game_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");
 			weapon::set_holsters(store.boolean("holsters", true));
+			weapon::set_sounds(store.boolean("reload_sounds", true));
+			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
+			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
+			body::set_legs_hidden(store.boolean("hide_legs", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
-			weapon::set_grip_spot(store.boolean("grip_spot", false));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
-			weapon::set_physical_grenades(store.text("grenade", "button") == "physical");
+			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			weapon::set_two_handed(store.boolean("two_handed", true));
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
@@ -96,7 +99,7 @@ namespace bfvr::core
 				stereo::set_stereo_render(render);
 			}
 			stereo_render = render;
-			const std::string stick = store.text("right_stick", "look");
+			const std::string stick = store.text("right_stick", "turn");
 			if (!first && stick != right_stick)
 			{
 				input::set_right_stick_mode(stick);
@@ -146,7 +149,7 @@ namespace bfvr::core
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
-				+ "\neyepass " + stereo::eye_pass_report();
+				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0");
 		}
 
 		DWORD WINAPI start_thread(LPVOID)

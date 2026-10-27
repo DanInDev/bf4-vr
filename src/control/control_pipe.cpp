@@ -32,7 +32,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
-#include "weapon/reload_sounds.hpp"
+#include "weapon/game_reload_sounds.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -751,7 +751,7 @@ namespace bfvr::control
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
-			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::reload_sounds_report();
+			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report();
 			if (command == "motion")

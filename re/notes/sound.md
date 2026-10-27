@@ -32,9 +32,10 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
 - RB acts on release: a tap and a 1.2 s hold both sound ≈0.25–0.3 s after letting go, which is how
   the controller's spot (tap) / command rose (hold) work. Holding a gun in VR means squeezing the
   gun-hand grip, so every squeeze during a reload played a call-out: the "wrong sounds".
-- Fix: `grip_spot` (default 0) keeps RB from the game (`weapon/weapon_swap.cpp` pad filter; holsters,
-  grenades and two-handed read the raw controller and are unaffected). Verified: RB tap/hold silent
-  with `grip_spot = 0`, the sound returns with `grip_spot = 1`.
+- Fix: RB kept from the game. First as `grip_spot` (verified: RB tap/hold silent when kept, the sound
+  returns when passed); after merging feature/headset-feedback the general `grips_to_game = 0` (both
+  grips, `input::for_game`) does it, and `grip_spot` was dropped. Holsters, grenades and two-handed
+  read the raw controller and are unaffected.
 
 ## Where weapon sounds live (typeinfo + live reads, `tools/weapon_sound_probe.py`)
 
@@ -79,7 +80,9 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
 | `7C7F4233` | `Grab` | silent alone | |
 | `1C998F75`, `ABEA067C` | ? | silent alone | |
 
-- `weapon/reload_sounds` (setting `reload_sounds`, default on): on a gun change a background thread
+- `weapon/game_reload_sounds` (settings `reload_sounds` and `game_sounds`, default on; where a gun's
+  entity is not found, or the event has no game cue, the synthesised/WAV cues of `weapon/reload_sounds`
+  from feature/headset-feedback play instead): on a gun change a background thread
   finds the gun's reload entity (`/<name without U_>/..._Reload_SPC`, not `/AI/`), retried every 5 s
   while missing; physical reload events queue cues (out; in + seat after 350 ms; bolt on chambered,
   racked empty and ejected rounds; settle on stow; an AR release that drops the magazine out of the

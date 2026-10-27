@@ -62,15 +62,15 @@ SCENARIOS = {
         ('B tap (crouch)', [pad(B)], 3.0),
         ('B tap again (stand)', [pad(B)], 3.0),
     ],
-    # grip_spot (#30): the gun-hand grip kept from the game, then passed through again.
-    'grip_spot': [
-        ('setup: grip_spot off', ['setting set grip_spot 0'], 3.0),
-        ('RB tap, grip_spot off', [pad(RB)], 3.5),
-        ('RB hold, grip_spot off', [pad(RB, 1200)], 4.0),
-        ('grip_spot on', ['setting set grip_spot 1'], 2.5),
-        ('RB tap, grip_spot on', [pad(RB)], 3.5),
-        ('RB hold, grip_spot on', [pad(RB, 1200)], 4.0),
-        ('grip_spot back off', ['setting set grip_spot 0'], 2.0),
+    # grips_to_game (#30): the grips kept from the game, then passed through again.
+    'grips': [
+        ('setup: grips_to_game off', ['setting set grips_to_game 0'], 3.0),
+        ('RB tap, grips off', [pad(RB)], 3.5),
+        ('RB hold, grips off', [pad(RB, 1200)], 4.0),
+        ('grips_to_game on', ['setting set grips_to_game 1'], 2.5),
+        ('RB tap, grips on', [pad(RB)], 3.5),
+        ('RB hold, grips on', [pad(RB, 1200)], 4.0),
+        ('grips_to_game back off', ['setting set grips_to_game 0'], 2.0),
     ],
     # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
     'physical_ar': [

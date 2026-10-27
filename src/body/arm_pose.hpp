@@ -20,11 +20,14 @@ namespace bfvr::body
 	// Out of reach, a shoulder first moves up to this far (metres) towards its hand; stretching
 	// covers the rest.
 	void set_shoulder_reach(float metres);
-	// Moves each shoulder joint this far out to its side (metres; negative = narrower).
-	void set_shoulder_width(float metres);
 	// Two-handed weapon (#29): the gun hand takes this rotation (OpenXR LOCAL, x y z w) instead of
 	// its controller's aim rotation while active.
 	void set_gun_hand_rotation(bool active, const float (&rotation)[4]);
+	// Arm shape: forearm and hand offsets scaled by length (reach), clavicles moved outwards by width
+	// metres per side (a wider torso). 1 and 0 = the rig as authored.
+	void set_arm_shape(float length, float width);
+	// The first-person legs collapsed onto the hips (they sit oddly under a tracked head).
+	void set_legs_hidden(bool hidden);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres
@@ -49,6 +52,9 @@ namespace bfvr::body
 		float magazine_rotation[4]{ 0, 0, 0, 1 };
 		bool has_slide{};
 		float slide[3]{};      // Wep_Slide (bolt / charging handle)
+		bool has_root{};
+		float root[3]{};       // Wep_Root: the gun's frame (+z along the barrel, +y up)
+		float root_rotation[4]{ 0, 0, 0, 1 };
 		bool has_optic{};
 		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
 		bool has_rail{};

@@ -1,273 +1,160 @@
 #include "weapon/reload_sounds.hpp"
 
 #include <windows.h>
+#include <mmsystem.h>
 
-#include <algorithm>
 #include <atomic>
-#include <cstdio>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
-#include "common/log.hpp"
+#include "common/config.hpp"
 
 namespace bfvr::weapon
 {
-	int cues_for(reload_event event, sound_cue (&cues)[2])
-	{
-		switch (event)
-		{
-		case reload_event::magazine_out:
-			cues[0] = { reload_sound::magazine_out, 0 };
-			return 1;
-		case reload_event::magazine_in:
-		case reload_event::flicked_in:
-			cues[0] = { reload_sound::magazine_in, 0 };
-			cues[1] = { reload_sound::magazine_seat, 350 };
-			return 2;
-		case reload_event::chambered:
-		case reload_event::racked_empty:
-		case reload_event::round_ejected:
-			cues[0] = { reload_sound::bolt, 0 };
-			return 1;
-		case reload_event::magazine_stowed:
-			cues[0] = { reload_sound::settle, 0 };
-			return 1;
-		default:
-			return 0;
-		}
-	}
-
-#if defined(_M_X64)
 	namespace
 	{
-		// BF4 179547 (re/notes/sound.md): SoundEntity vtable, its event handler (slot 5) with the
-		// event id at +8, SoundEntityData at entity +0x28, its Sound at +0x18, asset name at +0x10.
-		constexpr std::uintptr_t sound_entity_vtable = 0x141CE88C0;
-		constexpr std::uintptr_t sound_entity_event = 0x1407628D0;
-		constexpr int event_slot = 5;
-		constexpr std::uint8_t event_prologue[] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18 };
+		constexpr int rate = 44100;
+		constexpr float pi = 3.14159265f;
 
 		std::atomic<bool> enabled{ true };
-		std::mutex lock;
-		std::string weapon;          // the gun the entity belongs to
-		std::uintptr_t entity{};     // its reload SoundEntity, 0 while unknown
-		std::uintptr_t entity_data{};
-		bool searching{};
-		ULONGLONG last_search{};
-		constexpr ULONGLONG retry_ms = 5000; // a gun's entity may appear after it is picked up
-		std::uint64_t lookups{};
-		std::uint64_t sent{};
-		std::uint64_t refused{};
-		struct pending
-		{
-			std::uint32_t event;
-			ULONGLONG due;
-		};
-		std::vector<pending> queue;
-		char report[200];
+		std::once_flag built;
+		std::vector<std::uint8_t> waves[5];
+		std::wstring files[5];
 
-		template <typename T>
-		bool read(std::uintptr_t address, T& value)
+		const char* name_of(cue which)
 		{
-			SIZE_T done = 0;
-			return address && ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), &value, sizeof(value), &done) && done == sizeof(value);
-		}
-
-		bool asset_name(std::uintptr_t entity_address, std::uintptr_t& data, char (&name)[128])
-		{
-			std::uintptr_t sound{}, text{};
-			if (!read(entity_address + 0x28, data) || !read(data + 0x18, sound) || !read(sound + 0x10, text) || !read(text, name))
+			switch (which)
 			{
-				return false;
+			case cue::cloth: return "cloth";
+			case cue::magazine_in: return "magazine_in";
+			case cue::magazine_out: return "magazine_out";
+			case cue::chamber: return "chamber";
+			case cue::pin: return "pin";
 			}
-			name[sizeof(name) - 1] = 0;
-			return true;
+			return "cloth";
 		}
 
-		// "U_AK12" -> ".../AK12/Weapon_..._Reload_SPC", never the AI variants.
-		bool belongs_to(const char* name, const std::string& key)
+		// Deterministic noise in [-1, 1].
+		float noise(std::uint32_t& state)
 		{
-			return std::strstr(name, "_Reload_SPC") && !std::strstr(name, "/AI/") && std::strstr(name, ("/" + key + "/").c_str());
+			state = state * 1664525u + 1013904223u;
+			return static_cast<float>(state >> 8) / 8388608.0f - 1.0f;
 		}
 
-		// Background thread: one pass over committed private read/write memory for SoundEntity
-		// objects, keeping the first whose sound is this gun's reload patch.
-		void search(std::string wanted)
+		// A sharp metallic tick: decaying partials plus a noise transient.
+		void tick(std::vector<float>& out, float at, float pitch, float gain, std::uint32_t seed)
 		{
-			const std::string key = wanted.rfind("U_", 0) == 0 ? wanted.substr(2) : wanted;
-			std::uintptr_t found{}, found_data{};
-			std::vector<std::uintptr_t> chunk(1 << 17);
-			MEMORY_BASIC_INFORMATION region{};
-			for (std::uintptr_t at = 0x10000; !found && VirtualQuery(reinterpret_cast<LPCVOID>(at), &region, sizeof(region)) == sizeof(region);
-				at = reinterpret_cast<std::uintptr_t>(region.BaseAddress) + region.RegionSize)
+			const int start = static_cast<int>(at * rate);
+			const int length = rate / 25; // 40 ms
+			for (int i = 0; i < length && start + i < static_cast<int>(out.size()); ++i)
 			{
-				if (region.State != MEM_COMMIT || region.Type != MEM_PRIVATE || !(region.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) || (region.Protect & PAGE_GUARD))
+				const float t = static_cast<float>(i) / rate;
+				const float envelope = std::exp(-t * 180.0f);
+				const float tone = std::sin(2.0f * pi * pitch * t) + 0.6f * std::sin(2.0f * pi * pitch * 2.7f * t);
+				out[start + i] += gain * envelope * (0.6f * tone + 0.8f * noise(seed) * std::exp(-t * 600.0f));
+			}
+		}
+
+		// Rustling: low-passed noise under a slow envelope.
+		void rustle(std::vector<float>& out, float at, float seconds, float gain, float smoothing, std::uint32_t seed)
+		{
+			const int start = static_cast<int>(at * rate);
+			const int length = static_cast<int>(seconds * rate);
+			float low = 0.0f;
+			for (int i = 0; i < length && start + i < static_cast<int>(out.size()); ++i)
+			{
+				const float t = static_cast<float>(i) / length;
+				const float envelope = std::sin(pi * t) * (0.7f + 0.3f * std::sin(2.0f * pi * 7.0f * t));
+				low += smoothing * (noise(seed) - low);
+				out[start + i] += gain * envelope * low;
+			}
+		}
+
+		std::vector<std::uint8_t> to_wave(const std::vector<float>& samples)
+		{
+			const std::uint32_t data_bytes = static_cast<std::uint32_t>(samples.size() * 2);
+			std::vector<std::uint8_t> wave(44 + data_bytes);
+			auto put32 = [&](std::size_t at, std::uint32_t v) { std::memcpy(&wave[at], &v, 4); };
+			auto put16 = [&](std::size_t at, std::uint16_t v) { std::memcpy(&wave[at], &v, 2); };
+			std::memcpy(&wave[0], "RIFF", 4);
+			put32(4, 36 + data_bytes);
+			std::memcpy(&wave[8], "WAVEfmt ", 8);
+			put32(16, 16);
+			put16(20, 1); // PCM
+			put16(22, 1); // mono
+			put32(24, rate);
+			put32(28, rate * 2);
+			put16(32, 2);
+			put16(34, 16);
+			std::memcpy(&wave[36], "data", 4);
+			put32(40, data_bytes);
+			for (std::size_t i = 0; i < samples.size(); ++i)
+			{
+				const float s = std::fmax(-1.0f, std::fmin(1.0f, samples[i]));
+				const auto v = static_cast<std::int16_t>(std::lround(s * 32000.0f));
+				std::memcpy(&wave[44 + i * 2], &v, 2);
+			}
+			return wave;
+		}
+
+		void build()
+		{
+			std::vector<float> cloth(static_cast<std::size_t>(rate * 0.32f));
+			rustle(cloth, 0.0f, 0.30f, 0.9f, 0.08f, 11);
+			std::vector<float> in(static_cast<std::size_t>(rate * 0.16f));
+			tick(in, 0.0f, 1400.0f, 0.55f, 21);
+			tick(in, 0.07f, 2600.0f, 0.75f, 22);
+			std::vector<float> out(static_cast<std::size_t>(rate * 0.10f));
+			tick(out, 0.0f, 1900.0f, 0.6f, 31);
+			std::vector<float> chamber(static_cast<std::size_t>(rate * 0.34f));
+			tick(chamber, 0.0f, 1700.0f, 0.5f, 41);
+			rustle(chamber, 0.02f, 0.16f, 0.35f, 0.6f, 42); // the bolt sliding back
+			tick(chamber, 0.22f, 2300.0f, 0.85f, 43);       // and slamming home
+			std::vector<float> pin(static_cast<std::size_t>(rate * 0.25f));
+			for (std::size_t i = 0; i < pin.size(); ++i)
+			{
+				const float t = static_cast<float>(i) / rate;
+				pin[i] = 0.4f * std::exp(-t * 18.0f) * std::sin(2.0f * pi * 3800.0f * t);
+			}
+			tick(pin, 0.0f, 3000.0f, 0.4f, 51);
+			const std::vector<float>* sources[5] = { &cloth, &in, &out, &chamber, &pin };
+			const std::filesystem::path folder = std::filesystem::path(config::ini_path()).parent_path() / "bfvr_sounds";
+			for (int i = 0; i < 5; ++i)
+			{
+				waves[i] = to_wave(*sources[i]);
+				const std::filesystem::path file = folder / (std::string(name_of(static_cast<cue>(i))) + ".wav");
+				std::error_code error;
+				if (std::filesystem::exists(file, error))
 				{
-					continue;
+					files[i] = file.wstring();
 				}
-				const auto base = reinterpret_cast<std::uintptr_t>(region.BaseAddress);
-				for (std::size_t offset = 0; !found && offset < region.RegionSize; offset += chunk.size() * sizeof(std::uintptr_t))
-				{
-					const std::size_t bytes = std::min(chunk.size() * sizeof(std::uintptr_t), region.RegionSize - offset);
-					SIZE_T done = 0;
-					if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(base + offset), chunk.data(), bytes, &done))
-					{
-						break;
-					}
-					for (std::size_t i = 0; i < done / sizeof(std::uintptr_t); ++i)
-					{
-						char name[128]{};
-						std::uintptr_t data{};
-						if (chunk[i] == sound_entity_vtable && asset_name(base + offset + i * sizeof(std::uintptr_t), data, name) && belongs_to(name, key))
-						{
-							found = base + offset + i * sizeof(std::uintptr_t);
-							found_data = data;
-							log::write("reload sounds: %s -> SoundEntity %p (%s)", wanted.c_str(), reinterpret_cast<void*>(found), name);
-							break;
-						}
-					}
-				}
-			}
-			const std::lock_guard guard(lock);
-			searching = false;
-			if (weapon == wanted)
-			{
-				entity = found;
-				entity_data = found_data;
-			}
-			if (!found)
-			{
-				log::write("reload sounds: no reload SoundEntity for %s", wanted.c_str());
-			}
-		}
-
-		bool handler_verified()
-		{
-			static const bool verified = []
-			{
-				std::uintptr_t slot{};
-				std::uint8_t bytes[sizeof(event_prologue)]{};
-				const bool ok = read(sound_entity_vtable + event_slot * sizeof(std::uintptr_t), slot) && slot == sound_entity_event
-					&& read(sound_entity_event, bytes) && std::memcmp(bytes, event_prologue, sizeof(bytes)) == 0;
-				log::write("reload sounds: SoundEntity event handler %s", ok ? "verified" : "does not match build 179547; sounds off");
-				return ok;
-			}();
-			return verified;
-		}
-
-		DWORD send(std::uintptr_t target, std::uint32_t event)
-		{
-			alignas(16) std::uint8_t entity_event[0x40]{};
-			std::memcpy(entity_event + 8, &event, sizeof(event));
-			__try
-			{
-				reinterpret_cast<void(__fastcall*)(void*, void*)>(sound_entity_event)(reinterpret_cast<void*>(target), entity_event);
-				return 0;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return GetExceptionCode();
 			}
 		}
 	}
 
-	void set_reload_sounds(bool on)
+	void set_sounds(bool on)
 	{
 		enabled = on;
 	}
 
-	void reload_sounds_weapon(const char* weapon_name)
+	void play(cue which)
 	{
-		const std::lock_guard guard(lock);
 		if (!enabled.load(std::memory_order_relaxed))
 		{
 			return;
 		}
-		const ULONGLONG now = GetTickCount64();
-		if (weapon != weapon_name)
+		std::call_once(built, build);
+		const int index = static_cast<int>(which);
+		if (!files[index].empty())
 		{
-			weapon = weapon_name;
-			entity = entity_data = 0;
-			queue.clear();
-			last_search = 0;
-		}
-		if (!entity && !searching && now - last_search >= retry_ms && handler_verified())
-		{
-			searching = true;
-			last_search = now;
-			++lookups;
-			std::thread(search, weapon).detach();
-		}
-	}
-
-	void play_reload_sound(reload_event event)
-	{
-		sound_cue cues[2]{};
-		const int count = cues_for(event, cues);
-		const ULONGLONG now = GetTickCount64();
-		const std::lock_guard guard(lock);
-		if (!enabled.load(std::memory_order_relaxed))
-		{
+			PlaySoundW(files[index].c_str(), nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
 			return;
 		}
-		for (int i = 0; i < count; ++i)
-		{
-			queue.push_back({ cues[i].event, now + cues[i].delay_ms });
-		}
+		PlaySoundW(reinterpret_cast<LPCWSTR>(waves[index].data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
 	}
-
-	void reload_sounds_on_game_thread()
-	{
-		const std::lock_guard guard(lock);
-		if (queue.empty())
-		{
-			return;
-		}
-		const ULONGLONG now = GetTickCount64();
-		for (auto it = queue.begin(); it != queue.end();)
-		{
-			if (it->due > now)
-			{
-				++it;
-				continue;
-			}
-			std::uintptr_t vtable{}, data{};
-			if (entity && read(entity, vtable) && vtable == sound_entity_vtable && read(entity + 0x28, data) && data == entity_data)
-			{
-				if (send(entity, it->event) == 0)
-				{
-					++sent;
-				}
-				else
-				{
-					++refused;
-					entity = 0; // gone or changed: look again on the next gun change
-				}
-			}
-			else
-			{
-				++refused;
-			}
-			it = queue.erase(it);
-		}
-	}
-
-	const char* reload_sounds_report()
-	{
-		const std::lock_guard guard(lock);
-		std::snprintf(report, sizeof(report), "reload_sounds=%d weapon=%s entity=%llx searching=%d lookups=%llu sent=%llu refused=%llu",
-			enabled.load() ? 1 : 0, weapon.c_str(), static_cast<unsigned long long>(entity), searching ? 1 : 0, static_cast<unsigned long long>(lookups),
-			static_cast<unsigned long long>(sent), static_cast<unsigned long long>(refused));
-		return report;
-	}
-#else
-	void set_reload_sounds(bool) {}
-	void reload_sounds_weapon(const char*) {}
-	void play_reload_sound(reload_event) {}
-	void reload_sounds_on_game_thread() {}
-	const char* reload_sounds_report() { return "reload_sounds=0 (x64 only)"; }
-#endif
 }

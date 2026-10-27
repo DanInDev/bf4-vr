@@ -42,14 +42,11 @@ arm_ik_weapon = 1
 arm_ik_wrist = 0 0 0.06
 # Direction the elbows point from the shoulders (camera axes x right, y up, z back; right arm).
 arm_ik_pole = 0.5 -1 0.3
-# The game's arms can be shorter than yours, so a hand reaching out stopped short of its controller
-# (and the gun with it). First the shoulder reaches forward up to shoulder_reach metres, then the arm
-# may get up to arm_stretch longer (0.25 = 25 %); 0 = off.
-# Pipe `arms` shows reach (goal distance / arm length; above 1 = out of reach). Issue #31.
+# The game's arms can be shorter than yours (arm_length below scales them always). A hand still out
+# of reach then moves the shoulder forward up to shoulder_reach metres, and the arm may get up to
+# arm_stretch longer (0.25 = 25 %); 0 = off. Pipe `arms` shows reach (above 1 = out of reach). #31.
 shoulder_reach = 0.12
 arm_stretch = 0.25
-# Each shoulder this much further out to its side (metres): a wider chest, elbows further apart.
-shoulder_width = 0
 
 # Comfort vignette (issue #10): darkens the edge of the view while the game turns or moves you (stick
 # turning and aiming, walking, vehicles; never your own head): off | turning | moving | both, and how
@@ -80,7 +77,7 @@ stereo_render = aer
 # Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
 # smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
 # pipe `rightstick look|turn`.
-right_stick = look
+right_stick = turn
 turn = snap
 snap_turn_degrees = 30
 stance_flicks = 1
@@ -91,9 +88,7 @@ dominant_hand = right
 # magazine with the off hand to pull it, rack the slide when empty. Others (AR): X releases the magazine
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
 # magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
-reload = button
-# Physical reload plays the game's own reload sounds at each step (magazine out, in, bolt; #30).
-reload_sounds = 1
+reload = physical
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
@@ -104,12 +99,31 @@ accessory_toggle = trigger
 # Grenades (docs/tasks/grenades.md): button = the game's LB throw; physical = take one at the belt with
 # the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
 # letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
-grenade = button
+grenade = physical
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
 holsters = 1
 # Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
 squad_signal = 1
+# The controller grips are the mod's (holding the gun, reload, grenades, holsters, signals); 1 also
+# sends them to the game as LB/RB (grenade throw, and fire in some layouts).
+grips_to_game = 0
+# Left trigger = the game's aim down sights (zooms the view, uncomfortable in VR).
+ads_trigger = 0
+# The game's crosshair in the middle of the HUD (aim with the sights).
+hud_show_crosshair = 0
+# First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).
+arm_length = 1.15
+shoulder_width = 0.0
+# First-person legs hidden (they sit oddly under a tracked head).
+hide_legs = 1
+# Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
+x_menu = 1
+# Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one
+# (cloth, magazine_in, magazine_out, chamber, pin .wav).
+reload_sounds = 1
+# For assault rifles the game's own magazine-out, magazine-in and bolt sounds play instead (#30).
+game_sounds = 1
 grenade_throw_scale = 1.5
 # What aims the gun: head = the view (game default), controller = the gun hand's controller; the view
 # then turns only with the body (right stick), and the right stick always turns.
@@ -117,8 +131,8 @@ aim = head
 # Left stick forward walks where your head faces (head), where the gun points (gun), or along the
 # body like the game does (body; turning in the room then walks the old way).
 move_direction = head
-# aim = controller: a dot where the shots converge, and its size in degrees (the game's crosshair
-# still marks the head's aim; hide it with hud_show_main = 0 if it distracts).
+# aim = controller: a dot where the shots converge, and its size in degrees (the game's crosshair,
+# hud_show_crosshair, marks the head's aim, not the gun's).
 reticle = 1
 reticle_size = 1
 # Two-handed weapon (issue #29): off hand on the handguard + grip holds the gun with both hands; the
@@ -130,11 +144,6 @@ aim_convergence = 25
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
 gamepad = 1
-
-# The gun-hand grip is the game's spot button (pad RB: spot on release, command rose when held).
-# Holding the gun means squeezing that grip, which played call-outs during reloads (#30), so by
-# default it never reaches the game; 1 = it spots as before.
-grip_spot = 0
 
 # Melee (issue #15): a quick forward thrust of the gun hand is the game's melee (the knife stab).
 melee_gesture = 1

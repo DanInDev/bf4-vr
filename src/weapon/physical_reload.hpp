@@ -10,7 +10,7 @@
 //   - ammo is written into the in-process server's weapon (firing object); the client copies follow;
 //   - the game's magazine never reaches 0 (that starts its own reload): it holds the rounds in the
 //     gun plus a spare, and the trigger is held back while the chamber is empty;
-//   - the game's reload button (pad X) is the AR release / bolt catch and never reaches the game.
+//   - the right B button is the AR release / bolt catch and never reaches the game.
 namespace bfvr::weapon
 {
 	void set_physical_reload(bool enabled);
