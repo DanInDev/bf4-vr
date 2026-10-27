@@ -234,8 +234,9 @@ if(BFVR_GAME STREQUAL "bf4")
 	add_library(bfvr_launcher_core STATIC
 		src/launcher/ini_file.cpp
 		src/launcher/install.cpp
+		src/launcher/vr_setup.cpp
 	)
-	target_link_libraries(bfvr_launcher_core PUBLIC bfvr_common PRIVATE bcrypt)
+	target_link_libraries(bfvr_launcher_core PUBLIC bfvr_common PRIVATE bcrypt shell32 ole32)
 
 	add_executable(bfvr_launcher WIN32
 		src/launcher/main.cpp

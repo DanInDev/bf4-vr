@@ -1,5 +1,5 @@
-// bf-vr launcher: installs and removes the dinput8.dll proxy in the BF4 folder, edits bfvr.ini
-// and starts BF4 through the EA app.
+// bf-vr launcher: installs and removes the dinput8.dll proxy in the BF4 folder, sets BF4 and bfvr.ini
+// up for VR, edits bfvr.ini and starts BF4 through the EA app.
 //
 // Usage: bfvr_launcher.exe [--game-dir <folder>]   (default: the install folder from the registry)
 // The mod's dinput8.dll and bfvr.ini.example are taken from the launcher's own folder.
@@ -15,6 +15,7 @@
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
 #include "launcher/resource.hpp"
+#include "launcher/vr_setup.hpp"
 
 namespace bfvr::launcher
 {
@@ -47,6 +48,7 @@ namespace bfvr::launcher
 		{
 			game_install game;
 			std::filesystem::path launcher_dir;
+			std::filesystem::path profile;
 			build_info build{};
 			proxy_status proxy{};
 			bool running{};
@@ -132,6 +134,8 @@ namespace bfvr::launcher
 			return {};
 		}
 
+		void refresh_setup(HWND dialog);
+
 		void refresh(HWND dialog, bool full)
 		{
 			const bool have_dir = !app.game.dir.empty();
@@ -160,6 +164,58 @@ namespace bfvr::launcher
 			EnableWindow(GetDlgItem(dialog, IDC_START), have_dir && !app.running);
 			EnableWindow(GetDlgItem(dialog, IDC_SAVE), have_dir);
 			EnableWindow(GetDlgItem(dialog, IDC_RELOAD), have_dir);
+			refresh_setup(dialog);
+		}
+
+		std::wstring pending_text(const std::vector<const wanted_setting*>& pending)
+		{
+			if (pending.empty())
+			{
+				return L"ready for VR";
+			}
+			std::wstring text = std::to_wstring(pending.size()) + L" to change: ";
+			bool first = true;
+			for (const wanted_setting* setting : pending)
+			{
+				if (*setting->label)
+				{
+					text += (first ? L"" : L", ") + std::wstring(setting->label);
+					first = false;
+				}
+			}
+			return text;
+		}
+
+		std::wstring runtime_text()
+		{
+			const runtime_status runtime = read_runtime();
+			if (runtime.steamvr_running)
+			{
+				return L"SteamVR is running: the mod uses it (Steam Link)";
+			}
+			if (runtime.system_present)
+			{
+				return runtime.system_name + L" (system default). For Steam Link start SteamVR first";
+			}
+			if (runtime.steamvr_installed)
+			{
+				return L"SteamVR installed, not running: start it before BF4";
+			}
+			return L"no OpenXR runtime found: install SteamVR (Steam Link) or Meta Horizon Link";
+		}
+
+		// The setup lines; the runtime is re-read every timer tick (SteamVR may start any time).
+		void refresh_setup(HWND dialog)
+		{
+			const bool have_dir = !app.game.dir.empty();
+			std::error_code error;
+			const bool profile_found = !app.profile.empty() && std::filesystem::exists(app.profile, error);
+			SetDlgItemTextW(dialog, IDC_PROFILE_STATUS, profile_found ? pending_text(profile_pending(app.profile)).c_str()
+				: L"not found yet: start Battlefield 4 once so it creates its settings");
+			SetDlgItemTextW(dialog, IDC_INI_STATUS, have_dir ? pending_text(ini_pending(ini_path())).c_str() : L"-");
+			SetDlgItemTextW(dialog, IDC_RUNTIME_STATUS, runtime_text().c_str());
+			EnableWindow(GetDlgItem(dialog, IDC_SETUP), have_dir && app.build.result == build_check::ok && !app.running);
+			EnableWindow(GetDlgItem(dialog, IDC_RESTORE_PROFILE), !app.running && std::filesystem::exists(profile_backup(app.profile), error));
 		}
 
 		void update_stereo_options(HWND dialog)
@@ -211,6 +267,7 @@ namespace bfvr::launcher
 			if (ini::write(ini_path(), edits, app.launcher_dir / L"bfvr.ini.example"))
 			{
 				say(dialog, L"Settings saved to bfvr.ini; the game reads them when it starts.");
+				refresh_setup(dialog);
 			}
 			else
 			{
@@ -254,6 +311,34 @@ namespace bfvr::launcher
 				return;
 			}
 			open_path(dialog, log);
+		}
+
+		// Everything a new user needs: the mod, its VR settings and BF4's own settings, each reported.
+		void set_up(HWND dialog)
+		{
+			std::wstring message;
+			bool ok = true;
+			const auto add = [&](const result& step)
+			{
+				message += (message.empty() ? L"" : L"\r\n") + step.message;
+				ok = ok && step.ok;
+			};
+			if (app.proxy.state == proxy_state::foreign)
+			{
+				add({ false, L"Mod not installed: another mod's dinput8.dll is in the game folder." });
+			}
+			else
+			{
+				add(deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG));
+			}
+			add(apply_ini(ini_path(), app.launcher_dir / L"bfvr.ini.example"));
+			add(apply_profile(app.profile, game_running(app.game)));
+			if (ok)
+			{
+				message += L"\r\nReady: start SteamVR (or Link), then Start Battlefield 4.";
+			}
+			report(dialog, { ok, message });
+			load_settings(dialog);
 		}
 
 		void start_game(HWND dialog)
@@ -309,6 +394,7 @@ namespace bfvr::launcher
 				return TRUE;
 			case WM_TIMER:
 				refresh(dialog, false);
+				SetDlgItemTextW(dialog, IDC_RUNTIME_STATUS, runtime_text().c_str());
 				return TRUE;
 			case WM_ACTIVATE:
 				if (LOWORD(wparam) != WA_INACTIVE)
@@ -327,6 +413,8 @@ namespace bfvr::launcher
 				case IDC_SAVE: save_settings(dialog); break;
 				case IDC_RELOAD: load_settings(dialog); say(dialog, L"Settings reloaded from bfvr.ini."); break;
 				case IDC_START: start_game(dialog); break;
+				case IDC_SETUP: set_up(dialog); break;
+				case IDC_RESTORE_PROFILE: report(dialog, restore_profile(app.profile, game_running(app.game))); break;
 				case IDC_OPEN_LOG: open_log(dialog); break;
 				case IDCANCEL: KillTimer(dialog, refresh_timer); EndDialog(dialog, 0); break;
 				default: return FALSE;
@@ -363,6 +451,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 	{
 		app.game.dir = find_install();
 	}
+	app.profile = find_profile();
 
 	const INITCOMMONCONTROLSEX controls{ sizeof(controls), ICC_STANDARD_CLASSES };
 	InitCommonControlsEx(&controls);

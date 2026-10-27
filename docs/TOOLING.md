@@ -23,6 +23,7 @@ of `bfvr.ini.example`). One window:
 | --- | --- |
 | Folder | `Install Dir` from `HKLM\SOFTWARE\WOW6432Node\EA Games\Battlefield 4`; **Change...** picks another; `--game-dir <folder>` on the command line overrides it |
 | Build | Reads the PE header of `bf4.exe`: x64 and timestamp `0x58AB1CC0` = build 179547. Any other build: install is refused |
+| VR setup | **Set up for VR** installs or updates the mod, writes the VR values into `bfvr.ini` (`stereo 1`, `stereo_render pair`, `render_size 2160x2160`, `view_crop_h/v 0.78/0.72`, `hud_layer 1`, `theater`/`gamepad 1`; other keys kept) and sets BF4's own profile (`Documents\Battlefield 4\settings\PROFSAVE_profile`: `MantleEnabled 0`, `WeaponDOF 0`, `MotionBlurEnabled 0`, `MotionBlur 0`, `VSyncEnabled 0`, `GstInput.Vibration 1`). The profile is backed up once to `PROFSAVE_profile.bfvr-backup` (the first, untouched copy is kept); **Restore BF4 settings** puts it back. Refused while BF4 runs (it writes the profile back on exit). Status lines show what is still to change (a missing `bfvr.ini` key counts as the mod's default) and the VR runtime the mod will pick: SteamVR when `vrserver.exe` runs, else the system's active OpenXR runtime (same rule as `xr/runtime_selection.cpp`) |
 | Install / Update / Remove | The `dinput8.dll` beside the launcher, with the `bfvr.deployed.json` hash marker of `deploy.ps1` (each tool can update or remove the other's install). Refused while `bf4.exe` runs; a `dinput8.dll` without a matching marker belongs to another mod and is never replaced or deleted |
 | Settings | `theater`, `stereo`, `stereo_first_person`, `gamepad`, `xr_runtime` in the game folder's `bfvr.ini`; edited in place (comments and other keys kept), a missing file starts from `bfvr.ini.example`. Warns when a `BFVR_<KEY>` environment variable overrides the file |
 | Start Battlefield 4 | The same `origin2://` content-ID link as `game.ps1 start`; asks first when the mod is not installed |
@@ -31,9 +32,11 @@ of `bfvr.ini.example`). One window:
 The launcher calls `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)` first, so the mod DLL
 beside it can never load into the launcher itself.
 `build\bf4\Debug\bfvr_launcher_test.exe` checks build detection, deploy/remove/foreign-DLL handling,
-the `deploy.ps1` marker format and `bfvr.ini` editing against a throwaway folder in `%TEMP%`.
+the `deploy.ps1` marker format, `bfvr.ini` editing and the VR setup (profile pending/apply/backup/restore,
+refusal while the game runs, the ini preset with defaults, runtime manifest names) against a throwaway
+folder in `%TEMP%`.
 
-Not yet: starting SteamVR and showing headset/session status (#16), an update check (#17).
+Not yet: starting SteamVR from the launcher and live headset/session status (#16), an update check (#17).
 
 ## Release packaging: `tools/package.ps1` (issue #17)
 

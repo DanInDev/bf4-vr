@@ -1,4 +1,4 @@
-// Checks the launcher's install logic and bfvr.ini editing against a throwaway folder in %TEMP%
+// Checks the launcher's install logic, the VR setup of the BF4 profile and bfvr.ini, and bfvr.ini editing against a throwaway folder in %TEMP%
 // with a fake game exe; the real game folder is never touched.
 //
 // Usage: bfvr_launcher_test.exe [--keep]   (--keep leaves the folder for inspection)
@@ -16,6 +16,7 @@
 
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
+#include "launcher/vr_setup.hpp"
 
 namespace
 {
@@ -130,6 +131,41 @@ namespace
 		check(ini::write(file, { { "stereo", "1" } }, seed) && read_file(file) == "stereo = 1\r\nstereo = 1\r\n", "every duplicate is updated");
 		check(!fs::exists(fs::path(file) += L".tmp"), "no temporary file left");
 	}
+
+	void test_vr_setup(const fs::path& root)
+	{
+		const fs::path profile = root / L"settings" / L"PROFSAVE_profile";
+		fs::create_directories(profile.parent_path());
+		const std::string original = "GstAudio.AudioQuality 1\nGstRender.MantleEnabled 1\nGstRender.MotionBlur 0.000000\nGstRender.WeaponDOF 1\nGstRender.VSyncEnabled 0\n";
+		write_file(profile, original);
+
+		check(profile_pending(profile).size() == 4, "profile: Mantle, weapon DOF, motion blur enabled, vibration pending; 0.000000 counts as 0");
+		check(!apply_profile(profile, true).ok && read_file(profile) == original, "profile untouched while the game runs");
+		check(apply_profile(profile, false).ok && profile_pending(profile).empty(), "profile set for VR");
+		const std::string applied = read_file(profile);
+		check(applied.rfind("GstAudio.AudioQuality 1\nGstRender.MantleEnabled 0\nGstRender.MotionBlur 0\nGstRender.WeaponDOF 0\nGstRender.VSyncEnabled 0\n", 0) == 0,
+			"other lines and order kept, values replaced in place");
+		check(applied.find("GstInput.Vibration 1\n") != std::string::npos && applied.find("GstRender.MotionBlurEnabled 0\n") != std::string::npos, "missing keys appended");
+		check(read_file(profile_backup(profile)) == original, "backup is the original");
+		check(apply_profile(profile, false).ok && read_file(profile_backup(profile)) == original, "a second setup keeps the first backup");
+		check(!restore_profile(profile, true).ok, "no restore while the game runs");
+		check(restore_profile(profile, false).ok && read_file(profile) == original && !fs::exists(profile_backup(profile)), "restore brings the original back");
+		check(!restore_profile(profile, false).ok, "nothing to restore twice");
+		check(!apply_profile(root / L"nowhere" / L"PROFSAVE_profile", false).ok, "missing profile: asks to start BF4 once");
+
+		const fs::path seed = root / L"vr.ini.example";
+		const fs::path ini_file = root / L"vrgame" / L"bfvr.ini";
+		fs::create_directories(ini_file.parent_path());
+		write_file(seed, "# template\r\nStereo = 0\r\nview_crop_h = 0.780\r\nresearch = 0\r\n");
+		check(ini_pending(ini_file).size() == vr_ini_settings().size() - 2, "no bfvr.ini: all but theater and gamepad (on by default) pending");
+		check(apply_ini(ini_file, seed).ok && ini_pending(ini_file).empty(), "mod settings set for VR");
+		const ini::values values = ini::read(ini_file);
+		check(values.at("research") == "0" && read_file(ini_file).rfind("# template\r\nstereo = 1\r\n", 0) == 0, "template kept, keys case-insensitive");
+
+		check(manifest_name("{\"file_format_version\": \"1.0.0\", \"runtime\": {\"name\": \"SteamVR\", \"library_path\": \"x.dll\"}}") == "SteamVR",
+			"runtime manifest name");
+		check(manifest_name("{}").empty(), "manifest without a name");
+	}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -141,6 +177,7 @@ int wmain(int argc, wchar_t** argv)
 	test_hash(root);
 	test_install(root);
 	test_ini(root);
+	test_vr_setup(root);
 
 	if (keep)
 	{

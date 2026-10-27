@@ -41,7 +41,7 @@ bf-vr/
 │  ├─ core/         runtime start-up on its own thread
 │  ├─ hooks/        Present and XInput detours (MinHook)
 │  ├─ input/        shared gamepad state
-│  ├─ launcher/     bfvr_launcher.exe: install/remove the mod, settings, start BF4 (bf4 preset only)
+│  ├─ launcher/     bfvr_launcher.exe: set BF4 up for VR, install/remove the mod, settings, start BF4 (bf4 preset only)
 │  └─ xr/           theater mode, controller actions, runtime selection
 ├─ tests/           smoke_theater: hook + OpenXR without the game; launcher_test: install logic
 ├─ tools/           check-env.ps1, deploy.ps1, game.ps1, pipe.ps1, package.ps1, console-probe.ps1, bfvr.ini.example
