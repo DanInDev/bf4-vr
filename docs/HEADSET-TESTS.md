@@ -2,11 +2,13 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-## Next — two-handed weapon, barrel aim, arm reach, right stick (branch `feature/two-hand-aim`)
+## Next — everything since 2026-10-26, on `main`
 
-Build: `feature/two-hand-aim`, Release. New: two-handed grip (#29), shots converge on the barrel line
-(#29), shoulder reach and arm stretch (#31), right stick turns under controller aim (#22), in-VR
-settings panel (#7), the game's own reload sounds (#30).
+Build: `main` (all branches merged 2026-10-27). New: two-handed grip (#29), shots converge on the barrel
+line (#29), shoulder reach and arm stretch (#31), right stick turns under controller aim (#22) and turns
+that no longer get dropped after stick use, in-VR settings panel (#7), the game's own reload sounds (#30),
+melee, knife, use reach and C4 (#15), vignette (#10), walking where you face, aim reticle, haptics (#32),
+the launcher's VR setup (#16).
 
 Monitor-verified 2026-10-27 (fakehead + fakehand, no headset): the right stick snap-turns 30° in `look`
 mode under controller aim; two-handed grab with no jump, the barrel and shot direction follow the off

@@ -34,3 +34,41 @@ keys unless BF4 is the foreground window. A headset test needs the user; batch t
 - C++20, MSVC, tabs, `bfvr::` namespaces, comments only where the code cannot say it.
 - Every engine address must be verified (bytes/prologue check) before hooking; record evidence in `re/notes/`.
 - Build both presets (`bf4`, `bf3`) warning-free.
+
+## Working with the user
+
+- One branch per task, from `main`. Merge into `main` (fast-forward) only when the user asks, then delete
+  the branch locally and on GitHub.
+- Every new feature gets a live on/off setting (`src/common/settings_store.cpp`), a row on the in-VR panel
+  (`src/ui/settings_panel.cpp`) and a line in `tools/bfvr.ini.example`.
+- New engine-free logic gets a unit test under `tests/` (ctest runs them for both presets).
+- Each feature that needs the headset gets a row in `docs/HEADSET-TESTS.md`; post monitor results on its issue.
+- Report in plain language: what changed, what was verified on the monitor, what still needs the headset.
+- The user's main checkout is `C:\Users\dnlni\Desktop\hobby\bf-vr`. After a merge, rebuild there so its
+  `bfvr_launcher.exe` and the `dinput8.dll` beside it match `main` (its **Update mod** installs that DLL).
+
+## Testing without a headset
+
+- Set a simulated head first (`pipe fakehead 0.064`), then `fakehand <yaw> <pitch> [left xyz [right xyz]]`
+  for controllers; without `fakehead` screenshots show a stale, tilted view. Clear both afterwards (`off`).
+- `pipe pad <lx> <ly> <rx> <ry> <ms> [hex buttons] [lt rt]` drives the virtual pad. With `right_stick = turn`
+  vertical stick flicks change stance (a look-down once left the soldier prone): switch to
+  `setting set right_stick look` to pitch the view, then back.
+- The user's own mouse and keyboard reach BF4 when they use the PC: check `GetLastInputInfo` or ask before
+  sending input; stop if shots or weapon swaps happen that you did not cause.
+- Checkpoint (campaign resume): the gadget stash (C4, M320) is the green crate stack at the start, opened
+  with E when facing it; its menu takes `pipe pointer <u> <v> 0|1` clicks. Grenades: throw low along the
+  corridor (`grenade throw 0 10 5` lands ~4 m away and wounds); a ceiling bounce has killed the player.
+- With physical reload, test firing empties the magazine; `setting set reload button` plus pad B (`2000`)
+  reloads, then switch back.
+- BF4 only rumbles while its window has keyboard focus (re/notes/haptics.md); the mod reads rumble before
+  that gate.
+- Live `setting set` changes are not saved unless `setting save`: restore anything you changed.
+
+## Tool pitfalls
+
+- Do not write C++ through shell heredocs or Python string replacement: `\n` and `\0` escapes became real
+  line breaks and NUL bytes. Use the file write/edit tools for source files.
+- The command permission check sometimes returns no verdict; the same command usually passes on a retry.
+- Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
+  `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
