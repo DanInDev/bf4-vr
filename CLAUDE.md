@@ -14,6 +14,17 @@ Read those instead of reconstructing history.
   `re/symbols/bf4-179547.md` the registry of verified addresses/offsets (add every new finding there).
 - `docs/tasks/` holds self-contained task briefs (e.g. `smooth-stereo.md`: a smoother 3D view);
   start from the brief when the user names one.
+- **Overlord** ([github.com/Aeka0/Overlord](https://github.com/Aeka0/Overlord)) is the quality reference: its
+  skeleton, weapon handling and utility interactions (#21). GPLv3: study the design, never copy its code.
+  What was learned from it: `docs/ARCHITECTURE.md` (loader/infrastructure split, verified hooks) and
+  `docs/tasks/per-eye-rendering.md` ("How Overlord does it": both eyes from one game frame).
+- **Reverse engineering.** The decrypted image comes from `pipe dump re\dumps\bf4-179547-mem.exe` (git-ignored,
+  never committed). Quick and enough for single functions: `python -E tools\disasm.py <dump> <address> --full`
+  (capstone + `.pdata`), `tools\callers.py`, plus the pipe's `watch <address> 4 <ms>` (hardware write watch with
+  backtraces) and `peek`. For cross-references and whole subsystems: **REA** (MCP tools `mcp__rea__*`, skill
+  `reverse-engineer-anything`) driving Ghidra on the dump; setup in `docs/SETUP.md`, the 3 h analysis limit
+  in `docs/TOOLING.md`; the full analysis has not been run yet (#20). Same rules as all tools: never while
+  Battlefield 6 / EasyAntiCheat games run.
 - `docs/SAFETY.md` is binding: campaign only, no tools while Battlefield 6 / EasyAntiCheat games run,
   never commit dumps, screenshots, game files or profile data; DRM-protected code is analysed in memory only.
 
