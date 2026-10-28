@@ -17,7 +17,12 @@ never touched.
 ## Launcher: `bfvr_launcher.exe` (issue #16)
 
 Built by the `bf4` preset only (`build\bf4\<Config>\bfvr_launcher.exe`, next to `dinput8.dll` and a copy
-of `bfvr.ini.example`). One window:
+of `bfvr.ini.example`). One borderless dark window in the BF4 style (orange accent, Bahnschrift headings,
+custom-drawn controls in `src/launcher/theme.cpp`; layout after Overlord's launcher) with three tabs: **Play**
+(status and Start), **Setup** (folder, build, install, VR setup) and **Settings** (switches and runtime). It opens
+on Play when the mod is installed, else on Setup. Its icon and the Play backdrop are embedded from
+`assets/launcher/launcher.ico` and `wallpaper.jpg`; after changing `assets/launcher/source/logo.png` or
+`wallpaper.png`, regenerate them with `python -E -P tools\launcher_assets.py` (Pillow):
 
 | Part | Behaviour |
 | --- | --- |

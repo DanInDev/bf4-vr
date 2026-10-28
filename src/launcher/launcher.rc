@@ -3,50 +3,70 @@
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
-IDD_MAIN DIALOGEX 0, 0, 320, 352
-STYLE DS_SHELLFONT | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+// From assets/launcher (an include directory of the target); tools/launcher_assets.py makes them.
+IDI_APP ICON "launcher.ico"
+IDR_WALLPAPER RCDATA "wallpaper.jpg"
+
+// Layout in dialog units; main.cpp's panel rectangles use the same coordinates.
+// Header 0-22, pages 22-226, footer 226-262.
+IDD_MAIN DIALOGEX 0, 0, 420, 262
+STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN
 CAPTION "bf-vr launcher - Battlefield 4 VR (campaign only)"
 FONT 9, "Segoe UI", 400, 0, 1
 BEGIN
-	GROUPBOX "Battlefield 4", -1, 7, 4, 306, 92
-	LTEXT "Folder:", -1, 15, 18, 36, 9
-	LTEXT "", IDC_FOLDER, 52, 18, 150, 9, SS_PATHELLIPSIS | SS_NOPREFIX
-	PUSHBUTTON "Change...", IDC_CHANGE_FOLDER, 206, 15, 48, 14
-	PUSHBUTTON "Open", IDC_OPEN_FOLDER, 258, 15, 48, 14
-	LTEXT "Build:", -1, 15, 32, 36, 9
-	LTEXT "", IDC_BUILD, 52, 32, 254, 9, SS_NOPREFIX
-	LTEXT "Mod:", -1, 15, 44, 36, 9
-	LTEXT "", IDC_MOD, 52, 44, 254, 9, SS_NOPREFIX
-	LTEXT "Game:", -1, 15, 56, 36, 9
-	LTEXT "", IDC_RUNNING, 52, 56, 254, 9, SS_NOPREFIX
-	PUSHBUTTON "Install mod", IDC_INSTALL, 15, 74, 80, 14
-	PUSHBUTTON "Remove mod (required before multiplayer)", IDC_REMOVE, 100, 74, 206, 14
+	PUSHBUTTON "Play", IDC_TAB_PLAY, 112, 0, 50, 22, BS_OWNERDRAW
+	PUSHBUTTON "Setup", IDC_TAB_SETUP, 162, 0, 50, 22, BS_OWNERDRAW
+	PUSHBUTTON "Settings", IDC_TAB_SETTINGS, 212, 0, 58, 22, BS_OWNERDRAW
+	PUSHBUTTON "", IDC_MINIMIZE, 368, 0, 26, 22, BS_OWNERDRAW
+	PUSHBUTTON "", IDCANCEL, 394, 0, 26, 22, BS_OWNERDRAW
 
-	GROUPBOX "VR setup", -1, 7, 102, 306, 78
-	LTEXT "BF4 settings:", -1, 15, 116, 50, 9
-	LTEXT "", IDC_PROFILE_STATUS, 66, 116, 240, 18, SS_NOPREFIX
-	LTEXT "Mod settings:", -1, 15, 136, 50, 9
-	LTEXT "", IDC_INI_STATUS, 66, 136, 240, 9, SS_NOPREFIX
-	LTEXT "VR runtime:", -1, 15, 148, 50, 9
-	LTEXT "", IDC_RUNTIME_STATUS, 66, 148, 240, 9, SS_NOPREFIX
-	PUSHBUTTON "Set up for VR", IDC_SETUP, 15, 161, 80, 14
-	PUSHBUTTON "Restore BF4 settings", IDC_RESTORE_PROFILE, 100, 161, 90, 14
-	LTEXT "Installs the mod and sets both for VR", -1, 196, 164, 112, 9
+	// Play
+	LTEXT "STATUS", IDC_PLAY_HEADING, 280, 38, 124, 11
+	LTEXT "MOD", IDC_PLAY_MOD_LABEL, 280, 54, 124, 8
+	LTEXT "", IDC_MOD, 280, 63, 124, 26, SS_NOPREFIX
+	LTEXT "VR RUNTIME", IDC_PLAY_RUNTIME_LABEL, 280, 92, 124, 8
+	LTEXT "", IDC_RUNTIME_STATUS, 280, 101, 124, 26, SS_NOPREFIX
+	LTEXT "GAME", IDC_PLAY_GAME_LABEL, 280, 130, 124, 8
+	LTEXT "", IDC_RUNNING, 280, 139, 124, 17, SS_NOPREFIX
+	PUSHBUTTON "Start Battlefield 4", IDC_START, 270, 166, 140, 30, BS_OWNERDRAW
+	PUSHBUTTON "Open bfvr.log", IDC_OPEN_LOG, 270, 202, 140, 16, BS_OWNERDRAW
 
-	GROUPBOX "Settings (bfvr.ini in the game folder)", -1, 7, 186, 306, 100
-	AUTOCHECKBOX "VR on: virtual screen in the headset (theater)", IDC_THEATER, 15, 200, 290, 10
-	AUTOCHECKBOX "Head-tracked stereo (stereo)", IDC_STEREO, 15, 212, 290, 10
-	AUTOCHECKBOX "Stereo: weapon stays on the aim while the head looks around (stereo_first_person)", IDC_STEREO_FIRST_PERSON, 27, 224, 278, 10
-	AUTOCHECKBOX "VR controllers act as an Xbox pad (gamepad)", IDC_GAMEPAD, 15, 236, 290, 10
-	LTEXT "OpenXR runtime:", -1, 15, 252, 60, 9
-	COMBOBOX IDC_RUNTIME, 78, 250, 227, 80, CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
-	PUSHBUTTON "Save settings", IDC_SAVE, 15, 266, 70, 14
-	PUSHBUTTON "Reload", IDC_RELOAD, 90, 266, 50, 14
-	LTEXT "auto: SteamVR if running, else the system default", -1, 146, 269, 160, 9
+	// Setup
+	LTEXT "BATTLEFIELD 4", IDC_SETUP_GAME_HEADING, 20, 38, 182, 11
+	LTEXT "FOLDER", IDC_SETUP_FOLDER_LABEL, 20, 54, 182, 8
+	LTEXT "", IDC_FOLDER, 20, 63, 182, 9, SS_PATHELLIPSIS | SS_NOPREFIX
+	PUSHBUTTON "Change...", IDC_CHANGE_FOLDER, 20, 75, 60, 14, BS_OWNERDRAW
+	PUSHBUTTON "Open", IDC_OPEN_FOLDER, 84, 75, 50, 14, BS_OWNERDRAW
+	LTEXT "BUILD", IDC_SETUP_BUILD_LABEL, 20, 94, 182, 8
+	LTEXT "", IDC_BUILD, 20, 103, 182, 16, SS_NOPREFIX
 
-	LTEXT "", IDC_MESSAGE, 7, 292, 306, 20, SS_NOPREFIX
-	LTEXT "Campaign only. Remove the mod before joining any multiplayer server: PunkBuster bans for foreign DLLs.", -1, 7, 313, 306, 16
-	DEFPUSHBUTTON "Start Battlefield 4", IDC_START, 7, 332, 90, 14
-	PUSHBUTTON "Open bfvr.log", IDC_OPEN_LOG, 102, 332, 70, 14
-	PUSHBUTTON "Close", IDCANCEL, 243, 332, 70, 14
+	LTEXT "MOD", IDC_SETUP_MOD_HEADING, 20, 134, 182, 11
+	LTEXT "", IDC_MOD_SETUP, 20, 149, 182, 17, SS_NOPREFIX
+	PUSHBUTTON "Install mod", IDC_INSTALL, 20, 170, 64, 14, BS_OWNERDRAW
+	PUSHBUTTON "Remove mod", IDC_REMOVE, 88, 170, 64, 14, BS_OWNERDRAW
+	LTEXT "Campaign only. Remove the mod before joining any multiplayer server: PunkBuster bans for foreign DLLs.", IDC_SETUP_WARNING, 20, 192, 182, 22, SS_NOPREFIX
+
+	LTEXT "VR SETUP", IDC_SETUP_VR_HEADING, 230, 38, 172, 11
+	LTEXT "One click installs the mod, writes bfvr.ini for VR and sets Battlefield 4's own settings (a backup is kept).", IDC_SETUP_HINT, 230, 53, 172, 24, SS_NOPREFIX
+	LTEXT "BF4 SETTINGS", IDC_SETUP_PROFILE_LABEL, 230, 82, 172, 8
+	LTEXT "", IDC_PROFILE_STATUS, 230, 91, 172, 26, SS_NOPREFIX
+	LTEXT "MOD SETTINGS", IDC_SETUP_INI_LABEL, 230, 120, 172, 8
+	LTEXT "", IDC_INI_STATUS, 230, 129, 172, 38, SS_NOPREFIX
+	PUSHBUTTON "Set up for VR", IDC_SETUP, 230, 172, 172, 22, BS_OWNERDRAW
+	PUSHBUTTON "Restore BF4 settings", IDC_RESTORE_PROFILE, 230, 198, 172, 14, BS_OWNERDRAW
+
+	// Settings
+	LTEXT "VR SETTINGS", IDC_SETTINGS_HEADING, 20, 38, 180, 11
+	RTEXT "bfvr.ini in the game folder; the game reads it when it starts", IDC_SETTINGS_FILE_HINT, 200, 40, 200, 8
+	CONTROL "Theater screen\nVR on: the game shows on a virtual screen in the headset", IDC_THEATER, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 54, 392, 24
+	CONTROL "Head-tracked stereo\nExperimental: both eyes with head tracking, replaces the virtual screen", IDC_STEREO, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 80, 392, 24
+	CONTROL "Weapon stays on the aim\nStereo: the gun points where the soldier aims while the head looks around", IDC_STEREO_FIRST_PERSON, "Button", BS_OWNERDRAW | WS_TABSTOP, 30, 106, 376, 24
+	CONTROL "Controllers as an Xbox pad\nVR controllers drive the game through XInput", IDC_GAMEPAD, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 132, 392, 24
+	LTEXT "OPENXR RUNTIME", IDC_SETTINGS_RUNTIME_LABEL, 20, 164, 180, 8
+	COMBOBOX IDC_RUNTIME, 20, 174, 180, 80, CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
+	LTEXT "auto: SteamVR if it is running, else the Windows default. A runtime manifest path also works.", IDC_SETTINGS_RUNTIME_HINT, 208, 174, 194, 18, SS_NOPREFIX
+	PUSHBUTTON "Save settings", IDC_SAVE, 20, 196, 80, 16, BS_OWNERDRAW
+	PUSHBUTTON "Reload", IDC_RELOAD, 104, 196, 60, 16, BS_OWNERDRAW
+
+	LTEXT "", IDC_MESSAGE, 12, 230, 396, 28, SS_NOPREFIX
 END

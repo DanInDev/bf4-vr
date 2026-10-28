@@ -240,10 +240,13 @@ if(BFVR_GAME STREQUAL "bf4")
 
 	add_executable(bfvr_launcher WIN32
 		src/launcher/main.cpp
+		src/launcher/theme.cpp
 		src/launcher/launcher.rc
 		src/launcher/launcher.manifest
 	)
-	target_link_libraries(bfvr_launcher PRIVATE bfvr_launcher_core comctl32 shell32 ole32)
+	target_link_libraries(bfvr_launcher PRIVATE bfvr_launcher_core comctl32 shell32 ole32 dwmapi uxtheme windowscodecs)
+	# The resource script finds the icon and the wallpaper here.
+	target_include_directories(bfvr_launcher PRIVATE ${CMAKE_SOURCE_DIR}/assets/launcher)
 	target_compile_definitions(bfvr_launcher PRIVATE BFVR_BUILD_CONFIG="$<CONFIG>")
 	# The launcher seeds a new bfvr.ini from the template beside it, as in the release zip.
 	add_custom_command(TARGET bfvr_launcher POST_BUILD
