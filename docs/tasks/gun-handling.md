@@ -1,9 +1,11 @@
 # Task: VR-native gun handling (and an obvious way to open the VR menu)
 
-Status: **plan, awaiting sign-off (2026-11-02).** Headset feedback 2026-11-02: the gun shoots where the
-stick aimed, not where the hands point it; the two-handed grip only "suggests" a direction; grab spots
-for drawing, magazines and racking are too small; the gun's size looks wrong; the in-VR settings
-panel never opens.
+Status: **built and monitor-verified (2026-11-03), headset test pending** (docs/HEADSET-TESTS.md, rows
+G0-G9; build `test/vr-check-2026-11-03`). Phases 0-5 done; phase 4 by the static FOV result (45 deg
+foreground) instead of calibration. Open: the support point comes from the animated left hand (eased,
+not from a rest pose); grab radii and life size await the headset. Original feedback 2026-11-02: the gun
+shoots where the stick aimed, the two-handed grip only "suggests" a direction, grab spots are too small,
+the size looks wrong, the in-VR panel never opens.
 
 Goal: the gun behaves like a modern VR shooter's. **The drawn gun is the truth:** bullets leave along
 the barrel you see, the support hand locks onto the handguard and steers it, and every grab spot is
