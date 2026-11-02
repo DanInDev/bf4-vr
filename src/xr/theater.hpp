@@ -22,6 +22,10 @@ namespace bfvr::xr
 		const char* stage{};
 		double stage_ms{};
 		bool menu_over_level{}; // a menu is up over the level: the flat screen is shown
+		const char* session_state_name{};
+		bool input_focus{};          // the session reads the controllers (FOCUSED)
+		std::uint32_t focus_losses{}; // FOCUSED left for another state
+		double unfocused_seconds{};  // since focus was last lost, while it is still lost
 	};
 
 	// Stage 1: shows the game's back buffer on a virtual screen in the headset.

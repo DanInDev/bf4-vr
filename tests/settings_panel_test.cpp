@@ -201,11 +201,103 @@ namespace
 		run(false, frame);
 		expect(longs == 2 && shorts == 1, "a second long press");
 	}
+
+	void test_stick_chord()
+	{
+		constexpr float frame = 1.0f / 90.0f;
+		stick_chord chord;
+		int starts = 0, fires = 0, left_frames = 0, right_frames = 0;
+		const auto run = [&](bool left, bool right, float seconds)
+		{
+			for (float t = 0; t < seconds - 1e-6f; t += frame)
+			{
+				const stick_chord_events events = chord.update(left, right, frame);
+				starts += events.started ? 1 : 0;
+				fires += events.fired ? 1 : 0;
+				left_frames += chord.to_game(0) ? 1 : 0;
+				right_frames += chord.to_game(1) ? 1 : 0;
+			}
+		};
+		const auto reset = [&]
+		{
+			run(false, false, 0.5f);
+			starts = fires = left_frames = right_frames = 0;
+		};
+
+		run(true, true, 0.6f);
+		expect(starts == 1 && fires == 1, "both clicks together: one start, one toggle after the hold");
+		expect(left_frames == 0 && right_frames == 0, "the game never sees a chord's clicks");
+		run(true, true, 1.5f);
+		expect(fires == 1, "one toggle however long the chord is held");
+		run(false, true, 0.3f);
+		run(false, false, 0.2f);
+		expect(left_frames == 0 && right_frames == 0, "nothing reaches the game while letting go one click at a time");
+
+		reset();
+		run(true, true, 0.3f);
+		run(false, false, 0.2f);
+		expect(starts == 1 && fires == 0, "a chord let go early does not toggle");
+
+		reset();
+		run(true, false, 0.05f);
+		run(true, true, 0.6f);
+		expect(fires == 1 && left_frames == 0 && right_frames == 0, "the second click within the grace time still makes a chord");
+
+		reset();
+		run(true, false, 0.08f);
+		expect(left_frames == 0, "a click alone waits for the other one");
+		run(true, false, 0.3f);
+		expect(left_frames > 20 && right_frames == 0 && fires == 0, "a click held alone reaches the game after the grace time");
+		run(false, false, 0.2f);
+		expect(!chord.to_game(0), "and goes when it is let go");
+
+		reset();
+		run(false, true, 0.04f);
+		run(false, false, 0.3f);
+		expect(right_frames >= 7 && right_frames <= 10 && left_frames == 0, "a quick tap reaches the game as a late tap (melee on R3)");
+
+		reset();
+		run(true, false, 0.3f);
+		run(true, true, 0.6f);
+		expect(fires == 1, "a chord also opens when one click was already held");
+		const int before = left_frames;
+		run(false, false, 0.2f);
+		expect(left_frames == before, "the held click is not given back after the chord");
+	}
+
+	void test_level_hint()
+	{
+		constexpr float frame = 1.0f / 90.0f;
+		level_hint hint;
+		int shown = 0;
+		const auto run = [&](bool level, float seconds)
+		{
+			for (float t = 0; t < seconds - 1e-6f; t += frame)
+			{
+				shown += hint.update(level, frame) ? 1 : 0;
+			}
+		};
+		run(false, 5.0f);
+		expect(shown == 0, "no hint in the front end");
+		run(true, 20.0f);
+		expect(shown > 8 * 90 - 3 && shown < 8 * 90 + 3, "about 8 s after the level starts");
+		shown = 0;
+		run(false, 0.5f);
+		run(true, 5.0f);
+		expect(shown == 0, "not again after a short blip of the level state");
+		run(false, 10.0f);
+		run(true, 1.0f);
+		hint.dismiss();
+		run(true, 10.0f);
+		expect(shown > 85 && shown < 95, "again after the next level load, until the panel is opened");
+	}
 }
 
 int main(int argc, char** argv)
 {
 	test_menu_button();
+	test_stick_chord();
+	test_level_hint();
 	test_pages();
 	test_hits_and_clicks();
 	test_scrolling();

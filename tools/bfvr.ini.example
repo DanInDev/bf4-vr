@@ -188,3 +188,12 @@ pause_flat = 1
 # In-VR settings panel (issue #7): hold the left menu button to open it (a short press stays the
 # game's Start); point with either controller, its trigger clicks; Save writes this file.
 vr_panel = 1
+# Second opener: hold both thumbstick clicks ~0.5 s (a tick when it starts counting, a pulse when the
+# panel opens or closes). SteamVR on Quest can take the left menu button for its dashboard; it never
+# takes the sticks. A stick click alone reaches the game 0.1 s late; a chord never does.
+stick_menu = 1
+# After a level loads, "Hold both sticks: VR settings" shows below the view for 8 s.
+menu_hint = 1
+# While SteamVR has the controllers (dashboard open, OpenXR session VISIBLE, not FOCUSED), a notice
+# below the view says so; pipe `status` (xr_focus) and `panel` show it too.
+focus_notice = 1

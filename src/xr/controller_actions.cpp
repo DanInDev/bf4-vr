@@ -230,10 +230,12 @@ namespace bfvr::xr
 		sync_info.countActiveActionSets = 1;
 		sync_info.activeActionSets = &active;
 		// XR_SESSION_NOT_FOCUSED (e.g. system menu open) succeeds with every action inactive: a neutral pad.
-		if (XR_FAILED(xrSyncActions(session, &sync_info)))
+		const XrResult synced = xrSyncActions(session, &sync_info);
+		if (XR_FAILED(synced))
 		{
 			return pad;
 		}
+		focused_ = synced != XR_SESSION_NOT_FOCUSED;
 
 		const auto read_float = [&](XrAction action)
 		{

@@ -27,6 +27,8 @@ namespace bfvr::xr
 		bool create(XrInstance instance, XrSession session);
 		// Call once per frame while the session is running.
 		input::gamepad_state sync(XrSession session);
+		// The last sync had input focus (not XR_SESSION_NOT_FOCUSED: the runtime has the controllers).
+		bool focused() const { return focused_; }
 		// Grip and aim poses relative to base at the given display time; uses the state of the
 		// last sync.
 		stereo::hand_sample locate(XrSpace base, XrTime time) const;
@@ -56,6 +58,7 @@ namespace bfvr::xr
 		XrAction haptic_{ XR_NULL_HANDLE };
 		XrPath hand_paths_[2]{}; // 0 = left, 1 = right
 		bool vibrating_[2]{};
+		bool focused_{ true };
 		XrSpace grip_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE }; // 0 = left, 1 = right
 		XrSpace aim_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 		bool left_grip_held_{};

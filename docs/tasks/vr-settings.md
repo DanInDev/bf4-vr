@@ -80,6 +80,10 @@ tunable should get the same treatment for free.
    (`step 1`): this is the user's "toggle HUD elements with a click". Interaction through the laser
    pointer (`input::point_at`, #23): uv → row/button. Opened by a long press on the left menu button
    (short press stays Start for the game's pause menu); pauses the game's input while open.
+   Second opener (`stick_menu`, 2026-11-02): both thumbstick clicks held 0.5 s, because SteamVR on
+   Quest may take the left ≡ for its dashboard (the 2026-10-27 log shows the session flipping
+   FOCUSED ↔ VISIBLE); a hint after each level load (`menu_hint`) and a notice while the session is
+   VISIBLE but not FOCUSED (`focus_notice`).
    - Text rendering options: Dear ImGui (MIT, `imgui_impl_dx11` into our render target; heavy but
      complete), or a baked bitmap font + quads (tiny, enough for labels and numbers). Start with
      ImGui on a separate render target; never touch the game's device state without saving and
