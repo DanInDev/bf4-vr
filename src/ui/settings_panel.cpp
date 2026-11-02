@@ -46,7 +46,7 @@ namespace bfvr::ui
 					"grenade_throw_scale", "holsters", "squad_signal", "melee_gesture", "knife_grip", "knife_pitch", "use_reach", "c4_trigger", "grips_to_game", "ads_trigger" } },
 				{ "HUD", { "hud_mode", "hud_show_crosshair", "hud_show_main", "hud_show_minimap", "hud_show_ammo", "hud_show_bottom", "hud_distance", "hud_width",
 					"hud_marker_distance", "hud_watch_width", "hud_ammo_width" } },
-				{ "Controls", { "right_stick", "turn", "snap_turn_degrees", "stance_flicks", "neutral_pitch", "dominant_hand", "haptics", "haptics_strength", "haptics_game", "haptics_gestures", "menu_input", "pause_flat", "x_menu", "vr_panel" } },
+				{ "Controls", { "right_stick", "turn", "snap_turn_degrees", "stance_flicks", "neutral_pitch", "dominant_hand", "haptics", "haptics_strength", "haptics_game", "haptics_gestures", "menu_input", "pause_flat", "x_menu", "vr_panel", "stick_menu", "menu_hint", "focus_notice" } },
 			};
 			return table;
 		}

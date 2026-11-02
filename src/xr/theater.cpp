@@ -111,6 +111,11 @@ namespace bfvr::xr
 		std::string last_runtime_name;
 		int instance_failures{};
 		XrSessionState session_state{ XR_SESSION_STATE_UNKNOWN };
+		// Input focus (FOCUSED): SteamVR's dashboard takes it while the game stays visible.
+		std::atomic<std::uint32_t> focus_losses{};
+		std::atomic<ULONGLONG> unfocused_since{}; // 0 while focused or never focused
+		ULONGLONG focused_since{};
+		std::atomic<bool> input_lost{};
 
 		// Per-second worst-case timings of the work done inside the game's Present.
 		ULONGLONG timing_window_start{};
@@ -402,9 +407,78 @@ namespace bfvr::xr
 			return true;
 		}
 
+		// Why the runtime moved the session there, as far as the two states tell.
+		static const char* state_reason(XrSessionState from, XrSessionState to)
+		{
+			switch (to)
+			{
+			case XR_SESSION_STATE_IDLE: return "not running (yet)";
+			case XR_SESSION_STATE_READY: return "runtime ready: beginning the session";
+			case XR_SESSION_STATE_SYNCHRONIZED:
+				return from == XR_SESSION_STATE_VISIBLE ? "frames no longer shown (headset off or idle, another app in front)" : "frames in sync, not shown yet";
+			case XR_SESSION_STATE_VISIBLE:
+				return from == XR_SESSION_STATE_FOCUSED
+					? "the runtime took the controllers (SteamVR dashboard or overlay; on Quest the left menu button opens it)"
+					: "shown without input (a runtime overlay has the controllers)";
+			case XR_SESSION_STATE_FOCUSED: return from == XR_SESSION_STATE_VISIBLE ? "input back (dashboard or overlay closed)" : "shown with input";
+			case XR_SESSION_STATE_STOPPING: return "runtime asked the session to stop";
+			case XR_SESSION_STATE_LOSS_PENDING: return "connection to the runtime is going away";
+			case XR_SESSION_STATE_EXITING: return "the user or runtime ended VR";
+			default: return "unknown";
+			}
+		}
+
+		static const char* state_name(XrSessionState value)
+		{
+			switch (value)
+			{
+			case XR_SESSION_STATE_IDLE: return "IDLE";
+			case XR_SESSION_STATE_READY: return "READY";
+			case XR_SESSION_STATE_SYNCHRONIZED: return "SYNCHRONIZED";
+			case XR_SESSION_STATE_VISIBLE: return "VISIBLE";
+			case XR_SESSION_STATE_FOCUSED: return "FOCUSED";
+			case XR_SESSION_STATE_STOPPING: return "STOPPING";
+			case XR_SESSION_STATE_LOSS_PENDING: return "LOSS_PENDING";
+			case XR_SESSION_STATE_EXITING: return "EXITING";
+			default: return "UNKNOWN";
+			}
+		}
+
+		void set_input_lost(bool lost)
+		{
+			if (lost != input_lost.load())
+			{
+				log::write("theater: input focus %s", lost ? "lost: the runtime has the controllers" : "back");
+				input_lost = lost;
+			}
+			ui::set_input_focus_lost(lost);
+		}
+
 		void handle_session_state(XrSessionState new_state)
 		{
-			log::write("theater: session state %d", static_cast<int>(new_state));
+			const XrSessionState old_state = session_state;
+			const ULONGLONG now = GetTickCount64();
+			char detail[160]{};
+			if (old_state == XR_SESSION_STATE_FOCUSED && new_state != XR_SESSION_STATE_FOCUSED)
+			{
+				// What the hands were doing: a held menu button points at the SteamVR dashboard.
+				const input::gamepad_state pad = input::latest();
+				std::snprintf(detail, sizeof(detail), "; buttons=%04X, menu button held %.2f s, %.1f s after focus came", pad.buttons,
+					ui::menu_hold_seconds(), static_cast<double>(now - focused_since) / 1000.0);
+				++focus_losses;
+				unfocused_since = now;
+			}
+			else if (new_state == XR_SESSION_STATE_FOCUSED)
+			{
+				if (unfocused_since.load())
+				{
+					std::snprintf(detail, sizeof(detail), "; without input for %.1f s", static_cast<double>(now - unfocused_since.load()) / 1000.0);
+				}
+				focused_since = now;
+				unfocused_since = 0;
+			}
+			log::write("theater: session %s -> %s: %s%s (focus losses %u)", state_name(old_state), state_name(new_state),
+				state_reason(old_state, new_state), detail, focus_losses.load());
 			session_state = new_state;
 			switch (new_state)
 			{
@@ -742,6 +816,9 @@ namespace bfvr::xr
 		cpu_overlay panel_overlay{ "settings panel" };
 		std::uint64_t panel_revision{};
 		std::vector<std::uint32_t> panel_pixels;
+		cpu_overlay notice_overlay{ "notice" };
+		std::uint64_t notice_revision{};
+		std::vector<std::uint32_t> notice_pixels;
 		cpu_overlay vignette_overlay{ "vignette" };
 		cpu_overlay reticle_overlay{ "reticle" };
 		static constexpr std::uint32_t reticle_pixels_size = 64;
@@ -888,6 +965,33 @@ namespace bfvr::xr
 			panel_quad.pose.orientation = { view.pose.orientation[0], view.pose.orientation[1], view.pose.orientation[2], view.pose.orientation[3] };
 			panel_quad.size = { view.width, view.height };
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&panel_quad);
+		}
+
+		// The panel's one-line notice (opener hint, input focus lost): head-locked below the view centre.
+		void add_notice_layer(XrCompositionLayerQuad& notice_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			constexpr float width = 0.6f; // metres at 1 m
+			if (!ui::vr_notice_shown() || view_space == XR_NULL_HANDLE || !ensure_overlay(notice_overlay, ui::notice_width, ui::notice_height))
+			{
+				return;
+			}
+			if (ui::vr_notice_pixels(notice_revision, notice_pixels))
+			{
+				upload_overlay(notice_overlay, notice_pixels);
+			}
+			if (!notice_overlay.shown)
+			{
+				return;
+			}
+			notice_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			notice_quad.space = view_space;
+			notice_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			notice_quad.subImage.swapchain = notice_overlay.swapchain;
+			notice_quad.subImage.imageRect.extent = { ui::notice_width, ui::notice_height };
+			notice_quad.pose.orientation.w = 1.0f;
+			notice_quad.pose.position = { 0.0f, -0.22f, -1.0f };
+			notice_quad.size = { width, width * ui::notice_height / ui::notice_width };
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&notice_quad);
 		}
 
 		// Aim reticle (#3, #12): with controller aim, a dot where the shots converge, facing the head,
@@ -1740,7 +1844,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad panel_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad vignette_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[9]{};
+			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			const XrCompositionLayerBaseHeader* layers[10]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -1829,6 +1934,7 @@ namespace bfvr::xr
 			if (layer_count)
 			{
 				add_panel_layer(panel_quad, layers, layer_count);
+				add_notice_layer(notice_quad, layers, layer_count);
 			}
 
 			enter("end frame");
@@ -1873,6 +1979,7 @@ namespace bfvr::xr
 			destroy_swapchain();
 			destroy_hud_swapchain();
 			destroy_overlay(panel_overlay);
+			destroy_overlay(notice_overlay);
 			destroy_overlay(vignette_overlay);
 			destroy_overlay(reticle_overlay);
 			destroy_pointer_swapchain();
@@ -1899,6 +2006,7 @@ namespace bfvr::xr
 			destroy_session();
 			actions.destroy();
 			actions_ready = false;
+			set_input_lost(false);
 			stereo::publish_hand_sample({});
 			input::publish({});
 			if (instance != XR_NULL_HANDLE)
@@ -2006,6 +2114,7 @@ namespace bfvr::xr
 					s.last_input_log = GetTickCount64();
 				}
 			}
+			s.set_input_lost(s.session_state == XR_SESSION_STATE_VISIBLE || (s.actions_ready && !s.actions.focused()));
 			if (s.stereo_mode)
 			{
 				s.enter("store eye");
@@ -2031,6 +2140,7 @@ namespace bfvr::xr
 		else
 		{
 			input::publish({});
+			s.set_input_lost(false);
 		}
 		s.enter("idle");
 	}
@@ -2041,6 +2151,8 @@ namespace bfvr::xr
 		const char* stage = s.stage.load();
 		const double stage_ms = std::strcmp(stage, "idle") == 0 ? 0.0 : static_cast<double>(GetTickCount64() - s.stage_since.load());
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
-			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown };
+			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
+			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
+			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0 };
 	}
 }
