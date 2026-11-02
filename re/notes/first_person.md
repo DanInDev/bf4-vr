@@ -73,3 +73,13 @@ for VR still has to be tuned in the headset (the gun's own FOV is unknown).
 - Next: RenderDoc capture of a weapon draw → its projection constant → the CPU code that fills it
   (or the FOV value it is built from). Candidates from TypeInfo: `FPSCameraData.FOV` (+0x108),
   `GameRenderSettings.FovMultiplier` (+0x4C), `WeaponZoomLevelData.RenderFov`.
+
+## Gun life size (2026-11-02)
+
+Static analysis (branch `fp-fov-research`, notes there): the foreground is drawn at a **fixed 45 deg
+vertical FOV** with the world's aspect (projection y scale 2.414 = cot 22.5 deg, measured in
+stereo-rendering.md). In the headset the world uses the rendered FOV (~96 deg vertical), so the gun and
+arms were magnified about the view centre by cot(22.5)/cot(half fovY), ~2.7x, and sat off the
+controllers. `gun_life_size` (default on) scales the first-person right/up rows by
+tan(22.5 deg)/tan(fovY/2) every head-tracked frame, on top of `gun_scale`; pipe `gunscale` prints the
+applied value.

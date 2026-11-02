@@ -66,3 +66,25 @@ rendered camera by exactly that angle and the value persists (the game integrate
   (`gun`), or not at all (`body`). Measured with the head turned 90 deg left: `body` walked 90 deg off
   where you look, `head` 0 deg, in both aim modes.
 
+
+## Controller aim: the drawn gun, the hands' frame and the shots (2026-11-02, monitor)
+
+- **Frame bug (fixed):** under `aim = controller` the camera hook renders the first-person camera
+  (+0xED0) level at the *body* yaw (`level_rows(body - game_yaw)`), but the arm IK placed the hands in
+  the CameraJoint frame plus aimer pitch, and the joint follows the aimer (the gun). Baseline (old
+  build): gun 40 deg left drawn at the bottom right, nearly off-screen; 30 deg up drew the arm across
+  half the view. `arm_pose` now builds its frame as joint * Ry(body - game) * axes (level) when the
+  hook re-aimed the camera (`stereo::first_person_view_turn`); pipe `armframe rendered|game` for A/B.
+- **Drawn barrel = aim ray (`gun_pose = aim`):** the hand goal is chosen so Wep_Root lies on the aim
+  ray, upright ((0,1,0,0) in camera axes), instead of the hip animation turned by the controller
+  (its idle angle, sway and bob stayed in the drawn barrel). Pipe `gunlook`: barrel vs aim used vs
+  aim ray, at yaw/pitch (0,0), (40,0), (0,30), (-30,-20): 0.00-0.02 deg.
+- **Two-handed lock:** the barrel lies on the wrist-to-wrist line, corrected by the gun's support
+  offset (LeftHand relative to RightHand in Wep_Root axes; AK-12: (0.057,-0.062,0.506) vs
+  (-0.021,-0.070,0.203), i.e. 7.8 cm left, level, 30 cm ahead). Off hand 20 cm right, 10 cm up:
+  barrel 35.7 deg right, 15.1 deg up (geometry: ~34/14); drawn barrel and shot 0.00 deg apart.
+  The support point moves with the gun's animations (right after a load with an empty AK:
+  (0.022,-0.172,0.413)), so it is eased over 0.33 s.
+- **Phantom fire (not the mod):** a real "Xbox 360 Controller for Windows" on XInput slot 0 reported
+  RT = 124/255 at rest; the mod merges a real pad on its slot, so the gun emptied its reserve with no
+  input. `physical_pad = 0` ignores it; `status` prints `physical_pad merged|ignored ... rt=`.
