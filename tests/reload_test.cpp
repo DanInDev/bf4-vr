@@ -641,6 +641,16 @@ namespace
 		const float b = turning.body_yaw();
 		const v3 primary{ 0.2f * std::cos(b) + 0.15f * std::sin(b), 0.05f, -0.2f * std::sin(b) + 0.15f * std::cos(b) };
 		expect(draw_at(turning, turn, primary) == holster::primary, "zones turn with the body");
+		// grab_debug rings: the reported centres are where the zones are (turned body, both hands).
+		turn.gun_hand = { 5.0f, 5.0f, 5.0f };
+		const holster_result rings = turning.update(turn);
+		expect(rings.has_centres && std::fabs(rings.centres[0].x - primary.x) < 1e-4f && std::fabs(rings.centres[0].z - primary.z) < 1e-4f
+			&& std::fabs(rings.radii[0] - 0.22f) < 1e-6f, "ring centre and radius of the primary holster");
+		holster_frame mirrored_ring = left;
+		mirrored_ring.gun_hand = { 5.0f, 5.0f, 5.0f };
+		holsters mirrored_rings;
+		const holster_result left_rings = mirrored_rings.update(mirrored_ring);
+		expect(left_rings.has_centres && std::fabs(left_rings.centres[2].x - 0.12f) < 1e-4f, "left-handed: the knife ring on the right chest");
 		holster_frame blind = frame;
 		blind.head_valid = false;
 		expect(draw_at(h, blind, { 0.2f, 0.05f, 0.15f }) == holster::none, "no head tracking: no holsters");

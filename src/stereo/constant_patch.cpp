@@ -141,23 +141,31 @@ namespace bfvr::stereo
 		const float* scales = block + 0x130 / 4;
 		float* camera = block + 0x140 / 4;
 		const auto near_value = [](float a, float b) { return std::fabs(a - b) <= 1e-3f * std::fabs(b) + 1e-4f; };
+		// The forward row is a unit vector; right and up share one length: 1, or the gun size factor
+		// the camera hook scales them by (gun_scale, gun_life_size).
+		float lengths[3];
 		for (int r = 0; r < 3; ++r)
 		{
 			const float* row = view + r * 4;
-			if (!near_value(std::sqrt(row[0] * row[0] + row[1] * row[1] + row[2] * row[2]), 1.0f))
-			{
-				return false;
-			}
+			lengths[r] = std::sqrt(row[0] * row[0] + row[1] * row[1] + row[2] * row[2]);
+		}
+		if (!near_value(lengths[2], 1.0f) || !near_value(lengths[1], lengths[0]) || lengths[0] < 0.05f || lengths[0] > 4.0f)
+		{
+			return false;
 		}
 		const float sx = projection[0], sy = projection[5];
 		if (sx <= 0.0f || sy <= 0.0f || !near_value(scales[0], sx) || !near_value(scales[1], sy) || !near_value(scales[2], 1.0f))
 		{
 			return false;
 		}
-		// Camera position = -R^T t.
+		// Camera position = -U^T (t / length) with U the unit rows (row = length * unit, t = -length * unit.p).
 		for (int axis = 0; axis < 3; ++axis)
 		{
-			const float expected = -(view[0 * 4 + axis] * view[3] + view[1 * 4 + axis] * view[7] + view[2 * 4 + axis] * view[11]);
+			float expected = 0.0f;
+			for (int r = 0; r < 3; ++r)
+			{
+				expected -= view[r * 4 + axis] * view[r * 4 + 3] / (lengths[r] * lengths[r]);
+			}
 			if (!near_value(camera[axis], expected))
 			{
 				return false;
@@ -171,9 +179,10 @@ namespace bfvr::stereo
 				return false;
 			}
 		}
-		const float right[3] = { view[0], view[1], view[2] };
-		view[3] -= d;
-		view_projection[3] -= d * sx;
+		// Moving the camera d along its unit right moves view-space x by d times the row's length.
+		const float right[3] = { view[0] / lengths[0], view[1] / lengths[0], view[2] / lengths[0] };
+		view[3] -= d * lengths[0];
+		view_projection[3] -= d * sx * lengths[0];
 		for (int axis = 0; axis < 3; ++axis)
 		{
 			camera[axis] += d * right[axis];

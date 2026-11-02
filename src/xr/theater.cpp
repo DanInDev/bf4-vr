@@ -337,7 +337,8 @@ namespace bfvr::xr
 			XrSystemProperties properties{ XR_TYPE_SYSTEM_PROPERTIES };
 			if (XR_SUCCEEDED(xrGetSystemProperties(instance, system, &properties)))
 			{
-				log::write("theater: headset %s", properties.systemName);
+				max_layers = std::max<std::uint32_t>(properties.graphicsProperties.maxLayerCount, 1u);
+				log::write("theater: headset %s, up to %u layers", properties.systemName, max_layers);
 			}
 			return true;
 		}
@@ -824,6 +825,7 @@ namespace bfvr::xr
 		cpu_overlay reticle_overlay{ "reticle" };
 		static constexpr std::uint32_t reticle_pixels_size = 64;
 		cpu_overlay ring_overlay[2]{ { "grab zone" }, { "grab zone (hand inside)" } };
+		std::uint32_t max_layers{ 16 }; // the runtime's limit (OpenXR guarantees 16); more fails the frame
 		static constexpr std::uint32_t ring_pixels_size = 128;
 		ui::vignette comfort_vignette;
 		float vignette_uploaded{ -1.0f };
@@ -1062,7 +1064,9 @@ namespace bfvr::xr
 			}
 			const stereo::pose centre = stereo::eye_math::centre_pose(head);
 			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
-			for (int i = 0; i < weapon::grab_zone_count; ++i)
+			// The reticle, the panel and the notice come after the rings: keep room for them.
+			constexpr std::uint32_t reserved = 3;
+			for (int i = 0; i < weapon::grab_zone_count && layer_count + reserved < max_layers; ++i)
 			{
 				if (!zones[i].valid)
 				{

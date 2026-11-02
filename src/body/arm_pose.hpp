@@ -102,6 +102,8 @@ namespace bfvr::body
 	// gun_pose = aim (true): the gun's barrel lies exactly on the controller's aim ray; animated
 	// (false): the game's hip pose turned by the controller (its idle angle and sway stay).
 	void set_gun_on_ray(bool on_ray);
+	// A primary or secondary gun is in hand (gun_pose applies to guns only, not gadgets or grenades).
+	void set_gun_in_hand(bool gun);
 	// Two-handed hold (0..1): the off hand is drawn on the handguard, blended by the weight.
 	void set_support_hand(float weight);
 	// Where the gun's animation holds the off hand relative to the gun hand, across the barrel, in

@@ -81,20 +81,25 @@ namespace bfvr::weapon
 		{
 			if (config_.lock)
 			{
-				// The barrel through the gun hand, parallel to the hand line once the off hand's place
-				// beside the barrel is taken out; that place turns with the gun, so settle it twice.
-				quat rotation = one_handed;
-				for (int pass = 0; pass < 3; ++pass)
+				// An off hand pulled back past the grip (still gripping) says nothing about the barrel: the
+				// gun keeps the last two-handed direction rather than swinging round towards the player.
+				if (body::ik::dot(line, body::ik::rotate(one_handed, { 0, 0, -1 })) >= config_.grab_near)
 				{
-					const vec3 beside = body::ik::rotate(rotation, { input.support_offset[0], input.support_offset[1], 0 });
-					const vec3 along = line - beside;
-					if (body::ik::length(along) < config_.min_separation)
+					// The barrel through the gun hand, parallel to the hand line once the off hand's place
+					// beside the barrel is taken out; that place turns with the gun, so settle it twice.
+					quat rotation = one_handed;
+					for (int pass = 0; pass < 3; ++pass)
 					{
-						break;
+						const vec3 beside = body::ik::rotate(rotation, { input.support_offset[0], input.support_offset[1], 0 });
+						const vec3 along = line - beside;
+						if (body::ik::length(along) < config_.min_separation)
+						{
+							break;
+						}
+						rotation = body::ik::normalize(body::ik::from_to(body::ik::rotate(rotation, { 0, 0, -1 }), body::ik::normalize(along)) * rotation);
 					}
-					rotation = body::ik::normalize(body::ik::from_to(body::ik::rotate(rotation, { 0, 0, -1 }), body::ik::normalize(along)) * rotation);
+					store(rotation, two_handed_);
 				}
-				store(rotation, two_handed_);
 			}
 			else
 			{

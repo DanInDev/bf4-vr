@@ -152,6 +152,7 @@ namespace bfvr::body
 		ik::quat gun_hand_rotation;
 		std::atomic<bool> rendered_frame{ true }; // research A/B (pipe armframe): false = the game's camera frame
 		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
+		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
 		// How far the drawn off hand may slide from where the animation holds the handguard, metres.
 		constexpr float support_slide_back = 0.10f;
@@ -492,11 +493,12 @@ namespace bfvr::body
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
-				if (carry_weapon && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
 					// its +z barrel along -z), instead of the hip animation (its own angle, sway and bob)
-					// turned by the controller. The hand keeps the gun's authored grip.
+					// turned by the controller. The hand keeps the gun's authored grip. Guns only: a
+					// grenade or the C4 detonator keeps its own hold.
 					goal.hand = frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
 				if (carry_weapon && knife_in_hand.load(std::memory_order_relaxed))
@@ -941,6 +943,11 @@ namespace bfvr::body
 	void set_gun_on_ray(bool on_ray)
 	{
 		gun_on_ray = on_ray;
+	}
+
+	void set_gun_in_hand(bool gun)
+	{
+		gun_in_hand = gun;
 	}
 
 	void set_support_hand(float weight)
