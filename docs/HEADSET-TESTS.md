@@ -2,6 +2,32 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## Next — 2026-11-03 gun handling check (branch `test/vr-check-2026-11-03`)
+
+Build: `test/vr-check-2026-11-03` = `feature/gun-feel` + `claude/vr-menu-open-f3e3d1` (not on `main`). Its
+debug DLL is already deployed to `E:\EA\Battlefield 4`; start with `tools\dev-run.ps1 -NoBuild -Resume` or
+BF4 directly, **not** the launcher's Update mod (that installs `main`'s DLL). The task brief and causes:
+`docs/tasks/gun-handling.md`. Game `bfvr.ini` additions for this test: `physical_pad = 0`, `grab_debug = 1`.
+
+Monitor-verified 2026-11-02/03 (fakehead + fakehand): drawn barrel, aim ray and shot direction within
+0.02° at four poses; two-handed lock: grab, barrel 35.7°/15.1° towards an off hand moved 20 cm right/10 cm
+up (geometry ~34°/14°), off hand drawn on the handguard, clean release; life-size factor 0.466 at the
+rendered FOV; no phantom fire with `physical_pad = 0`. Unit tests for the lock, palm reach and zone
+overlap. Not verifiable on the monitor: everything below that depends on real hands and depth.
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| G0 | Before putting the headset on: is the Xbox 360 pad (or anything on XInput slot 0) still connected? `tools\pipe.ps1 status`, line `physical_pad` | On 2026-11-02 it reported `rt=124` at rest and fired the gun by itself. With `physical_pad = 0` it says `ignored`. If the gun ever fires on its own, that line first | |
+| G1 | **Gun size and place.** Hold the gun one-handed, look at it, move and turn your hand | The gun is life size and in your hand: the drawn hand sits where you feel the controller, also when you hold it to the side or high. Then `gun_life_size` off on the panel (View page) for comparison: much larger and off the hand. Fine-tune with `gun_scale` (1 = life size) | |
+| G2 | **Shots go where the barrel points** (`aim = controller` is now the default). One-handed, aim at a wall mark ~10 m, then ~25 m, fire single shots | Impacts on the green reticle and along the barrel line; the view never turns with the gun. `gun_pose = animated` (Weapon page) for comparison: the old pose, gun drifts off the line | |
+| G3 | **Two-handed lock.** Off hand onto the handguard (anywhere ahead of the magwell, generous reach), squeeze the grip | The barrel snaps onto the line between your hands (no "suggestion"), your left hand is drawn wrapped on the handguard and slides along it, twisting the gun hand cants the gun, a short tracking blip keeps the hold, opening the grip releases within ~0.1 s. `two_hand_mode = soft` for the old behaviour | |
+| G4 | Two-handed aim at 10 and 25 m | Hits where the barrel points; steadier than one-handed | |
+| G5 | **Grab rings** (`grab_debug = 1`): look at the gun and your body | Rings at the magazine (below the magwell), the charging handle, the chest pouch, the handguard and five holsters, each as large as its reach, turning green when your hand is inside. Do they sit on the drawn gun? (If not: note where; that is the life-size factor) | |
+| G6 | **Reload (AK-12):** empty it, off hand to the magazine (feel the tick), grip and pull, drop it; off hand to the chest (tick), grip, bring the new one near the magwell (it seats within ~14 cm), off hand to the handle (tick), grip and pull back ~4 cm | Every step works without hunting for the spot; the magazine grab no longer racks instead (handle and magwell are 3 cm apart on the AK: the nearest wins), and a hand on the handguard ahead of the magwell never grabs the magazine | |
+| G7 | **Holsters:** gun hand over the shoulder / at the hip / on the chest, grip | Primary / secondary / knife each drawn on the first try (zones ~40-50 % larger, measured from the palm) | |
+| G8 | Grenade: off hand to the belt (22 cm reach), gun hand pulls the pin (14 cm) | Easier to take and arm than before | |
+| G9 | Menu: rows 0a and 0b below (both sticks; is ≡ the SteamVR dashboard?) | | |
+
 ## Next — everything since 2026-10-26, on `main`
 
 Build: `main` (all branches merged 2026-10-27). New: two-handed grip (#29), shots converge on the barrel

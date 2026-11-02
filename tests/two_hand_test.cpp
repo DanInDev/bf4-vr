@@ -207,6 +207,11 @@ namespace
 		const vec3 expected = (moved - vec3{ 0, -0.04f, 0 }) - gun_hand;
 		expect(degrees_between(barrel(out), expected) < 1.0f, "lock: barrel follows the off hand");
 
+		// Pulling the off hand back behind the grip while still gripping: the barrel keeps its direction.
+		const vec3 before = barrel(out);
+		out = run(grip, supported(frame_with(level_gun, gun_hand + vec3{ 0.0f, -0.1f, 0.2f }, true), 0, -0.04f), 0.1f);
+		expect(out.held && degrees_between(barrel(out), before) < 0.1f, "lock: an off hand behind the grip never turns the gun round");
+
 		// Rolling the gun hand about the barrel cants the gun but keeps the barrel on the hand line.
 		const quat roll{ 0, 0, std::sin(0.35f), std::cos(0.35f) };
 		two_hand_grip canted;

@@ -343,8 +343,9 @@ namespace
 namespace
 {
 	// A 512-byte per-view block (layout of constant_patch::shift_per_view_block) for a camera with
-	// axes rot (rows right, up, back) at p, column-vector convention.
-	void per_view_block(const float (&rot)[9], const float (&p)[3], float sx, float sy, float* block)
+	// axes rot (rows right, up, back) at p, column-vector convention. The right and up rows are scaled by
+	// gun (the camera hook's gun size factor); the camera position stays p.
+	void per_view_block(const float (&rot)[9], const float (&p)[3], float sx, float sy, float* block, float gun = 1.0f)
 	{
 		const float near_plane = 0.06f;
 		for (int i = 0; i < 128; ++i)
@@ -354,11 +355,12 @@ namespace
 		float view[16]{};
 		for (int r = 0; r < 3; ++r)
 		{
+			const float scale = r < 2 ? gun : 1.0f;
 			for (int c = 0; c < 3; ++c)
 			{
-				view[r * 4 + c] = rot[r * 3 + c];
+				view[r * 4 + c] = scale * rot[r * 3 + c];
 			}
-			view[r * 4 + 3] = -(rot[r * 3 + 0] * p[0] + rot[r * 3 + 1] * p[1] + rot[r * 3 + 2] * p[2]);
+			view[r * 4 + 3] = -scale * (rot[r * 3 + 0] * p[0] + rot[r * 3 + 1] * p[1] + rot[r * 3 + 2] * p[2]);
 		}
 		view[15] = 1;
 		const float projection[16] = { sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, -1, -near_plane, 0, 0, -1, 0 };
@@ -401,9 +403,11 @@ namespace
 			const float p[3] = { 2.0f * camera.position[0], 1.6f + camera.position[1], camera.position[2] };
 			const float d = 0.064f;
 			const float p_eye[3] = { p[0] + d * rot[0], p[1] + d * rot[1], p[2] + d * rot[2] };
+			// Every other round with the life-size gun factor (0.466 at the headset's rendered FOV).
+			const float gun = round % 2 ? 0.466f : 1.0f;
 			float block[128], expected[128];
-			per_view_block(rot, p, 2.001f, 2.414f, block);
-			per_view_block(rot, p_eye, 2.001f, 2.414f, expected);
+			per_view_block(rot, p, 2.001f, 2.414f, block, gun);
+			per_view_block(rot, p_eye, 2.001f, 2.414f, expected, gun);
 			expect(constant_patch::shift_per_view_block(block, 128, d), "per-view block not recognised", round);
 			bool ok = true;
 			for (int i = 0; i < 128; ++i)

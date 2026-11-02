@@ -304,6 +304,8 @@ namespace bfvr::weapon
 		advance(now);
 		const slot_state held = read_slot();
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "Knife") != nullptr);
+		// Slots 0 and 1 hold the primary and secondary guns; gadgets, grenades and the knife keep their own hold.
+		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
 		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
