@@ -343,8 +343,9 @@ namespace
 namespace
 {
 	// A 512-byte per-view block (layout of constant_patch::shift_per_view_block) for a camera with
-	// axes rot (rows right, up, back) at p, column-vector convention. The right and up rows are scaled by
-	// gun (the camera hook's gun size factor); the camera position stays p.
+	// axes rot (rows right, up, back) at p, column-vector convention. With the camera hook's gun size
+	// factor the engine's view rows are right and up / gun, back / gun^2 (measured live); the camera
+	// position stays p.
 	void per_view_block(const float (&rot)[9], const float (&p)[3], float sx, float sy, float* block, float gun = 1.0f)
 	{
 		const float near_plane = 0.06f;
@@ -355,7 +356,7 @@ namespace
 		float view[16]{};
 		for (int r = 0; r < 3; ++r)
 		{
-			const float scale = r < 2 ? gun : 1.0f;
+			const float scale = r < 2 ? 1.0f / gun : 1.0f / (gun * gun);
 			for (int c = 0; c < 3; ++c)
 			{
 				view[r * 4 + c] = scale * rot[r * 3 + c];
