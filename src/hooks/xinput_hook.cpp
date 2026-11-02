@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <iterator>
 
 #include <MinHook.h>
@@ -50,6 +51,11 @@ namespace bfvr::hooks
 		std::atomic<std::uint64_t> state_calls{};
 		std::atomic<std::uint64_t> capability_calls{};
 		std::atomic<std::uint64_t> set_state_calls{};
+		// A real pad on the virtual index: merged (physical_pad = 1) or replaced; its last state for status.
+		std::atomic<bool> real_pad_merged{ true };
+		std::atomic<bool> real_pad_seen{};
+		std::atomic<std::uint32_t> real_pad_state{}; // buttons | lt << 16 | rt << 24
+		std::atomic<bool> real_trigger_warned{};
 
 		// The game accepted the virtual pad as an XInput device (see input/virtual_pad.cpp).
 		bool virtual_pad_present()
@@ -65,6 +71,21 @@ namespace bfvr::hooks
 				return result;
 			}
 
+			if (result == ERROR_SUCCESS)
+			{
+				const XINPUT_GAMEPAD& real = state->Gamepad;
+				real_pad_seen = true;
+				real_pad_state = static_cast<std::uint32_t>(real.wButtons) | (static_cast<std::uint32_t>(real.bLeftTrigger) << 16) | (static_cast<std::uint32_t>(real.bRightTrigger) << 24);
+				if ((real.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD || real.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) && !real_trigger_warned.exchange(true))
+				{
+					log::write("xinput: a real pad on user index %lu holds a trigger (lt=%u rt=%u)%s", user_index, real.bLeftTrigger, real.bRightTrigger,
+						real_pad_merged.load() ? "; it reaches the game (physical_pad = 0 ignores it)" : "; ignored (physical_pad = 0)");
+				}
+				if (!real_pad_merged.load(std::memory_order_relaxed))
+				{
+					state->Gamepad = {};
+				}
+			}
 			const input::gamepad_state pad = ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest()))))));
 			if (!pad.connected)
 			{
@@ -180,6 +201,23 @@ namespace bfvr::hooks
 			}
 			return true;
 		}
+	}
+
+	void set_physical_pad(bool merged)
+	{
+		real_pad_merged = merged;
+	}
+
+	std::string physical_pad_report()
+	{
+		if (!real_pad_seen.load())
+		{
+			return "physical_pad none";
+		}
+		const std::uint32_t s = real_pad_state.load();
+		char text[128];
+		std::snprintf(text, sizeof(text), "physical_pad %s buttons=%04X lt=%u rt=%u", real_pad_merged.load() ? "merged" : "ignored", s & 0xFFFF, (s >> 16) & 0xFF, s >> 24);
+		return text;
 	}
 
 	xinput_stats xinput_call_counts()

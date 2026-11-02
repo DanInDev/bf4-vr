@@ -16,7 +16,8 @@ namespace bfvr::settings
 		// Live tunables. Start-up-only keys (render_size, xr_runtime, stereo, hud_layer, research) stay
 		// in config: they cannot change while the game runs.
 		const definition definitions[] = {
-			{ "gun_scale", kind::real, 0.25f, 4.0f, 0.05f, "1", "", "apparent gun and arms size, 1 = the game's" },
+			{ "gun_scale", kind::real, 0.25f, 4.0f, 0.05f, "1", "", "apparent gun and arms size on top of gun_life_size (1 = life size there, else the game's)" },
+			{ "gun_life_size", kind::boolean, 0, 0, 0, "1", "", "draw the gun and arms at life size, on the controllers (the game draws them with a fixed 45 degree FOV: about 2.7 times too large in the headset)" },
 			{ "view_crop_h", kind::real, 0.4f, 1.0f, 0.02f, "1", "", "rendered part of the headset FOV, horizontal" },
 			{ "view_crop_v", kind::real, 0.4f, 1.0f, 0.02f, "1", "", "rendered part of the headset FOV, vertical" },
 			{ "vignette", kind::choice, 0, 0, 0, "off", "off|turning|moving|both", "comfort vignette: darken the edge of the view while the game turns or moves you (not your head)" },
@@ -69,6 +70,8 @@ namespace bfvr::settings
 			{ "haptics_strength", kind::real, 0.0f, 1.0f, 0.05f, "0.8", "", "controller vibration strength" },
 			{ "haptics_game", kind::boolean, 0, 0, 0, "1", "", "haptics: the game's rumble (firing on the gun hand, both hands for explosions and hits)" },
 			{ "haptics_gestures", kind::boolean, 0, 0, 0, "1", "", "haptics: taps for holsters, magazines, grenades, the two-handed grab, use, menu clicks" },
+			{ "physical_pad", kind::boolean, 0, 0, 0, "1", "", "a real gamepad on the first slot also reaches the game (off: only the VR controllers; a stuck trigger there fires the gun)" },
+			{ "grab_debug", kind::boolean, 0, 0, 0, "0", "", "draw every grab zone (magazine, handle, pouch, handguard, holsters) as a ring as large as its reach; green while a hand is inside" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|pad", "menus: point with a controller and pull the trigger, or the pad only" },
 			{ "aim", kind::choice, 0, 0, 0, "controller", "head|controller", "what aims the gun: the gun-hand controller (bullets leave the drawn barrel) or the view (game default)" },
 			{ "gun_pose", kind::choice, 0, 0, 0, "aim", "aim|animated", "where the drawn gun points: exactly along the controller ray, or the game's hip pose turned by the controller (its idle angle and sway stay)" },

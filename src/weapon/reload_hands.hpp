@@ -53,6 +53,12 @@ namespace bfvr::weapon
 		reload_event events[max_events]{};
 		int count{};
 		bool off_hand_busy{}; // the off-hand grip belongs to the reload (hand in a reload zone): keep it from the game
+		// The zone the open off hand is in (a haptic tick on entering it); none while holding or racking.
+		enum class zone { none, magazine, handle, chest } in_zone{ zone::none };
+		// Zone centres and reaches (grab_debug): magazine body, charging handle, chest pouch.
+		v3 zone_centre[3];
+		float zone_reach[3]{};
+		bool has_handle{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;
@@ -75,6 +81,11 @@ namespace bfvr::weapon
 		v3 handle_ar{ 0.0f, 0.06f, 0.20f };
 		v3 handle_ak{ 0.0f, 0.03f, 0.40f };
 		float reach_handle{ 0.12f };
+		// The magazine is grabbed by its body, this far below where it seats (gun frame -y): on an AK the
+		// charging handle sits only ~3 cm from the magwell, the hand on the magazine well below it.
+		float magazine_grab_drop{ 0.08f };
+		// Ahead of the magwell along the barrel is the handguard (the two-handed grip), not the magazine.
+		float magazine_ahead_limit{ 0.03f };
 	};
 
 	class reload_hands

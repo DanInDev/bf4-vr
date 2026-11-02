@@ -241,6 +241,11 @@ namespace
 		expect(profile_for("U_M416", 1).capacity == 1, "capacity never below 1");
 	}
 
+	v3 operator+(v3 a, v3 b)
+	{
+		return { a.x + b.x, a.y + b.y, a.z + b.z };
+	}
+
 	// Positions in metres: gun ahead and below the head, barrel along -z.
 	constexpr v3 magwell{ 0.0f, -0.2f, -0.4f };
 	constexpr v3 slide{ 0.05f, -0.12f, -0.3f };
@@ -310,6 +315,58 @@ namespace
 		hands.update(gun, at(slide, true));
 		r = hands.update(gun, at({ slide.x, slide.y, slide.z + 0.02f }, false));
 		expect(r.count == 0, "a short pull does not rack");
+	}
+
+	// An AK as the game holds it (Wep_Root +z along the barrel, here pointing away along -z): the charging
+	// handle (handle_ak, 3 cm above the receiver) sits right above the magwell. The grab is measured
+	// from the palm, 6 cm ahead of the drawn wrist.
+	void test_hands_reach_and_overlap()
+	{
+		hand_frame frame = at(away, false);
+		frame.has_root = true;
+		frame.root = { 0.0f, -0.2f, 0.0f };
+		frame.root_rotation = { 0.0f, 1.0f, 0.0f, 0.0f };
+		frame.magwell = frame.root + v3{ 0.0f, 0.0f, -0.40f };
+		const v3 handle = frame.root + v3{ 0.0f, 0.03f, -0.40f };
+		const v3 body = frame.magwell + v3{ 0.0f, -0.08f, 0.0f };
+		const auto palm_at = [&](v3 palm, bool grip)
+		{
+			hand_frame f = frame;
+			f.grip = grip;
+			f.has_palm = true;
+			f.off_palm = palm;
+			f.off_hand = palm + v3{ 0.0f, 0.0f, 0.06f };
+			return f;
+		};
+
+		reload gun(ak);
+		gun.load(11, 60);
+		reload_hands hands(flat_hold());
+		hands.update(gun, palm_at(away, false));
+		hand_result r = hands.update(gun, palm_at(body + v3{ 0.06f, -0.04f, 0.03f }, true));
+		expect(has(r, reload_event::magazine_out), "palm on the magazine body, 9 cm off its middle, pulls it (not the handle above)");
+
+		reload fourth(ak);
+		fourth.load(11, 60);
+		reload_hands guard(flat_hold());
+		guard.update(fourth, palm_at(away, false));
+		r = guard.update(fourth, palm_at(body + v3{ 0.0f, 0.0f, -0.06f }, true));
+		expect(r.count == 0 && !r.off_hand_busy && fourth.state().magazine_in, "palm ahead of the magwell is on the handguard: no magazine, the grip is the two-handed grab's");
+
+		reload second(ak);
+		second.load(11, 60);
+		reload_hands racker(flat_hold());
+		racker.update(second, palm_at(away, false));
+		racker.update(second, palm_at(handle + v3{ 0.04f, 0.03f, 0.0f }, true));
+		r = racker.update(second, palm_at(handle + v3{ 0.04f, 0.03f, 0.05f }, false));
+		expect(has(r, reload_event::round_ejected) && second.state().magazine_in, "palm at the handle racks, the magazine stays in");
+
+		reload third(ak);
+		third.load(11, 60);
+		reload_hands far(flat_hold());
+		far.update(third, palm_at(away, false));
+		r = far.update(third, palm_at(body + v3{ 0.0f, -0.16f, -0.03f }, true));
+		expect(r.count == 0, "16 cm below the magazine is out of reach");
 	}
 
 	void test_hands_ar_drop_and_fall()
@@ -698,6 +755,7 @@ int main()
 	test_conservation();
 	test_profiles();
 	test_hands_ak();
+	test_hands_reach_and_overlap();
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();
 	test_accessory_touch();

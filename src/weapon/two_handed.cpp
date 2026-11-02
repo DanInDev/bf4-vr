@@ -15,6 +15,7 @@
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/tracking.hpp"
+#include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/two_hand.hpp"
@@ -33,6 +34,9 @@ namespace bfvr::weapon
 		std::uint64_t toggles{};
 		std::mutex lock_;
 		two_hand_grip grip;
+		two_hand_input last_input; // for the report: why a grab did or did not happen
+		float support_smoothed[2]{};
+		bool support_known{};
 		two_hand_output last;
 		float last_shot[3]{};
 		float last_point[3]{};
@@ -105,16 +109,27 @@ namespace bfvr::weapon
 			// Wrists, as drawn: the gun's support offset is measured between its hand bones (wrists).
 			body::wrist_of(1, hands.grip[1], input.gun.position);
 			body::wrist_of(0, hands.grip[0], input.off_hand);
-			if (!body::support_offset(input.support_offset))
+			// The gun's own support point moves with its animations (an empty-gun or reload pose drops
+			// it 10 cm): eased over a third of a second so a locked barrel never jumps.
+			float support[2]{};
+			if (body::support_offset(support))
 			{
-				input.support_offset[0] = input.support_offset[1] = 0.0f;
+				const float ease = support_known ? std::fmin(seconds / 0.33f, 1.0f) : 1.0f;
+				for (int axis = 0; axis < 2; ++axis)
+				{
+					support_smoothed[axis] += (support[axis] - support_smoothed[axis]) * ease;
+				}
+				support_known = true;
 			}
+			input.support_offset[0] = support_smoothed[0];
+			input.support_offset[1] = support_smoothed[1];
 			const input::gamepad_state pad = input::latest();
 			input.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 			input.trigger = static_cast<float>(pad.left_trigger) / 255.0f;
 			input.busy = grenade_in_hand() || reload_owns_off_hand();
 			input.seconds = seconds;
 			out = grip.update(input);
+			last_input = input;
 			if (out.held && !last.held)
 			{
 				++grabs;
@@ -143,6 +158,14 @@ namespace bfvr::weapon
 		}
 		body::set_gun_hand_rotation(out.weight > 0, out.rotation);
 		body::set_support_hand(out.weight);
+		if (grab_debug_enabled())
+		{
+			const body::weapon_points points = body::latest_weapon_points();
+			if (points.has_support)
+			{
+				publish_grab_zone(grab_slot::handguard, points.support, grip.config().grab_reach, out.claim_grip);
+			}
+		}
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
 		const float metres = convergence.load(std::memory_order_relaxed);
@@ -193,11 +216,18 @@ namespace bfvr::weapon
 		const std::lock_guard guard(lock_);
 		const float* q = last.rotation;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
-		char text[384];
-		std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) convergence=%.1f aim_controller=%d",
+		const two_hand_input& in = last_input;
+		char text[768];
+		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) convergence=%.1f aim_controller=%d",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], convergence.load(), input::controller_aim_active() ? 1 : 0);
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			std::snprintf(text + length, sizeof(text) - length, "\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
+		}
 		return text;
 	}
 }

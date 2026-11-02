@@ -24,8 +24,12 @@ stereo_first_person = 1
 # Per-eye image shape: headset = render each eye at the headset's own aspect (anamorphic 16:9
 # image covering exactly the lens FOV, re/notes/camera.md); game = the window's 16:9 (wider than the lens).
 stereo_aspect = headset
-# Apparent size of the gun and arms: 1 = the game's own (drawn with its own FOV, so it looks large
-# in the headset's wide view); smaller values shrink it around the view centre. Tune in the headset.
+# The game draws the gun and arms with a fixed 45 degree vertical FOV, about 2.7 times too large in
+# the headset's wide view and off the controllers. gun_life_size = 1 corrects that every frame
+# (tan(22.5 deg) / tan(half the rendered FOV)), so they are life size and on your hands.
+gun_life_size = 1
+# Apparent size of the gun and arms on top of that (1 = life size; without gun_life_size, 1 = the
+# game's own); other values scale them around the view centre and move the hands off the controllers.
 gun_scale = 1.0
 # Part of the headset's reported FOV that is rendered (0.4-1, tangent space). The Quest 3 via
 # Steam Link reports more than its lenses show; cropping makes the visible image sharper. Too
@@ -105,6 +109,12 @@ grenade = physical
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
 holsters = 1
+# Draw every grab zone (magazine, charging handle, chest pouch, handguard, holsters) as a ring as large
+# as its reach, green while a hand is inside: for finding the spots and for tuning them.
+grab_debug = 0
+# A real gamepad on the first XInput slot also reaches the game. Off: only the VR controllers (a pad
+# with a worn or half-pressed trigger there fires the gun on its own; pipe status shows physical_pad).
+physical_pad = 1
 # Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
 squad_signal = 1
 # The controller grips are the mod's (holding the gun, reload, grenades, holsters, signals); 1 also

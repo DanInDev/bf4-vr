@@ -23,6 +23,7 @@
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "weapon/grab_debug.hpp"
 #include "weapon/reload_sounds.hpp"
 
 namespace bfvr::weapon
@@ -148,6 +149,7 @@ namespace bfvr::weapon
 		std::map<int, slot_memory> slots;
 		int current_slot{ -1 };
 		reload_hands hands;
+		hand_result::zone last_zone{ hand_result::zone::none };
 		LARGE_INTEGER last_update{};
 		const char* recent[8]{};
 		int recent_count{};
@@ -463,6 +465,26 @@ namespace bfvr::weapon
 		frame.button = (pad.buttons & XINPUT_GAMEPAD_B) != 0; // right B: release / bolt catch
 		const bool magazine_was_in = gun.state().magazine_in;
 		const hand_result result = hands.update(gun, frame);
+		if (result.in_zone != hand_result::zone::none && result.in_zone != last_zone)
+		{
+			input::haptic(0, input::pulses::tick);
+		}
+		last_zone = result.in_zone;
+		if (grab_debug_enabled() && hands_valid)
+		{
+			const grab_slot slots_shown[3]{ grab_slot::magazine, grab_slot::handle, grab_slot::pouch };
+			const hand_result::zone zones_shown[3]{ hand_result::zone::magazine, hand_result::zone::handle, hand_result::zone::chest };
+			for (int i = 0; i < 3; ++i)
+			{
+				const float centre[3]{ result.zone_centre[i].x, result.zone_centre[i].y, result.zone_centre[i].z };
+				if (i == 1 && !result.has_handle)
+				{
+					clear_grab_zone(slots_shown[i]);
+					continue;
+				}
+				publish_grab_zone(slots_shown[i], centre, result.zone_reach[i], result.in_zone == zones_shown[i]);
+			}
+		}
 		for (int i = 0; i < result.count; ++i)
 		{
 			remember(result.events[i]);

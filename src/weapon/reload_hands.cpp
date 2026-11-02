@@ -59,7 +59,9 @@ namespace bfvr::weapon
 		const bool valid = frame.hands_valid;
 		const v3 reach = frame.has_palm ? frame.off_palm : frame.off_hand;
 		const bool ak = gun.profile().kind == variant::ak;
-		const float to_magwell = valid ? distance(reach, frame.magwell) : 1e9f;
+		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, { 0, -config_.magazine_grab_drop, 0 }) : frame.magwell;
+		const bool on_handguard = frame.has_root && dot(reach - frame.magwell, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
+		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
 		const float to_chest = valid ? distance(reach, frame.chest) : 1e9f;
 		// The charging handle: from the gun frame per variant, else the slide bone.
 		v3 handle = frame.slide;
@@ -70,7 +72,9 @@ namespace bfvr::weapon
 			handle_reach = config_.reach_handle;
 		}
 		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle) : 1e9f;
-		const bool near_magwell = to_magwell < config_.reach_magazine;
+		// Zones overlap on small guns: the nearest one wins.
+		const bool near_magwell = to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
+		const bool near_handle = to_slide < handle_reach && !near_magwell;
 		const bool near_chest = to_chest < config_.reach_chest;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
 		const q4 held_rotation = multiply(frame.off_rotation, held_relative_);
@@ -98,7 +102,7 @@ namespace bfvr::weapon
 
 		if (grip_pressed && valid && !gun.state().holding)
 		{
-			if (to_slide < handle_reach)
+			if (near_handle)
 			{
 				racking_ = true;
 				rack_start_ = frame.off_hand;
@@ -166,6 +170,18 @@ namespace bfvr::weapon
 
 		// Also before the grip closes: the game must never see the press that starts a gesture.
 		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < handle_reach;
+		result.zone_centre[0] = magazine_body;
+		result.zone_reach[0] = config_.reach_magazine;
+		result.zone_centre[1] = handle;
+		result.zone_reach[1] = handle_reach;
+		result.has_handle = frame.has_root || frame.has_slide;
+		result.zone_centre[2] = frame.chest;
+		result.zone_reach[2] = config_.reach_chest;
+		if (!gun.state().holding && !racking_ && !frame.grip)
+		{
+			result.in_zone = near_handle ? hand_result::zone::handle : near_magwell ? hand_result::zone::magazine
+				: near_chest ? hand_result::zone::chest : hand_result::zone::none;
+		}
 
 		if (gun.state().holding && valid)
 		{

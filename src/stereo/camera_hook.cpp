@@ -78,6 +78,11 @@ namespace bfvr::stereo
 		// FOV; multiplying the first-person camera's right and up rows by g scales the drawn gun by g
 		// around the view centre (g = 1/0.7 made it visibly larger, re/notes/first_person.md).
 		std::atomic<float> gun_scale{ 1.0f };
+		// gun_life_size: the foreground pass draws at a fixed 45 degree vertical FOV with the world's aspect
+		// (re/notes/first_person.md); scaling its rows by tan(22.5)/tan(fovY/2) draws it as the world would.
+		std::atomic<bool> gun_life_size{ true };
+		constexpr float foreground_half_fov = 0.39269908f;
+		std::atomic<float> applied_gun_scale{ 1.0f };
 		std::atomic<float> ipd_scale{ 1.0f };
 		std::atomic<float> motion_yaw_rate{};
 		std::atomic<float> motion_speed{};
@@ -273,6 +278,7 @@ namespace bfvr::stereo
 			// mono and appear on the theater screen.
 			const bool menu = is_menu_camera(params) || !safety::campaign_level_loaded();
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
+			float world_half_vertical = 0.0f; // set in head-tracked frames: the FOV the world is rendered with
 			if (head.valid)
 			{
 				// Alternate-eye rendering: odd copies left eye, even copies right eye. Pair rendering:
@@ -290,6 +296,7 @@ namespace bfvr::stereo
 					view_crop_v.load(std::memory_order_relaxed), stereo_headset_aspect, *reinterpret_cast<const float*>(params + aspect));
 				const float half_horizontal = rendered.half_horizontal;
 				const float half_vertical = rendered.half_vertical;
+				world_half_vertical = half_vertical;
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
 				aspect_override = rendered.aspect;
 
@@ -382,7 +389,13 @@ namespace bfvr::stereo
 				}
 			}
 
-			if (const float scale = gun_scale.load(std::memory_order_relaxed); scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
+			float scale = gun_scale.load(std::memory_order_relaxed);
+			if (gun_life_size.load(std::memory_order_relaxed) && world_half_vertical > 0.01f && world_half_vertical < 1.5f)
+			{
+				scale *= std::tan(foreground_half_fov) / std::tan(world_half_vertical);
+			}
+			applied_gun_scale = scale;
+			if (scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
 			{
 				auto* rows = reinterpret_cast<float*>(params + first_person_transform);
 				for (int i = 0; i < 8; ++i) // right and up rows (4 floats each; w stays 0)
@@ -554,6 +567,16 @@ namespace bfvr::stereo
 	float current_gun_scale()
 	{
 		return gun_scale;
+	}
+
+	void set_gun_life_size(bool on)
+	{
+		gun_life_size = on;
+	}
+
+	float applied_gun_size()
+	{
+		return applied_gun_scale.load(std::memory_order_relaxed);
 	}
 
 	void set_view_crop(float horizontal, float vertical)

@@ -620,6 +620,15 @@ namespace bfvr::body
 				points.root_rotation[3] = root_xr.w;
 			}
 			publish(rig.rail, points.has_rail, points.rail);
+			points.has_support = geometry.valid;
+			if (points.has_support)
+			{
+				const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+				const ik::vec3 support = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.hand[0].position) - camera.position);
+				points.support[0] = support.x;
+				points.support[1] = support.y;
+				points.support[2] = support.z;
+			}
 			for (int hand = 0; hand < 2; ++hand)
 			{
 				const arm_report& arm = last_arms[hand];

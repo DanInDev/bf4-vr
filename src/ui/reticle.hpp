@@ -12,6 +12,8 @@ namespace bfvr::ui
 {
 	// Premultiplied BGRA: a bright dot with a dark ring so it reads on light and dark backgrounds.
 	void reticle_texture(int size, std::vector<std::uint32_t>& pixels);
+	// grab_debug: a ring with a faint fill, amber, or green while a hand is inside (hot).
+	void ring_texture(int size, bool hot, std::vector<std::uint32_t>& pixels);
 
 	struct reticle_quad
 	{

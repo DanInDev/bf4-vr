@@ -45,6 +45,11 @@ namespace bfvr::stereo
 	// Eye distance multiplier (world scale), 0.5..2; 1 = the runtime's IPD.
 	void set_ipd_scale(float scale);
 	float current_gun_scale();
+	// gun_life_size: in head-tracked frames the gun and arms are scaled by tan(22.5 deg)/tan(fovY/2) on top
+	// of gun_scale, so the foreground's fixed 45 degree FOV draws them at life size, on the controllers.
+	void set_gun_life_size(bool on);
+	// The row scale applied in the last frame (gun_scale times the life-size factor).
+	float applied_gun_size();
 
 	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
 	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.

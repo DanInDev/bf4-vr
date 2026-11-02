@@ -34,6 +34,10 @@ namespace bfvr::weapon
 	{
 		holster draw{ holster::none }; // grip pressed in this zone: switch to it
 		holster zone{ holster::none }; // the zone the hand is in (claim the grip, haptics, hint)
+		// Zone centres and radii in config order (grab_debug); valid when the head was.
+		bool has_centres{};
+		v3 centres[5];
+		float radii[5]{};
 	};
 
 	struct holster_zone

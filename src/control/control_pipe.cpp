@@ -667,7 +667,7 @@ namespace bfvr::control
 				{
 					stereo::set_gun_scale(scale);
 				}
-				return "gun_scale=" + std::to_string(stereo::current_gun_scale());
+				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size());
 			}
 			if (command == "arms") return body::report();
 			if (command == "gunlook") return body::gun_report() + weapon::two_hand_report();

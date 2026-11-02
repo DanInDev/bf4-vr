@@ -41,6 +41,7 @@
 #include "ui/reticle.hpp"
 #include "ui/vignette.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/grab_debug.hpp"
 #include "weapon/two_handed.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
@@ -745,6 +746,8 @@ namespace bfvr::xr
 		cpu_overlay vignette_overlay{ "vignette" };
 		cpu_overlay reticle_overlay{ "reticle" };
 		static constexpr std::uint32_t reticle_pixels_size = 64;
+		cpu_overlay ring_overlay[2]{ { "grab zone" }, { "grab zone (hand inside)" } };
+		static constexpr std::uint32_t ring_pixels_size = 128;
 		ui::vignette comfort_vignette;
 		float vignette_uploaded{ -1.0f };
 		std::vector<std::uint32_t> vignette_pixels;
@@ -925,6 +928,56 @@ namespace bfvr::xr
 			reticle_quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
 			reticle_quad.size = { placed.size, placed.size };
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&reticle_quad);
+		}
+
+		// grab_debug: every fresh grab zone as a ring at its centre, as wide as its reach, facing the head.
+		void add_grab_zone_layers(XrCompositionLayerQuad (&quads)[weapon::grab_zone_count], const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			weapon::grab_zone zones[weapon::grab_zone_count];
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (!weapon::grab_debug_enabled() || !head.valid || weapon::grab_zones(zones) == 0)
+			{
+				return;
+			}
+			for (int hot = 0; hot < 2; ++hot)
+			{
+				if (!ensure_overlay(ring_overlay[hot], ring_pixels_size, ring_pixels_size))
+				{
+					return;
+				}
+				if (!ring_overlay[hot].shown)
+				{
+					std::vector<std::uint32_t> pixels;
+					ui::ring_texture(static_cast<int>(ring_pixels_size), hot != 0, pixels);
+					upload_overlay(ring_overlay[hot], pixels);
+					if (!ring_overlay[hot].shown)
+					{
+						return;
+					}
+				}
+			}
+			const stereo::pose centre = stereo::eye_math::centre_pose(head);
+			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
+			for (int i = 0; i < weapon::grab_zone_count; ++i)
+			{
+				if (!zones[i].valid)
+				{
+					continue;
+				}
+				const ui::reticle_quad placed = ui::place_reticle(zones[i].centre, eye, 0.0f);
+				const cpu_overlay& overlay = ring_overlay[zones[i].hot ? 1 : 0];
+				XrCompositionLayerQuad& quad = quads[i];
+				quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+				quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+				quad.space = space;
+				quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+				quad.subImage.swapchain = overlay.swapchain;
+				quad.subImage.imageRect.extent = { static_cast<std::int32_t>(ring_pixels_size), static_cast<std::int32_t>(ring_pixels_size) };
+				quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };
+				quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
+				quad.size = { 2.0f * zones[i].radius, 2.0f * zones[i].radius };
+				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
+			}
 		}
 
 		// Comfort vignette (#10): head-locked, darkens the edge while the game turns or moves the
@@ -1740,7 +1793,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad panel_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad vignette_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[9]{};
+			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
+			const XrCompositionLayerBaseHeader* layers[9 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -1796,6 +1850,7 @@ namespace bfvr::xr
 						layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&body_quads[i]);
 					}
 				}
+				add_grab_zone_layers(zone_quads, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))

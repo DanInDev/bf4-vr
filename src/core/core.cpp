@@ -29,6 +29,7 @@
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
+#include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/game_reload_sounds.hpp"
@@ -63,6 +64,7 @@ namespace bfvr::core
 			const bool first = applied == ~0ull;
 			applied = revision;
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
+			stereo::set_gun_life_size(store.boolean("gun_life_size", true));
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
@@ -85,7 +87,9 @@ namespace bfvr::core
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");
 			weapon::set_holsters(store.boolean("holsters", true));
+			weapon::set_grab_debug(store.boolean("grab_debug", false));
 			weapon::set_sounds(store.boolean("reload_sounds", true));
+			hooks::set_physical_pad(store.boolean("physical_pad", true));
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));
@@ -161,7 +165,7 @@ namespace bfvr::core
 				hooks::xinput_call_counts().state_calls, hooks::xinput_call_counts().capability_calls, hooks::xinput_call_counts().set_state_calls,
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
-			return std::string(text) + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
+			return std::string(text) + "\n" + hooks::physical_pad_report() + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
 				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0");
 		}
 

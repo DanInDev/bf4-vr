@@ -66,6 +66,8 @@ namespace bfvr::body
 		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
 		bool has_rail{};
 		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
+		bool has_support{};
+		float support[3]{};    // where the gun's animation holds the off hand (handguard)
 		bool hand_valid[2]{};  // arm solved this evaluation; 0 = left, 1 = right (the rig's arms)
 		float hand[2][3]{};    // wrist goals (drawn hands)
 		float palm[2][3]{};    // the controllers' grip points (palms) in the same space: where grabs are measured

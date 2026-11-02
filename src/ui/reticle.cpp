@@ -32,6 +32,33 @@ namespace bfvr::ui
 		}
 	}
 
+	void ring_texture(int size, bool hot, std::vector<std::uint32_t>& pixels)
+	{
+		pixels.assign(static_cast<std::size_t>(size) * static_cast<std::size_t>(size), 0u);
+		const float half = 0.5f * static_cast<float>(size);
+		// Premultiplied BGRA: amber when idle, green while a hand is inside.
+		const float colour[3] = { hot ? 0.2f : 1.0f, hot ? 1.0f : 0.7f, hot ? 0.3f : 0.1f }; // r, g, b
+		for (int y = 0; y < size; ++y)
+		{
+			for (int x = 0; x < size; ++x)
+			{
+				const float dx = (static_cast<float>(x) + 0.5f - half) / half;
+				const float dy = (static_cast<float>(y) + 0.5f - half) / half;
+				const float r = std::sqrt(dx * dx + dy * dy);
+				const float edge = 1.5f / half;
+				// A ring at the reach (0.9..1.0) and a faint fill, so the zone reads as a disc.
+				const float ring = std::clamp((r - 0.88f) / edge + 0.5f, 0.0f, 1.0f) * std::clamp((0.98f - r) / edge + 0.5f, 0.0f, 1.0f);
+				const float fill = r < 0.9f ? 0.12f : 0.0f;
+				const float alpha = std::max(ring * 0.9f, fill);
+				const auto a = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
+				const auto red = static_cast<std::uint32_t>(std::lround(colour[0] * alpha * 255.0f));
+				const auto green = static_cast<std::uint32_t>(std::lround(colour[1] * alpha * 255.0f));
+				const auto blue = static_cast<std::uint32_t>(std::lround(colour[2] * alpha * 255.0f));
+				pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(size) + static_cast<std::size_t>(x)] = (a << 24) | (red << 16) | (green << 8) | blue;
+			}
+		}
+	}
+
 	reticle_quad place_reticle(const float (&point)[3], const float (&eye)[3], float angular_size)
 	{
 		using body::ik::vec3;

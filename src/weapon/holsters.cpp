@@ -57,11 +57,15 @@ namespace bfvr::weapon
 		const float s = std::sin(body_yaw_), c = std::cos(body_yaw_);
 		const float side = frame.left_handed ? -1.0f : 1.0f;
 		float best = 1e9f;
+		result.has_centres = true;
+		int index = 0;
 		for (const holster_zone& zone : config_.zones)
 		{
 			const float x = zone.offset.x * side; // toward the gun side
 			const float z = zone.offset.z;        // back
 			const v3 at{ frame.head.x + x * c + z * s, frame.head.y + zone.offset.y, frame.head.z - x * s + z * c };
+			result.centres[index] = at;
+			result.radii[index++] = zone.radius;
 			const float dx = frame.gun_hand.x - at.x, dy = frame.gun_hand.y - at.y, dz = frame.gun_hand.z - at.z;
 			const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
 			if (distance < zone.radius && distance < best)

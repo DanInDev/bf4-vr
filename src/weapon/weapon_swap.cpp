@@ -21,6 +21,7 @@
 #include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/grab_debug.hpp"
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
 #include "weapon/melee_gesture.hpp"
@@ -391,6 +392,14 @@ namespace bfvr::weapon
 		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
 		frame.left_handed = input::left_handed();
 		const holster_result result = zones.update(frame);
+		if (grab_debug_enabled() && result.has_centres)
+		{
+			for (int i = 0; i < 5; ++i)
+			{
+				const float centre[3]{ result.centres[i].x, result.centres[i].y, result.centres[i].z };
+				publish_grab_zone(static_cast<grab_slot>(static_cast<int>(grab_slot::primary) + i), centre, result.radii[i], result.zone == static_cast<holster>(static_cast<int>(holster::primary) + i));
+			}
+		}
 		if (result.zone != holster::none && result.zone != last_zone)
 		{
 			input::haptic(1, input::pulses::tick);
