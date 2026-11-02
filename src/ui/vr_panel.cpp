@@ -7,12 +7,10 @@
 #include <cmath>
 #include <cstdio>
 #include <mutex>
-#include <utility>
 
 #include "body/arm_ik.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
-#include "input/handedness.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "safety/mp_guard.hpp"
@@ -65,13 +63,10 @@ namespace bfvr::ui
 		std::atomic<std::uint16_t> sticks_to_game{}; // game-side bits of the clicks the game may see
 		std::atomic<ULONGLONG> pass_start_until{};
 
-		// Physical stick clicks to the game's bits (dominant_hand = left swaps them, input/handedness).
+		// Stick clicks to their pad bits. input::latest() is already in the game's layout (controller_actions
+		// mirrors it for dominant_hand = left), so no swap here.
 		std::uint16_t game_sticks(bool left, bool right)
 		{
-			if (input::left_handed())
-			{
-				std::swap(left, right);
-			}
 			return static_cast<std::uint16_t>((left ? XINPUT_GAMEPAD_LEFT_THUMB : 0) | (right ? XINPUT_GAMEPAD_RIGHT_THUMB : 0));
 		}
 

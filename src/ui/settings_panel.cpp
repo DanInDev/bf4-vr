@@ -360,7 +360,7 @@ namespace bfvr::ui
 			items.push_back(text(tab, text_main, pages_[static_cast<std::size_t>(index)].title, 1, 28));
 		}
 
-		std::string help = "Point at a button and pull the trigger. Hold the menu button to close.";
+		std::string help = "Point at a button and pull the trigger. Hold both sticks in (or the menu button) to close.";
 		for (int visible = 0; visible < visible_rows(); ++visible)
 		{
 			const row* line = visible_row(visible);
