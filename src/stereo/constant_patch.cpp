@@ -141,15 +141,16 @@ namespace bfvr::stereo
 		const float* scales = block + 0x130 / 4;
 		float* camera = block + 0x140 / 4;
 		const auto near_value = [](float a, float b) { return std::fabs(a - b) <= 1e-3f * std::fabs(b) + 1e-4f; };
-		// The forward row is a unit vector; right and up share one length: 1, or the gun size factor
-		// the camera hook scales them by (gun_scale, gun_life_size).
+		// Rows of unit length, or, with the camera hook's gun size factor g (gun_scale, gun_life_size),
+		// right and up of 1/g and forward of 1/g^2 (live, g = 0.466: 2.146, 2.146, 4.605): the
+		// projection divides x and y by depth, so the gun shrinks by g.
 		float lengths[3];
 		for (int r = 0; r < 3; ++r)
 		{
 			const float* row = view + r * 4;
 			lengths[r] = std::sqrt(row[0] * row[0] + row[1] * row[1] + row[2] * row[2]);
 		}
-		if (!near_value(lengths[2], 1.0f) || !near_value(lengths[1], lengths[0]) || lengths[0] < 0.05f || lengths[0] > 4.0f)
+		if (!near_value(lengths[1], lengths[0]) || !near_value(lengths[2], lengths[0] * lengths[0]) || lengths[0] < 0.2f || lengths[0] > 5.0f)
 		{
 			return false;
 		}
