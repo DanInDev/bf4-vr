@@ -386,7 +386,7 @@ namespace bfvr::weapon
 		frame.head = head;
 		frame.head_yaw = head_yaw;
 		frame.hand_valid = points.hand_valid[1] && now - points.at < points_max_age_ms;
-		frame.gun_hand = { points.hand[1][0], points.hand[1][1], points.hand[1][2] };
+		frame.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 		// While a grenade is in the off hand, the gun hand's grip pulls its pin, never draws.
 		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
 		frame.left_handed = input::left_handed();

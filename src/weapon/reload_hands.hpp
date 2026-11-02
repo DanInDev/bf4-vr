@@ -23,6 +23,8 @@ namespace bfvr::weapon
 		bool hands_valid{};   // both drawn hands and the gun points are known
 		v3 off_hand;          // the off hand (holds magazines, racks)
 		q4 off_rotation;      // its aim rotation (a held magazine turns with it)
+		bool has_palm{};
+		v3 off_palm;          // the off hand's grip point: grabs are measured from here (else from off_hand)
 		v3 gun_hand;
 		q4 gun_rotation;      // aim rotation; -z points down the barrel
 		v3 magwell;           // where the gun holds its magazine (Wep_Mag)
@@ -58,11 +60,11 @@ namespace bfvr::weapon
 
 	struct hand_config
 	{
-		float reach_magazine{ 0.08f }; // off hand this close to the magwell grabs / catches / inserts
-		float reach_slide{ 0.07f };
-		float reach_chest{ 0.20f };
-		float rearm_distance{ 0.12f }; // a magazine taken from the gun must leave this far before it can go in
-		float rack_pull{ 0.05f };      // pulled back this far along the barrel before letting go = rack
+		float reach_magazine{ 0.14f }; // off hand this close to the magwell grabs / catches; a held magazine this close seats
+		float reach_slide{ 0.12f };
+		float reach_chest{ 0.30f };
+		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
+		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
 		// controller's aim axes (x right, y up, -z forward): AR held from below, AK by the sides.
@@ -72,7 +74,7 @@ namespace bfvr::weapon
 		// receiver on top, AK on the receiver above the magazine (either side within the reach).
 		v3 handle_ar{ 0.0f, 0.06f, 0.20f };
 		v3 handle_ak{ 0.0f, 0.03f, 0.40f };
-		float reach_handle{ 0.08f };
+		float reach_handle{ 0.12f };
 	};
 
 	class reload_hands

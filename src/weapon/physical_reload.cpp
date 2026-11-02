@@ -442,6 +442,8 @@ namespace bfvr::weapon
 		frame.seconds = seconds;
 		frame.hands_valid = hands_valid;
 		frame.off_hand = v(points.hand[0]);
+		frame.has_palm = true;
+		frame.off_palm = v(points.palm[0]);
 		frame.off_rotation = q(points.hand_rotation[0]);
 		frame.has_root = points.has_root;
 		frame.root = v(points.root);

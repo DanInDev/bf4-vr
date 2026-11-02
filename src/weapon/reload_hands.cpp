@@ -57,9 +57,10 @@ namespace bfvr::weapon
 		last_button_ = frame.button;
 
 		const bool valid = frame.hands_valid;
+		const v3 reach = frame.has_palm ? frame.off_palm : frame.off_hand;
 		const bool ak = gun.profile().kind == variant::ak;
-		const float to_magwell = valid ? distance(frame.off_hand, frame.magwell) : 1e9f;
-		const float to_chest = valid ? distance(frame.off_hand, frame.chest) : 1e9f;
+		const float to_magwell = valid ? distance(reach, frame.magwell) : 1e9f;
+		const float to_chest = valid ? distance(reach, frame.chest) : 1e9f;
 		// The charging handle: from the gun frame per variant, else the slide bone.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
@@ -68,7 +69,7 @@ namespace bfvr::weapon
 			handle = frame.root + rotate(frame.root_rotation, ak ? config_.handle_ak : config_.handle_ar);
 			handle_reach = config_.reach_handle;
 		}
-		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(frame.off_hand, handle) : 1e9f;
+		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle) : 1e9f;
 		const bool near_magwell = to_magwell < config_.reach_magazine;
 		const bool near_chest = to_chest < config_.reach_chest;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.

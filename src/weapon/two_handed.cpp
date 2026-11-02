@@ -31,7 +31,7 @@ namespace bfvr::weapon
 		std::atomic<ULONGLONG> pulse_until{};
 		constexpr ULONGLONG pulse_ms = 120;
 		std::uint64_t toggles{};
-		std::mutex lock;
+		std::mutex lock_;
 		two_hand_grip grip;
 		two_hand_output last;
 		float last_shot[3]{};
@@ -50,6 +50,7 @@ namespace bfvr::weapon
 			const float identity[4]{ 0, 0, 0, 1 };
 			const float none[3]{};
 			body::set_gun_hand_rotation(false, identity);
+			body::set_support_hand(0.0f);
 			input::set_aim_direction(false, none);
 		}
 	}
@@ -57,6 +58,14 @@ namespace bfvr::weapon
 	void set_two_handed(bool on)
 	{
 		enabled = on;
+	}
+
+	void set_two_hand_lock(bool lock)
+	{
+		const std::lock_guard guard(lock_);
+		two_hand_config config = grip.config();
+		config.lock = lock;
+		grip.configure(config);
 	}
 
 	void set_aim_convergence(float metres)
@@ -71,7 +80,7 @@ namespace bfvr::weapon
 
 	void update_two_handed()
 	{
-		const std::lock_guard guard(lock);
+		const std::lock_guard guard(lock_);
 		LARGE_INTEGER now{}, frequency{};
 		QueryPerformanceCounter(&now);
 		QueryPerformanceFrequency(&frequency);
@@ -93,8 +102,13 @@ namespace bfvr::weapon
 			two_hand_input input;
 			input.tracked = hands.valid[0];
 			std::copy(std::begin(hands.aim[1].orientation), std::end(hands.aim[1].orientation), input.gun.orientation);
-			std::copy(std::begin(hands.grip[1].position), std::end(hands.grip[1].position), input.gun.position);
-			std::copy(std::begin(hands.grip[0].position), std::end(hands.grip[0].position), input.off_hand);
+			// Wrists, as drawn: the gun's support offset is measured between its hand bones (wrists).
+			body::wrist_of(1, hands.grip[1], input.gun.position);
+			body::wrist_of(0, hands.grip[0], input.off_hand);
+			if (!body::support_offset(input.support_offset))
+			{
+				input.support_offset[0] = input.support_offset[1] = 0.0f;
+			}
 			const input::gamepad_state pad = input::latest();
 			input.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 			input.trigger = static_cast<float>(pad.left_trigger) / 255.0f;
@@ -128,6 +142,7 @@ namespace bfvr::weapon
 			++toggles;
 		}
 		body::set_gun_hand_rotation(out.weight > 0, out.rotation);
+		body::set_support_hand(out.weight);
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
 		const float metres = convergence.load(std::memory_order_relaxed);
@@ -144,7 +159,7 @@ namespace bfvr::weapon
 
 	bool aim_point(float (&point)[3])
 	{
-		const std::lock_guard guard(lock);
+		const std::lock_guard guard(lock_);
 		std::copy(std::begin(last_point), std::end(last_point), point);
 		return shot_valid;
 	}
@@ -175,7 +190,7 @@ namespace bfvr::weapon
 
 	std::string two_hand_report()
 	{
-		const std::lock_guard guard(lock);
+		const std::lock_guard guard(lock_);
 		const float* q = last.rotation;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		char text[384];

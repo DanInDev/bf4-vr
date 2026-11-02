@@ -91,9 +91,16 @@ namespace
 		expect(!on_handguard(level_gun, behind, config), "behind the gun hand");
 	}
 
+	two_hand_config soft()
+	{
+		two_hand_config config;
+		config.lock = false;
+		return config;
+	}
+
 	void test_grab_and_steer()
 	{
-		two_hand_grip grip;
+		two_hand_grip grip(soft());
 		two_hand_output out = grip.update(frame_with(level_gun, handguard, true));
 		expect(out.held && out.claim_grip, "grip press on the handguard grabs");
 		expect(near(barrel(out).z, -1.0f, 1e-4f), "no jump at the grab");
@@ -151,9 +158,62 @@ namespace
 		expect(!grip.update(frame_with(level_gun, handguard, true, true)).held, "becoming busy releases");
 		grip.reset();
 		grip.update(frame_with(level_gun, handguard, true));
-		expect(!grip.update(frame_with(level_gun, handguard, true, false, false)).held, "tracking loss releases");
+		expect(grip.update(frame_with(level_gun, handguard, true, false, false)).held, "a tracking blip keeps the hold");
+		expect(!run(grip, frame_with(level_gun, handguard, true, false, false), 0.3f).held, "tracking lost longer than the grace releases");
 		grip.reset();
 		expect(!grip.update(frame_with(level_gun, vec3{ 0.2f, -0.3f, -0.6f } + vec3{ 0.3f, 0, 0 }, true)).held, "press away from the gun does not grab");
+	}
+
+	two_hand_input supported(two_hand_input input, float x, float y)
+	{
+		input.support_offset[0] = x;
+		input.support_offset[1] = y;
+		return input;
+	}
+
+	// Angle in degrees between two directions.
+	float degrees_between(vec3 a, vec3 b)
+	{
+		return std::acos(std::fmax(-1.0f, std::fmin(1.0f, body::ik::dot(body::ik::normalize(a), body::ik::normalize(b))))) * 57.29578f;
+	}
+
+	void test_lock()
+	{
+		const vec3 gun_hand{ 0.2f, -0.3f, -0.3f };
+		// The gun holds the off hand 4 cm below its barrel line: a hand there keeps the barrel level.
+		two_hand_grip grip;
+		two_hand_output out = run(grip, supported(frame_with(level_gun, handguard, true), 0, -0.04f), 0.3f);
+		expect(out.held && near(out.weight, 1.0f), "lock: holding");
+		expect(degrees_between(barrel(out), { 0, 0, -1 }) < 0.1f, "lock: hand where the gun holds it, barrel level");
+
+		// Without the offset the barrel tilts towards the hand: atan(4/32) = 7.1 degrees down.
+		two_hand_grip plain;
+		out = run(plain, frame_with(level_gun, handguard, true), 0.3f);
+		expect(near(degrees_between(barrel(out), { 0, 0, -1 }), 7.13f, 0.1f) && barrel(out).y < 0, "lock: barrel on the hand line");
+
+		// A gun hand turned 25 degrees off the hand line snaps onto it (no remembered offset).
+		const quat off_line{ 0, std::sin(0.218f), 0, std::cos(0.218f) };
+		two_hand_grip snapped;
+		out = run(snapped, supported(frame_with(gun_at(gun_hand, off_line), handguard, true), 0, -0.04f), 0.3f);
+		expect(degrees_between(barrel(out), { 0, 0, -1 }) < 0.5f, "lock: the hand line wins over the gun hand's yaw");
+
+		// The off hand slides along the handguard: the barrel stays put.
+		out = run(grip, supported(frame_with(level_gun, handguard + vec3{ 0, 0, -0.12f }, true), 0, -0.04f), 0.1f);
+		expect(degrees_between(barrel(out), { 0, 0, -1 }) < 0.1f, "lock: sliding along the handguard keeps the barrel");
+
+		// Off hand 20 cm right and 10 cm up of where it was: the barrel points at it.
+		const vec3 moved = handguard + vec3{ 0.2f, 0.1f, 0 };
+		out = run(grip, supported(frame_with(level_gun, moved, true), 0, -0.04f), 0.1f);
+		const vec3 expected = (moved - vec3{ 0, -0.04f, 0 }) - gun_hand;
+		expect(degrees_between(barrel(out), expected) < 1.0f, "lock: barrel follows the off hand");
+
+		// Rolling the gun hand about the barrel cants the gun but keeps the barrel on the hand line.
+		const quat roll{ 0, 0, std::sin(0.35f), std::cos(0.35f) };
+		two_hand_grip canted;
+		out = run(canted, frame_with(gun_at(gun_hand, roll), handguard + vec3{ 0, 0.04f, 0 }, true), 0.3f);
+		const quat q = body::ik::normalize(quat{ out.rotation[0], out.rotation[1], out.rotation[2], out.rotation[3] });
+		const vec3 up = body::ik::rotate(q, { 0, 1, 0 });
+		expect(degrees_between(barrel(out), { 0, 0, -1 }) < 0.1f && up.x < -0.5f, "lock: the gun hand's roll cants the gun");
 	}
 
 	two_hand_input with_trigger(two_hand_input input, float trigger)
@@ -219,6 +279,7 @@ int main()
 {
 	test_handguard_zone();
 	test_grab_and_steer();
+	test_lock();
 	test_blend_and_release();
 	test_refusals();
 	test_grip_claimed_before_the_grab();

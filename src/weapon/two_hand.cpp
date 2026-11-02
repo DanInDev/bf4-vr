@@ -71,15 +71,36 @@ namespace bfvr::weapon
 			line_in_gun_[2] = local.z;
 			held_ = true;
 		}
-		else if (held_ && (!input.grip || !input.tracked || input.busy))
+		untracked_ = held_ && !input.tracked ? untracked_ + std::max(input.seconds, 0.0f) : 0.0f;
+		if (held_ && (!input.grip || input.busy || untracked_ > config_.release_grace))
 		{
 			held_ = false;
 		}
 
 		if (input.tracked && separation >= config_.min_separation && (held_ || weight_ > 0))
 		{
-			const vec3 remembered = body::ik::rotate(one_handed, to_vec(line_in_gun_));
-			store(body::ik::normalize(body::ik::from_to(remembered, line * (1.0f / separation)) * one_handed), two_handed_);
+			if (config_.lock)
+			{
+				// The barrel through the gun hand, parallel to the hand line once the off hand's place
+				// beside the barrel is taken out; that place turns with the gun, so settle it twice.
+				quat rotation = one_handed;
+				for (int pass = 0; pass < 3; ++pass)
+				{
+					const vec3 beside = body::ik::rotate(rotation, { input.support_offset[0], input.support_offset[1], 0 });
+					const vec3 along = line - beside;
+					if (body::ik::length(along) < config_.min_separation)
+					{
+						break;
+					}
+					rotation = body::ik::normalize(body::ik::from_to(body::ik::rotate(rotation, { 0, 0, -1 }), body::ik::normalize(along)) * rotation);
+				}
+				store(rotation, two_handed_);
+			}
+			else
+			{
+				const vec3 remembered = body::ik::rotate(one_handed, to_vec(line_in_gun_));
+				store(body::ik::normalize(body::ik::from_to(remembered, line * (1.0f / separation)) * one_handed), two_handed_);
+			}
 		}
 
 		const float rate = config_.blend_time > 0 ? std::max(input.seconds, 0.0f) / config_.blend_time : 1.0f;

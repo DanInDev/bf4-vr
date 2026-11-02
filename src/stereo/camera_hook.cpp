@@ -81,6 +81,11 @@ namespace bfvr::stereo
 		std::atomic<float> ipd_scale{ 1.0f };
 		std::atomic<float> motion_yaw_rate{};
 		std::atomic<float> motion_speed{};
+		// The turn aim_with_controller gave the first-person camera, for the arm IK (pose thread).
+		// Valid briefly after each copy, so a frame without controller aim falls back to the game's.
+		std::atomic<float> fp_turn_yaw{};
+		std::atomic<ULONGLONG> fp_turn_until{};
+		constexpr ULONGLONG fp_turn_hold_ms = 200;
 
 		// Game thread, once per head-tracked copy: the body camera (world rows before the eye pose).
 		void track_body_motion(const float* world)
@@ -203,6 +208,8 @@ namespace bfvr::stereo
 			if (stereo_first_person)
 			{
 				level_rows(reinterpret_cast<float*>(params + first_person_transform), body - game_yaw);
+				fp_turn_yaw = body - game_yaw;
+				fp_turn_until = GetTickCount64() + fp_turn_hold_ms;
 			}
 			mark_dirty(params);
 			const hand_sample hands = latest_hand_sample();
@@ -594,6 +601,14 @@ namespace bfvr::stereo
 	{
 		yaw_rate = motion_yaw_rate.load(std::memory_order_relaxed);
 		speed = motion_speed.load(std::memory_order_relaxed);
+	}
+
+	first_person_turn first_person_view_turn()
+	{
+		first_person_turn turn;
+		turn.active = GetTickCount64() < fp_turn_until.load(std::memory_order_relaxed);
+		turn.yaw = fp_turn_yaw.load(std::memory_order_relaxed);
+		return turn;
 	}
 
 	void set_fake_yaw(float degrees)

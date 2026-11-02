@@ -670,6 +670,15 @@ namespace bfvr::control
 				return "gun_scale=" + std::to_string(stereo::current_gun_scale());
 			}
 			if (command == "arms") return body::report();
+			if (command == "gunlook") return body::gun_report() + weapon::two_hand_report();
+			if (command == "armframe")
+			{
+				if (argument == "rendered" || argument == "game")
+				{
+					body::set_rendered_frame(argument == "rendered");
+				}
+				return body::gun_report();
+			}
 			if (command == "armik")
 			{
 				if (argument == "0" || argument == "1")

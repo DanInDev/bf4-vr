@@ -897,7 +897,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (!store.boolean("reticle", true) || store.text("aim", "head") != "controller" || !head.valid || !weapon::aim_point(point)
+			if (!store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
 				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;

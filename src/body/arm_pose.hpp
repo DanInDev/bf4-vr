@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "stereo/tracking.hpp"
+
 namespace bfvr::body
 {
 	// Hooks the per-object pose conversion (local pose -> model pose and skinning data, BF4 build
@@ -66,6 +68,7 @@ namespace bfvr::body
 		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
 		bool hand_valid[2]{};  // arm solved this evaluation; 0 = left, 1 = right (the rig's arms)
 		float hand[2][3]{};    // wrist goals (drawn hands)
+		float palm[2][3]{};    // the controllers' grip points (palms) in the same space: where grabs are measured
 		float hand_rotation[2][4]{};
 	};
 	weapon_points latest_weapon_points();
@@ -89,4 +92,19 @@ namespace bfvr::body
 
 	// Rig, target and forward-kinematics check, for the pipe's "arms" command.
 	std::string report();
+	// Pipe "gunlook": the drawn barrel (rendered and game frame), the controller's aim ray and the
+	// override the two-handed grip sets, their angles, and the gun's hand joints vs the hands.
+	std::string gun_report();
+	// Pipe "armframe": the hands in the rendered first-person frame (true, default) or the game's.
+	void set_rendered_frame(bool rendered);
+	// gun_pose = aim (true): the gun's barrel lies exactly on the controller's aim ray; animated
+	// (false): the game's hip pose turned by the controller (its idle angle and sway stay).
+	void set_gun_on_ray(bool on_ray);
+	// Two-handed hold (0..1): the off hand is drawn on the handguard, blended by the weight.
+	void set_support_hand(float weight);
+	// Where the gun's animation holds the off hand relative to the gun hand, across the barrel, in
+	// gun-hand aim axes (x right, y up), metres; false without a gun in the rig.
+	bool support_offset(float (&offset)[2]);
+	// The drawn wrist for a controller grip pose (0 = left rig arm, 1 = right), OpenXR LOCAL.
+	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3]);
 }

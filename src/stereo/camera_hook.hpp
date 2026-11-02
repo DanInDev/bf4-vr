@@ -65,4 +65,14 @@ namespace bfvr::stereo
 	// walking, vehicles): yaw rate (rad/s) and speed (m/s), smoothed; 0 outside head-tracked frames.
 	// Drives the comfort vignette (#10).
 	void body_motion(float& yaw_rate, float& speed);
+
+	// How the hook re-aimed the first-person camera this frame (controller aim): turned by yaw radians
+	// about soldier up (atan2(look.x, look.z) sense) and levelled, instead of the game's aimer yaw and
+	// pitch. The arm IK must place the hands in this rendered frame. active = false: the game's own.
+	struct first_person_turn
+	{
+		bool active{};
+		float yaw{};
+	};
+	first_person_turn first_person_view_turn();
 }

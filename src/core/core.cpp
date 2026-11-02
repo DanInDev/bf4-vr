@@ -74,7 +74,8 @@ namespace bfvr::core
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
-			input::set_controller_aim(store.text("aim", "head") == "controller");
+			input::set_controller_aim(store.text("aim", "controller") == "controller");
+			body::set_gun_on_ray(store.text("gun_pose", "aim") != "animated");
 			const std::string move = store.text("move_direction", "head");
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
@@ -99,6 +100,7 @@ namespace bfvr::core
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			weapon::set_two_handed(store.boolean("two_handed", true));
+			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));

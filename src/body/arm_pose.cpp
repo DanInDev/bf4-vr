@@ -17,6 +17,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
+#include "stereo/camera_hook.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::body
@@ -78,6 +79,7 @@ namespace bfvr::body
 			int slide{ -1 };       // Wep_Slide: bolt / charging handle
 			int optic{ -1 };       // Wep_Scope1: sight / magnifier (accessory toggle)
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
+			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
@@ -105,6 +107,7 @@ namespace bfvr::body
 			bool solved{};
 			ik::vec3 shoulder, elbow, wrist, goal; // model space
 			ik::vec3 goal_xr;                      // the wrist goal in OpenXR LOCAL (drawn hand)
+			ik::vec3 palm_xr;                      // the controller's grip point, same space
 			float reach{};                         // goal distance over the animated arm's length (> 1: out of reach)
 			ik::quat aim_xr;                       // the aim rotation used, OpenXR LOCAL
 			ik::vec3 wrist_in_camera;              // OpenXR camera axes
@@ -117,6 +120,8 @@ namespace bfvr::body
 			float fk_error_conjugate{ -1 }; // the same with the quaternions read as conjugates
 			ik::bone_transform camera;
 			ik::quat weapon_in_camera; // Wep_Root, OpenXR camera axes ((0,1,0,0) = pointing ahead, upright)
+			ik::quat weapon_in_game;   // the same in the game's own camera frame (aimer yaw and pitch)
+			ik::vec3 weapon_position;  // Wep_Root, OpenXR camera axes, from the camera
 			arm_report arms[2];
 		};
 
@@ -145,11 +150,33 @@ namespace bfvr::body
 		std::mutex gun_hand_lock;
 		bool gun_hand_override{};
 		ik::quat gun_hand_rotation;
+		std::atomic<bool> rendered_frame{ true }; // research A/B (pipe armframe): false = the game's camera frame
+		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
+		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
+		// How far the drawn off hand may slide from where the animation holds the handguard, metres.
+		constexpr float support_slide_back = 0.10f;
+		constexpr float support_slide_forward = 0.20f;
+
+		// Normalised linear blend on the shorter arc.
+		ik::quat nlerp(ik::quat a, ik::quat b, float t)
+		{
+			const float s = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w < 0 ? -1.0f : 1.0f;
+			return ik::normalize(ik::quat{ a.x + (s * b.x - a.x) * t, a.y + (s * b.y - a.y) * t, a.z + (s * b.z - a.z) * t, a.w + (s * b.w - a.w) * t });
+		}
 		std::atomic<bool> knife_in_hand{};
 		std::atomic<float> knife_pitch{ 0.5235988f }; // radians, live setting knife_pitch
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
+		// The animated hold, in Wep_Root axes (+z along the barrel, +y up), before the IK moves anything.
+		struct gun_geometry
+		{
+			bool valid{};
+			ik::bone_transform hand[2];    // LeftHand / RightHand bones
+			ik::bone_transform ik_hand[2]; // IK_Joint_LeftHand / IK_Joint_RightHand
+			bool has_ik[2]{};
+		};
+		gun_geometry geometry;
 		// Physical reload: where the gun's magazine and slide are (published each evaluation) and
 		// where the magazine should be drawn (set by weapon/physical_reload).
 		weapon_points points;
@@ -247,6 +274,8 @@ namespace bfvr::body
 			fresh.slide = find_bone(bone_names, fresh.bones, "Wep_Slide");
 			fresh.optic = find_bone(bone_names, fresh.bones, "Wep_Scope1");
 			fresh.rail = find_bone(bone_names, fresh.bones, "Wep_Extra1");
+			fresh.ik_hand[0] = find_bone(bone_names, fresh.bones, "IK_Joint_LeftHand");
+			fresh.ik_hand[1] = find_bone(bone_names, fresh.bones, "IK_Joint_RightHand");
 			fresh.legs[0] = find_bone(bone_names, fresh.bones, "LeftUpLeg");
 			fresh.legs[1] = find_bone(bone_names, fresh.bones, "RightUpLeg");
 			if (fresh.magazine >= 0 && fresh.parents[fresh.magazine] != fresh.weapon)
@@ -320,9 +349,15 @@ namespace bfvr::body
 		}
 
 		// The first-person camera in rig space, OpenXR axes: at the CameraJoint, turned by the aim
-		// pitch the joint does not carry (soldier +0x4DC, radians, up positive; aim.md).
-		ik::quat camera_frame(const ik::bone_transform& camera_joint)
+		// pitch the joint does not carry (soldier +0x4DC, radians, up positive; aim.md). Under
+		// controller aim the camera hook renders the first-person view level at the body's yaw
+		// instead (the joint follows the aimer, i.e. the gun): the hands belong in that frame.
+		ik::quat camera_frame(const ik::bone_transform& camera_joint, bool rendered = true)
 		{
+			if (const stereo::first_person_turn turn = stereo::first_person_view_turn(); rendered && turn.active && rendered_frame.load(std::memory_order_relaxed))
+			{
+				return camera_joint.rotation * ik::quat{ 0, std::sin(0.5f * turn.yaw), 0, std::cos(0.5f * turn.yaw) } * camera_axes;
+			}
 			float pitch = 0.0f;
 			if (!read(rig.soldier + 0x4dc, pitch) || !std::isfinite(pitch))
 			{
@@ -349,6 +384,20 @@ namespace bfvr::body
 				bone.has_written = false;
 			}
 			last_arms[0].solved = last_arms[1].solved = false;
+			geometry.valid = rig.weapon >= 0;
+			if (geometry.valid)
+			{
+				const ik::bone_transform to_gun = ik::inverse(ik::model_of(local, rig.parents, rig.weapon));
+				for (int hand = 0; hand < 2; ++hand)
+				{
+					geometry.hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.arms[hand].hand));
+					geometry.has_ik[hand] = rig.ik_hand[hand] >= 0;
+					if (geometry.has_ik[hand])
+					{
+						geometry.ik_hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.ik_hand[hand]));
+					}
+				}
+			}
 			if (!ik_enabled.load(std::memory_order_relaxed))
 			{
 				return;
@@ -370,13 +419,17 @@ namespace bfvr::body
 			}
 			bool any = false;
 			bool shaped = false; // written bones must be remembered even when no arm solves
-			for (int hand = 0; hand < 2; ++hand)
+			bool gun_placed = false;
+			// The gun hand first: a two-handed off hand is drawn on the gun where it now is.
+			for (const int hand : { 1, 0 })
 			{
 				ik::vec3 wrist;
+				ik::vec3 palm;
 				ik::quat aim;
 				if (targets[hand].active)
 				{
 					wrist = head_position + ik::rotate(head_rotation, targets[hand].position);
+					palm = wrist;
 					aim = head_rotation * targets[hand].rotation;
 				}
 				else if (hands.valid[hand])
@@ -388,6 +441,7 @@ namespace bfvr::body
 					// offset (head axes) equals moving the hands by minus that offset.
 					const ik::vec3 shoulders{ shoulder_offset[0].load(), shoulder_offset[1].load(), shoulder_offset[2].load() };
 					wrist = wrist - ik::rotate(head_rotation, shoulders);
+					palm = ik::vec3{ grip.position[0], grip.position[1], grip.position[2] } - ik::rotate(head_rotation, shoulders);
 					const float* q = hands.aim[hand].orientation;
 					aim = { q[0], q[1], q[2], q[3] };
 					if (hand == 1)
@@ -438,6 +492,13 @@ namespace bfvr::body
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
+				if (carry_weapon && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				{
+					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
+					// its +z barrel along -z), instead of the hip animation (its own angle, sway and bob)
+					// turned by the controller. The hand keeps the gun's authored grip.
+					goal.hand = frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation);
+				}
 				if (carry_weapon && knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// The knife's Wep_Root points its blade about 30 degrees off -z towards +y, edge on +y
@@ -446,6 +507,20 @@ namespace bfvr::body
 					const float half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
 					const ik::quat level{ std::sin(half), 0, 0, std::cos(half) };
 					goal.hand = frame * ik::normalize(aim) * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
+				}
+				const float support = support_weight.load(std::memory_order_relaxed);
+				if (hand == 0 && gun_placed && geometry.valid && support > 0.0f)
+				{
+					// Two-handed: the off hand is drawn where the gun's own animation holds it, slid along
+					// the barrel to where the controller is (within the handguard), blended by the hold.
+					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+					const ik::bone_transform& held_at = geometry.hand[0];
+					const float along = ik::rotate(ik::conjugate(gun.rotation), goal.wrist - gun.position).z;
+					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y,
+						std::fmax(held_at.position.z - support_slide_back, std::fmin(held_at.position.z + support_slide_forward, along)) };
+					const ik::vec3 snapped = gun.position + ik::rotate(gun.rotation, on_gun);
+					goal.wrist = goal.wrist + (snapped - goal.wrist) * support;
+					goal.hand = nlerp(goal.hand, gun.rotation * held_at.rotation, support);
 				}
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
@@ -458,11 +533,13 @@ namespace bfvr::body
 					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
 					last_arms[hand].goal_xr = wrist;
+					last_arms[hand].palm_xr = palm;
 					last_arms[hand].aim_xr = ik::normalize(aim);
 					if (carry_weapon)
 					{
 						ik::set_model_transform(local, rig.parents, rig.weapon,
 							ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
+						gun_placed = true;
 					}
 				}
 			}
@@ -550,6 +627,9 @@ namespace bfvr::body
 				points.hand[hand][0] = arm.goal_xr.x;
 				points.hand[hand][1] = arm.goal_xr.y;
 				points.hand[hand][2] = arm.goal_xr.z;
+				points.palm[hand][0] = arm.palm_xr.x;
+				points.palm[hand][1] = arm.palm_xr.y;
+				points.palm[hand][2] = arm.palm_xr.z;
 				points.hand_rotation[hand][0] = arm.aim_xr.x;
 				points.hand_rotation[hand][1] = arm.aim_xr.y;
 				points.hand_rotation[hand][2] = arm.aim_xr.z;
@@ -607,7 +687,10 @@ namespace bfvr::body
 			const ik::quat to_camera = ik::conjugate(camera_frame(report.camera));
 			if (rig.weapon >= 0)
 			{
-				report.weapon_in_camera = to_camera * ik::model_of(local, rig.parents, rig.weapon).rotation;
+				const ik::bone_transform weapon = ik::model_of(local, rig.parents, rig.weapon);
+				report.weapon_in_camera = to_camera * weapon.rotation;
+				report.weapon_in_game = ik::conjugate(camera_frame(report.camera, false)) * weapon.rotation;
+				report.weapon_position = ik::rotate(to_camera, weapon.position - report.camera.position);
 			}
 			for (int hand = 0; hand < 2; ++hand)
 			{
@@ -839,6 +922,107 @@ namespace bfvr::body
 		research_offset[1] = dy;
 		research_offset[2] = dz;
 		research_bone = (bone >= 0 && bone < max_bones) ? bone : -1;
+	}
+
+	void set_rendered_frame(bool rendered)
+	{
+		rendered_frame = rendered;
+	}
+
+	void set_gun_on_ray(bool on_ray)
+	{
+		gun_on_ray = on_ray;
+	}
+
+	void set_support_hand(float weight)
+	{
+		support_weight = std::fmax(0.0f, std::fmin(1.0f, weight));
+	}
+
+	bool support_offset(float (&offset)[2])
+	{
+		const std::lock_guard guard(rig_lock);
+		if (!geometry.valid)
+		{
+			return false;
+		}
+		// Gun axes (+x left, +y up, +z barrel) to aim axes (x right, y up, -z barrel).
+		const ik::vec3 between = geometry.hand[0].position - geometry.hand[1].position;
+		offset[0] = -between.x;
+		offset[1] = between.y;
+		return true;
+	}
+
+	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3])
+	{
+		ik::vec3 offset;
+		{
+			const std::lock_guard guard(rig_lock);
+			offset = wrist_offset[hand == 0 ? 0 : 1];
+		}
+		const ik::vec3 at = ik::vec3{ grip.position[0], grip.position[1], grip.position[2] }
+			+ ik::rotate(ik::quat{ grip.orientation[0], grip.orientation[1], grip.orientation[2], grip.orientation[3] }, offset);
+		wrist[0] = at.x;
+		wrist[1] = at.y;
+		wrist[2] = at.z;
+	}
+
+	std::string gun_report()
+	{
+		const std::lock_guard guard(rig_lock);
+		const stereo::hand_sample hands = stereo::latest_hand_sample();
+		const stereo::first_person_turn turn = stereo::first_person_view_turn();
+		constexpr float degrees = 57.29578f;
+		// Barrel of a rotation: Wep_Root +z for the gun (camera axes via (0,1,0,0)), -z for an aim pose.
+		const auto yaw_pitch = [](ik::vec3 d, char (&out)[48]) -> const char*
+		{
+			d = ik::normalize(d);
+			std::snprintf(out, sizeof(out), "yaw=%.1f pitch=%.1f", std::atan2(-d.x, -d.z) * degrees, std::asin(std::fmax(-1.0f, std::fmin(1.0f, d.y))) * degrees);
+			return out;
+		};
+		const auto between = [](ik::vec3 a, ik::vec3 b)
+		{
+			return std::acos(std::fmax(-1.0f, std::fmin(1.0f, ik::dot(ik::normalize(a), ik::normalize(b))))) * degrees;
+		};
+		const check_report& r = last_check;
+		const ik::vec3 barrel = ik::rotate(r.weapon_in_camera, { 0, 0, 1 });
+		const ik::vec3 barrel_game = ik::rotate(r.weapon_in_game, { 0, 0, 1 });
+		ik::vec3 ray{};
+		if (hands.valid[1])
+		{
+			const float* q = hands.aim[1].orientation;
+			ray = ik::rotate(ik::quat{ q[0], q[1], q[2], q[3] }, { 0, 0, -1 });
+		}
+		ik::quat used;
+		{
+			const std::lock_guard held(gun_hand_lock);
+			used = gun_hand_override ? gun_hand_rotation : ik::quat{ 0, 0, 0, 0 };
+		}
+		const bool overridden = used.w != 0 || used.x != 0 || used.y != 0 || used.z != 0;
+		const ik::vec3 drawn_aim = overridden ? ik::rotate(used, { 0, 0, -1 }) : ray;
+		char a[48], b[48], c[48], d[48];
+		char text[1536];
+		int length = std::snprintf(text, sizeof(text),
+			"frame=%s turn=%d(%.1f) check_age_ms=%llu\n"
+			"barrel_view %s\nbarrel_game %s\naim_ray     %s\naim_used    %s (two-hand override=%d)\n"
+			"angle barrel_view-aim_used=%.2f barrel_game-aim_used=%.2f barrel_view-aim_ray=%.2f\n"
+			"wep_root_in_camera=(%.3f,%.3f,%.3f) controller_grip=(%.3f,%.3f,%.3f)\n",
+			rendered_frame.load() ? "rendered" : "game", turn.active ? 1 : 0, turn.yaw * degrees, r.at ? GetTickCount64() - r.at : 0ull,
+			yaw_pitch(barrel, a), yaw_pitch(barrel_game, b), yaw_pitch(ray, c), yaw_pitch(drawn_aim, d), overridden ? 1 : 0,
+			between(barrel, drawn_aim), between(barrel_game, drawn_aim), between(barrel, ray),
+			r.weapon_position.x, r.weapon_position.y, r.weapon_position.z, hands.grip[1].position[0], hands.grip[1].position[1], hands.grip[1].position[2]);
+		if (geometry.valid)
+		{
+			for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
+			{
+				const ik::vec3 h = geometry.hand[hand].position;
+				const ik::vec3 j = geometry.ik_hand[hand].position;
+				length += std::snprintf(text + length, sizeof(text) - length, "%s hand_in_gun=(%.3f,%.3f,%.3f) ik_joint=%s(%.3f,%.3f,%.3f) apart=%.3f\n",
+					hand == 0 ? "left " : "right", h.x, h.y, h.z, geometry.has_ik[hand] ? "" : "none", j.x, j.y, j.z,
+					geometry.has_ik[hand] ? ik::length(h - j) : -1.0f);
+			}
+		}
+		return text;
 	}
 
 	std::string report()

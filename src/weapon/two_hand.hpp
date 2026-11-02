@@ -9,11 +9,15 @@ namespace bfvr::weapon
 {
 	struct two_hand_config
 	{
-		float grab_reach{ 0.12f };  // off hand this close to the barrel line grabs
-		float grab_near{ 0.08f };   // the handguard starts this far ahead of the gun hand
-		float grab_far{ 0.65f };    // and ends here
+		float grab_reach{ 0.18f };  // off hand this close to the barrel line grabs
+		float grab_near{ 0.05f };   // the handguard starts this far ahead of the gun hand
+		float grab_far{ 0.75f };    // and ends here
 		float min_separation{ 0.08f }; // hands closer than this: the line between them says nothing
-		float blend_time{ 0.12f };  // seconds to blend between one- and two-handed
+		float blend_time{ 0.12f };  // seconds to blend between one- and two-handed (also eases the snap)
+		float release_grace{ 0.25f }; // seconds of lost tracking before the hold lets go
+		// lock: the barrel lies on the line between the hands (VR shooter); soft: the hand line at the
+		// grab is remembered in gun axes and only its later turns steer the gun.
+		bool lock{ true };
 		float trigger_press{ 0.6f };   // off-hand trigger: a press past this toggles the accessory
 		float trigger_release{ 0.3f }; // and must fall below this before the next
 	};
@@ -27,6 +31,9 @@ namespace bfvr::weapon
 		float trigger{};        // off-hand trigger, 0..1
 		bool busy{};            // reload, grenade, accessory or holster owns the off hand
 		float seconds{};
+		// Where the gun holds the off hand, off the barrel line through the gun hand: gun-hand aim axes
+		// (x right, y up), metres. The hand slides freely along the barrel. Zero = on the line.
+		float support_offset[2]{};
 	};
 
 	struct two_hand_output
@@ -56,6 +63,7 @@ namespace bfvr::weapon
 		two_hand_config config_;
 		bool held_{};
 		bool last_grip_{};
+		float untracked_{};               // seconds the hands have been lost while holding
 		bool trigger_down_{};
 		float weight_{};
 		float line_in_gun_[3]{};          // hand line at the grab, gun-hand axes
