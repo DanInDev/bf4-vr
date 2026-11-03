@@ -1004,7 +1004,10 @@ namespace bfvr::body
 				points.root_rotation[1] = root_xr.y;
 				points.root_rotation[2] = root_xr.z;
 				points.root_rotation[3] = root_xr.w;
-				points.has_sight = geometry.has_ads_sight || rig.optic >= 0 || geometry.has_sight;
+				// Guns only: every first-person rig has a Wep_Scope1 (grenades, the knife, the C4, whose
+				// left trigger throws it).
+				points.has_sight = gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed)
+					&& (geometry.has_ads_sight || rig.optic >= 0 || geometry.has_sight);
 				if (points.has_sight)
 				{
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);

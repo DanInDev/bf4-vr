@@ -34,6 +34,7 @@ namespace bfvr::weapon
 		bool sight_from_ads{};
 		float eye_from_optic[3]{}; // report
 		unsigned long long sight_changes{};
+		ULONGLONG last_trigger_at{};
 		constexpr float sight_enter_metres = 0.025f; // eye this close to the sight line: aiming
 		constexpr float sight_leave_metres = 0.04f;
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
@@ -246,6 +247,16 @@ namespace bfvr::weapon
 					aiming = aiming || eye_behind_sight(at, start, barrel, reach, sight_eye_relief);
 				}
 			}
+		}
+		// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
+		const ULONGLONG ticks = GetTickCount64();
+		if (input::latest().right_trigger > 30)
+		{
+			last_trigger_at = ticks;
+		}
+		if (sight_aiming && !aiming && sight_ads.load(std::memory_order_relaxed) && sight_line && ticks - last_trigger_at < 400)
+		{
+			aiming = true;
 		}
 		if (aiming != sight_aiming)
 		{

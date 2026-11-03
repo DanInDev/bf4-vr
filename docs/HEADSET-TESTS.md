@@ -16,7 +16,8 @@ fakehand, Release unless noted):
 | SCAR | Empty chamber + new magazine + B: chambers (20 -> 19, chamber 1) |
 | AK two-handed | Hold stays through a slide along the whole handguard under the handle zone |
 | Panel | Backdrop premultiplied at 60 %, bars 85 % |
-| Performance | Release, 2160x2160 per eye, pair rendering: 96-116 fps in the checkpoint room (mono 108) |
+| Performance | Release, 2160x2160 per eye, pair rendering: 96-116 fps in the checkpoint room (mono 108); 10 min soak: median 94.6, 5th percentile 93.6, lowest 72.6, no stalls or rejected pairs |
+| Magnifier | Flipped in (D-pad up) and aimed: centred sight picture, gun pass 18 deg (compensated), no black scope overlay; no magnification (the world view is the headset's) |
 
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |
