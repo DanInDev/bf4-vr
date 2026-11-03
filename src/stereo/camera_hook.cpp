@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -19,6 +20,7 @@
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/scripted_view.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -82,6 +84,40 @@ namespace bfvr::stereo
 		// (re/notes/first_person.md); scaling its rows by tan(22.5)/tan(fovY/2) draws it as the world would.
 		std::atomic<bool> gun_life_size{ true };
 		constexpr float foreground_half_fov = 0.39269908f;
+
+		// Scenes where the game moves the camera (stereo/scripted_view): shown on the theater screen
+		// (cutscene_view = screen) or head-tracked as usual (look). Game thread.
+		std::atomic<bool> cutscene_screen{ true };
+		scripted_view scripted;
+		LARGE_INTEGER scripted_last{};
+		std::atomic<bool> scripted_now{};
+		std::atomic<float> scripted_deviation{};
+		std::atomic<float> scripted_health{};
+
+		bool update_scripted(const std::uint8_t* view)
+		{
+			LARGE_INTEGER counter{}, frequency{};
+			QueryPerformanceCounter(&counter);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = scripted_last.QuadPart
+				? std::fmin(static_cast<float>(counter.QuadPart - scripted_last.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+			scripted_last = counter;
+			scripted_input input;
+			float health{};
+			input.soldier = input::soldier_health(health);
+			input.dead = input.soldier && health <= 0.0f;
+			float yaw{}, pitch{};
+			input.aim_known = input::aim_angles(yaw, pitch);
+			// The camera looks along -row 2 of its transform (live: row 2 (0, 0, -1) with the aimer at 0, 0).
+			const auto* rows = reinterpret_cast<const float*>(view + transform);
+			const float forward[3] = { -rows[8], -rows[9], -rows[10] };
+			input.deviation_degrees = input.aim_known ? aim_deviation_degrees(forward, yaw, pitch) : NAN;
+			scripted_deviation = input.deviation_degrees;
+			scripted_health = input.soldier ? health : -1.0f;
+			const bool active = scripted.update(input, seconds);
+			scripted_now = active;
+			return active;
+		}
 		std::atomic<float> applied_gun_scale{ 1.0f };
 		std::atomic<float> ipd_scale{ 1.0f };
 		std::atomic<float> motion_yaw_rate{};
@@ -320,8 +356,11 @@ namespace bfvr::stereo
 			tag.copy_index = index;
 
 			// Head-tracked stereo only inside a loaded campaign level; menus and loading screens stay
-			// mono and appear on the theater screen.
-			const bool menu = is_menu_camera(params) || !safety::campaign_level_loaded();
+			// mono and appear on the theater screen, and so do scenes where the game moves the camera
+			// (cutscenes, the death fall) with cutscene_view = screen.
+			const bool menu_frame = is_menu_camera(params) || !safety::campaign_level_loaded();
+			const bool scripted_frame = !menu_frame && update_scripted(params);
+			const bool menu = menu_frame || (scripted_frame && cutscene_screen.load(std::memory_order_relaxed));
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			float world_half_vertical = 0.0f; // set in head-tracked frames: the FOV the world is rendered with
 			if (head.valid)
@@ -640,6 +679,19 @@ namespace bfvr::stereo
 	void set_research_aspect(float value)
 	{
 		research_aspect = std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.2f), 5.0f) : 0.0f;
+	}
+
+	void set_cutscene_screen(bool screen)
+	{
+		cutscene_screen = screen;
+	}
+
+	std::string cutscene_report()
+	{
+		char text[160];
+		std::snprintf(text, sizeof(text), "cutscene_view=%s scripted=%d camera_vs_aim_deg=%.1f health=%.1f", cutscene_screen.load() ? "screen" : "look",
+			scripted_now.load() ? 1 : 0, scripted_deviation.load(), scripted_health.load());
+		return text;
 	}
 
 	std::string set_stereo_render(const std::string& name)

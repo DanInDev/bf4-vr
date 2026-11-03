@@ -358,6 +358,19 @@ namespace bfvr::input
 		write_aim(aimer, aimer_pitch, pitch);
 	}
 
+	bool aim_angles(float& yaw, float& pitch)
+	{
+		const std::uintptr_t aimer = current_aimer();
+		return aimer && read(aimer + aimer_yaw, yaw) && read(aimer + aimer_pitch, pitch) && std::isfinite(yaw) && std::isfinite(pitch);
+	}
+
+	bool soldier_health(float& health)
+	{
+		// ClientSoldierEntity +0x140 BFClientSoldierHealthComponent, +0x20 health (re/symbols/bf4-179547.md).
+		std::uintptr_t component{};
+		return read(local_soldier() + 0x140, component) && component && read(component + 0x20, health) && std::isfinite(health);
+	}
+
 	void set_move_reference(move_reference reference)
 	{
 		move_from = reference;
@@ -410,6 +423,8 @@ namespace bfvr::input
 	bool controller_aim_active() { return false; }
 	float body_camera_yaw(float game_yaw) { return game_yaw; }
 	void aim_along(const float (&)[3]) {}
+	bool aim_angles(float&, float&) { return false; }
+	bool soldier_health(float&) { return false; }
 	gamepad_state for_game(const gamepad_state& pad) { return pad; }
 	void apply_view_turn() {}
 	std::string set_right_stick_mode(const std::string&) { return "right_stick=look (x64 only)"; }

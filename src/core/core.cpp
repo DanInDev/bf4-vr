@@ -65,6 +65,7 @@ namespace bfvr::core
 			const bool first = applied == ~0ull;
 			applied = revision;
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
+			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
 			stereo::set_gun_life_size(store.boolean("gun_life_size", true));
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));

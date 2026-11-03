@@ -817,6 +817,7 @@ namespace bfvr::control
 			if (command == "haptics") return input::haptics_pipe_command(argument) + "\n" + weapon::hit_feedback_report();
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
+			if (command == "cutscene") return stereo::cutscene_report();
 			if (command == "fakehand")
 			{
 				// A fixed right controller (aim and grip) turned yaw/pitch degrees from straight ahead, 30 cm

@@ -66,6 +66,13 @@ namespace bfvr::stereo
 	std::string set_stereo_render(const std::string& name);
 	void set_fake_yaw(float degrees);
 
+	// Live setting cutscene_view: while the game moves the camera itself (stereo/scripted_view:
+	// cutscenes, the death fall), show it on the theater screen (true) or keep head-tracked stereo
+	// so the player can look around in the scene (false).
+	void set_cutscene_screen(bool screen);
+	// Pipe "cutscene": the detector's state and inputs.
+	std::string cutscene_report();
+
 	// The game camera's own motion before the head pose is applied (stick turning and aiming,
 	// walking, vehicles): yaw rate (rad/s) and speed (m/s), smoothed; 0 outside head-tracked frames.
 	// Drives the comfort vignette (#10).

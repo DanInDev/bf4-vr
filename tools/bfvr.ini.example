@@ -81,6 +81,11 @@ hud_width = 1.3
 # aer = alternate eyes (one eye per game frame: cheaper, but near objects get the wrong depth while
 # moving). Switch live with pipe `stereorender aer|pair`.
 stereo_render = pair
+# While the game moves the camera by itself (cutscenes: mostly first person, the camera riding the
+# soldier's animated head; the death fall): screen = shown on the flat virtual screen; look = 3D, your
+# head looks around inside the scene while the game moves you. Detected when the camera turns away
+# from the aim for a quarter second, or the soldier is dead or absent; pipe `cutscene` shows it.
+cutscene_view = screen
 # Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
 # smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
 # pipe `rightstick look|turn`.

@@ -74,3 +74,18 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
 1. ~~Find the first-person weapon pass's camera~~: view-params `+0xED0`, see [first_person.md](first_person.md). Its projection/FOV is still open.
 2. Third RenderView `+0x9C0`: role unknown.
 3. Game pitch from the stick/mouse adds to head pitch; ordinary gameplay probably needs the game pitch neutralised.
+
+## Scripted cameras: cutscenes and the death fall (2026-11-03, monitor)
+
+- In play the rendered camera (GameRenderer view params, forward = -row 2 of the transform at +0x40) looks
+  exactly along the aimer (camera yaw = -aimer yaw, pitch equal): 0.0 deg standing, with the gun turned
+  40 and -60 deg under controller aim (the game camera follows the aimer), 4 deg at most while firing
+  (the game's camera kick).
+- The death is not a detached camera: the camera stays on the soldier's head as it falls (height above
+  the feet 1.57 -> 0.67 m, 0.5 m sideways) and turns 66-74 deg away from the aimer; health (soldier
+  +0x140 -> +0x20) reads 0 at once. Then the loading screen (menu camera).
+- BF4's campaign cutscenes are mostly first-person in-engine scenes with the camera on the animated
+  head, so the same signal applies: `stereo/scripted_view` calls a frame scripted when the soldier is
+  dead or absent, or the camera has been more than 10 deg off the aim for 0.25 s (back below 4 deg for
+  0.5 s). `cutscene_view = screen` shows those frames on the theater screen (like menus), `look` keeps
+  head-tracked stereo. Not yet seen in a real cutscene: this checkpoint has none.
