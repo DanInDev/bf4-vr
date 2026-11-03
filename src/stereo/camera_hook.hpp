@@ -50,6 +50,8 @@ namespace bfvr::stereo
 	void set_gun_life_size(bool on);
 	// The row scale applied in the last frame (gun_scale times the life-size factor).
 	float applied_gun_size();
+	// Half the vertical FOV of the gun pass the life-size scale was last computed with (radians).
+	float applied_gun_half_fov();
 
 	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
 	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.

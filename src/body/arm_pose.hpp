@@ -40,6 +40,9 @@ namespace bfvr::body
 	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with
 	// the game body (which turns with the stick).
 	void set_torso_follow(bool follow);
+	// The shoulder joints where a body has them (either side of the neck, below the eyes), not where
+	// the game's rifle animation holds them (the left one on the chest's centre line).
+	void set_body_shoulders(bool on);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres
@@ -75,6 +78,7 @@ namespace bfvr::body
 		bool has_sight{};
 		float sight_eye[3]{};
 		float sight_direction[3]{ 0, 0, 1 };
+		bool sight_from_ads{}; // measured in the game's aim down sights (else the hip pose's estimate)
 		bool has_rail{};
 		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
 		bool has_support{};

@@ -83,4 +83,8 @@ namespace bfvr::weapon
 	// direction (unit, Wep_Root axes: body::weapon_points::sight_direction), the line is the sight's
 	// instead of the bare barrel's (they differ by a degree or two: the barrel is zeroed upwards).
 	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4], const float* sight_direction = nullptr);
+
+	// An eye looks through the sight: within max_offset (metres) of the sight line, and from up to
+	// max_behind behind the game's eye point (eye relief) to 5 cm in front of it. direction: unit.
+	bool eye_behind_sight(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float max_offset, float max_behind);
 }

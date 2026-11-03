@@ -305,6 +305,9 @@ namespace bfvr::stereo
 		std::atomic<bool> view_projection_rule{};
 		std::atomic<std::uint64_t> view_projections_shifted{};
 		std::atomic<std::uint64_t> per_view_blocks_shifted{};
+		std::atomic<float> foreground_y_scale{};
+		float frame_foreground_y{}; // render thread: the largest per-view y scale of this second eye
+		std::atomic<std::uint64_t> foreground_y_at{};
 		std::atomic<float> eye_shift_metres{};
 		float projection_sx{};
 		float projection_sy{};
@@ -326,6 +329,11 @@ namespace bfvr::stereo
 			{
 				++per_view_blocks_shifted;
 				changed = 1;
+				// The gun pass's own projection: its y scale is cot(fov/2), 45 degrees at the hip and
+				// narrower while the game aims down the sights (camera_hook keeps the gun life size).
+				// Other cameras share the layout (the first-person shadow view at 45, the world): the
+				// narrowest of the frame is the gun's, published after the eye (frame_foreground_y).
+				frame_foreground_y = std::fmax(frame_foreground_y, block[0x70 / 4 + 5]);
 			}
 			return changed;
 		}
@@ -931,6 +939,7 @@ namespace bfvr::stereo
 				projection_sx = centre_views[0][0x320 / 4];
 				projection_sy = centre_views[0][0x320 / 4 + 5];
 				patched_blocks.clear();
+				frame_foreground_y = 0.0f;
 				eye_offset = 0;
 				eye_buffer_discarded = false;
 				eye2_draws = 0;
@@ -954,6 +963,12 @@ namespace bfvr::stereo
 			QueryPerformanceCounter(&start);
 			original_per_view_render(renderer, slot, context);
 			patching = false;
+			if (frame_foreground_y > 0.0f)
+			{
+				foreground_y_scale = frame_foreground_y;
+				foreground_y_at = GetTickCount64();
+				frame_foreground_y = 0.0f;
+			}
 			probing = false;
 			copy_eye(image_second);
 			if (probe_second)
@@ -1108,6 +1123,18 @@ namespace bfvr::stereo
 		poison_bytes = bytes;
 		poison_stage = stage;
 		return std::string("eyepoison ") + stage + " slot " + std::to_string(slot) + " bytes " + std::to_string(bytes);
+	}
+
+	float foreground_half_fov(float fallback)
+	{
+		const float y = foreground_y_scale.load(std::memory_order_relaxed);
+		const std::uint64_t at = foreground_y_at.load(std::memory_order_relaxed);
+		const std::uint64_t now = GetTickCount64();
+		if ((now > at && now - at > 500) || !(y > 1.0f && y < 30.0f))
+		{
+			return fallback;
+		}
+		return std::atan(1.0f / y);
 	}
 
 	std::string eye_pass_report()

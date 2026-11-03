@@ -97,6 +97,7 @@ namespace bfvr::core
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_torso_follow(store.boolean("torso_follow", true));
+			body::set_body_shoulders(store.boolean("body_shoulders", true));
 			body::set_finger_poses(store.boolean("finger_poses", true));
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
@@ -116,6 +117,7 @@ namespace bfvr::core
 			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
 			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
+			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.

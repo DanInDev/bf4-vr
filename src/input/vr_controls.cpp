@@ -72,6 +72,8 @@ namespace bfvr::input
 		std::atomic<bool> grips_to_game{};
 		std::atomic<bool> ads_trigger{};
 		std::atomic<bool> item_trigger{};
+		std::atomic<bool> sight_aim{}; // an eye behind the gun's sight: the game aims down it (LT held)
+		std::atomic<bool> game_aiming_now{}; // the game got its aim button (LT) this poll
 		std::atomic<bool> x_menu{ true };
 		std::mutex lock;
 		right_stick stick;
@@ -226,6 +228,12 @@ namespace bfvr::input
 		{
 			pad.left_trigger = 0;
 		}
+		if (sight_aim.load(std::memory_order_relaxed))
+		{
+			pad.left_trigger = 255;
+			pad.connected = true;
+		}
+		game_aiming_now = !item_trigger.load(std::memory_order_relaxed) && pad.left_trigger > 128;
 		// Left X opens the game's menu (Start); the reload is the right B (weapon/physical_reload).
 		if (x_menu.load(std::memory_order_relaxed) && (pad.buttons & XINPUT_GAMEPAD_X))
 		{
@@ -435,6 +443,16 @@ namespace bfvr::input
 	void set_item_left_trigger(bool passes)
 	{
 		item_trigger = passes;
+	}
+
+	void set_sight_aim(bool aiming)
+	{
+		sight_aim = aiming;
+	}
+
+	bool game_aiming()
+	{
+		return game_aiming_now.load(std::memory_order_relaxed);
 	}
 
 	std::string set_right_stick_mode(const std::string& mode)

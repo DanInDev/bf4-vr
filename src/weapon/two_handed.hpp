@@ -33,4 +33,7 @@ namespace bfvr::weapon
 
 	// Pipe "twohand": state, weight, barrel and shot directions, grab count.
 	std::string two_hand_report();
+
+	// sight_ads: holding the gun's sight to an eye aims down it in the game (two_hand eye_behind_sight).
+	void set_sight_ads(bool on);
 }

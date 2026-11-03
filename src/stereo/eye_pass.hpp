@@ -38,6 +38,11 @@ namespace bfvr::stereo
 	std::uint64_t eye_pass_pairs();
 	// One status line: eye_frames, eye_pairs, eye_rejected, eye_abandoned, eye_ms (last extra render).
 	std::string eye_pass_report();
+
+	// Half the vertical FOV the gun pass was last drawn with (pair rendering sees its constant block):
+	// 22.5 degrees at the hip, narrower while the game aims down the sights; fallback when not seen
+	// for 0.5 s (alternate-eye rendering, menus).
+	float foreground_half_fov(float fallback);
 	// Present thread: tracks the back buffer the first eye is copied from.
 	void eye_pass_on_present(IDXGISwapChain* swap_chain);
 	// The first eye's image of the latest frame (back-buffer format and size), or null.

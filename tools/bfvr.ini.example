@@ -138,6 +138,9 @@ hud_show_crosshair = 0
 # First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).
 arm_length = 1.15
 shoulder_width = 0.0
+# Shoulder joints either side of the neck, 22 cm below and 4 cm behind the eyes (the game's rifle pose
+# holds the left one mid-chest, which twists the left arm reaching out); 0 = the game's.
+body_shoulders = 1
 # First-person legs hidden (they sit oddly under a tracked head).
 hide_legs = 1
 # Torso: the shoulders turn with your real body, judged from the head (which may look ~40 degrees aside
@@ -197,6 +200,10 @@ recoil = 1
 # along the barrel), so looking down the sights is where you hit; controller = the controller's pointing
 # ray (the menu pointer's line; the drawn gun can sit a few degrees off it).
 shot_line = gun
+# Hold the gun's sight to an eye (within 2.5 cm of its line, up to 30 cm behind it) and the game aims
+# down the sights: the optic's lens clears (it is opaque at the hip), the reticle shows, and the
+# game's ADS accuracy and slower walk apply. 0 = never (ads_trigger still gives LT by hand).
+sight_ads = 1
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
 aim_convergence = 25

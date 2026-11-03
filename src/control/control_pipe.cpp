@@ -668,7 +668,7 @@ namespace bfvr::control
 				{
 					stereo::set_gun_scale(scale);
 				}
-				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size());
+				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size()) + " gun_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::foreground_half_fov(0.39269908f)) + " applied_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::applied_gun_half_fov());
 			}
 			if (command == "arms") return body::report();
 			if (command == "fingers")

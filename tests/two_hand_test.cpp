@@ -307,6 +307,19 @@ namespace
 		const body::ik::vec3 line = body::ik::rotate(quat{ rotation[0], rotation[1], rotation[2], rotation[3] }, { 0, 0, -1 });
 		expect(near(sighted.x, line.x, 1e-4f) && near(sighted.y, line.y, 1e-4f) && near(sighted.z, line.z, 1e-4f), "the line follows the sight, not the barrel");
 		expect(body::ik::dot(line, barrel) < std::cos(0.02f), "the sight line differs from the barrel");
+
+		// Looking through the sight: an eye near the line behind the game's eye point.
+		const float eye_point[3]{ 0.03f, -0.01f, -0.20f };
+		const float ahead[3]{ 0.0f, 0.0f, -1.0f };
+		const float behind[3]{ 0.035f, -0.005f, -0.08f };   // 12 cm of eye relief, 0.7 cm off the line
+		const float beside[3]{ 0.065f, -0.01f, -0.10f };    // 3.5 cm to the side
+		const float far_back[3]{ 0.03f, -0.01f, 0.20f };    // 40 cm behind
+		const float past[3]{ 0.03f, -0.01f, -0.30f };       // in front of the sight
+		expect(eye_behind_sight(behind, eye_point, ahead, 0.025f, 0.30f), "an eye behind the sight looks through it");
+		expect(!eye_behind_sight(beside, eye_point, ahead, 0.025f, 0.30f), "3.5 cm off the line: not through the sight");
+		expect(eye_behind_sight(beside, eye_point, ahead, 0.04f, 0.30f), "within the wider band to leave");
+		expect(!eye_behind_sight(far_back, eye_point, ahead, 0.025f, 0.30f), "too far behind the sight");
+		expect(!eye_behind_sight(past, eye_point, ahead, 0.025f, 0.30f), "the eye in front of the sight");
 	}
 }
 

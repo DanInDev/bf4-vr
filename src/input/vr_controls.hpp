@@ -68,6 +68,11 @@ namespace bfvr::input
 	// LT (aim down sights). Both off by default (the grips are the mod's). x_opens_menu: left X is
 	// Start (the game's menu).
 	void set_game_buttons(bool grips, bool ads, bool x_opens_menu);
+	// An eye is behind the gun's sight (weapon/two_handed, sight_ads): the game gets LT held, its aim
+	// down sights (the optic's lens clears, the reticle and ADS accuracy).
+	void set_sight_aim(bool aiming);
+	// The game is getting its aim button (LT) now: it aims down the sights (or is getting there).
+	bool game_aiming();
 	// The held item uses the left trigger for its own action (the C4's throw), not zoom: it reaches
 	// the game even with ads_trigger off.
 	void set_item_left_trigger(bool passes);

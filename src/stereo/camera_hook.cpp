@@ -84,7 +84,8 @@ namespace bfvr::stereo
 		// gun_life_size: the foreground pass draws at a fixed 45 degree vertical FOV with the world's aspect
 		// (re/notes/first_person.md); scaling its rows by tan(22.5)/tan(fovY/2) draws it as the world would.
 		std::atomic<bool> gun_life_size{ true };
-		constexpr float foreground_half_fov = 0.39269908f;
+		constexpr float hip_foreground_half_fov = 0.39269908f; // the gun pass at the hip (45 degrees)
+		std::atomic<float> applied_foreground_half_fov{ 0.39269908f }; // report
 
 		// Scenes where the game moves the camera (stereo/scripted_view): shown on the theater screen
 		// (cutscene_view = screen) or head-tracked as usual (look). Game thread.
@@ -547,7 +548,10 @@ namespace bfvr::stereo
 			float scale = gun_scale.load(std::memory_order_relaxed);
 			if (gun_life_size.load(std::memory_order_relaxed) && world_half_vertical > 0.01f && world_half_vertical < 1.5f)
 			{
-				scale *= std::tan(foreground_half_fov) / std::tan(world_half_vertical);
+				// The gun pass's FOV as last drawn (it narrows while the game aims down the sights).
+				const float drawn = stereo::foreground_half_fov(hip_foreground_half_fov);
+				applied_foreground_half_fov = drawn;
+				scale *= std::tan(drawn) / std::tan(world_half_vertical);
 			}
 			applied_gun_scale = scale;
 			if (scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
@@ -732,6 +736,11 @@ namespace bfvr::stereo
 	float applied_gun_size()
 	{
 		return applied_gun_scale.load(std::memory_order_relaxed);
+	}
+
+	float applied_gun_half_fov()
+	{
+		return applied_foreground_half_fov.load(std::memory_order_relaxed);
 	}
 
 	void set_view_crop(float horizontal, float vertical)

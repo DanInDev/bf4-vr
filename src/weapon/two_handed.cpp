@@ -29,6 +29,13 @@ namespace bfvr::weapon
 		std::atomic<bool> shot_from_gun{ true }; // live setting shot_line
 		bool sight_line{};                        // the drawn line is the gun's measured sight, not its barrel
 		float sight_degrees[2]{};                 // the sight vs the barrel: up, right (report)
+		std::atomic<bool> sight_ads{ true };      // live setting sight_ads
+		bool sight_aiming{};
+		bool sight_from_ads{};
+		unsigned long long sight_changes{};
+		constexpr float sight_enter_metres = 0.025f; // eye this close to the sight line: aiming
+		constexpr float sight_leave_metres = 0.04f;
+		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
 		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
 		std::atomic<bool> trigger_toggles{ true };
@@ -60,6 +67,8 @@ namespace bfvr::weapon
 			body::set_gun_hand_rotation(false, identity);
 			body::set_support_hand(0.0f);
 			input::set_aim_direction(false, none);
+			sight_aiming = false;
+			input::set_sight_aim(false);
 		}
 	}
 
@@ -195,6 +204,7 @@ namespace bfvr::weapon
 			drawn_barrel_rotation(points.root_rotation, line, points.has_sight ? points.sight_direction : nullptr);
 		}
 		sight_line = drawn_line && points.has_sight;
+		sight_from_ads = points.sight_from_ads;
 		if (points.has_sight)
 		{
 			// Wep_Root axes: +z barrel, +y up, +x left.
@@ -210,6 +220,33 @@ namespace bfvr::weapon
 		}
 		shot_valid = true;
 		input::set_aim_direction(true, last_shot);
+
+		// sight_ads: an eye behind the sight holds the game's aim down sights (its lens clears, ADS
+		// accuracy); a wider band to leave than to enter, so a steady aim does not flicker.
+		bool aiming = false;
+		if (sight_ads.load(std::memory_order_relaxed) && sight_line)
+		{
+			if (const stereo::head_sample head = stereo::latest_head_sample(); head.valid)
+			{
+				const float reach = sight_aiming ? sight_leave_metres : sight_enter_metres;
+				for (const stereo::pose& eye : head.eyes)
+				{
+					const float at[3]{ eye.position[0], eye.position[1], eye.position[2] };
+					aiming = aiming || eye_behind_sight(at, start, barrel, reach, sight_eye_relief);
+				}
+			}
+		}
+		if (aiming != sight_aiming)
+		{
+			++sight_changes;
+		}
+		sight_aiming = aiming;
+		input::set_sight_aim(aiming);
+	}
+
+	void set_sight_ads(bool on)
+	{
+		sight_ads = on;
 	}
 
 	bool aim_point(float (&point)[3])
@@ -256,8 +293,8 @@ namespace bfvr::weapon
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
-				sight_degrees[0], sight_degrees[1], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
 		}
 		return text;

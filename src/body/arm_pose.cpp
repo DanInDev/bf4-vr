@@ -19,6 +19,7 @@
 #include "body/grasp_contact.hpp"
 #include "body/gun_recoil.hpp"
 #include "body/torso.hpp"
+#include "input/vr_controls.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/fingers.hpp"
@@ -154,6 +155,9 @@ namespace bfvr::body
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> arm_length{ 1.0f };   // live setting: forearm and hand offsets scaled (reach)
 		std::atomic<float> shoulder_width{};     // live setting: clavicles moved outwards, metres per side
+		std::atomic<bool> body_shoulders{ true }; // live setting: shoulder joints at shoulder_anchor from the head
+		// Right shoulder joint from the head (between the eyes), OpenXR axes; the left one mirrored.
+		constexpr ik::vec3 shoulder_anchor{ 0.18f, -0.22f, 0.04f };
 		std::atomic<bool> legs_hidden{ true };   // live setting hide_legs
 		std::atomic<float> arm_stretch{ 0.25f };   // live setting: how much longer an arm still out of reach may get
 		std::atomic<float> shoulder_reach{ 0.12f }; // live setting: how far a shoulder may move towards an out-of-reach hand
@@ -241,11 +245,20 @@ namespace bfvr::body
 			ik::bone_transform hand[2];    // LeftHand / RightHand bones
 			ik::bone_transform ik_hand[2]; // IK_Joint_LeftHand / IK_Joint_RightHand
 			bool has_ik[2]{};
-			// The camera joint in Wep_Root axes, smoothed: the sight line (weapon_points::sight_*).
+			// The camera joint in Wep_Root axes, smoothed: the sight line (weapon_points::sight_*). At the
+			// hip the rifle pose cants the gun (AK-12: the camera 1.4 degrees off its barrel); in the game's
+			// own aim down sights the camera looks exactly through the sight, so that sample, once seen
+			// for this gun, wins.
 			bool has_sight{};
 			ik::vec3 sight_eye;
 			ik::vec3 sight_direction{ 0, 0, 1 };
+			bool has_ads_sight{};
+			ik::vec3 ads_eye;
+			ik::vec3 ads_direction{ 0, 0, 1 };
+			ik::vec3 ads_gun;        // IK_Joint_RightHand in Wep_Root axes when sampled: another gun resets it
+			double aiming_since{ -1.0 };
 		};
+		constexpr double ads_settle_seconds = 0.5; // the game's zoom-in animation has finished
 		// Animated camera-in-gun samples off the sight by more than this are another hold (a grenade, the
 		// knife, a reload): the sight line keeps its last value.
 		constexpr float sight_min_cos = 0.97f;
@@ -604,6 +617,21 @@ namespace bfvr::body
 					// degrees); a new gun (a jump of more than ~3 degrees) is taken at once.
 					const ik::bone_transform eye = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.camera));
 					const ik::vec3 forward = ik::normalize(ik::rotate(eye.rotation, ik::vec3{ 0, 0, 1 }));
+					// The gun in hand, by where its grip sits: a swap forgets the ADS sample.
+					const ik::vec3 gun_grip = geometry.has_ik[1] ? geometry.ik_hand[1].position : geometry.hand[1].position;
+					if (geometry.has_ads_sight && ik::length(gun_grip - geometry.ads_gun) > 0.01f)
+					{
+						geometry.has_ads_sight = false;
+					}
+					const double now = steady_seconds();
+					if (!input::game_aiming())
+					{
+						geometry.aiming_since = -1.0;
+					}
+					else if (geometry.aiming_since < 0.0)
+					{
+						geometry.aiming_since = now;
+					}
 					if (forward.z > sight_min_cos)
 					{
 						const bool jump = !geometry.has_sight || ik::dot(forward, geometry.sight_direction) < 0.9986f;
@@ -611,6 +639,14 @@ namespace bfvr::body
 						geometry.sight_direction = ik::normalize(geometry.sight_direction * keep + forward * (1.0f - keep));
 						geometry.sight_eye = geometry.sight_eye * keep + eye.position * (1.0f - keep);
 						geometry.has_sight = true;
+						if (geometry.aiming_since >= 0.0 && now - geometry.aiming_since > ads_settle_seconds)
+						{
+							const float ads_keep = geometry.has_ads_sight ? 0.9f : 0.0f;
+							geometry.ads_direction = ik::normalize(geometry.ads_direction * ads_keep + forward * (1.0f - ads_keep));
+							geometry.ads_eye = geometry.ads_eye * ads_keep + eye.position * (1.0f - ads_keep);
+							geometry.ads_gun = gun_grip;
+							geometry.has_ads_sight = true;
+						}
 					}
 				}
 			}
@@ -699,7 +735,22 @@ namespace bfvr::body
 				// Arm shape (live settings): wider shoulders and longer arms, set before the solve, which
 				// takes its bone lengths from the pose. The weapon keeps its authored grip (measured above).
 				const float width = shoulder_width.load(std::memory_order_relaxed);
-				if (width != 0.0f && bones.upper >= 0 && rig.parents[bones.upper] >= 0)
+				if (body_shoulders.load(std::memory_order_relaxed) && head_valid && bones.upper >= 0 && rig.parents[bones.upper] >= 0)
+				{
+					// body_shoulders: the rifle animation holds the left shoulder joint on the chest's centre
+					// line and the right one 14 cm forward (monitor, 2026-11-04); a real body has them either
+					// side of the neck, below and a little behind the eyes. The clavicle carries the upper arm
+					// there (the torso turn below then turns both about the spine).
+					const int clavicle = rig.parents[bones.upper];
+					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
+					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y, shoulder_anchor.z };
+					const ik::vec3 wanted = camera.position + ik::rotate(frame, head_position + anchor);
+					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
+					moved.position = moved.position + (wanted - at);
+					ik::set_model_transform(local, rig.parents, clavicle, moved);
+					shaped = true;
+				}
+				else if (width != 0.0f && bones.upper >= 0 && rig.parents[bones.upper] >= 0)
 				{
 					const int clavicle = rig.parents[bones.upper];
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
@@ -947,13 +998,16 @@ namespace bfvr::body
 				if (points.has_sight)
 				{
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
-					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.sight_eye) - camera.position);
+					const ik::vec3& sight_eye = geometry.has_ads_sight ? geometry.ads_eye : geometry.sight_eye;
+					const ik::vec3& sight_direction = geometry.has_ads_sight ? geometry.ads_direction : geometry.sight_direction;
+					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, sight_eye) - camera.position);
 					points.sight_eye[0] = eye.x;
 					points.sight_eye[1] = eye.y;
 					points.sight_eye[2] = eye.z;
-					points.sight_direction[0] = geometry.sight_direction.x;
-					points.sight_direction[1] = geometry.sight_direction.y;
-					points.sight_direction[2] = geometry.sight_direction.z;
+					points.sight_direction[0] = sight_direction.x;
+					points.sight_direction[1] = sight_direction.y;
+					points.sight_direction[2] = sight_direction.z;
+					points.sight_from_ads = geometry.has_ads_sight;
 				}
 			}
 			publish(rig.rail, points.has_rail, points.rail);
@@ -1597,6 +1651,11 @@ namespace bfvr::body
 	void set_torso_follow(bool follow)
 	{
 		torso_follow = follow;
+	}
+
+	void set_body_shoulders(bool on)
+	{
+		body_shoulders = on;
 	}
 
 	void set_arm_shape(float length, float width)
