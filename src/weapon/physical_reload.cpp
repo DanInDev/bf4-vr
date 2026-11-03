@@ -17,6 +17,7 @@
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/haptics.hpp"
+#include "input/vr_controls.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -642,16 +643,22 @@ namespace bfvr::weapon
 			out.buttons |= XINPUT_GAMEPAD_DPAD_UP;
 			out.connected = true;
 		}
+		// A stance press (stick flick or physical stance, input/vr_controls) is the game's crouch B:
+		// it passes untouched, else it would reload or be dropped.
+		const bool stance_press = input::stance_press_active();
 		if (!active.load(std::memory_order_relaxed))
 		{
 			// reload = button: B is the game's reload (X opens the menu, the stick crouches).
-			if (!physical.load(std::memory_order_relaxed) && (out.buttons & XINPUT_GAMEPAD_B))
+			if (!physical.load(std::memory_order_relaxed) && !stance_press && (out.buttons & XINPUT_GAMEPAD_B))
 			{
 				out.buttons = static_cast<std::uint16_t>((out.buttons & ~XINPUT_GAMEPAD_B) | XINPUT_GAMEPAD_X);
 			}
 			return out;
 		}
-		out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_B);
+		if (!stance_press)
+		{
+			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_B);
+		}
 		if (block_grip.load(std::memory_order_relaxed))
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);

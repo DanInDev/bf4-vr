@@ -78,6 +78,10 @@ namespace bfvr::input
 		LARGE_INTEGER last_poll{};
 		std::uint16_t pulse_buttons{};
 		ULONGLONG pulse_until{};
+		// Physical stance: the stance to reach (-1 = none) and until when to keep trying.
+		std::atomic<int> physical_target{ -1 };
+		ULONGLONG physical_until{};
+		constexpr ULONGLONG stance_settle_ms = 350;
 		std::atomic<float> pending_yaw{};
 		std::atomic<bool> pitch_neutral{};
 		// Controller aim (#12): the view turns with our own body yaw (camera yaw convention:
@@ -252,6 +256,26 @@ namespace bfvr::input
 			pad.left_x = axis(x * c - y * s);
 			pad.left_y = axis(y * c + x * s);
 		}
+		// Physical stance (request_stance): one press at a time towards the stance the body asked for,
+		// each after the previous one has finished and the game had time to take it.
+		if (physical_target.load(std::memory_order_relaxed) >= 0)
+		{
+			const std::lock_guard guard(lock);
+			const ULONGLONG tick = GetTickCount64();
+			std::uint32_t current{ 99 };
+			if (tick >= physical_until || !read(local_soldier() + soldier_stance, current) || current == static_cast<std::uint32_t>(physical_target.load()))
+			{
+				physical_target = -1;
+			}
+			else if (tick >= pulse_until + stance_settle_ms)
+			{
+				start_stance_change(static_cast<int>(current) < physical_target.load() ? stance_command::down : stance_command::up);
+			}
+			if (tick < pulse_until)
+			{
+				pad.buttons |= pulse_buttons;
+			}
+		}
 		// With controller aim the stick cannot aim (the aimer follows the controller every frame), so
 		// it turns even in look mode; otherwise it would do nothing at all.
 		if (!stick_turns.load(std::memory_order_relaxed) && !aim_by_controller.load(std::memory_order_relaxed))
@@ -358,6 +382,25 @@ namespace bfvr::input
 		write_aim(aimer, aimer_pitch, pitch);
 	}
 
+	void request_stance(int stance)
+	{
+		const std::lock_guard guard(lock);
+		physical_until = GetTickCount64() + 3000;
+		physical_target = stance >= 0 && stance <= 2 ? stance : -1;
+	}
+
+	bool stance_press_active()
+	{
+		const std::lock_guard guard(lock);
+		return GetTickCount64() < pulse_until;
+	}
+
+	int game_stance()
+	{
+		std::uint32_t stance{ 99 };
+		return read(local_soldier() + soldier_stance, stance) && stance <= 2 ? static_cast<int>(stance) : -1;
+	}
+
 	bool aim_angles(float& yaw, float& pitch)
 	{
 		const std::uintptr_t aimer = current_aimer();
@@ -424,6 +467,9 @@ namespace bfvr::input
 	float body_camera_yaw(float game_yaw) { return game_yaw; }
 	void aim_along(const float (&)[3]) {}
 	bool aim_angles(float&, float&) { return false; }
+	void request_stance(int) {}
+	int game_stance() { return -1; }
+	bool stance_press_active() { return false; }
 	bool soldier_health(float&) { return false; }
 	gamepad_state for_game(const gamepad_state& pad) { return pad; }
 	void apply_view_turn() {}

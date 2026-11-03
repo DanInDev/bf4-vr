@@ -20,6 +20,7 @@
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/eye_pass.hpp"
+#include "input/physical_stance.hpp"
 #include "stereo/scripted_view.hpp"
 #include "stereo/tracking.hpp"
 
@@ -93,6 +94,69 @@ namespace bfvr::stereo
 		std::atomic<bool> scripted_now{};
 		std::atomic<float> scripted_deviation{};
 		std::atomic<float> scripted_health{};
+
+		// Physical stance (#33, input/physical_stance): the real head's height asks for the game's
+		// stance; the view then follows the real head only, the game's own eye drop added back.
+		std::atomic<bool> physical_stance_on{};
+		std::atomic<bool> physical_stance_reset{};
+		input::physical_stance stance_body;
+		LARGE_INTEGER stance_last{};
+		float standing_eye{ 1.565f }; // the game's camera above the soldier's feet standing (live, AK-12 soldier)
+		std::atomic<float> stance_drop{};
+		std::atomic<float> stance_lift{};
+		std::atomic<int> stance_wanted{};
+
+		// The game camera's height above the local soldier's feet (VeniceClientSoldierCameraComponent +0x80).
+		bool eye_above_feet(const std::uint8_t* view, float& height)
+		{
+			std::uintptr_t soldier{}, component{};
+			float feet[3]{};
+			SIZE_T done = 0;
+			const HANDLE self = GetCurrentProcess();
+			if (!ReadProcessMemory(self, reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(0x14230f260ull)), &soldier, sizeof(soldier), &done) || !soldier
+				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(soldier + 0x1f8), &component, sizeof(component), &done) || !component
+				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(component + 0x80), feet, sizeof(feet), &done))
+			{
+				return false;
+			}
+			height = reinterpret_cast<const float*>(view + transform)[13] - feet[1];
+			return std::isfinite(height);
+		}
+
+		// Called before the eye pose goes onto the camera: returns how far to raise the eye (metres).
+		float update_physical_stance(const std::uint8_t* view, float head_height)
+		{
+			LARGE_INTEGER counter{}, frequency{};
+			QueryPerformanceCounter(&counter);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = stance_last.QuadPart
+				? std::fmin(static_cast<float>(counter.QuadPart - stance_last.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+			stance_last = counter;
+			if (physical_stance_reset.exchange(false))
+			{
+				stance_body.reset();
+			}
+			const input::physical_stance_result body = stance_body.update(head_height, seconds);
+			if (body.changed)
+			{
+				input::request_stance(body.stance);
+			}
+			stance_drop = body.drop;
+			stance_wanted = body.stance;
+			float eye{};
+			if (!eye_above_feet(view, eye))
+			{
+				stance_lift = 0.0f;
+				return 0.0f;
+			}
+			if (input::game_stance() == 0)
+			{
+				standing_eye += (eye - standing_eye) * std::fmin(1.0f, seconds * 2.0f); // learns this soldier's standing eye
+			}
+			const float lift = std::fmax(0.0f, std::fmin(1.5f, standing_eye - eye));
+			stance_lift = lift;
+			return lift;
+		}
 
 		bool update_scripted(const std::uint8_t* view)
 		{
@@ -399,6 +463,11 @@ namespace bfvr::stereo
 				{
 					aim_with_controller(params);
 				}
+				if (physical_stance_on.load(std::memory_order_relaxed) && !scripted_frame)
+				{
+					// The camera is level here (controller aim): its up is the world's.
+					eye_pose.position[1] += update_physical_stance(params, eye_math::centre_pose(head).position[1]);
+				}
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
 				apply_eye_pose(params, eye_pose);
@@ -684,6 +753,23 @@ namespace bfvr::stereo
 	void set_cutscene_screen(bool screen)
 	{
 		cutscene_screen = screen;
+	}
+
+	void set_physical_stance(bool enabled)
+	{
+		if (enabled && !physical_stance_on.load())
+		{
+			physical_stance_reset = true; // standing is measured afresh from now
+		}
+		physical_stance_on = enabled;
+	}
+
+	std::string stance_report()
+	{
+		char text[192];
+		std::snprintf(text, sizeof(text), "physical_stance=%d body=%d drop_m=%.2f game=%d eye_lift_m=%.2f standing_eye_m=%.3f", physical_stance_on.load() ? 1 : 0,
+			stance_wanted.load(), stance_drop.load(), input::game_stance(), stance_lift.load(), standing_eye);
+		return text;
 	}
 
 	std::string cutscene_report()

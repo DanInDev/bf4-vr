@@ -31,6 +31,14 @@ namespace bfvr::input
 	bool aim_angles(float& yaw, float& pitch);
 	// The local soldier's health (0 = dead); false when it cannot be read.
 	bool soldier_health(float& health);
+	// Physical stance (#33): press the game's stance buttons, one step at a time, until the soldier is
+	// in this stance (0 stand, 1 crouch, 2 prone); gives up after 3 s. A stick flick afterwards is left alone.
+	void request_stance(int stance);
+	// The soldier's stance (0, 1, 2), -1 when unreadable.
+	int game_stance();
+	// A stance press (crouch B / jump A) is being held for the game right now: the pad filters after
+	// for_game must let its B through.
+	bool stance_press_active();
 	// Controller aim's shot direction in OpenXR LOCAL (weapon/two_handed: the barrel line, converged);
 	// without one the camera hook uses the gun hand's aim ray.
 	void set_aim_direction(bool valid, const float (&direction)[3]);

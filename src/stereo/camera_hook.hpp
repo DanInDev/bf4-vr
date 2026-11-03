@@ -72,6 +72,12 @@ namespace bfvr::stereo
 	void set_cutscene_screen(bool screen);
 	// Pipe "cutscene": the detector's state and inputs.
 	std::string cutscene_report();
+	// Live setting physical_stance (#33): crouching or lying down in the room changes the game's
+	// stance (input/physical_stance), and the view follows the real head only (the game's own eye
+	// drop for its stance is added back). Switching it on measures standing afresh.
+	void set_physical_stance(bool enabled);
+	// Pipe "stance".
+	std::string stance_report();
 
 	// The game camera's own motion before the head pose is applied (stick turning and aiming,
 	// walking, vehicles): yaw rate (rad/s) and speed (m/s), smoothed; 0 outside head-tracked frames.

@@ -93,6 +93,7 @@ namespace bfvr::settings
 			{ "move_direction", kind::choice, 0, 0, 0, "head", "head|gun|body", "left stick forward walks where your head faces, where the gun points, or along the body (the game's own way)" },
 			{ "neutral_pitch", kind::boolean, 0, 0, 0, "0", "", "hold the game's aim pitch at 0: only the head pitches the view (level horizon)" },
 			{ "stance_flicks", kind::boolean, 0, 0, 0, "1", "", "right stick up/down changes stance (right_stick = turn)" },
+			{ "physical_stance", kind::boolean, 0, 0, 0, "0", "", "crouch or lie down in the room and the soldier does too; off when playing seated" },
 		};
 
 		registry& instance()

@@ -98,6 +98,7 @@ add_library(bfvr_runtime STATIC
 	src/input/gestures.cpp
 	src/input/handedness.cpp
 	src/input/pointer.cpp
+	src/input/physical_stance.cpp
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
@@ -174,6 +175,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_settings_test PRIVATE bfvr_common)
 
 	# Right-stick turn/stance state machine; exits non-zero on failure.
+	add_executable(bfvr_physical_stance_test tests/physical_stance_test.cpp src/input/physical_stance.cpp)
+	target_link_libraries(bfvr_physical_stance_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
 	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
 
@@ -238,6 +241,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
 	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
 	add_test(NAME settings COMMAND bfvr_settings_test)
+	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)

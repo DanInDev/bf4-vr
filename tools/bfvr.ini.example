@@ -93,6 +93,11 @@ right_stick = turn
 turn = snap
 snap_turn_degrees = 30
 stance_flicks = 1
+# Physical stance: crouch (head ~30 cm below standing) or lie down (~85 cm) in the room and the soldier
+# does too; the view then follows your real head only (the game's own crouch drop is added back).
+# Standing is the highest your head has been since switching it on. Off by default: seated players
+# would be crouched all the time. Stick flicks still work in between. Pipe `stance` shows it.
+physical_stance = 0
 # Gun hand (issue #9): left mirrors the controllers (sticks, triggers, grips, A/B <-> X/Y, stick
 # clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
 dominant_hand = right

@@ -818,6 +818,7 @@ namespace bfvr::control
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
 			if (command == "cutscene") return stereo::cutscene_report();
+			if (command == "stance") return stereo::stance_report();
 			if (command == "fakehand")
 			{
 				// A fixed right controller (aim and grip) turned yaw/pitch degrees from straight ahead, 30 cm
@@ -885,10 +886,11 @@ namespace bfvr::control
 			{
 				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
 				// without a headset; "fakehead off" clears it. The XR thread overwrites it when tracking.
-				// An optional second number turns the head left by that many degrees.
+				// An optional second number turns the head left by that many degrees, a third moves it up
+				// (metres, negative: crouching; physical stance tests).
 				stereo::head_sample head;
-				float ipd = 0.0f, yaw = 0.0f;
-				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f", &ipd, &yaw) >= 1 && ipd > 0.0f && ipd < 0.1f;
+				float ipd = 0.0f, yaw = 0.0f, height = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f", &ipd, &yaw, &height) >= 1 && ipd > 0.0f && ipd < 0.1f;
 				const float half = yaw * 3.14159265f / 360.0f;
 				for (int eye = 0; eye < 2; ++eye)
 				{
@@ -896,6 +898,7 @@ namespace bfvr::control
 					head.eyes[eye].orientation[1] = std::sin(half);
 					head.eyes[eye].orientation[3] = std::cos(half);
 					head.eyes[eye].position[0] = side * std::cos(2 * half);
+					head.eyes[eye].position[1] = height;
 					head.eyes[eye].position[2] = -side * std::sin(2 * half);
 				}
 				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
