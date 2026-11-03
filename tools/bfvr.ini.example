@@ -164,9 +164,11 @@ two_handed = 1
 # lock = the barrel lies on the line between your hands and the off hand is drawn on the handguard
 # (a VR shooter's hold); soft = the hand line at the grab is kept and only its turns steer the gun.
 two_hand_mode = lock
-# Recoil: the drawn gun kicks per shot (muzzle up about the wrist, back along the barrel), full auto
-# climbs, and it settles back to the controller in ~0.2 s; a support hand on the handguard halves it.
-# 0 = off, up to 3. Only the drawn gun moves: the controller, the view and where shots go do not.
+# Recoil: the drawn gun kicks per shot (muzzle up about the wrist and a little sideways, back along the
+# barrel), full auto climbs, and it settles back to the controller in ~0.2 s; a support hand on the
+# handguard halves it. Each gun kicks by its own game data (the SCAR-H harder and slower than the
+# AK-12, a bigger first shot). 0 = off, up to 3. Only the drawn gun moves: the controller, the view and
+# where shots go do not.
 recoil = 1
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).

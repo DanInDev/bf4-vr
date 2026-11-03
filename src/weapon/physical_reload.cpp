@@ -45,6 +45,12 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t data_firing = 0x90;      // WeaponFiringData
 		constexpr std::uintptr_t firing_primary = 0x10;   // FiringFunctionData
 		constexpr std::uintptr_t firing_rumble = 0x38;    // WeaponFiringData.Rumble: low, high, duration
+		constexpr std::uintptr_t firing_sway = 0x30;      // WeaponFiringData.WeaponSway (GunSwayData)
+		// GunSwayData hip-fire GunSwayRecoilData (Stand/Crouch/Prone .NoZoom.Recoil) by soldier stance,
+		// and FirstShotRecoilMultiplier (re/notes/weapon.md, "Recoil").
+		constexpr std::uintptr_t sway_recoil[3] = { 0x10 + 0x90, 0x188 + 0x30, 0x240 + 0x30 };
+		constexpr std::uintptr_t sway_first_shot = 0x444;
+		constexpr std::uintptr_t soldier_stance = 0x4f0;  // u32: 0 stand, 1 crouch, 2 prone
 		constexpr std::uintptr_t function_capacity = 0x220; // Ammo.MagazineCapacity (counts the chamber)
 		// Server (single player runs it in-process): local ServerSoldierEntity -> weapons component ->
 		// slot array (same slot index as the client) -> weapon firing object -> ammo.
@@ -82,7 +88,30 @@ namespace bfvr::weapon
 			int magazine{};
 			int reserve{};
 			float rumble[3]{};       // the game's firing rumble: low, high, seconds
+			body::recoil_profile recoil; // the drawn gun's kick for the current stance
 		};
+
+		// The game's hip-fire recoil for the stance, relative to the AK-12's (the tuned kick; live read
+		// 2026-11-03: 0.3 up, -0.12..0.17 sideways, decrease 18, first shot x2.1).
+		body::recoil_profile read_recoil(std::uintptr_t firing, std::uintptr_t soldier)
+		{
+			static const body::game_recoil ak12{ 0.3f, -0.12f, 0.17f, 18.0f, 2.1f };
+			std::uintptr_t sway{};
+			std::uint32_t stance{};
+			// GunSwayRecoilData: AmplitudeMax, IncPerShot, HorizontalIncPerShotMin, ...Max, HorizontalMax, DecreaseFactor
+			float recoil[6]{};
+			body::game_recoil gun;
+			if (!read(firing + firing_sway, sway) || !sway || !read(soldier + soldier_stance, stance) || stance > 2
+				|| !read(sway + sway_recoil[stance], recoil) || !read(sway + sway_first_shot, gun.first_shot))
+			{
+				return {};
+			}
+			gun.vertical = recoil[1];
+			gun.horizontal_min = recoil[2];
+			gun.horizontal_max = recoil[3];
+			gun.decrease = recoil[5];
+			return body::profile_from_game(gun, ak12);
+		}
 
 		game_weapon read_game_weapon()
 		{
@@ -108,6 +137,7 @@ namespace bfvr::weapon
 				return weapon;
 			}
 			read(firing + firing_rumble, weapon.rumble);
+			weapon.recoil = read_recoil(firing, soldier);
 			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
 			if (!read(server_soldier_global, server_soldier) || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
@@ -402,7 +432,7 @@ namespace bfvr::weapon
 			if (weapon.valid && weapon.ammo == seen_ammo && weapon.magazine < seen_magazine)
 			{
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
-				body::kick_gun(std::min(seen_magazine - weapon.magazine, 3));
+				body::kick_gun(std::min(seen_magazine - weapon.magazine, 3), weapon.recoil);
 			}
 			seen_ammo = weapon.valid ? weapon.ammo : 0;
 			seen_magazine = weapon.valid ? weapon.magazine : -1;
@@ -456,7 +486,7 @@ namespace bfvr::weapon
 			if (memory.written > weapon.magazine)
 			{
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
-				body::kick_gun(std::min(memory.written - weapon.magazine, 3));
+				body::kick_gun(std::min(memory.written - weapon.magazine, 3), weapon.recoil);
 			}
 			if (weapon.magazine > memory.written)
 			{

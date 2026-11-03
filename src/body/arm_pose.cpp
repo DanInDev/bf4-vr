@@ -164,6 +164,7 @@ namespace bfvr::body
 		std::mutex recoil_lock;
 		gun_recoil recoil;
 		recoil_offset last_kick; // for the pipe report
+		recoil_profile last_profile;
 
 		double steady_seconds()
 		{
@@ -609,16 +610,22 @@ namespace bfvr::body
 						kick = recoil.at(steady_seconds());
 						last_kick = kick;
 					}
-					if (kick.degrees > 0.0f || kick.back > 0.0f)
+					if (kick.degrees > 0.0f || kick.back > 0.0f || kick.yaw != 0.0f)
 					{
-						// Recoil: the muzzle climbs about the wrist (the controller's right axis) and the gun
-						// comes back along its barrel; a two-handed off hand follows the gun below.
+						// Recoil: the muzzle climbs about the wrist (the controller's right axis), wanders
+						// sideways about its up axis, and the gun comes back along its barrel; a two-handed
+						// off hand follows the gun below.
 						const ik::quat held = frame * ik::normalize(aim);
 						const ik::vec3 right = ik::rotate(held, ik::vec3{ 1.0f, 0.0f, 0.0f });
+						const ik::vec3 up = ik::rotate(held, ik::vec3{ 0.0f, 1.0f, 0.0f });
 						const ik::vec3 forward = ik::rotate(held, ik::vec3{ 0.0f, 0.0f, -1.0f });
-						const float half = 0.5f * kick.degrees * 0.017453293f;
-						const float s = std::sin(half);
-						goal.hand = ik::normalize(ik::quat{ right.x * s, right.y * s, right.z * s, std::cos(half) } * goal.hand);
+						const auto turn = [](const ik::vec3& axis, float degrees) {
+							const float half = 0.5f * degrees * 0.017453293f;
+							const float s = std::sin(half);
+							return ik::quat{ axis.x * s, axis.y * s, axis.z * s, std::cos(half) };
+						};
+						// Positive yaw turns the muzzle right: about -up for a -z forward.
+						goal.hand = ik::normalize(turn(up, -kick.yaw) * turn(right, kick.degrees) * goal.hand);
 						goal.wrist = goal.wrist - forward * kick.back;
 					}
 				}
@@ -1253,19 +1260,22 @@ namespace bfvr::body
 		}
 	}
 
-	void kick_gun(int shots)
+	void kick_gun(int shots, const recoil_profile& gun)
 	{
 		const float strength = recoil_strength.load(std::memory_order_relaxed);
 		const std::lock_guard guard(recoil_lock);
-		recoil.shot(steady_seconds(), shots, strength, support_weight.load(std::memory_order_relaxed) >= 0.5f);
+		recoil.shot(steady_seconds(), shots, strength, support_weight.load(std::memory_order_relaxed) >= 0.5f, gun);
+		last_profile = gun;
 	}
 
 	std::string recoil_report()
 	{
-		char text[160];
+		char text[256];
 		const std::lock_guard guard(recoil_lock);
-		std::snprintf(text, sizeof(text), "recoil strength=%.2f drawn_kick_deg=%.2f drawn_back_m=%.4f now_deg=%.2f",
-			recoil_strength.load(), last_kick.degrees, last_kick.back, recoil.at(steady_seconds()).degrees);
+		std::snprintf(text, sizeof(text),
+			"recoil strength=%.2f drawn_kick_deg=%.2f drawn_back_m=%.4f drawn_yaw_deg=%.2f now_deg=%.2f gun vertical=%.2f first_shot=%.2f yaw=%.2f..%.2f",
+			recoil_strength.load(), last_kick.degrees, last_kick.back, last_kick.yaw, recoil.at(steady_seconds()).degrees, last_profile.vertical,
+			last_profile.first_shot, last_profile.yaw_min, last_profile.yaw_max);
 		return text;
 	}
 

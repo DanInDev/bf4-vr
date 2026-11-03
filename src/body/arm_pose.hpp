@@ -3,6 +3,7 @@
 #include <string>
 
 #include "body/finger_pose.hpp"
+#include "body/gun_recoil.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::body
@@ -138,7 +139,7 @@ namespace bfvr::body
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).
 	void set_gun_recoil(float strength);
 	// Shots the game fired this frame: the drawn gun kicks (the controller and the shot line do not).
-	void kick_gun(int shots);
+	void kick_gun(int shots, const recoil_profile& gun = {});
 	// Pipe "recoil": the current kick.
 	std::string recoil_report();
 }

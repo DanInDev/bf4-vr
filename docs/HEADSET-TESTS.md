@@ -45,7 +45,7 @@ checks to run first (handle spot, bolt movement, AR magazine) and the tuning kno
 | H4 | Rack: off hand to the handle, grip, pull back slowly | Palm stays on the handle while you pull; the bolt/handle comes back with it and snaps forward on release. Does the hold sit on the right spot (AK: right side)? | |
 | H5 | Two-handed hold, grenade in the off hand, the knife | Support hand keeps the game's handguard grip; grenade in a closed fist; knife hand as before | |
 | H6 | Off hand wrist (`off_hand_pose = neutral`, now the default): empty, then holding a magazine; compare with `animated` on the panel | The drawn hand is held like your controller (thumb on top); a held magazine stands upright in the fist and follows your wrist | |
-| H7 | Recoil (`recoil = 1`): single shots, a long burst one-handed, then two-handed | The muzzle kicks up and back and settles in ~0.2 s, a burst climbs ~7°, two hands steady it; never sickening (the view does not move). Tune 0-3 on the Weapon page | |
+| H7 | Recoil (`recoil = 1`): single shots, a long burst one-handed, then two-handed; then the same with the SCAR-H | The muzzle kicks up (and a little sideways) and back and settles in ~0.2 s, a burst climbs ~7°, two hands steady it; the SCAR-H kicks harder and settles slower than the AK-12; never sickening (the view does not move). Tune 0-3 on the Weapon page | |
 | H8 | Rack in two stages: pull the handle back to the stop, hold, then let go | A tick and a slide sound at the rear stop (before you let go), the bolt's slam on release; releasing after riding the handle forward still chambers | |
 
 ## Next — everything since 2026-10-26, on `main`

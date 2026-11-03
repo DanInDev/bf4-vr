@@ -130,6 +130,39 @@ skeleton.md) need a checkpoint whose kit has one.
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
 
+## Recoil data (2026-11-03, tools/recoil_probe.py, campaign checkpoint "Get Grenade Launcher")
+
+```
+WeaponFiringData +0x30 WeaponSway -> GunSwayData (0x450)
+  Stand  +0x10   GunSwayStandData:       NoZoom +0x00, Zoom +0xBC (GunSwayBaseMoveJumpData, Recoil +0x90)
+  Crouch +0x188, Prone +0x240 GunSwayCrouchProneData: NoZoom +0x00, Zoom +0x5C (GunSwayBaseMoveData, Recoil +0x30)
+  +0x440 ShootingRecoilDecreaseScale, +0x444 FirstShotRecoilMultiplier, +0x448 CameraRecoil* (spring k, damping, min)
+GunSwayRecoilData (0x18): RecoilAmplitudeMax, RecoilAmplitudeIncPerShot, HorizontalRecoilAmplitudeIncPerShotMin,
+  HorizontalRecoilAmplitudeIncPerShotMax, HorizontalRecoilAmplitudeMax, RecoilAmplitudeDecreaseFactor
+FiringFunctionData +0x168 FireLogic: +0x2C RecoilData (angle ranges), +0x60 RateOfFire
+```
+
+| Gun | Up per shot | Sideways per shot | Max (up / side) | Decrease | First shot | RoF | FireLogic.Recoil |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `U_AK12` | 0.30 | -0.12 .. 0.17 | 10 / 10 | 18 | x2.1 | 650 | all 0 |
+| `U_SCAR-H` | 0.50 | -0.225 .. 0.225 | 10 / 10 | 12 | x1.75 | 620 | all 0 |
+
+- All six blocks (stand, crouch, prone; hip, zoom) hold the same values for both guns: BF4's recoil does
+  not depend on stance or zoom here (stance changes spread, not recoil). Grenade, knife and visor have
+  no GunSwayData (null). Both guns: ShootingRecoilDecreaseScale 0.1, CameraRecoil spring 250 / 0.35.
+- Units: the game's camera kick per shot, presumably degrees (Frostbite's convention; see the burst
+  measurement below).
+- The engine reads no scalar at GunSwayData +0x440/+0x444 directly (byte scan of `.text` for
+  `[reg+0x444]`): the sway runtime copies the data. The aiming simulation adds its sway/recoil offset
+  (aiming +0x28/+0x2C) after `0x140FA6640`, which writes it; not followed further.
+- The mod's drawn-gun kick (`body/gun_recoil`) uses the hip values of the current stance relative to the
+  AK-12's: the SCAR-H kicks 1.67x as far and settles 1.5x slower (18 / 12).
+- Burst measurement (1.2 s, pad RT, `aim = controller`, fakehead + fakehand): the game's sway/recoil
+  offset at aiming +0x28/+0x2C stayed exactly 0 for both guns, so with controller aim the game adds no
+  camera recoil here; the units above stay unmeasured. Drawn kick: AK-12 first shot 5.1 deg (x2.1),
+  peak 7.7 deg, sideways up to 1.5 deg (mostly right); SCAR-H peak 14.9 deg (cap 15), sideways
+  +-1.3 deg, settle time constant 0.32 s (expected 0.33).
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds

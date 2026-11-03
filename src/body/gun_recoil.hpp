@@ -12,15 +12,29 @@ namespace bfvr::body
 		float back_per_shot{ 0.012f };   // metres along the barrel
 		float max_degrees{ 15.0f };
 		float max_back{ 0.035f };
+		float max_yaw{ 4.0f };
 		float pitch_recovery{ 0.22f };  // seconds (time constant); Overlord settles its climb in 0.22 s
 		float back_recovery{ 0.06f };   // the push back returns faster than the muzzle comes down
 		float two_handed_scale{ 0.4f }; // a support hand on the handguard steadies the gun
+		float rest_degrees{ 0.25f };    // below this the gun is at rest: the next shot is a first shot
+	};
+
+	// The gun's own recoil for the current stance (BF4: GunSwayData, hip fire), relative to the
+	// reference gun the config is tuned on. The default kicks exactly as the config says.
+	struct recoil_profile
+	{
+		float vertical{ 1.0f };       // scales degrees_per_shot and back_per_shot
+		float first_shot{ 1.0f };     // extra for a shot from rest
+		float yaw_min{};              // degrees per shot, drawn uniformly between min and max
+		float yaw_max{};
+		float recovery{ 1.0f };       // scales the settle times (> 1: settles slower)
 	};
 
 	struct recoil_offset
 	{
 		float degrees{};
 		float back{};
+		float yaw{}; // degrees, positive = muzzle to the right
 	};
 
 	class gun_recoil
@@ -29,16 +43,33 @@ namespace bfvr::body
 		explicit gun_recoil(const recoil_config& config = {}) : config_(config) {}
 		// shots fired at `now` (seconds, any steady clock); strength: the live setting (0 = off, 1 = as
 		// tuned); two_handed: the support hand holds the gun.
-		void shot(double now, int shots, float strength, bool two_handed);
+		void shot(double now, int shots, float strength, bool two_handed, const recoil_profile& gun = {});
 		// The kick at `now`; exactly zero two seconds after the last shot.
 		recoil_offset at(double now) const;
 		void reset() { state_ = {}; last_ = -1.0; }
 
 	private:
 		recoil_offset decayed(double now) const;
+		float random(); // [0, 1)
 
 		recoil_config config_;
 		recoil_offset state_;
 		double last_{ -1.0 };
+		float recovery_{ 1.0f };
+		unsigned seed_{ 0x9E3779B9u };
 	};
+
+	// The game's values for one gun and stance (BF4 GunSwayRecoilData and GunSwayData).
+	struct game_recoil
+	{
+		float vertical{};        // RecoilAmplitudeIncPerShot
+		float horizontal_min{};  // HorizontalRecoilAmplitudeIncPerShotMin / Max
+		float horizontal_max{};
+		float decrease{};        // RecoilAmplitudeDecreaseFactor (higher: recovers faster)
+		float first_shot{ 1.0f }; // FirstShotRecoilMultiplier
+	};
+
+	// Profile relative to the reference gun the config is tuned on (the AK-12: 0.3 up, decrease 18):
+	// sideways at half the vertical gain, settle times by the decrease factors' ratio.
+	recoil_profile profile_from_game(const game_recoil& gun, const game_recoil& reference, const recoil_config& config = {});
 }
