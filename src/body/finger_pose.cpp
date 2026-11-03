@@ -65,7 +65,7 @@ namespace bfvr::body::fingers
 		{
 			hand_shape shape;
 			// Off the trigger the index lies straight along the frame (trigger discipline).
-			if (input.valid && !input.trigger_touch && input.trigger < 0.05f)
+			if (input.valid && input.touch_sensors && !input.trigger_touch && input.trigger < 0.05f)
 			{
 				shape.animated[index] = 0.0f;
 				shape.curl[index] = 0.05f;
@@ -87,8 +87,11 @@ namespace bfvr::body::fingers
 		}
 		const float squeeze = clamp01(input.squeeze);
 		const float grip = 0.12f + 0.83f * squeeze;
-		const float index_curl = input.trigger_touch || input.trigger > 0.05f ? 0.3f + 0.6f * clamp01(input.trigger) : 0.08f;
-		const float thumb_curl = input.thumb_touch ? 0.55f : 0.1f + 0.2f * squeeze;
+		const float trigger = clamp01(input.trigger);
+		// Without touch sensors the index rests half bent and follows the trigger without a jump.
+		const float index_curl = !input.touch_sensors ? 0.2f + 0.7f * trigger
+			: input.trigger_touch || trigger > 0.05f ? 0.3f + 0.6f * trigger : 0.08f;
+		const float thumb_curl = input.touch_sensors && input.thumb_touch ? 0.55f : 0.1f + 0.2f * squeeze;
 		return curled(thumb_curl, index_curl, grip, grip, std::min(1.0f, grip + 0.03f));
 	}
 
@@ -201,18 +204,23 @@ namespace bfvr::body::fingers
 		return out;
 	}
 
-	const hand_shape& shape_smoother::update(const hand_shape& target, float seconds, float time_constant)
+	const hand_shape& shape_smoother::update(const hand_shape& target, float seconds, float closing, float opening)
 	{
 		if (!started_)
 		{
 			reset(target);
 			return current_;
 		}
-		const float t = time_constant > 0.0f ? 1.0f - std::exp(-std::max(seconds, 0.0f) / time_constant) : 1.0f;
+		const float dt = std::max(seconds, 0.0f);
+		const auto step = [dt](float time_constant) { return time_constant > 0.0f ? 1.0f - std::exp(-dt / time_constant) : 1.0f; };
+		const float close_step = step(closing);
+		const float open_step = step(opening);
 		for (int f = 0; f < count; ++f)
 		{
-			current_.animated[f] += (target.animated[f] - current_.animated[f]) * t;
-			current_.curl[f] += (target.curl[f] - current_.curl[f]) * t;
+			float& animated = current_.animated[f];
+			float& curl = current_.curl[f];
+			animated += (target.animated[f] - animated) * (target.animated[f] > animated ? close_step : open_step);
+			curl += (target.curl[f] - curl) * (target.curl[f] > curl ? close_step : open_step);
 		}
 		return current_;
 	}

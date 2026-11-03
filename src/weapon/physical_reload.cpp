@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <Xinput.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -156,6 +157,7 @@ namespace bfvr::weapon
 		int recent_count{};
 		std::uint64_t shots{};
 		bool magazine_detached{};
+		bool bolt_at_rear{}; // this stroke played the rear-stop cue; the release plays only the bolt going home
 
 		const char* event_name(reload_event event)
 		{
@@ -195,7 +197,7 @@ namespace bfvr::weapon
 			case reload_event::magazine_out: play(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
-			case reload_event::racked_empty: play(cue::chamber); break;
+			case reload_event::racked_empty: play(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
 			default: break;
 			}
 		}
@@ -400,6 +402,7 @@ namespace bfvr::weapon
 			if (weapon.valid && weapon.ammo == seen_ammo && weapon.magazine < seen_magazine)
 			{
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
+				body::kick_gun(std::min(seen_magazine - weapon.magazine, 3));
 			}
 			seen_ammo = weapon.valid ? weapon.ammo : 0;
 			seen_magazine = weapon.valid ? weapon.magazine : -1;
@@ -453,6 +456,7 @@ namespace bfvr::weapon
 			if (memory.written > weapon.magazine)
 			{
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
+				body::kick_gun(std::min(memory.written - weapon.magazine, 3));
 			}
 			if (weapon.magazine > memory.written)
 			{
@@ -500,6 +504,14 @@ namespace bfvr::weapon
 		}
 		last_zone = result.in_zone;
 		last_result = result;
+		if (result.rack_at_rear)
+		{
+			// The stroke is long enough: the rear stop is felt and heard before the release (Overlord
+			// plays its chamber recordings in two parts the same way).
+			play(cue::bolt_back);
+			input::haptic(0, input::pulses::click);
+			bolt_at_rear = true;
+		}
 		if (grab_debug_enabled() && hands_valid)
 		{
 			const grab_slot slots_shown[3]{ grab_slot::magazine, grab_slot::handle, grab_slot::pouch };
@@ -518,6 +530,10 @@ namespace bfvr::weapon
 		for (int i = 0; i < result.count; ++i)
 		{
 			remember(result.events[i]);
+		}
+		if (!result.racking)
+		{
+			bolt_at_rear = false;
 		}
 		sound_if_magazine_left(magazine_was_in, gun);
 

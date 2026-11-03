@@ -302,6 +302,13 @@ namespace bfvr::xr
 			XrActionStateBoolean state{ XR_TYPE_ACTION_STATE_BOOLEAN };
 			return XR_SUCCEEDED(xrGetActionStateBoolean(session, &info, &state)) && state.isActive && state.currentState;
 		};
+		const auto touch_active = [&](XrAction action)
+		{
+			XrActionStateGetInfo info{ XR_TYPE_ACTION_STATE_GET_INFO };
+			info.action = action;
+			XrActionStateBoolean state{ XR_TYPE_ACTION_STATE_BOOLEAN };
+			return action != XR_NULL_HANDLE && XR_SUCCEEDED(xrGetActionStateBoolean(session, &info, &state)) && state.isActive;
+		};
 		const auto read_vector = [&](XrAction action)
 		{
 			XrActionStateGetInfo info{ XR_TYPE_ACTION_STATE_GET_INFO };
@@ -327,7 +334,7 @@ namespace bfvr::xr
 		{
 			const int controller = (arm == 1) != input::left_handed() ? 1 : 0;
 			fingers[arm] = { focused_, squeezes[controller], triggers[controller], read_bool(trigger_touch_[controller]),
-				read_bool(thumb_touch_[controller]) };
+				read_bool(thumb_touch_[controller]), touch_active(trigger_touch_[controller]) };
 		}
 		input::publish_fingers(fingers);
 

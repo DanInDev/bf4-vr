@@ -23,8 +23,9 @@ namespace bfvr::weapon
 
 		std::atomic<bool> enabled{ true };
 		std::once_flag built;
-		std::vector<std::uint8_t> waves[5];
-		std::wstring files[5];
+		constexpr int cue_count = static_cast<int>(cue::count);
+		std::vector<std::uint8_t> waves[cue_count];
+		std::wstring files[cue_count];
 
 		const char* name_of(cue which)
 		{
@@ -35,6 +36,9 @@ namespace bfvr::weapon
 			case cue::magazine_out: return "magazine_out";
 			case cue::chamber: return "chamber";
 			case cue::pin: return "pin";
+			case cue::bolt_back: return "bolt_back";
+			case cue::bolt_home: return "bolt_home";
+			case cue::count: break;
 			}
 			return "cloth";
 		}
@@ -122,9 +126,16 @@ namespace bfvr::weapon
 				pin[i] = 0.4f * std::exp(-t * 18.0f) * std::sin(2.0f * pi * 3800.0f * t);
 			}
 			tick(pin, 0.0f, 3000.0f, 0.4f, 51);
-			const std::vector<float>* sources[5] = { &cloth, &in, &out, &chamber, &pin };
+			// The rack in two parts, for a stroke held at the rear: the slide back and its stop, then home.
+			std::vector<float> back(static_cast<std::size_t>(rate * 0.20f));
+			tick(back, 0.0f, 1700.0f, 0.4f, 41);
+			rustle(back, 0.01f, 0.12f, 0.35f, 0.6f, 42);
+			tick(back, 0.12f, 1500.0f, 0.5f, 44);
+			std::vector<float> home(static_cast<std::size_t>(rate * 0.12f));
+			tick(home, 0.0f, 2300.0f, 0.85f, 43);
+			const std::vector<float>* sources[cue_count] = { &cloth, &in, &out, &chamber, &pin, &back, &home };
 			const std::filesystem::path folder = std::filesystem::path(config::ini_path()).parent_path() / "bfvr_sounds";
-			for (int i = 0; i < 5; ++i)
+			for (int i = 0; i < cue_count; ++i)
 			{
 				waves[i] = to_wave(*sources[i]);
 				const std::filesystem::path file = folder / (std::string(name_of(static_cast<cue>(i))) + ".wav");
@@ -150,6 +161,10 @@ namespace bfvr::weapon
 		}
 		std::call_once(built, build);
 		const int index = static_cast<int>(which);
+		if (index < 0 || index >= cue_count)
+		{
+			return;
+		}
 		if (!files[index].empty())
 		{
 			PlaySoundW(files[index].c_str(), nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);

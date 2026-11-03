@@ -691,11 +691,26 @@ namespace bfvr::control
 					{
 						return "error: usage: fingers <off|gun> <squeeze> <trigger> [trigger_touch 0|1] [thumb_touch 0|1] | fingers <off|gun> live";
 					}
-					input::set_finger_override(hand, !live, { true, squeeze, trigger, trigger_touch != 0, thumb_touch != 0 });
+					// Touch values given: the reading has touch sensors; without them it is a controller whose
+					// touch bindings were refused.
+					input::set_finger_override(hand, !live, { true, squeeze, trigger, trigger_touch != 0, thumb_touch != 0, read >= 4 });
 				}
 				return body::hands_report();
 			}
 			if (command == "gunlook") return body::gun_report() + weapon::two_hand_report();
+			if (command == "recoil")
+			{
+				// recoil [shots]: the current kick; with a number (research), kicks the drawn gun as if fired.
+				if (!argument.empty())
+				{
+					if (!config::research_enabled())
+					{
+						return "error: 'recoil <shots>' needs research = 1 in bfvr.ini";
+					}
+					body::kick_gun(std::atoi(argument.c_str()));
+				}
+				return body::recoil_report();
+			}
 			if (command == "armframe")
 			{
 				if (argument == "rendered" || argument == "game")

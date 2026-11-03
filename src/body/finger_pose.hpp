@@ -40,6 +40,9 @@ namespace bfvr::body::fingers
 		float trigger{};       // 0..1
 		bool trigger_touch{};
 		bool thumb_touch{};    // thumbstick, face buttons or thumb rest
+		// The runtime reports the touch sensors (the binding is active). Without them an untouched
+		// trigger says nothing about where the finger is, so the touches are not used.
+		bool touch_sensors{};
 	};
 
 	// What a hand is doing; picks its shape.
@@ -88,8 +91,10 @@ namespace bfvr::body::fingers
 	class shape_smoother
 	{
 	public:
-		// seconds: time since the last call; time_constant: about how long a change takes to settle.
-		const hand_shape& update(const hand_shape& target, float seconds, float time_constant = 0.07f);
+		// seconds: time since the last call. A finger closing (more curl, or back to the animated
+		// grip, e.g. onto the trigger) settles with `closing`, one opening with `opening` (time
+		// constants; 0.017 / 0.05 s are 12 / 35 ms half-lives: closing must keep up with a press).
+		const hand_shape& update(const hand_shape& target, float seconds, float closing = 0.017f, float opening = 0.05f);
 		const hand_shape& current() const { return current_; }
 		void reset(const hand_shape& to) { current_ = to; started_ = true; }
 

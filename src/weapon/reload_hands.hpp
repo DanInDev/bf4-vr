@@ -69,6 +69,9 @@ namespace bfvr::weapon
 		bool racking{};
 		v3 handle_in_gun;
 		float rack_pull{};
+		// This update the pull reached rack_pull (once per stroke): the rack will count on release.
+		// The rear-stop cue (sound and tick); the release plays the bolt going home.
+		bool rack_at_rear{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;
@@ -117,6 +120,7 @@ namespace bfvr::weapon
 		bool last_grip_{};
 		bool last_button_{};
 		bool racking_{};
+		bool rack_full_{};
 		v3 rack_start_;
 		bool insert_armed_{};
 		q4 held_relative_; // the held magazine's rotation relative to the gun hand

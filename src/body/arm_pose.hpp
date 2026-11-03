@@ -135,4 +135,10 @@ namespace bfvr::body
 	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull);
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();
+	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).
+	void set_gun_recoil(float strength);
+	// Shots the game fired this frame: the drawn gun kicks (the controller and the shot line do not).
+	void kick_gun(int shots);
+	// Pipe "recoil": the current kick.
+	std::string recoil_report();
 }

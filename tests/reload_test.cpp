@@ -740,17 +740,45 @@ namespace
 		f.off_hand = { 0.0f, -0.17f, -0.37f };
 		r = rack_hands.update(ak_gun, f);
 		expect(r.racking && close(r.rack_pull, 0.03f), "the pull follows the hand back along the barrel");
+		expect(!r.rack_at_rear, "a short pull is not at the rear yet");
 		f.off_hand = { 0.0f, -0.17f, -0.20f };
 		r = rack_hands.update(ak_gun, f);
 		expect(close(r.rack_pull, 0.08f), "the pull stops at the slide's travel");
+		expect(r.rack_at_rear, "the rear-stop cue fires when the pull counts");
+		r = rack_hands.update(ak_gun, f);
+		expect(!r.rack_at_rear, "the rear-stop cue fires once per stroke");
 		f.off_hand = { 0.0f, -0.17f, -0.45f };
 		r = rack_hands.update(ak_gun, f);
 		expect(r.rack_pull == 0.0f, "pushing forward does not pull");
-		f.off_hand = { 0.0f, -0.17f, -0.33f }; // pulled 7 cm back toward the shooter
 		f.grip = false;
 		r = rack_hands.update(ak_gun, f);
-		expect(has(r, reload_event::chambered), "AK: rack at the handle above the magazine, pulled back");
+		expect(has(r, reload_event::chambered), "AK: once at the rear, letting go chambers even after riding the handle forward");
 		expect(!r.racking && r.rack_pull == 0.0f, "letting go returns the handle");
+
+		// A stroke that never reached the rear does not rack, and the next stroke starts over.
+		reload short_gun(ak);
+		short_gun.load(0, 60);
+		short_gun.take_from_chest();
+		short_gun.insert();
+		reload_hands short_hands;
+		f.grip = false;
+		f.off_hand = away;
+		short_hands.update(short_gun, f);
+		f.off_hand = { 0.0f, -0.17f, -0.40f };
+		f.grip = true;
+		short_hands.update(short_gun, f);
+		f.off_hand = { 0.0f, -0.17f, -0.375f };
+		r = short_hands.update(short_gun, f);
+		expect(!r.rack_at_rear, "2.5 cm is short of the rear");
+		f.grip = false;
+		r = short_hands.update(short_gun, f);
+		expect(r.count == 0 && !short_gun.state().chamber, "a short stroke does not chamber");
+		f.off_hand = { 0.0f, -0.17f, -0.40f };
+		f.grip = true;
+		short_hands.update(short_gun, f);
+		f.off_hand = { 0.0f, -0.17f, -0.355f };
+		r = short_hands.update(short_gun, f);
+		expect(r.rack_at_rear, "a new full stroke reaches the rear again");
 	}
 
 	// A magazine pushed in slides from the hand into the magwell (no pop), then rides with the gun.

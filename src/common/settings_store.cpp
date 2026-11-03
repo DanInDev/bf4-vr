@@ -54,6 +54,7 @@ namespace bfvr::settings
 			{ "finger_poses", kind::boolean, 0, 0, 0, "1", "", "fingers follow the controller (squeeze, trigger, thumb) and wrap magazines and the charging handle; off = the game's animated hands" },
 			{ "shoulder_width", kind::real, -0.1f, 0.2f, 0.01f, "0", "", "first-person shoulders moved outwards by this, metres per side" },
 			{ "holsters", kind::boolean, 0, 0, 0, "1", "", "weapon holsters on the body: gun hand + grip over the shoulder (primary), at the hip (secondary), chest (knife), belt (gadgets)" },
+			{ "recoil", kind::real, 0.0f, 3.0f, 0.1f, "1", "", "the drawn gun kicks per shot (muzzle up, back along the barrel; softer two-handed), 0 = off; where shots go is unchanged" },
 			{ "melee_gesture", kind::boolean, 0, 0, 0, "1", "", "a quick forward thrust of the gun hand is the game's melee (knife stab)" },
 			{ "knife_grip", kind::boolean, 0, 0, 0, "1", "", "with the knife out, the blade points where the gun-hand controller points (off: the game's knife-hand pose turned by the controller)" },
 			{ "knife_pitch", kind::real, -90.0f, 90.0f, 5.0f, "30", "", "knife_grip: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },

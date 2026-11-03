@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +16,7 @@
 
 #include "body/arm_ik.hpp"
 #include "body/finger_pose.hpp"
+#include "body/gun_recoil.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/fingers.hpp"
@@ -158,6 +160,15 @@ namespace bfvr::body
 		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
 		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
+		std::atomic<float> recoil_strength{ 1.0f }; // live setting recoil
+		std::mutex recoil_lock;
+		gun_recoil recoil;
+		recoil_offset last_kick; // for the pipe report
+
+		double steady_seconds()
+		{
+			return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		}
 		// How far the drawn off hand may slide from where the animation holds the handguard, metres.
 		constexpr float support_slide_back = 0.10f;
 		constexpr float support_slide_forward = 0.20f;
@@ -589,6 +600,27 @@ namespace bfvr::body
 					const float half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
 					const ik::quat level{ std::sin(half), 0, 0, std::cos(half) };
 					goal.hand = frame * ik::normalize(aim) * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
+				}
+				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				{
+					recoil_offset kick;
+					{
+						const std::lock_guard guard(recoil_lock);
+						kick = recoil.at(steady_seconds());
+						last_kick = kick;
+					}
+					if (kick.degrees > 0.0f || kick.back > 0.0f)
+					{
+						// Recoil: the muzzle climbs about the wrist (the controller's right axis) and the gun
+						// comes back along its barrel; a two-handed off hand follows the gun below.
+						const ik::quat held = frame * ik::normalize(aim);
+						const ik::vec3 right = ik::rotate(held, ik::vec3{ 1.0f, 0.0f, 0.0f });
+						const ik::vec3 forward = ik::rotate(held, ik::vec3{ 0.0f, 0.0f, -1.0f });
+						const float half = 0.5f * kick.degrees * 0.017453293f;
+						const float s = std::sin(half);
+						goal.hand = ik::normalize(ik::quat{ right.x * s, right.y * s, right.z * s, std::cos(half) } * goal.hand);
+						goal.wrist = goal.wrist - forward * kick.back;
+					}
 				}
 				const float support = support_weight.load(std::memory_order_relaxed);
 				if (hand == 0 && gun_placed && geometry.valid && support > 0.0f)
@@ -1211,6 +1243,32 @@ namespace bfvr::body
 		gun_on_ray = on_ray;
 	}
 
+	void set_gun_recoil(float strength)
+	{
+		recoil_strength = std::fmax(0.0f, strength);
+		if (!(strength > 0.0f))
+		{
+			const std::lock_guard guard(recoil_lock);
+			recoil.reset();
+		}
+	}
+
+	void kick_gun(int shots)
+	{
+		const float strength = recoil_strength.load(std::memory_order_relaxed);
+		const std::lock_guard guard(recoil_lock);
+		recoil.shot(steady_seconds(), shots, strength, support_weight.load(std::memory_order_relaxed) >= 0.5f);
+	}
+
+	std::string recoil_report()
+	{
+		char text[160];
+		const std::lock_guard guard(recoil_lock);
+		std::snprintf(text, sizeof(text), "recoil strength=%.2f drawn_kick_deg=%.2f drawn_back_m=%.4f now_deg=%.2f",
+			recoil_strength.load(), last_kick.degrees, last_kick.back, recoil.at(steady_seconds()).degrees);
+		return text;
+	}
+
 	void set_gun_in_hand(bool gun)
 	{
 		gun_in_hand = gun;
@@ -1282,10 +1340,10 @@ namespace bfvr::body
 			const fingers::finger_input& in = last_input[hand];
 			const fingers::hand_shape& s = finger_shapes[hand].current();
 			length += std::snprintf(text + length, sizeof(text) - length,
-				"\n%s task=%s input valid=%d squeeze=%.2f trigger=%.2f trigger_touch=%d thumb_touch=%d"
+				"\n%s task=%s input valid=%d squeeze=%.2f trigger=%.2f touch_sensors=%d trigger_touch=%d thumb_touch=%d"
 				" curl thumb..pinky=%.2f %.2f %.2f %.2f %.2f animated=%.2f %.2f %.2f %.2f %.2f index_bend_deg=%.0f %.0f %.0f",
-				hand == 0 ? "off" : "gun", task_name(last_task[hand]), in.valid ? 1 : 0, in.squeeze, in.trigger, in.trigger_touch ? 1 : 0,
-				in.thumb_touch ? 1 : 0, s.curl[0], s.curl[1], s.curl[2], s.curl[3], s.curl[4], s.animated[0], s.animated[1], s.animated[2],
+				hand == 0 ? "off" : "gun", task_name(last_task[hand]), in.valid ? 1 : 0, in.squeeze, in.trigger, in.touch_sensors ? 1 : 0,
+				in.trigger_touch ? 1 : 0, in.thumb_touch ? 1 : 0, s.curl[0], s.curl[1], s.curl[2], s.curl[3], s.curl[4], s.animated[0], s.animated[1], s.animated[2],
 				s.animated[3], s.animated[4], last_index_bend[hand][0] * 57.29578f, last_index_bend[hand][1] * 57.29578f,
 				last_index_bend[hand][2] * 57.29578f);
 		}

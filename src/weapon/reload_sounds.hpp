@@ -11,8 +11,11 @@ namespace bfvr::weapon
 		cloth,
 		magazine_in,
 		magazine_out,
-		chamber,
+		chamber,   // a whole rack: back and home
 		pin,
+		bolt_back, // the charging handle reaching its rear stop
+		bolt_home, // released from the rear: the bolt slams home
+		count,
 	};
 
 	void set_sounds(bool enabled);

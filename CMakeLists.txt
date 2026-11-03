@@ -105,6 +105,7 @@ add_library(bfvr_runtime STATIC
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/body/finger_pose.cpp
+	src/body/gun_recoil.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/constant_patch.cpp
 	src/stereo/eye_math.cpp
@@ -213,6 +214,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_finger_pose_test tests/finger_pose_test.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_finger_pose_test PRIVATE bfvr_common)
 
+	# The drawn gun's kick (src/body/gun_recoil); exits non-zero on failure.
+	add_executable(bfvr_gun_recoil_test tests/gun_recoil_test.cpp src/body/gun_recoil.cpp)
+	target_link_libraries(bfvr_gun_recoil_test PRIVATE bfvr_common)
+
 	# Sound research (re/notes/sound.md): records the default playback device; not a test.
 	add_executable(bfvr_audio_loopback tools/audio_loopback.cpp)
 	target_link_libraries(bfvr_audio_loopback PRIVATE ole32)
@@ -235,6 +240,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
+	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 endif()
 
 # Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.

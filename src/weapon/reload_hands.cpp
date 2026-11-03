@@ -117,6 +117,7 @@ namespace bfvr::weapon
 			if (near_handle)
 			{
 				racking_ = true;
+				rack_full_ = false;
 				rack_start_ = frame.off_hand;
 			}
 			else if (near_magwell)
@@ -169,7 +170,8 @@ namespace bfvr::weapon
 			if (racking_)
 			{
 				racking_ = false;
-				if (valid && dot(frame.off_hand - rack_start_, back) >= config_.rack_pull)
+				// Once at the rear the bolt goes home on release, wherever the hand rode it.
+				if (valid && (rack_full_ || dot(frame.off_hand - rack_start_, back) >= config_.rack_pull))
 				{
 					emit(result, gun.rack());
 				}
@@ -197,6 +199,11 @@ namespace bfvr::weapon
 			result.racking = true;
 			result.handle_in_gun = handle_in_gun;
 			result.rack_pull = std::fmax(0.0f, std::fmin(config_.slide_travel, dot(frame.off_hand - rack_start_, back)));
+			if (!rack_full_ && result.rack_pull >= config_.rack_pull)
+			{
+				rack_full_ = true;
+				result.rack_at_rear = true;
+			}
 		}
 		result.zone_centre[2] = frame.chest;
 		result.zone_reach[2] = config_.reach_chest;

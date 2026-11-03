@@ -73,7 +73,7 @@ namespace
 		expect(angle_between(shaped(animated, middle, 0, item), animated) < 1e-6f, "animated shape leaves the joint alone");
 
 		// The gun hand's index leaves the trigger only when the controller says the finger is off it.
-		finger_input off_trigger{ true, 0.0f, 0.0f, false, true };
+		finger_input off_trigger{ true, 0.0f, 0.0f, false, true, true };
 		const hand_shape grip = shape_for(task::gun_grip, off_trigger);
 		expect(grip.animated[index] == 0.0f && grip.curl[index] < 0.1f, "off the trigger the index straightens");
 		expect(grip.animated[middle] == 1.0f, "the other fingers keep the gun's grip");
@@ -81,16 +81,27 @@ namespace
 		on_trigger.trigger_touch = true;
 		expect(shape_for(task::gun_grip, on_trigger).animated[index] == 1.0f, "on the trigger the index stays animated");
 		expect(shape_for(task::gun_grip, none).animated[index] == 1.0f, "without controller input the grip stays animated");
+		finger_input no_sensors = off_trigger;
+		no_sensors.touch_sensors = false;
+		expect(shape_for(task::gun_grip, no_sensors).animated[index] == 1.0f, "without touch sensors the index stays on the trigger");
 
 		// A free hand follows the squeeze; the index follows the trigger.
-		finger_input open{ true, 0.0f, 0.0f, false, false };
-		finger_input fist{ true, 1.0f, 1.0f, true, true };
+		finger_input open{ true, 0.0f, 0.0f, false, false, true };
+		finger_input fist{ true, 1.0f, 1.0f, true, true, true };
 		const hand_shape a = shape_for(task::free, open);
 		const hand_shape b = shape_for(task::free, fist);
 		expect(a.curl[middle] < 0.2f && b.curl[middle] > 0.9f, "squeeze curls the middle finger");
 		expect(a.curl[index] < 0.2f && b.curl[index] > 0.85f, "trigger curls the index");
 		expect(b.curl[thumb] > a.curl[thumb], "thumb touch curls the thumb");
 		expect(a.animated[middle] == 0.0f, "a free hand is drawn, not animated");
+
+		// Without touch sensors the index follows the trigger with no jump at the first pull.
+		finger_input bare{ true, 0.0f, 0.0f, true, true, false };
+		const float rest = shape_for(task::free, bare).curl[index];
+		bare.trigger = 0.06f;
+		const float first_pull = shape_for(task::free, bare).curl[index];
+		expect(rest > 0.1f && first_pull - rest < 0.06f, "no touch sensors: the index rests half bent and moves smoothly");
+		expect(shape_for(task::free, bare).curl[thumb] < 0.35f, "no touch sensors: a reported thumb touch is ignored");
 
 		// Grips: wrapped around a magazine less than a fist, hooked harder on the handle, open to reach.
 		const hand_shape magazine = shape_for(task::magazine, none);
@@ -163,12 +174,32 @@ namespace
 		for (float& c : closed.curl) c = 1.0f;
 		expect(smoother.update(open, 0.0f).curl[middle] == 0.0f, "the first update takes the target");
 		const float after_one = smoother.update(closed, 0.011f).curl[middle];
-		expect(after_one > 0.05f && after_one < 0.3f, "one frame moves part of the way");
+		expect(after_one > 0.2f && after_one < 0.8f, "one frame moves part of the way");
+		smoother.update(closed, 0.011f);
+		smoother.update(closed, 0.011f);
+		smoother.update(closed, 0.011f);
+		expect(smoother.current().curl[middle] > 0.9f, "closing (onto the trigger, a grab) is 90 % there in about 45 ms");
 		for (int i = 0; i < 60; ++i)
 		{
 			smoother.update(closed, 0.011f);
 		}
 		expect(near(smoother.current().curl[middle], 1.0f, 1e-3f), "settles in well under a second");
+
+		// Opening is slower than closing.
+		const float opened = smoother.update(open, 0.011f).curl[middle];
+		expect(1.0f - opened < after_one, "opening moves less per frame than closing");
+		hand_shape back_on = open;
+		back_on.animated[index] = 1.0f;
+		const float on = smoother.update(back_on, 0.011f).animated[index];
+		expect(on > 0.4f, "returning to the animated grip (the trigger) is a closing move");
+
+		// Frame-rate independent: four 90 Hz frames land where two 45 Hz frames do.
+		shape_smoother fast, slow;
+		fast.update(open, 0.0f);
+		slow.update(open, 0.0f);
+		for (int i = 0; i < 4; ++i) fast.update(closed, 1.0f / 90.0f);
+		for (int i = 0; i < 2; ++i) slow.update(closed, 1.0f / 45.0f);
+		expect(near(fast.current().curl[middle], slow.current().curl[middle], 1e-4f), "same result at any frame rate");
 	}
 }
 
