@@ -46,7 +46,8 @@ Setup page, **Updates?**: asks GitHub for the latest release (only on that click
 ## Release packaging: `tools/package.ps1` (issue #17)
 
 `tools\package.ps1 [-Version 0.1.0] [-NoBuild]` builds `bf4-release` and writes
-`build\package\bf-vr-<version>.zip` (the version defaults to the repository's describe string): `bfvr_launcher.exe`,
+`build\package\bf-vr-<version>.zip` (the version defaults to the CMake project version, with `-dev.<commit>` unless
+HEAD carries the tag `v<version>`): `bfvr_launcher.exe`,
 `dinput8.dll`, `bfvr.ini.example`, `README.txt` and `LICENSE.txt` (from `tools/package/`) and
 `THIRD-PARTY-NOTICES.txt` (MinHook, OpenXR loader and JsonCpp licences from the fetched sources). The contents
 are an allow-list, checked again inside the finished zip: game files, dumps, screenshots, PDBs, `bfvr.ini` and
