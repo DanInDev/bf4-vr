@@ -53,6 +53,8 @@ namespace bfvr::xr
 		XrAction left_stick_click_{ XR_NULL_HANDLE };
 		XrAction right_stick_click_{ XR_NULL_HANDLE };
 		XrAction start_{ XR_NULL_HANDLE };
+		XrAction trigger_touch_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE }; // 0 = left controller, 1 = right
+		XrAction thumb_touch_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 		XrAction grip_pose_{ XR_NULL_HANDLE };
 		XrAction aim_pose_{ XR_NULL_HANDLE };
 		XrAction haptic_{ XR_NULL_HANDLE };

@@ -246,6 +246,11 @@ namespace
 		return { a.x + b.x, a.y + b.y, a.z + b.z };
 	}
 
+	bool close(float a, float b, float tolerance = 1e-4f)
+	{
+		return std::fabs(a - b) <= tolerance;
+	}
+
 	// Positions in metres: gun ahead and below the head, barrel along -z.
 	constexpr v3 magwell{ 0.0f, -0.2f, -0.4f };
 	constexpr v3 slide{ 0.05f, -0.12f, -0.3f };
@@ -306,7 +311,12 @@ namespace
 		r = hands.update(gun, at(chest, true));
 		expect(has(r, reload_event::magazine_taken) && gun.state().held_rounds == 30, "grip at the chest takes a magazine");
 		r = hands.update(gun, at(magwell, true));
-		expect(has(r, reload_event::magazine_in) && r.draw == magazine_draw::with_gun, "bring it to the magwell to insert");
+		expect(has(r, reload_event::magazine_in) && r.draw == magazine_draw::in_hand, "bring it to the magwell to insert; it slides home");
+		for (int i = 0; i < 12; ++i)
+		{
+			r = hands.update(gun, at(magwell, true));
+		}
+		expect(r.draw == magazine_draw::with_gun, "seated with the gun after the slide-in");
 		hands.update(gun, at(away, false));
 		expect(gun.rounds_in_gun() == 31, "chambered round kept: 30+1");
 		hands.update(gun, at(slide, true));
@@ -725,11 +735,47 @@ namespace
 		rack_hands.update(ak_gun, f);
 		f.off_hand = { 0.0f, -0.17f, -0.40f }; // handle: root + (0, 0.03, 0.40) turned
 		f.grip = true;
-		rack_hands.update(ak_gun, f);
+		r = rack_hands.update(ak_gun, f);
+		expect(r.racking && r.rack_pull == 0.0f && close(r.handle_in_gun.z, 0.40f), "racking starts on the handle, nothing pulled yet");
+		f.off_hand = { 0.0f, -0.17f, -0.37f };
+		r = rack_hands.update(ak_gun, f);
+		expect(r.racking && close(r.rack_pull, 0.03f), "the pull follows the hand back along the barrel");
+		f.off_hand = { 0.0f, -0.17f, -0.20f };
+		r = rack_hands.update(ak_gun, f);
+		expect(close(r.rack_pull, 0.08f), "the pull stops at the slide's travel");
+		f.off_hand = { 0.0f, -0.17f, -0.45f };
+		r = rack_hands.update(ak_gun, f);
+		expect(r.rack_pull == 0.0f, "pushing forward does not pull");
 		f.off_hand = { 0.0f, -0.17f, -0.33f }; // pulled 7 cm back toward the shooter
 		f.grip = false;
 		r = rack_hands.update(ak_gun, f);
 		expect(has(r, reload_event::chambered), "AK: rack at the handle above the magazine, pulled back");
+		expect(!r.racking && r.rack_pull == 0.0f, "letting go returns the handle");
+	}
+
+	// A magazine pushed in slides from the hand into the magwell (no pop), then rides with the gun.
+	void test_seating()
+	{
+		reload gun(ar);
+		gun.load(0, 60);
+		gun.press_button(false);
+		reload_hands hands(flat_hold());
+		hands.update(gun, at(chest, true));
+		const v3 hand{ magwell.x, magwell.y - 0.10f, magwell.z };
+		hand_result r = hands.update(gun, at(hand, true));
+		expect(has(r, reload_event::magazine_in) && r.draw == magazine_draw::in_hand, "inserted 10 cm out: drawn sliding");
+		expect(close(r.magazine_position.y, hand.y, 0.03f), "the slide starts at the hand");
+		for (int i = 0; i < 4; ++i)
+		{
+			r = hands.update(gun, at(hand, true));
+		}
+		expect(r.draw == magazine_draw::in_hand && r.magazine_position.y > hand.y + 0.03f && r.magazine_position.y < magwell.y,
+			"half way the magazine is between hand and magwell");
+		for (int i = 0; i < 10; ++i)
+		{
+			r = hands.update(gun, at(hand, true));
+		}
+		expect(r.draw == magazine_draw::with_gun, "then it is the gun's again");
 	}
 }
 
@@ -774,6 +820,7 @@ int main()
 	test_holsters();
 	test_hand_signal();
 	test_hold_and_handle();
+	test_seating();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

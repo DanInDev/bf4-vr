@@ -19,6 +19,7 @@
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "hooks/swap_chain_size.hpp"
+#include "input/fingers.hpp"
 #include "input/gamepad.hpp"
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
@@ -670,6 +671,30 @@ namespace bfvr::control
 				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size());
 			}
 			if (command == "arms") return body::report();
+			if (command == "fingers")
+			{
+				// fingers <off|gun> <squeeze> <trigger> <trigger touch 0|1> <thumb touch 0|1> | fingers <off|gun> live
+				char which[8]{};
+				float squeeze = 0.0f, trigger = 0.0f;
+				int trigger_touch = 0, thumb_touch = 0;
+				const int read = argument.empty() ? 0
+					: sscanf_s(argument.c_str(), "%7s %f %f %d %d", which, static_cast<unsigned>(sizeof(which)), &squeeze, &trigger, &trigger_touch, &thumb_touch);
+				if (read > 0)
+				{
+					if (!config::research_enabled())
+					{
+						return "error: 'fingers <hand> ...' needs research = 1 in bfvr.ini";
+					}
+					const int hand = std::strcmp(which, "gun") == 0 ? 1 : std::strcmp(which, "off") == 0 ? 0 : -1;
+					const bool live = argument.find("live") != std::string::npos;
+					if (hand < 0 || (!live && read < 3))
+					{
+						return "error: usage: fingers <off|gun> <squeeze> <trigger> [trigger_touch 0|1] [thumb_touch 0|1] | fingers <off|gun> live";
+					}
+					input::set_finger_override(hand, !live, { true, squeeze, trigger, trigger_touch != 0, thumb_touch != 0 });
+				}
+				return body::hands_report();
+			}
 			if (command == "gunlook") return body::gun_report() + weapon::two_hand_report();
 			if (command == "armframe")
 			{

@@ -94,6 +94,7 @@ namespace bfvr::core
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));
+			body::set_finger_poses(store.boolean("finger_poses", true));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(store.boolean("knife_grip", true));

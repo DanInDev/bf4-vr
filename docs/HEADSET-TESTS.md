@@ -28,6 +28,22 @@ overlap. Not verifiable on the monitor: everything below that depends on real ha
 | G8 | Grenade: off hand to the belt (22 cm reach), gun hand pulls the pin (14 cm) | Easier to take and arm than before | |
 | G9 | Menu: rows 0a and 0b below (both sticks; is ≡ the SteamVR dashboard?) | | |
 
+**Hands and fingers** (branch `feature/hand-animation` = this test branch + finger poses; its DLL is the one
+deployed since 2026-11-03 afternoon). Monitor-verified with fakehand and pipe `fingers`: open hand at squeeze
+0, fist at 1; a magazine taken from the gun or the pouch sits in the drawn fist (fingers round its body, top
+above the thumb) and goes in from there; the off hand opens inside a grab zone; racking holds the palm on
+the handle and follows a 6 cm pull; the gun hand's index straightens off the trigger (8/10/6° bend) and goes
+back on it at a touch (25/34/95°). Not visible on the monitor: the handle hold's angle, the bolt moving, the
+slide-in of a seated magazine (0.1 s), how it all feels. Off switch: `finger_poses` (Body page).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| H1 | Off hand empty: squeeze the grip slowly, pull the trigger, rest the thumb on a button / lift it | Fingers close with the grip, the index with the trigger, the thumb with the touch; open hand when you let go, no snapping | |
+| H2 | Gun hand: lift the index off the trigger, then touch and pull | The drawn index lies straight along the frame off the trigger and wraps it on a touch | |
+| H3 | Reload: off hand to the magazine (the hand opens on the tick), grip and pull, look at it, turn it | The magazine is in the fist and turns with it; bring it to the magwell: it slides home (no pop) | |
+| H4 | Rack: off hand to the handle, grip, pull back slowly | Palm stays on the handle while you pull; the bolt/handle comes back with it and snaps forward on release. Does the hold sit on the right spot (AK: right side)? | |
+| H5 | Two-handed hold, grenade in the off hand, the knife | Support hand keeps the game's handguard grip; grenade in a closed fist; knife hand as before | |
+
 ## Next — everything since 2026-10-26, on `main`
 
 Build: `main` (all branches merged 2026-10-27). New: two-handed grip (#29), shots converge on the barrel

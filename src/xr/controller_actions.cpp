@@ -7,9 +7,11 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "common/log.hpp"
+#include "input/fingers.hpp"
 #include "input/handedness.hpp"
 
 namespace bfvr::xr
@@ -85,7 +87,48 @@ namespace bfvr::xr
 			{ &start_, "start", XR_ACTION_TYPE_BOOLEAN_INPUT, "/user/hand/left/input/menu/click" },
 		};
 
+		// Finger sensors for the drawn hands: a binding the runtime refuses must not cost the pad, so
+		// they are suggested together first and left out if that fails.
+		const action_spec touch_specs[] = {
+			{ &trigger_touch_[0], "left_trigger_touch", XR_ACTION_TYPE_BOOLEAN_INPUT, "/user/hand/left/input/trigger/touch" },
+			{ &trigger_touch_[1], "right_trigger_touch", XR_ACTION_TYPE_BOOLEAN_INPUT, "/user/hand/right/input/trigger/touch" },
+			{ &thumb_touch_[0], "left_thumb_touch", XR_ACTION_TYPE_BOOLEAN_INPUT, "/user/hand/left/input/thumbstick/touch" },
+			{ &thumb_touch_[1], "right_thumb_touch", XR_ACTION_TYPE_BOOLEAN_INPUT, "/user/hand/right/input/thumbstick/touch" },
+		};
+		const std::pair<XrAction*, const char*> more_thumb_paths[] = {
+			{ &thumb_touch_[0], "/user/hand/left/input/x/touch" },
+			{ &thumb_touch_[0], "/user/hand/left/input/y/touch" },
+			{ &thumb_touch_[0], "/user/hand/left/input/thumbrest/touch" },
+			{ &thumb_touch_[1], "/user/hand/right/input/a/touch" },
+			{ &thumb_touch_[1], "/user/hand/right/input/b/touch" },
+			{ &thumb_touch_[1], "/user/hand/right/input/thumbrest/touch" },
+		};
+
 		std::vector<XrActionSuggestedBinding> bindings;
+		std::vector<XrActionSuggestedBinding> touch_bindings;
+		for (const action_spec& spec : touch_specs)
+		{
+			XrActionCreateInfo info{ XR_TYPE_ACTION_CREATE_INFO };
+			info.actionType = spec.type;
+			strcpy_s(info.actionName, spec.name);
+			strcpy_s(info.localizedActionName, spec.name);
+			XrPath path{};
+			if (!ok(instance, xrCreateAction(action_set_, &info, spec.action), "xrCreateAction")
+				|| !ok(instance, xrStringToPath(instance, spec.path, &path), "xrStringToPath"))
+			{
+				return false;
+			}
+			touch_bindings.push_back({ *spec.action, path });
+		}
+		for (const auto& [action, binding] : more_thumb_paths)
+		{
+			XrPath path{};
+			if (!ok(instance, xrStringToPath(instance, binding, &path), "xrStringToPath"))
+			{
+				return false;
+			}
+			touch_bindings.push_back({ *action, path });
+		}
 		for (const action_spec& spec : specs)
 		{
 			XrActionCreateInfo info{ XR_TYPE_ACTION_CREATE_INFO };
@@ -151,13 +194,21 @@ namespace bfvr::xr
 		{
 			return false;
 		}
+		std::vector<XrActionSuggestedBinding> with_touch = bindings;
+		with_touch.insert(with_touch.end(), touch_bindings.begin(), touch_bindings.end());
 		XrInteractionProfileSuggestedBinding suggested{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
 		suggested.interactionProfile = profile;
-		suggested.countSuggestedBindings = static_cast<std::uint32_t>(bindings.size());
-		suggested.suggestedBindings = bindings.data();
-		if (!ok(instance, xrSuggestInteractionProfileBindings(instance, &suggested), "xrSuggestInteractionProfileBindings"))
+		suggested.countSuggestedBindings = static_cast<std::uint32_t>(with_touch.size());
+		suggested.suggestedBindings = with_touch.data();
+		if (!ok(instance, xrSuggestInteractionProfileBindings(instance, &suggested), "xrSuggestInteractionProfileBindings (finger touch)"))
 		{
-			return false;
+			log::write("controllers: finger touch bindings refused; fingers follow squeeze and trigger only");
+			suggested.countSuggestedBindings = static_cast<std::uint32_t>(bindings.size());
+			suggested.suggestedBindings = bindings.data();
+			if (!ok(instance, xrSuggestInteractionProfileBindings(instance, &suggested), "xrSuggestInteractionProfileBindings"))
+			{
+				return false;
+			}
 		}
 
 		XrSessionActionSetsAttachInfo attach{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
@@ -265,12 +316,24 @@ namespace bfvr::xr
 		pad.left_y = to_axis(move.y);
 		pad.right_x = to_axis(look.x);
 		pad.right_y = to_axis(look.y);
-		pad.left_trigger = to_trigger(read_float(left_trigger_));
-		pad.right_trigger = to_trigger(read_float(right_trigger_));
+		const float triggers[2]{ read_float(left_trigger_), read_float(right_trigger_) };
+		const float squeezes[2]{ read_float(left_grip_), read_float(right_grip_) };
+		pad.left_trigger = to_trigger(triggers[0]);
+		pad.right_trigger = to_trigger(triggers[1]);
+
+		// Rig arm 1 holds the gun: the right controller, or the left one when left-handed.
+		body::fingers::finger_input fingers[2];
+		for (int arm = 0; arm < 2; ++arm)
+		{
+			const int controller = (arm == 1) != input::left_handed() ? 1 : 0;
+			fingers[arm] = { focused_, squeezes[controller], triggers[controller], read_bool(trigger_touch_[controller]),
+				read_bool(thumb_touch_[controller]) };
+		}
+		input::publish_fingers(fingers);
 
 		std::uint16_t buttons = 0;
-		if (held(read_float(left_grip_), left_grip_held_)) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
-		if (held(read_float(right_grip_), right_grip_held_)) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
+		if (held(squeezes[0], left_grip_held_)) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
+		if (held(squeezes[1], right_grip_held_)) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
 		if (read_bool(a_)) buttons |= XINPUT_GAMEPAD_A;
 		if (read_bool(b_)) buttons |= XINPUT_GAMEPAD_B;
 		if (read_bool(x_)) buttons |= XINPUT_GAMEPAD_X;

@@ -35,6 +35,11 @@ namespace bfvr::weapon
 		v3 root;              // the gun's frame (Wep_Root: +z along the barrel, +y up)
 		q4 root_rotation;
 		v3 chest;             // magazine pouch: below the head
+		// Where the drawn fist holds the magazine (top, rotation), when the hand drawing knows; otherwise
+		// the hold offsets below place it from the off hand.
+		bool has_held{};
+		v3 held_top;
+		q4 held_rotation;
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
 	};
@@ -59,6 +64,11 @@ namespace bfvr::weapon
 		v3 zone_centre[3];
 		float zone_reach[3]{};
 		bool has_handle{};
+		// Racking: the off hand holds the charging handle (handle_in_gun, Wep_Root axes when has_root)
+		// and has pulled it this far back along the barrel (0..slide_travel).
+		bool racking{};
+		v3 handle_in_gun;
+		float rack_pull{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;
@@ -86,6 +96,10 @@ namespace bfvr::weapon
 		float magazine_grab_drop{ 0.08f };
 		// Ahead of the magwell along the barrel is the handguard (the two-handed grip), not the magazine.
 		float magazine_ahead_limit{ 0.03f };
+		// How far the charging handle (and the drawn bolt) can come back.
+		float slide_travel{ 0.08f };
+		// A magazine pushed in slides from the hand into the magwell over this long.
+		float seat_seconds{ 0.1f };
 	};
 
 	class reload_hands
@@ -110,5 +124,9 @@ namespace bfvr::weapon
 		float fall_time_{};
 		v3 fall_start_;
 		q4 fall_rotation_;
+		bool seating_{};
+		float seat_time_{};
+		v3 seat_from_;
+		q4 seat_rotation_;
 	};
 }

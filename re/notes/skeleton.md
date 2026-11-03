@@ -109,3 +109,20 @@ controller ray, edge down, the hand keeps the knife's authored grip. Verified: p
 - Left hand on the weapon (`IK_Joint_LeftHand`) for two-handed aiming; shoulder (clavicle) reach;
   tune `arm_ik_wrist` / `arm_ik_pole` in the headset.
 - With `gun_scale` != 1 the drawn arms are scaled about the view and no longer line up with the controllers.
+
+## Fingers (`finger_poses`, 2026-11-03, monitor)
+
+Every finger is `<Left|Right>Hand<Finger>0..4` under the hand bone (Index, Middle, Ring, Pinky: 0 =
+metacarpal, 4 = tip end; Thumb1..4), left 53-76, right 98-121 (`tools/skeleton_probe.py --match LeftHand`
+lists them with the live local pose). Joints 1-3 bend about their local **+z on both hands** (the right
+hand's quaternions come with w < 0: same rotation). Live bends on the AK-12: left hand on the handguard
+62/45/43 deg (middle 1-3), right hand on the pistol grip 83/56/67, its index 25/34/95 (on the trigger).
+The thumb bends at Thumb2/Thumb3; Thumb1 swings it across the palm and is left as animated.
+SkeletonAsset +0x30 is not a QuatTransform bind pose (values read as unit axes); not needed.
+
+`src/body/finger_pose` replaces each joint's twist about z (keeping its spread) with a bend from an
+open/fist range, blended with the animation per finger; `arm_pose` applies it after the arm solve with
+the same "restore what the animation did not rewrite" memory as the arms. A held magazine is placed in
+the drawn fist (grasp frame from Index1, Pinky1, Middle1, Middle3, Thumb3) and published back
+(`weapon_points.held_magazine`), so the reload inserts what is drawn. Racking moves `Wep_Slide` (child
+of `Wep_Root`) back along its local -z by the pull.

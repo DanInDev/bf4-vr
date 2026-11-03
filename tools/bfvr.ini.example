@@ -129,6 +129,10 @@ arm_length = 1.15
 shoulder_width = 0.0
 # First-person legs hidden (they sit oddly under a tracked head).
 hide_legs = 1
+# Fingers: the free hand follows the controller (squeeze, trigger, thumb on a button), wraps a held
+# magazine, hooks the charging handle; the gun hand's index leaves the trigger when you lift it.
+# 0 = the game's animated hands. Pipe `fingers` shows each hand's task and shape.
+finger_poses = 1
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one

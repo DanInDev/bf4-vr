@@ -14,8 +14,10 @@
 #include <MinHook.h>
 
 #include "body/arm_ik.hpp"
+#include "body/finger_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "input/fingers.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/tracking.hpp"
@@ -81,6 +83,8 @@ namespace bfvr::body
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
+			// The bent finger joints per hand (body/finger_pose): index..pinky 1-3, Thumb2-3; <= 0 = none (0 is the root).
+			int finger_bones[2][fingers::count][fingers::joints]{};
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -183,6 +187,28 @@ namespace bfvr::body
 		weapon_points points;
 		magazine_pose magazine_request;
 		bone_memory magazine_memory;
+		// Racking (weapon/physical_reload): the off hand on the charging handle, the slide pulled back.
+		struct handle_hold
+		{
+			float weight{};       // 0..1: how far the drawn hand is on the handle
+			ik::vec3 handle;      // Wep_Root axes
+			float pull{};         // metres back along the barrel; the slide bone moves with it
+		};
+		handle_hold handle_request;
+		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
+		constexpr float held_magazine_drop = 0.07f;
+		bone_memory slide_memory;
+		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
+		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
+		std::atomic<int> off_task{ static_cast<int>(fingers::task::free) };
+		std::atomic<ULONGLONG> off_task_at{};       // a request older than task_max_age_ms counts as free
+		constexpr ULONGLONG task_max_age_ms = 250;
+		bone_memory finger_memory[2][fingers::count][fingers::joints];
+		fingers::shape_smoother finger_shapes[2];
+		fingers::task last_task[2]{ fingers::task::free, fingers::task::item };
+		fingers::finger_input last_input[2];
+		float last_index_bend[2][fingers::joints]{}; // radians, for the report
+		LARGE_INTEGER last_finger_update{};
 
 		std::atomic<std::uint64_t> conversions{};
 		std::atomic<std::uint64_t> matched{};
@@ -209,6 +235,17 @@ namespace bfvr::body
 			{
 				bone.has_written = false;
 			}
+			for (auto& hand : finger_memory)
+			{
+				for (auto& finger : hand)
+				{
+					for (bone_memory& joint : finger)
+					{
+						joint.has_written = false;
+					}
+				}
+			}
+			slide_memory.has_written = false;
 		}
 
 		void forget_rig()
@@ -283,6 +320,29 @@ namespace bfvr::body
 			{
 				fresh.magazine = -1;
 			}
+			if (fresh.slide >= 0 && fresh.parents[fresh.slide] != fresh.weapon)
+			{
+				fresh.slide = -1;
+			}
+			{
+				const char* const sides[2]{ "LeftHand", "RightHand" };
+				const char* const finger_names[fingers::count]{ "Thumb", "Index", "Middle", "Ring", "Pinky" };
+				for (int hand = 0; hand < 2; ++hand)
+				{
+					for (int finger = 0; finger < fingers::count; ++finger)
+					{
+						for (int joint = 0; joint < fingers::joints; ++joint)
+						{
+							// The thumb bends at Thumb2 and Thumb3; the other fingers at 1-3.
+							const int number = finger == fingers::thumb ? joint + 2 : joint + 1;
+							char wanted[48];
+							std::snprintf(wanted, sizeof(wanted), "%s%s%d", sides[hand], finger_names[finger], number);
+							const bool used = finger != fingers::thumb || joint < 2;
+							fresh.finger_bones[hand][finger][joint] = used ? find_bone(bone_names, fresh.bones, wanted) : -1;
+						}
+					}
+				}
+			}
 			fresh.arms[0] = { find_bone(bone_names, fresh.bones, "LeftArm"), find_bone(bone_names, fresh.bones, "LeftForeArm"),
 				find_bone(bone_names, fresh.bones, "LeftHand"), find_bone(bone_names, fresh.bones, "LeftForeArmRoll") };
 			fresh.arms[1] = { find_bone(bone_names, fresh.bones, "RightArm"), find_bone(bone_names, fresh.bones, "RightForeArm"),
@@ -305,6 +365,7 @@ namespace bfvr::body
 				rig = fresh;
 				rig_pose = local_pose;
 				magazine_memory = {};
+				slide_memory = {};
 				points = {};
 				edited_count = 0;
 				for (const ik::arm_bones& arm : rig.arms)
@@ -524,6 +585,15 @@ namespace bfvr::body
 					goal.wrist = goal.wrist + (snapped - goal.wrist) * support;
 					goal.hand = nlerp(goal.hand, gun.rotation * held_at.rotation, support);
 				}
+				if (hand == 0 && gun_placed && handle_request.weight > 0.0f)
+				{
+					// Racking: the palm stays on the charging handle, moved back by the pull, wherever the gun
+					// goes; the hand keeps the controller's rotation.
+					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
+					const ik::vec3 palm_in_rig = camera.position + ik::rotate(frame, palm);
+					goal.wrist = goal.wrist + (on_handle - palm_in_rig) * handle_request.weight;
+				}
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
 				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
@@ -557,6 +627,21 @@ namespace bfvr::body
 			}
 		}
 
+		// Called with rig_lock held: draws the magazine at magazine_request's position (OpenXR LOCAL).
+		void place_requested_magazine(ik::bone_transform* local)
+		{
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const float* p = magazine_request.position;
+			const float* q = magazine_request.rotation;
+			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
+			placed.position = camera.position + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+			placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
+			magazine_memory.written = local[rig.magazine];
+			magazine_memory.has_written = true;
+		}
+
 		// Called with rig_lock held, after edit_arms: publishes the magazine and slide in OpenXR LOCAL
 		// and draws the magazine where physical_reload wants it (in the hand, falling, hidden).
 		void edit_weapon(ik::bone_transform* local)
@@ -576,6 +661,19 @@ namespace bfvr::body
 				magazine_memory.animated = current;
 			}
 			magazine_memory.has_written = false;
+			if (rig.slide >= 0)
+			{
+				ik::bone_transform& slide = local[rig.slide];
+				if (slide_memory.has_written && std::memcmp(&slide, &slide_memory.written, sizeof(slide)) == 0)
+				{
+					slide = slide_memory.animated;
+				}
+				else
+				{
+					slide_memory.animated = slide;
+				}
+				slide_memory.has_written = false;
+			}
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 			const ik::quat frame = camera_frame(camera);
@@ -647,18 +745,153 @@ namespace bfvr::body
 				points.hand_rotation[hand][3] = arm.aim_xr.w;
 			}
 
-			if (!magazine_request.detached)
+			// Racking: the bolt / charging handle comes back with the hand (Wep_Slide hangs from Wep_Root,
+			// so its local -z is back along the barrel). Published above at rest, where the grab is.
+			if (rig.slide >= 0 && handle_request.pull > 0.0f)
+			{
+				local[rig.slide].position.z -= handle_request.pull * handle_request.weight;
+				slide_memory.written = local[rig.slide];
+				slide_memory.has_written = true;
+			}
+
+			if (magazine_request.detached && !magazine_request.in_hand)
+			{
+				place_requested_magazine(local);
+			}
+			// in_hand: placed after the fingers (attach_held_magazine)
+		}
+
+		// What a hand is doing, for its finger shape. An arm the IK left alone keeps the animation's hold.
+		fingers::task task_of(int hand, ULONGLONG now)
+		{
+			if (!last_arms[hand].solved)
+			{
+				return fingers::task::item;
+			}
+			if (hand == 1)
+			{
+				return gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed) ? fingers::task::gun_grip
+					: fingers::task::item;
+			}
+			if (support_weight.load(std::memory_order_relaxed) >= 0.5f)
+			{
+				return fingers::task::support;
+			}
+			return now - off_task_at.load(std::memory_order_relaxed) < task_max_age_ms ? static_cast<fingers::task>(off_task.load(std::memory_order_relaxed))
+				: fingers::task::free;
+		}
+
+		// Called with rig_lock held, after edit_arms: shapes the fingers (finger_poses), eased between tasks.
+		void edit_fingers(ik::bone_transform* local)
+		{
+			// As for the arms: a joint the animation did not rewrite since our last write gets its animated value back.
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				for (int finger = 0; finger < fingers::count; ++finger)
+				{
+					for (int joint = 0; joint < fingers::joints; ++joint)
+					{
+						const int bone = rig.finger_bones[hand][finger][joint];
+						if (bone <= 0)
+						{
+							continue;
+						}
+						bone_memory& remembered = finger_memory[hand][finger][joint];
+						if (remembered.has_written && std::memcmp(&local[bone], &remembered.written, sizeof(local[bone])) == 0)
+						{
+							local[bone] = remembered.animated;
+						}
+						else
+						{
+							remembered.animated = local[bone];
+						}
+						remembered.has_written = false;
+					}
+				}
+			}
+			if (!finger_poses.load(std::memory_order_relaxed))
 			{
 				return;
 			}
-			const float* p = magazine_request.position;
-			const float* q = magazine_request.rotation;
-			ik::bone_transform placed = magazine;
-			placed.position = camera.position + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
-			placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+			LARGE_INTEGER counter{}, frequency{};
+			QueryPerformanceCounter(&counter);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = last_finger_update.QuadPart
+				? std::fmin(static_cast<float>(counter.QuadPart - last_finger_update.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+			last_finger_update = counter;
+			input::latest_fingers(last_input);
+			const ULONGLONG now = GetTickCount64();
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				last_task[hand] = task_of(hand, now);
+				const fingers::hand_shape& shape = finger_shapes[hand].update(fingers::shape_for(last_task[hand], last_input[hand]), seconds);
+				for (int finger = 0; finger < fingers::count; ++finger)
+				{
+					for (int joint = 0; joint < fingers::joints; ++joint)
+					{
+						const int bone = rig.finger_bones[hand][finger][joint];
+						if (bone <= 0)
+						{
+							continue;
+						}
+						local[bone].rotation = fingers::shaped(local[bone].rotation, static_cast<fingers::finger>(finger), joint, shape);
+						if (finger == fingers::index)
+						{
+							last_index_bend[hand][joint] = fingers::bend_of(local[bone].rotation);
+						}
+						finger_memory[hand][finger][joint].written = local[bone];
+						finger_memory[hand][finger][joint].has_written = true;
+					}
+				}
+			}
+		}
+
+		// Called with rig_lock held, after edit_fingers: a held magazine sits in the drawn off hand's fist
+		// as it sits in the gun, with the fist's grasp frame in the gun's place, and is published for the
+		// reload (what you see is what goes into the magwell).
+		void attach_held_magazine(ik::bone_transform* local)
+		{
+			points.has_held = false;
+			if (!magazine_request.detached || !magazine_request.in_hand || rig.magazine < 0 || rig.weapon < 0)
+			{
+				return;
+			}
+			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[0];
+			const int needed[] = { bones[fingers::index][0], bones[fingers::pinky][0], bones[fingers::middle][0], bones[fingers::middle][2], bones[fingers::thumb][1] };
+			bool complete = last_arms[0].solved;
+			for (const int bone : needed)
+			{
+				complete = complete && bone > 0;
+			}
+			const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
+			const fingers::grasp fist = complete ? fingers::grasp_of(at(needed[0]), at(needed[1]), at(needed[2]), at(needed[3]), at(needed[4])) : fingers::grasp{};
+			if (!fist.valid)
+			{
+				place_requested_magazine(local); // no drawn fist: where the reload put it from the controller
+				return;
+			}
+			// The magazine relative to the gun as seated (local is the animation's here), placed in the fist's frame.
+			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
+			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
+			placed.rotation = ik::normalize(fist.frame * seated);
+			placed.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f });
+			ik::bone_transform& current = local[rig.magazine];
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = current;
 			magazine_memory.has_written = true;
+
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat to_xr = ik::conjugate(camera_frame(camera));
+			const ik::vec3 top = ik::rotate(to_xr, placed.position - camera.position);
+			const ik::quat rotation = to_xr * placed.rotation;
+			points.has_held = true;
+			points.held_magazine[0] = top.x;
+			points.held_magazine[1] = top.y;
+			points.held_magazine[2] = top.z;
+			points.held_rotation[0] = rotation.x;
+			points.held_rotation[1] = rotation.y;
+			points.held_rotation[2] = rotation.z;
+			points.held_rotation[3] = rotation.w;
 		}
 
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
@@ -751,6 +984,8 @@ namespace bfvr::body
 					}
 					edit_arms(local);
 					edit_weapon(local);
+					edit_fingers(local);
+					attach_held_magazine(local);
 				}
 			}
 			original_conversion(pose);
@@ -953,6 +1188,72 @@ namespace bfvr::body
 	void set_support_hand(float weight)
 	{
 		support_weight = std::fmax(0.0f, std::fmin(1.0f, weight));
+	}
+
+	void set_finger_poses(bool enabled)
+	{
+		finger_poses = enabled;
+	}
+
+	void set_off_hand_task(fingers::task task)
+	{
+		off_task = static_cast<int>(task);
+		off_task_at = GetTickCount64();
+	}
+
+	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull)
+	{
+		const std::lock_guard guard(rig_lock);
+		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
+		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
+		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	std::string hands_report()
+	{
+		const std::lock_guard guard(rig_lock);
+		const auto task_name = [](fingers::task task)
+		{
+			switch (task)
+			{
+			case fingers::task::free: return "free";
+			case fingers::task::item: return "item";
+			case fingers::task::gun_grip: return "gun_grip";
+			case fingers::task::support: return "support";
+			case fingers::task::magazine: return "magazine";
+			case fingers::task::handle: return "handle";
+			case fingers::task::reach: return "reach";
+			}
+			return "?";
+		};
+		int found = 0;
+		for (const auto& hand : rig.finger_bones)
+		{
+			for (const auto& finger : hand)
+			{
+				for (const int bone : finger)
+				{
+					found += bone > 0 ? 1 : 0;
+				}
+			}
+		}
+		char text[1024];
+		int length = std::snprintf(text, sizeof(text), "finger_poses=%d joints=%d handle_hold=%.2f pull=%.3f handle=(%.3f,%.3f,%.3f)",
+			finger_poses.load() ? 1 : 0, found, handle_request.weight, handle_request.pull, handle_request.handle.x, handle_request.handle.y,
+			handle_request.handle.z);
+		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
+		{
+			const fingers::finger_input& in = last_input[hand];
+			const fingers::hand_shape& s = finger_shapes[hand].current();
+			length += std::snprintf(text + length, sizeof(text) - length,
+				"\n%s task=%s input valid=%d squeeze=%.2f trigger=%.2f trigger_touch=%d thumb_touch=%d"
+				" curl thumb..pinky=%.2f %.2f %.2f %.2f %.2f animated=%.2f %.2f %.2f %.2f %.2f index_bend_deg=%.0f %.0f %.0f",
+				hand == 0 ? "off" : "gun", task_name(last_task[hand]), in.valid ? 1 : 0, in.squeeze, in.trigger, in.trigger_touch ? 1 : 0,
+				in.thumb_touch ? 1 : 0, s.curl[0], s.curl[1], s.curl[2], s.curl[3], s.curl[4], s.animated[0], s.animated[1], s.animated[2],
+				s.animated[3], s.animated[4], last_index_bend[hand][0] * 57.29578f, last_index_bend[hand][1] * 57.29578f,
+				last_index_bend[hand][2] * 57.29578f);
+		}
+		return text;
 	}
 
 	bool support_offset(float (&offset)[2])

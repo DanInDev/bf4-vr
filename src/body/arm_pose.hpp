@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "body/finger_pose.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::body
@@ -72,13 +73,20 @@ namespace bfvr::body
 		float hand[2][3]{};    // wrist goals (drawn hands)
 		float palm[2][3]{};    // the controllers' grip points (palms) in the same space: where grabs are measured
 		float hand_rotation[2][4]{};
+		// A magazine held in the off hand (magazine_pose in_hand): its top (Wep_Mag) and rotation where
+		// the drawn fist holds it, OpenXR LOCAL.
+		bool has_held{};
+		float held_magazine[3]{};
+		float held_rotation[4]{ 0, 0, 0, 1 };
 	};
 	weapon_points latest_weapon_points();
 
-	// Where to draw the magazine: with the gun (detached = false) or at a pose in OpenXR LOCAL.
+	// Where to draw the magazine: with the gun (detached = false), in the drawn off hand's fist
+	// (in_hand), or at a pose in OpenXR LOCAL.
 	struct magazine_pose
 	{
 		bool detached{};
+		bool in_hand{};
 		float position[3]{};
 		float rotation[4]{ 0, 0, 0, 1 };
 	};
@@ -111,4 +119,16 @@ namespace bfvr::body
 	bool support_offset(float (&offset)[2]);
 	// The drawn wrist for a controller grip pose (0 = left rig arm, 1 = right), OpenXR LOCAL.
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3]);
+
+	// Live setting finger_poses: the fingers follow the controller and what the hands hold
+	// (body/finger_pose); off = as the game animated them.
+	void set_finger_poses(bool enabled);
+	// What the off hand holds (magazine, charging handle, reaching for a grab); refresh every frame,
+	// a request older than 250 ms counts as free. The two-handed hold and the gun hand are decided here.
+	void set_off_hand_task(fingers::task task);
+	// Racking: the drawn off hand on the charging handle (Wep_Root axes, metres), weight 0..1, and the
+	// bolt / handle pulled this far back along the barrel. weight 0 = off.
+	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull);
+	// Pipe "fingers": each hand's task, controller reading and shape.
+	std::string hands_report();
 }

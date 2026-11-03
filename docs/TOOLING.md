@@ -134,6 +134,7 @@ Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
 | `tools/object_probe.py <addr> [--deref] [--depth 1]` | Live: class of an object and of every typed object it points to |
 | `tools/global_scan.py [--filter Soldier]` | Live: typed objects reachable from `.data` globals, one level through untyped managers; saves `re/dumps/globals-live.json` |
 | `tools/matrix_search.py [--save f] [--compare a b]` | Live: every copy of the camera rotation (rows or transposed) reachable from renderer, camera manager and soldier; compare two runs (e.g. with a `view`/`tshift` change) |
+| `tools/skeleton_probe.py [--match Hand]` (run from `tools\`) | Live: the first-person skeleton's bones (index, parent, name); with `--match`, the live local pose of the matching bones (fingers: re/notes/skeleton.md) |
 | `tools/aim_probe.py [--axis yaw\|pitch] [--static]` | Live: turns with the `pad` stick and lists floats (soldier/camera manager, 2 hops deep) whose change equals the camera's yaw or pitch change |
 
 REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline. The user

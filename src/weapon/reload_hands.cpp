@@ -8,6 +8,7 @@ namespace bfvr::weapon
 	{
 		v3 operator-(v3 a, v3 b) { return { a.x - b.x, a.y - b.y, a.z - b.z }; }
 		v3 operator+(v3 a, v3 b) { return { a.x + b.x, a.y + b.y, a.z + b.z }; }
+		v3 operator*(v3 a, float s) { return { a.x * s, a.y * s, a.z * s }; }
 		float dot(v3 a, v3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 		float distance(v3 a, v3 b) { return std::sqrt(dot(a - b, a - b)); }
 
@@ -23,6 +24,14 @@ namespace bfvr::weapon
 		{
 			const q4 p = multiply(multiply(q, { v.x, v.y, v.z, 0 }), conjugate(q));
 			return { p.x, p.y, p.z };
+		}
+
+		q4 nlerp(q4 a, q4 b, float t)
+		{
+			const float s = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w < 0 ? -1.0f : 1.0f;
+			q4 q{ a.x + (s * b.x - a.x) * t, a.y + (s * b.y - a.y) * t, a.z + (s * b.z - a.z) * t, a.w + (s * b.w - a.w) * t };
+			const float length = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+			return length > 1e-6f ? q4{ q.x / length, q.y / length, q.z / length, q.w / length } : b;
 		}
 	}
 
@@ -66,19 +75,22 @@ namespace bfvr::weapon
 		// The charging handle: from the gun frame per variant, else the slide bone.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
+		const v3 handle_in_gun = ak ? config_.handle_ak : config_.handle_ar;
 		if (frame.has_root)
 		{
-			handle = frame.root + rotate(frame.root_rotation, ak ? config_.handle_ak : config_.handle_ar);
+			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
 			handle_reach = config_.reach_handle;
 		}
+		// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
+		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle) : 1e9f;
 		// Zones overlap on small guns: the nearest one wins.
 		const bool near_magwell = to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
 		const bool near_chest = to_chest < config_.reach_chest;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
-		const q4 held_rotation = multiply(frame.off_rotation, held_relative_);
-		const v3 held_top = frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
+		const q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
+		const v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
 		const bool held_at_magwell = valid && distance(held_top, frame.magwell) < config_.reach_magazine;
 		const auto start_holding = [&](bool armed)
 		{
@@ -141,6 +153,13 @@ namespace bfvr::weapon
 				{
 					start_fall(frame.magwell, frame.magazine_rotation);
 				}
+				else if (event == reload_event::magazine_in)
+				{
+					seating_ = true;
+					seat_time_ = 0.0f;
+					seat_from_ = held_top;
+					seat_rotation_ = held_rotation;
+				}
 				emit(result, event);
 			}
 		}
@@ -150,8 +169,6 @@ namespace bfvr::weapon
 			if (racking_)
 			{
 				racking_ = false;
-				// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
-				const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 				if (valid && dot(frame.off_hand - rack_start_, back) >= config_.rack_pull)
 				{
 					emit(result, gun.rack());
@@ -175,6 +192,12 @@ namespace bfvr::weapon
 		result.zone_centre[1] = handle;
 		result.zone_reach[1] = handle_reach;
 		result.has_handle = frame.has_root || frame.has_slide;
+		if (racking_ && valid)
+		{
+			result.racking = true;
+			result.handle_in_gun = handle_in_gun;
+			result.rack_pull = std::fmax(0.0f, std::fmin(config_.slide_travel, dot(frame.off_hand - rack_start_, back)));
+		}
 		result.zone_centre[2] = frame.chest;
 		result.zone_reach[2] = config_.reach_chest;
 		if (!gun.state().holding && !racking_ && !frame.grip)
@@ -192,6 +215,23 @@ namespace bfvr::weapon
 		else if (gun.state().magazine_in)
 		{
 			result.draw = magazine_draw::with_gun;
+			if (seating_ && valid)
+			{
+				// Pushed home: from where the hand let it go into the magwell, easing in.
+				seat_time_ += frame.seconds;
+				const float t = config_.seat_seconds > 0.0f ? std::fmin(1.0f, seat_time_ / config_.seat_seconds) : 1.0f;
+				if (t < 1.0f)
+				{
+					const float eased = t * t * (3.0f - 2.0f * t);
+					result.draw = magazine_draw::in_hand;
+					result.magazine_position = seat_from_ + (frame.magwell - seat_from_) * eased;
+					result.magazine_rotation = nlerp(seat_rotation_, frame.magazine_rotation, eased);
+				}
+				else
+				{
+					seating_ = false;
+				}
+			}
 		}
 		else
 		{
