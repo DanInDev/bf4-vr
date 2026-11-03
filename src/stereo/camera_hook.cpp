@@ -106,7 +106,8 @@ namespace bfvr::stereo
 		std::atomic<float> stance_lift{};
 		std::atomic<int> stance_wanted{};
 
-		// The game camera's height above the local soldier's feet (VeniceClientSoldierCameraComponent +0x80).
+		// The game camera's height above the local soldier's feet: the first-person animatable component
+		// (soldier +0x1E8) keeps the body's world transform at +0x90, translation = feet (+0xC0).
 		bool eye_above_feet(const std::uint8_t* view, float& height)
 		{
 			std::uintptr_t soldier{}, component{};
@@ -114,8 +115,8 @@ namespace bfvr::stereo
 			SIZE_T done = 0;
 			const HANDLE self = GetCurrentProcess();
 			if (!ReadProcessMemory(self, reinterpret_cast<LPCVOID>(static_cast<std::uintptr_t>(0x14230f260ull)), &soldier, sizeof(soldier), &done) || !soldier
-				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(soldier + 0x1f8), &component, sizeof(component), &done) || !component
-				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(component + 0x80), feet, sizeof(feet), &done))
+				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(soldier + 0x1e8), &component, sizeof(component), &done) || !component
+				|| !ReadProcessMemory(self, reinterpret_cast<LPCVOID>(component + 0xc0), feet, sizeof(feet), &done))
 			{
 				return false;
 			}
@@ -149,9 +150,10 @@ namespace bfvr::stereo
 				stance_lift = 0.0f;
 				return 0.0f;
 			}
-			if (input::game_stance() == 0)
+			if (input::game_stance() == 0 && eye > 1.4f && eye < 1.7f)
 			{
-				standing_eye += (eye - standing_eye) * std::fmin(1.0f, seconds * 2.0f); // learns this soldier's standing eye
+				// Learns this soldier's standing eye; readings mid stand-up (stance already 0) are below the range.
+				standing_eye += (eye - standing_eye) * std::fmin(1.0f, seconds * 2.0f);
 			}
 			const float lift = std::fmax(0.0f, std::fmin(1.5f, standing_eye - eye));
 			stance_lift = lift;

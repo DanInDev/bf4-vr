@@ -83,7 +83,7 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
   (the game's camera kick).
 - The death is not a detached camera: the camera stays on the soldier's head as it falls (height above
   the feet 1.57 -> 0.67 m, 0.5 m sideways) and turns 66-74 deg away from the aimer; health (soldier
-  +0x140 -> +0x20) reads 0 at once. Then the loading screen (menu camera).
+  +0x140 -> +0x20) reads 0 at once. (Heights here were read against camera component +0x80 before it walked; that is the spawn spot, not the feet.) Then the loading screen (menu camera).
 - BF4's campaign cutscenes are mostly first-person in-engine scenes with the camera on the animated
   head, so the same signal applies: `stereo/scripted_view` calls a frame scripted when the soldier is
   dead or absent, or the camera has been more than 10 deg off the aim for 0.25 s (back below 4 deg for
@@ -92,7 +92,7 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
 
 ## Eye heights per stance and physical stance (2026-11-03, monitor)
 
-The game camera above the soldier's feet: stand 1.565 m, crouch 0.955 m, prone ~0.30 m (physical stance
+The game camera above the soldier's feet (first-person animatable component soldier +0x1E8, transform +0x90, translation +0xC0; camera component +0x80 does not follow the soldier, which an earlier version used): stand 1.565 m, crouch 0.955 m, prone ~0.30 m (physical stance
 lifts the eye by the difference, measured live: 0.61 and 1.26 m). With `physical_stance` on and a fake
 head at -0.45 / -1.10 / -0.50 / 0 m the soldier went crouch / prone / crouch / stand within the 0.25 s
 hold plus a press, and the view stayed at standing minus the real drop (1.115 / 0.465 / 1.065 / 1.565 m).
