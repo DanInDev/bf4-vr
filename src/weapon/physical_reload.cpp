@@ -26,7 +26,9 @@
 #include "weapon/reload_hands.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/grab_debug.hpp"
+#include "weapon/body_rig.hpp"
 #include "weapon/reload_sounds.hpp"
+#include "weapon/weapon_swap.hpp"
 
 namespace bfvr::weapon
 {
@@ -354,25 +356,7 @@ namespace bfvr::weapon
 		// The magazine pouch: 35 cm below the head, 10 cm ahead along the head's yaw.
 		bool chest_point(weapon::v3& chest)
 		{
-			const stereo::head_sample head = stereo::latest_head_sample();
-			if (!head.valid)
-			{
-				return false;
-			}
-			const float* l = head.eyes[0].position;
-			const float* r = head.eyes[1].position;
-			const float* o = head.eyes[0].orientation;
-			// Forward (-z) of the head rotation, flattened.
-			float fx = -2.0f * (o[0] * o[2] + o[1] * o[3]);
-			float fz = -(1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
-			const float length = std::sqrt(fx * fx + fz * fz);
-			if (length > 1e-4f)
-			{
-				fx /= length;
-				fz /= length;
-			}
-			chest = { 0.5f * (l[0] + r[0]) + 0.10f * fx, 0.5f * (l[1] + r[1]) - 0.35f, 0.5f * (l[2] + r[2]) + 0.10f * fz };
-			return true;
+			return weapon::body_rig_point(weapon::magazine_pouch, chest);
 		}
 	}
 

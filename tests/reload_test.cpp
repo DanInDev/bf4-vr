@@ -11,6 +11,7 @@
 #include "weapon/accessory_touch.hpp"
 #include "weapon/grenade_hands.hpp"
 #include "weapon/hand_signal.hpp"
+#include "weapon/body_rig.hpp"
 #include "weapon/holsters.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
@@ -619,9 +620,10 @@ namespace
 		holsters h;
 		expect(draw_at(h, frame, { 0.2f, 0.05f, 0.15f }) == holster::primary, "over the right shoulder: primary");
 		expect(draw_at(h, frame, { 0.24f, -0.72f, 0.02f }) == holster::secondary, "right hip: secondary");
-		expect(draw_at(h, frame, { -0.12f, -0.3f, -0.12f }) == holster::knife, "left chest: knife");
-		expect(draw_at(h, frame, { -0.2f, -0.7f, -0.05f }) == holster::gadget1, "left belt front: gadget 1");
-		expect(draw_at(h, frame, { -0.2f, -0.7f, 0.18f }) == holster::gadget2, "left belt back: gadget 2");
+		expect(draw_at(h, frame, { -0.10f, -0.27f, -0.10f }) == holster::knife, "high left chest: knife");
+		expect(draw_at(h, frame, { -0.2f, 0.05f, 0.15f }) == holster::gadget1, "over the left shoulder: gadget 1");
+		expect(draw_at(h, frame, { -0.22f, -0.72f, 0.02f }) == holster::gadget2, "left hip: gadget 2");
+		expect(draw_at(h, frame, magazine_pouch) == holster::none && draw_at(h, frame, grenade_pouch) == holster::none, "the off hand's pouches are no holsters");
 		expect(draw_at(h, frame, { 0.15f, -0.25f, -0.35f }) == holster::none, "aiming position: nothing");
 		frame.gun_hand = { 0.15f, -0.25f, -0.35f };
 		frame.gun_grip = true;
@@ -635,7 +637,7 @@ namespace
 		left.left_handed = true;
 		holsters mirrored;
 		expect(draw_at(mirrored, left, { -0.2f, 0.05f, 0.15f }) == holster::primary, "left-handed: primary over the left shoulder");
-		expect(draw_at(mirrored, left, { 0.12f, -0.3f, -0.12f }) == holster::knife, "left-handed: knife on the right chest");
+		expect(draw_at(mirrored, left, { 0.10f, -0.27f, -0.10f }) == holster::knife, "left-handed: knife on the right chest");
 
 		holsters turning;
 		holster_frame turn = frame;
@@ -662,10 +664,42 @@ namespace
 		mirrored_ring.gun_hand = { 5.0f, 5.0f, 5.0f };
 		holsters mirrored_rings;
 		const holster_result left_rings = mirrored_rings.update(mirrored_ring);
-		expect(left_rings.has_centres && std::fabs(left_rings.centres[2].x - 0.12f) < 1e-4f, "left-handed: the knife ring on the right chest");
+		expect(left_rings.has_centres && std::fabs(left_rings.centres[2].x - 0.10f) < 1e-4f, "left-handed: the knife ring on the right chest");
 		holster_frame blind = frame;
 		blind.head_valid = false;
 		expect(draw_at(h, blind, { 0.2f, 0.05f, 0.15f }) == holster::none, "no head tracking: no holsters");
+
+		// The off hand draws the gadgets on its side, and only while it is free.
+		const auto off_draw = [](holsters& zones, holster_frame f, v3 hand, bool busy)
+		{
+			f.hand_valid = false;
+			f.off_hand_valid = true;
+			f.off_hand = hand;
+			f.off_busy = busy;
+			f.off_grip = false;
+			zones.update(f);
+			f.off_grip = true;
+			const holster drawn = zones.update(f).draw;
+			f.off_grip = false;
+			zones.update(f);
+			return drawn;
+		};
+		holsters off;
+		expect(off_draw(off, frame, { -0.2f, 0.05f, 0.15f }, false) == holster::gadget1, "off hand over its shoulder: gadget 1");
+		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, false) == holster::gadget2, "off hand at its hip: gadget 2");
+		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, true) == holster::none, "a busy off hand draws nothing");
+		expect(off_draw(off, frame, { 0.2f, 0.05f, 0.15f }, false) == holster::none, "the primary is the gun hand's");
+		expect(off_draw(off, frame, { -0.10f, -0.27f, -0.10f }, false) == holster::none, "the knife is the gun hand's (cross draw)");
+
+		// Chest rig: the pouches sit in the body frame, apart from each other and from the off hand's holsters.
+		const v3 head{ 0.1f, 1.6f, -0.2f };
+		const v3 pouch = body_point(head, 1.5707963f, grenade_pouch, false);
+		expect(std::fabs(pouch.x - (head.x + grenade_pouch.z)) < 1e-5f && std::fabs(pouch.z - (head.z - grenade_pouch.x)) < 1e-5f,
+			"body turned left 90 degrees: the pouch offsets turn with it");
+		const auto gap = [](v3 a, v3 b) { return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)); };
+		const hand_config reach;
+		const grenade_config grenade_reach;
+		expect(gap(grenade_pouch, magazine_pouch) > reach.reach_chest + grenade_reach.reach_belt, "grenade and magazine pouches do not overlap");
 	}
 	void test_hand_signal()
 	{

@@ -69,6 +69,12 @@ namespace bfvr::body
 		float root_rotation[4]{ 0, 0, 0, 1 };
 		bool has_optic{};
 		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
+		// The sight line: the game's animation keeps the camera joint on the gun's sight, so the camera
+		// in Wep_Root axes is where the eye sits behind the sight and where the sight looks (smoothed
+		// over the animation's sway). sight_eye in OpenXR LOCAL, sight_direction in Wep_Root axes.
+		bool has_sight{};
+		float sight_eye[3]{};
+		float sight_direction[3]{ 0, 0, 1 };
 		bool has_rail{};
 		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
 		bool has_support{};

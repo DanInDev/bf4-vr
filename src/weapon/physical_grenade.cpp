@@ -17,7 +17,9 @@
 #include "input/haptics.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grenade_hands.hpp"
+#include "weapon/body_rig.hpp"
 #include "weapon/reload_sounds.hpp"
+#include "weapon/weapon_swap.hpp"
 
 namespace bfvr::weapon
 {
@@ -227,24 +229,7 @@ namespace bfvr::weapon
 		// The grenade pouch: 70 cm below the head, 10 cm ahead along the head's yaw.
 		bool belt_point(weapon::v3& belt)
 		{
-			const stereo::head_sample head = stereo::latest_head_sample();
-			if (!head.valid)
-			{
-				return false;
-			}
-			const float* l = head.eyes[0].position;
-			const float* r = head.eyes[1].position;
-			const float* o = head.eyes[0].orientation;
-			float fx = -2.0f * (o[0] * o[2] + o[1] * o[3]);
-			float fz = -(1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
-			const float length = std::sqrt(fx * fx + fz * fz);
-			if (length > 1e-4f)
-			{
-				fx /= length;
-				fz /= length;
-			}
-			belt = { 0.5f * (l[0] + r[0]) + 0.10f * fx, 0.5f * (l[1] + r[1]) - 0.70f, 0.5f * (l[2] + r[2]) + 0.10f * fz };
-			return true;
+			return weapon::body_rig_point(weapon::grenade_pouch, belt);
 		}
 
 		const char* event_name(grenade_event event)

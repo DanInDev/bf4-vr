@@ -3,6 +3,7 @@
 #include <string>
 
 #include "input/gamepad.hpp"
+#include "weapon/reload_hands.hpp"
 
 // Weapon swapping in the game (docs/tasks/weapon-swap.md, holsters = 1): the gun hand's grip in a
 // body holster (weapon/holsters) selects that weapon through the game's own slot keys (1 primary,
@@ -27,6 +28,14 @@ namespace bfvr::weapon
 
 	// Present thread, once per frame.
 	void update_weapon_swap();
+
+	// The holsters' lazy body yaw (radians, 0 = facing -z, + = left) for the chest rig's pouches;
+	// false while the holsters are off or the head was never tracked.
+	bool body_yaw(float& yaw);
+
+	// A chest rig point (weapon/body_rig: body frame offset from the head) in OpenXR LOCAL, in the
+	// holsters' body frame (the head's yaw while there is none); false without head tracking.
+	bool body_rig_point(const v3& offset, v3& point);
 
 	// XInput hook thread: the gun-hand grip (RB) stays ours while the hand is in a holster, the
 	// off-hand grip (LB) while the off hand gives the squad signal; adds the melee gesture's

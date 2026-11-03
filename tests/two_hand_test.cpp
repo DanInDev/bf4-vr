@@ -298,6 +298,15 @@ namespace
 		const float target[3]{ sight[0] + along.x * 25.0f, sight[1] + along.y * 25.0f, sight[2] + along.z * 25.0f };
 		const float length = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 		expect(near(direction[0], target[0] / length, 1e-4f) && near(direction[1], target[1] / length, 1e-4f), "shots meet the drawn sight line 25 m out");
+
+		// A sight line 1.4 degrees right of and 0.7 degrees below the barrel (AK-12, measured): the line
+		// follows the sight, turned with the gun.
+		const float sight_direction[3]{ -0.0244f, -0.0122f, 0.99963f };
+		drawn_barrel_rotation(root_rotation, rotation, sight_direction);
+		const body::ik::vec3 sighted = body::ik::rotate(root, body::ik::normalize(body::ik::vec3{ sight_direction[0], sight_direction[1], sight_direction[2] }));
+		const body::ik::vec3 line = body::ik::rotate(quat{ rotation[0], rotation[1], rotation[2], rotation[3] }, { 0, 0, -1 });
+		expect(near(sighted.x, line.x, 1e-4f) && near(sighted.y, line.y, 1e-4f) && near(sighted.z, line.z, 1e-4f), "the line follows the sight, not the barrel");
+		expect(body::ik::dot(line, barrel) < std::cos(0.02f), "the sight line differs from the barrel");
 	}
 }
 

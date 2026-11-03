@@ -32,7 +32,11 @@ namespace bfvr::weapon
 		holster_result result;
 		const bool pressed = frame.gun_grip && !last_grip_;
 		last_grip_ = frame.gun_grip;
-		if (!frame.head_valid || !frame.hand_valid)
+		const bool off_pressed = frame.off_grip && !last_off_grip_;
+		last_off_grip_ = frame.off_grip;
+		const bool gun_hand = frame.hand_valid;
+		const bool off_hand = frame.off_hand_valid && !frame.off_busy;
+		if (!frame.head_valid || (!gun_hand && !off_hand))
 		{
 			return result;
 		}
@@ -56,9 +60,14 @@ namespace bfvr::weapon
 		// Body axes in OpenXR LOCAL: forward = (-sin, 0, -cos) of the yaw, right = (cos, 0, -sin).
 		const float s = std::sin(body_yaw_), c = std::cos(body_yaw_);
 		const float side = frame.left_handed ? -1.0f : 1.0f;
-		float best = 1e9f;
+		float best = 1e9f, off_best = 1e9f;
 		result.has_centres = true;
 		int index = 0;
+		const auto distance = [](const v3& a, const v3& b)
+		{
+			const float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+			return std::sqrt(dx * dx + dy * dy + dz * dz);
+		};
 		for (const holster_zone& zone : config_.zones)
 		{
 			const float x = zone.offset.x * side; // toward the gun side
@@ -66,17 +75,32 @@ namespace bfvr::weapon
 			const v3 at{ frame.head.x + x * c + z * s, frame.head.y + zone.offset.y, frame.head.z - x * s + z * c };
 			result.centres[index] = at;
 			result.radii[index++] = zone.radius;
-			const float dx = frame.gun_hand.x - at.x, dy = frame.gun_hand.y - at.y, dz = frame.gun_hand.z - at.z;
-			const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-			if (distance < zone.radius && distance < best)
+			if (gun_hand)
 			{
-				best = distance;
-				result.zone = zone.which;
+				const float d = distance(frame.gun_hand, at);
+				if (d < zone.radius && d < best)
+				{
+					best = d;
+					result.zone = zone.which;
+				}
+			}
+			if (off_hand && zone.off_hand)
+			{
+				const float d = distance(frame.off_hand, at);
+				if (d < zone.radius && d < off_best)
+				{
+					off_best = d;
+					result.off_zone = zone.which;
+				}
 			}
 		}
-		if (pressed)
+		if (pressed && result.zone != holster::none)
 		{
 			result.draw = result.zone;
+		}
+		else if (off_pressed && result.off_zone != holster::none)
+		{
+			result.draw = result.off_zone;
 		}
 		return result;
 	}

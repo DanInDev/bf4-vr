@@ -85,7 +85,7 @@ namespace bfvr::weapon
 	{
 		float reach_magazine{ 0.10f }; // off hand this close to the magwell grabs / catches; a held magazine this close seats
 		float reach_slide{ 0.085f };
-		float reach_chest{ 0.21f };
+		float reach_chest{ 0.13f }; // the magazine pouch, low on the chest (body_rig)
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears

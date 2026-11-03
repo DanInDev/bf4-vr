@@ -79,6 +79,8 @@ namespace bfvr::weapon
 	void converged_aim(const float (&origin)[3], const float (&grip)[3], const float (&rotation)[4], float convergence, float (&direction)[3]);
 
 	// The drawn gun's barrel as a rotation for converged_aim (its -z along Wep_Root's +z barrel): shots
-	// and the reticle follow the gun as it is drawn, not the controller's aim pose.
-	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4]);
+	// and the reticle follow the gun as it is drawn, not the controller's aim pose. With a sight
+	// direction (unit, Wep_Root axes: body::weapon_points::sight_direction), the line is the sight's
+	// instead of the bare barrel's (they differ by a degree or two: the barrel is zeroed upwards).
+	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4], const float* sight_direction = nullptr);
 }

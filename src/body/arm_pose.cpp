@@ -241,7 +241,14 @@ namespace bfvr::body
 			ik::bone_transform hand[2];    // LeftHand / RightHand bones
 			ik::bone_transform ik_hand[2]; // IK_Joint_LeftHand / IK_Joint_RightHand
 			bool has_ik[2]{};
+			// The camera joint in Wep_Root axes, smoothed: the sight line (weapon_points::sight_*).
+			bool has_sight{};
+			ik::vec3 sight_eye;
+			ik::vec3 sight_direction{ 0, 0, 1 };
 		};
+		// Animated camera-in-gun samples off the sight by more than this are another hold (a grenade, the
+		// knife, a reload): the sight line keeps its last value.
+		constexpr float sight_min_cos = 0.97f;
 		gun_geometry geometry;
 		// Physical reload: where the gun's magazine and slide are (published each evaluation) and
 		// where the magazine should be drawn (set by weapon/physical_reload).
@@ -591,6 +598,21 @@ namespace bfvr::body
 						geometry.ik_hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.ik_hand[hand]));
 					}
 				}
+				if (rig.camera >= 0)
+				{
+					// The joint's z looks forward. Eased over ~10 evaluations (the hip sway moves it ~0.3
+					// degrees); a new gun (a jump of more than ~3 degrees) is taken at once.
+					const ik::bone_transform eye = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.camera));
+					const ik::vec3 forward = ik::normalize(ik::rotate(eye.rotation, ik::vec3{ 0, 0, 1 }));
+					if (forward.z > sight_min_cos)
+					{
+						const bool jump = !geometry.has_sight || ik::dot(forward, geometry.sight_direction) < 0.9986f;
+						const float keep = jump ? 0.0f : 0.9f;
+						geometry.sight_direction = ik::normalize(geometry.sight_direction * keep + forward * (1.0f - keep));
+						geometry.sight_eye = geometry.sight_eye * keep + eye.position * (1.0f - keep);
+						geometry.has_sight = true;
+					}
+				}
 			}
 			if (!ik_enabled.load(std::memory_order_relaxed))
 			{
@@ -921,6 +943,18 @@ namespace bfvr::body
 				points.root_rotation[1] = root_xr.y;
 				points.root_rotation[2] = root_xr.z;
 				points.root_rotation[3] = root_xr.w;
+				points.has_sight = geometry.has_sight;
+				if (points.has_sight)
+				{
+					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.sight_eye) - camera.position);
+					points.sight_eye[0] = eye.x;
+					points.sight_eye[1] = eye.y;
+					points.sight_eye[2] = eye.z;
+					points.sight_direction[0] = geometry.sight_direction.x;
+					points.sight_direction[1] = geometry.sight_direction.y;
+					points.sight_direction[2] = geometry.sight_direction.z;
+				}
 			}
 			publish(rig.rail, points.has_rail, points.rail);
 			points.has_support = geometry.valid;

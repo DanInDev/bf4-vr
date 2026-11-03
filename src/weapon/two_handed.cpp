@@ -27,6 +27,8 @@ namespace bfvr::weapon
 		std::atomic<bool> enabled{ true };
 		std::atomic<float> convergence{ 25.0f };
 		std::atomic<bool> shot_from_gun{ true }; // live setting shot_line
+		bool sight_line{};                        // the drawn line is the gun's measured sight, not its barrel
+		float sight_degrees[2]{};                 // the sight vs the barrel: up, right (report)
 		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
 		std::atomic<bool> trigger_toggles{ true };
@@ -186,9 +188,18 @@ namespace bfvr::weapon
 		drawn_line = shot_from_gun.load(std::memory_order_relaxed) && points.valid && points.has_root && GetTickCount64() - points.at < 250;
 		if (drawn_line)
 		{
-			const float* from = points.has_optic ? points.optic : points.root;
+			// The sight line where the game's animation shows it (the eye point behind the sight, along
+			// the sight), else the optic or Wep_Root along the barrel.
+			const float* from = points.has_sight ? points.sight_eye : points.has_optic ? points.optic : points.root;
 			std::copy(from, from + 3, start);
-			drawn_barrel_rotation(points.root_rotation, line);
+			drawn_barrel_rotation(points.root_rotation, line, points.has_sight ? points.sight_direction : nullptr);
+		}
+		sight_line = drawn_line && points.has_sight;
+		if (points.has_sight)
+		{
+			// Wep_Root axes: +z barrel, +y up, +x left.
+			sight_degrees[0] = std::atan2(points.sight_direction[1], points.sight_direction[2]) * 57.29578f;
+			sight_degrees[1] = std::atan2(-points.sight_direction[0], points.sight_direction[2]) * 57.29578f;
 		}
 		converged_aim(origin, start, line, metres, last_shot);
 		const float* q = line;
@@ -242,11 +253,11 @@ namespace bfvr::weapon
 		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f aim_controller=%d",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
-			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
+			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			std::snprintf(text + length, sizeof(text) - length, "\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
-				in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				sight_degrees[0], sight_degrees[1], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
 		}
 		return text;

@@ -126,10 +126,16 @@ namespace bfvr::weapon
 		*this = two_hand_grip(config_);
 	}
 
-	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4])
+	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4], const float* sight_direction)
 	{
-		// root * (180 degrees about y): -z of the result is +z of the root.
-		const body::ik::quat turned = body::ik::normalize(to_quat(root_rotation) * body::ik::quat{ 0, 1, 0, 0 });
+		// root * (180 degrees about y): -z of the result is +z of the root; with a sight line, first
+		// turned from the barrel onto it (in Wep_Root axes).
+		body::ik::quat onto_sight{};
+		if (sight_direction)
+		{
+			onto_sight = body::ik::from_to({ 0, 0, 1 }, { sight_direction[0], sight_direction[1], sight_direction[2] });
+		}
+		const body::ik::quat turned = body::ik::normalize(to_quat(root_rotation) * onto_sight * body::ik::quat{ 0, 1, 0, 0 });
 		rotation[0] = turned.x;
 		rotation[1] = turned.y;
 		rotation[2] = turned.z;

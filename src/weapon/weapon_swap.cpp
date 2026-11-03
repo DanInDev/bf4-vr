@@ -21,6 +21,7 @@
 #include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/body_rig.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
@@ -111,6 +112,9 @@ namespace bfvr::weapon
 
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> grip_claimed{};
+		std::atomic<bool> off_grip_claimed{};
+		std::atomic<float> published_body_yaw{};
+		std::atomic<bool> body_yaw_known{};
 		// Squad order (campaign "engage", key Q) by hand signal.
 		constexpr unsigned short order_key = 'Q';
 		std::atomic<bool> signal_enabled{ true };
@@ -150,6 +154,7 @@ namespace bfvr::weapon
 		std::uint64_t switches{}, failed{};
 		const char* last_result{ "none" };
 		holster last_zone{ holster::none };
+		holster last_off_zone{ holster::none };
 
 		void send(holster which, ULONGLONG now)
 		{
@@ -380,7 +385,10 @@ namespace bfvr::weapon
 		{
 			zones.reset();
 			grip_claimed = false;
+			off_grip_claimed = false;
+			body_yaw_known = false;
 			last_zone = holster::none;
+			last_off_zone = holster::none;
 			return;
 		}
 		holster_frame frame;
@@ -393,7 +401,17 @@ namespace bfvr::weapon
 		// While a grenade is in the off hand, the gun hand's grip pulls its pin, never draws.
 		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
 		frame.left_handed = input::left_handed();
+		frame.off_hand_valid = points.hand_valid[0] && now - points.at < points_max_age_ms;
+		frame.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
+		frame.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+		frame.off_busy = grenade_in_hand() || off_hand_at_belt() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load()
+			|| use_reaching.load() || ui::vr_panel_view().open;
 		const holster_result result = zones.update(frame);
+		if (zones.body_known())
+		{
+			published_body_yaw = zones.body_yaw();
+			body_yaw_known = true;
+		}
 		if (grab_debug_enabled() && result.has_centres)
 		{
 			for (int i = 0; i < 5; ++i)
@@ -406,13 +424,45 @@ namespace bfvr::weapon
 		{
 			input::haptic(1, input::pulses::tick);
 		}
+		if (result.off_zone != holster::none && result.off_zone != last_off_zone)
+		{
+			input::haptic(0, input::pulses::tick);
+		}
 		last_zone = result.zone;
+		last_off_zone = result.off_zone;
 		grip_claimed = result.zone != holster::none;
+		off_grip_claimed = result.off_zone != holster::none;
 		if (result.draw != holster::none)
 		{
 			request(result.draw, now);
 		}
 #endif
+	}
+
+	bool body_yaw(float& yaw)
+	{
+		yaw = published_body_yaw.load(std::memory_order_relaxed);
+		return body_yaw_known.load(std::memory_order_relaxed);
+	}
+
+	bool body_rig_point(const v3& offset, v3& point)
+	{
+		const stereo::head_sample head = stereo::latest_head_sample();
+		if (!head.valid)
+		{
+			return false;
+		}
+		const float* l = head.eyes[0].position;
+		const float* r = head.eyes[1].position;
+		const v3 centre{ 0.5f * (l[0] + r[0]), 0.5f * (l[1] + r[1]), 0.5f * (l[2] + r[2]) };
+		float yaw{};
+		if (!body_yaw(yaw))
+		{
+			const float* o = head.eyes[0].orientation;
+			yaw = std::atan2(2.0f * (o[0] * o[2] + o[1] * o[3]), 1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
+		}
+		point = body_point(centre, yaw, offset, input::left_handed());
+		return true;
 	}
 
 	input::gamepad_state filter_swap_pad(const input::gamepad_state& pad)
@@ -422,7 +472,7 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_RIGHT_SHOULDER);
 		}
-		if (signal_raised.load(std::memory_order_relaxed) || use_reaching.load(std::memory_order_relaxed))
+		if (signal_raised.load(std::memory_order_relaxed) || use_reaching.load(std::memory_order_relaxed) || off_grip_claimed.load(std::memory_order_relaxed))
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}

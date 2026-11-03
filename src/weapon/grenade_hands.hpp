@@ -42,7 +42,7 @@ namespace bfvr::weapon
 
 	struct grenade_config
 	{
-		float reach_belt{ 0.155f };
+		float reach_belt{ 0.10f };  // the grenade pouch, high on the chest (body_rig)
 		float reach_pin{ 0.10f };   // gun hand this close to the grenade grabs the pin
 		float pin_pull{ 0.05f };    // pulled this far away = pin out
 		float throw_speed{ 1.5f };  // hand speed at release that counts as a throw (m/s)
