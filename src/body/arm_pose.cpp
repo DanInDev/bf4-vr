@@ -17,6 +17,7 @@
 #include "body/arm_ik.hpp"
 #include "body/finger_pose.hpp"
 #include "body/gun_recoil.hpp"
+#include "body/torso.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "input/fingers.hpp"
@@ -169,6 +170,51 @@ namespace bfvr::body
 		double steady_seconds()
 		{
 			return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		}
+
+		std::atomic<bool> torso_follow{ true }; // live setting torso_follow
+		torso_yaw torso_estimate;               // pose-hook thread only
+		double torso_time{};
+		std::atomic<float> torso_report{};       // radians, for the pipe
+		constexpr float torso_spine_back = 0.10f; // the turning axis, behind the eyes (tracking z is back)
+
+		// Torso yaw in tracking space (radians, left positive) from this frame's head and hands; 0 when off.
+		float update_torso(bool head_valid, ik::vec3 head_position, ik::quat head_rotation, const stereo::hand_sample& hands)
+		{
+			if (!torso_follow.load(std::memory_order_relaxed) || !head_valid)
+			{
+				torso_estimate.reset();
+				torso_time = 0.0;
+				torso_report = 0.0f;
+				return 0.0f;
+			}
+			torso_hands input;
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				ik::vec3 offset;
+				if (targets[hand].active)
+				{
+					offset = ik::rotate(head_rotation, targets[hand].position);
+				}
+				else if (hands.valid[hand])
+				{
+					offset = ik::vec3{ hands.grip[hand].position[0], hands.grip[hand].position[1], hands.grip[hand].position[2] } - head_position;
+				}
+				else
+				{
+					continue;
+				}
+				input.valid[hand] = true;
+				input.offset[hand][0] = offset.x;
+				input.offset[hand][1] = offset.y;
+				input.offset[hand][2] = offset.z;
+			}
+			const double now = steady_seconds();
+			const float seconds = torso_time > 0.0 ? static_cast<float>(std::fmin(now - torso_time, 0.1)) : 0.0f;
+			torso_time = now;
+			const float yaw = torso_estimate.update(yaw_of(head_rotation.x, head_rotation.y, head_rotation.z, head_rotation.w), input, seconds);
+			torso_report = yaw;
+			return yaw;
 		}
 		// How far the drawn off hand may slide from where the animation holds the handguard, metres.
 		constexpr float support_slide_back = 0.10f;
@@ -491,6 +537,7 @@ namespace bfvr::body
 			// Synthetic targets are placed relative to the view: the head (between the eyes) when tracked.
 			ik::vec3 head_position;
 			ik::quat head_rotation;
+			bool head_valid = false;
 			if (const stereo::head_sample head = stereo::latest_head_sample(); head.valid)
 			{
 				const float* left = head.eyes[0].position;
@@ -498,7 +545,20 @@ namespace bfvr::body
 				const float* q = head.eyes[0].orientation;
 				head_position = { 0.5f * (left[0] + right[0]), 0.5f * (left[1] + right[1]), 0.5f * (left[2] + right[2]) };
 				head_rotation = { q[0], q[1], q[2], q[3] };
+				head_valid = true;
 			}
+			// Torso (#13): the shoulders turn about the spine (behind the head) to face where the
+			// tracked head and hands say the body faces; the game body only turns with the stick.
+			// The rig's shoulders already face the camera joint's yaw, which under controller aim
+			// follows the gun (frame turns it back by turn.yaw), so they turn by the difference.
+			const float torso_yaw_now = update_torso(head_valid, head_position, head_rotation, hands);
+			const stereo::first_person_turn view_turn = stereo::first_person_view_turn();
+			const float shoulders_yaw = view_turn.active && rendered_frame.load(std::memory_order_relaxed) ? -view_turn.yaw : 0.0f;
+			const float torso = torso_follow.load(std::memory_order_relaxed) && head_valid ? angle_between(torso_yaw_now, shoulders_yaw) : 0.0f;
+			const ik::vec3 torso_axis = ik::rotate(frame, ik::vec3{ 0.0f, 1.0f, 0.0f });
+			const ik::vec3 spine = camera.position + ik::rotate(frame, head_position + ik::vec3{ 0.0f, 0.0f, torso_spine_back });
+			const float torso_sin = std::sin(0.5f * torso);
+			const ik::quat torso_turn{ torso_axis.x * torso_sin, torso_axis.y * torso_sin, torso_axis.z * torso_sin, std::cos(0.5f * torso) };
 			bool any = false;
 			bool shaped = false; // written bones must be remembered even when no arm solves
 			bool gun_placed = false;
@@ -557,6 +617,15 @@ namespace bfvr::body
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + ik::rotate(frame, ik::vec3{ hand == 0 ? -width : width, 0.0f, 0.0f });
 					ik::set_model_transform(local, rig.parents, clavicle, moved);
+					shaped = true;
+				}
+				if (torso != 0.0f && bones.upper >= 0 && rig.parents[bones.upper] >= 0 && rig.parents[bones.upper] != rig.camera)
+				{
+					const int clavicle = rig.parents[bones.upper];
+					ik::bone_transform turned = ik::model_of(local, rig.parents, clavicle);
+					turned.position = spine + ik::rotate(torso_turn, turned.position - spine);
+					turned.rotation = ik::normalize(torso_turn * turned.rotation);
+					ik::set_model_transform(local, rig.parents, clavicle, turned);
 					shaped = true;
 				}
 				const float length = arm_length.load(std::memory_order_relaxed);
@@ -1180,6 +1249,11 @@ namespace bfvr::body
 		legs_hidden = hidden;
 	}
 
+	void set_torso_follow(bool follow)
+	{
+		torso_follow = follow;
+	}
+
 	void set_arm_shape(float length, float width)
 	{
 		arm_length = length > 0.5f && length < 2.0f ? length : 1.0f;
@@ -1465,13 +1539,13 @@ namespace bfvr::body
 			"controllers left=%d right=%d targets left=%d right=%d\n"
 			"fk_error=%.5f fk_error_conjugate=%.5f check_age_ms=%llu\n"
 			"camera_joint pos=%s rot=(%.4f,%.4f,%.4f,%.4f) right=%s up=%s back=%s scale=%.3f\n"
-			"knife=%d wep_root_in_camera=(%.3f,%.3f,%.3f,%.3f)\n",
+			"knife=%d wep_root_in_camera=(%.3f,%.3f,%.3f,%.3f) torso_follow=%d torso_deg=%.1f\n",
 			ik_enabled.load() ? 1 : 0, rig.camera >= 0 ? rig.name : "-", rig.bones, conversions.load(), matched.load(), solved.load(),
 			hands.valid[0] ? 1 : 0, hands.valid[1] ? 1 : 0, hand_targets[0].active ? 1 : 0, hand_targets[1].active ? 1 : 0,
 			r.fk_error, r.fk_error_conjugate, r.at ? GetTickCount64() - r.at : 0ull,
 			v(r.camera.position, a), q.x, q.y, q.z, q.w, v(ik::rotate(q, { 1, 0, 0 }), b), v(ik::rotate(q, { 0, 1, 0 }), c),
 			v(ik::rotate(q, { 0, 0, 1 }), d), r.camera.scale, knife_in_hand.load() ? 1 : 0, r.weapon_in_camera.x, r.weapon_in_camera.y,
-			r.weapon_in_camera.z, r.weapon_in_camera.w);
+			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f);
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];

@@ -37,6 +37,9 @@ namespace bfvr::body
 	void set_arm_shape(float length, float width);
 	// The first-person legs collapsed onto the hips (they sit oddly under a tracked head).
 	void set_legs_hidden(bool hidden);
+	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with
+	// the game body (which turns with the stick).
+	void set_torso_follow(bool follow);
 	bool arm_ik_enabled();
 
 	// Synthetic hand target overriding the controller, for tests on the monitor. Position in metres

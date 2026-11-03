@@ -126,3 +126,16 @@ the same "restore what the animation did not rewrite" memory as the arms. A held
 the drawn fist (grasp frame from Index1, Pinky1, Middle1, Middle3, Thumb3) and published back
 (`weapon_points.held_magazine`), so the reload inserts what is drawn. Racking moves `Wep_Slide` (child
 of `Wep_Root`) back along its local -z by the pull.
+
+## Torso (#13, 2026-11-03, monitor with fakehead yaw + fakehand)
+
+- The first-person clavicles hang off the CameraJoint, which under controller aim follows the aimer,
+  i.e. the gun: the rig's shoulder line already turns with the gun's yaw (in the rendered frame it
+  faces -turn.yaw, `stereo::first_person_view_turn`). Pointing a one-handed gun 60 deg right twisted
+  the whole shoulder line 60 deg right with the body facing ahead.
+- `body/torso` estimates the real torso yaw (head within 40 deg of it, both hands' midpoint when out in
+  front, 0.25 s easing); `arm_pose` turns both clavicles about a vertical axis 10 cm behind the head
+  by torso - shoulder yaw before the arm solve (`torso_follow`, pipe `arms` prints `torso_deg`).
+- Measured (reach = shoulder-to-goal over arm length): everything ahead 0.70/0.72; body and gun turned
+  50 deg: torso 47.7, unchanged arms (the gun had turned the shoulders already); gun 60 deg right
+  one-handed, body ahead: torso 0, right reach 0.81 -> 0.76 (shoulders stay with the body).

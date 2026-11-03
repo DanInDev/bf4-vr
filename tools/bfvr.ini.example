@@ -130,6 +130,10 @@ arm_length = 1.15
 shoulder_width = 0.0
 # First-person legs hidden (they sit oddly under a tracked head).
 hide_legs = 1
+# Torso: the shoulders turn with your real body, judged from the head (which may look ~40 degrees aside
+# on its own) and both hands held out in front, so turning in the room or aiming far to the side does
+# not leave the arms reaching across the chest. 0 = shoulders fixed to the game body (turns with the stick).
+torso_follow = 1
 # Fingers: the free hand follows the controller (squeeze, trigger, thumb on a button), wraps a held
 # magazine, hooks the charging handle; the gun hand's index leaves the trigger when you lift it.
 # 0 = the game's animated hands. Pipe `fingers` shows each hand's task and shape.
