@@ -113,7 +113,7 @@ namespace bfvr::core
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
-			const std::string render = store.text("stereo_render", "aer");
+			const std::string render = store.text("stereo_render", "pair");
 			if (!first && render != stereo_render)
 			{
 				stereo::set_stereo_render(render);

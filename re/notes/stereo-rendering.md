@@ -176,6 +176,26 @@ non-constant buffer (structured buffer / SRV) that jobs fill. Find the gun draws
 (`VSSetShaderResources` around the draws using the `+0x80` first-person view-projection) and the
 buffer they read.
 
+## Pair as the default; temporal history (2026-11-03, Release, 2160x2160, monitor)
+
+- Pipe `status` with `fakehead 0.064`: **104.7 fps**, eye_pairs 371 of 372 frames, 0 rejected,
+  `eye_ms` 2.47, `eye_readback_ms` 6.18. Above the Quest's 90 Hz, so `stereo_render = pair` is now the
+  default (`aer` stays selectable). The user's headset verdict on pair (2026-10-26): "a lot of them
+  seem to be better".
+- Overlord isolates temporal history per eye. Here the temporal effects are:
+  - Post AA: `WorldRenderSettings` (live: lookup `0x140688C50([0x14261E930], ClassInfo 0x142C79010)`,
+    cached in the global `0x1426724A0`) `+0x23C PostProcessAntialiasingMode` (enum 0 None, 1-3 FXAA
+    low/medium/high, 4 SMAA 1x, **5 SMAA T2x**), `+0x2AC SmaaVelocityReprojectionEnable`. The user's
+    profile (`GstRender.AntiAliasingPost 3`) gives mode 3, FXAA High: no history, nothing to isolate.
+    Mode 5 would blend eye 1 into eye 2, so the camera hook runs it as mode 4 while pairing and restores 5 in
+    `aer` (live test: poke 5 -> 4 within 2 s, `stereorender aer` -> 5, `pair` -> 4).
+  - HBAO: `GlobalPostProcessSettings` (`[0x14261E930]+0x78+0x20+0x38`, ClassInfo `0x142C6D260`)
+    `+0x20A HbaoTemporalFilterEnable` = 1. Toggled live with the eyes 0.3 m apart: both eyes' world
+    pixels identical with it on and off (only the gun's idle animation differs), no doubled contact
+    shadows. Left on.
+- Depth submission (`XR_KHR_composition_layer_depth`, smooth-stereo direction C) is still open: the
+  resolved depth is known, but Steam Link's reprojection use of it is unverified.
+
 ## The gun and arms get their eye offset (session 4, 2026-10-26 night)
 
 How they were found (all research pipe commands, pair mode with `fakehead 0.064`):

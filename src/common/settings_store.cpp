@@ -33,7 +33,7 @@ namespace bfvr::settings
 			{ "hud_show_minimap", kind::boolean, 0, 0, 0, "1", "", "HUD: minimap" },
 			{ "hud_show_ammo", kind::boolean, 0, 0, 0, "1", "", "HUD: ammo and grenade counter" },
 			{ "hud_show_bottom", kind::boolean, 0, 0, 0, "1", "", "HUD: weapon and stance icons at the bottom" },
-			{ "stereo_render", kind::choice, 0, 0, 0, "aer", "aer|pair", "alternate eyes, or both eyes from one game frame" },
+			{ "stereo_render", kind::choice, 0, 0, 0, "pair", "aer|pair", "both eyes from one game frame, or alternate eyes" },
 			{ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders relative to the head, metres (x right, y up, z back)" },
 			{ "arm_reach", kind::boolean, 0, 0, 0, "1", "", "a hand out of the arm's reach moves the shoulder forward (shoulder_reach) and stretches the arm (arm_stretch)" },
 			{ "shoulder_reach", kind::real, 0.0f, 0.3f, 0.01f, "0.12", "", "a shoulder moves up to this far towards a hand out of reach before the arm stretches, metres" },

@@ -138,9 +138,50 @@ namespace bfvr::stereo
 		std::atomic<std::uint32_t> pin_offset[4]{};
 		std::atomic<float> pin_value[4]{};
 		bool stereo_enabled{};
-		// stereo_render = pair (research): both eyes from one game frame (stereo/eye_pass.hpp).
+		// stereo_render = pair (default): both eyes from one game frame (stereo/eye_pass.hpp).
 		std::atomic<bool> pair_render{};
 		bool stereo_first_person{};
+
+		// Live WorldRenderSettings, cached by the engine (lookup 0x140688C50([0x14261E930], its ClassInfo
+		// 0x142C79010) at 0x140CCAF74 stores it here); +0x23C PostProcessAntialiasingMode
+		// (re/notes/stereo-rendering.md, "Pair as the default").
+		constexpr std::uint64_t world_render_settings_global = 0x1426724a0;
+		constexpr std::size_t post_aa_mode = 0x23c;
+		constexpr std::uint32_t aa_smaa_1x = 4;
+		constexpr std::uint32_t aa_smaa_t2x = 5;
+		bool smaa_downgraded{};
+
+		// SMAA T2x blends the previous frame, which in pair mode is the other eye: run it as SMAA 1x
+		// while pairing and give the game its T2x back afterwards.
+		void guard_temporal_aa(bool pair)
+		{
+			std::uint64_t settings{};
+			SIZE_T done = 0;
+			std::uint32_t mode{};
+			if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(world_render_settings_global), &settings, sizeof(settings), &done)
+				|| !settings
+				|| !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(settings + post_aa_mode), &mode, sizeof(mode), &done))
+			{
+				return;
+			}
+			const auto write = [&](std::uint32_t value) {
+				WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(settings + post_aa_mode), &value, sizeof(value), nullptr);
+			};
+			if (pair && mode == aa_smaa_t2x)
+			{
+				write(aa_smaa_1x);
+				smaa_downgraded = true;
+				log::write("camera: pair rendering runs the game's SMAA T2x as SMAA 1x (no history across eyes)");
+			}
+			else if (!pair && smaa_downgraded)
+			{
+				if (mode == aa_smaa_1x)
+				{
+					write(aa_smaa_t2x);
+				}
+				smaa_downgraded = false;
+			}
+		}
 
 		std::uint8_t* renderer_view_params()
 		{
@@ -270,6 +311,10 @@ namespace bfvr::stereo
 			control::on_game_thread();
 			weapon::game_reload_sounds_on_game_thread();
 			const std::uint64_t index = ++copies;
+			if (index % 64 == 0)
+			{
+				guard_temporal_aa(pair_render.load(std::memory_order_relaxed));
+			}
 
 			rendered_view tag;
 			tag.copy_index = index;
@@ -498,7 +543,7 @@ namespace bfvr::stereo
 		// View +0x4E0 turned out to be a copy of the world view with no visible effect (camera.md).
 		stereo_first_person = config::get_bool("stereo_first_person", true);
 		stereo_headset_aspect = config::get("stereo_aspect", "headset") != "game";
-		pair_render = stereo_enabled && config::get("stereo_render", "aer") == "pair";
+		pair_render = stereo_enabled && config::get("stereo_render", "pair") == "pair";
 		set_gun_scale(static_cast<float>(std::atof(config::get("gun_scale", "1.0").c_str())));
 		set_view_crop(static_cast<float>(std::atof(config::get("view_crop_h", "1.0").c_str())),
 			static_cast<float>(std::atof(config::get("view_crop_v", "1.0").c_str())));
