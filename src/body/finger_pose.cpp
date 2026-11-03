@@ -74,6 +74,9 @@ namespace bfvr::body::fingers
 		}
 		case task::magazine:
 			return curled(0.45f, 0.5f, 0.55f, 0.6f, 0.65f);
+		case task::cup:
+			// Without contact closing (arm_pose replaces these): fingers up the front, thumb along the back.
+			return curled(0.3f, 0.55f, 0.55f, 0.55f, 0.55f);
 		case task::handle:
 			return curled(0.3f, 0.75f, 0.8f, 0.85f, 0.9f);
 		case task::reach:

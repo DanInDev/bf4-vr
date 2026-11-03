@@ -822,19 +822,39 @@ namespace bfvr::control
 				// A fixed right controller (aim and grip) turned yaw/pitch degrees from straight ahead, 30 cm
 				// in front of the head, for controller-aim tests without a headset; with three more numbers a
 				// left controller at that LOCAL position (two-handed tests), three more the right controller's
-				// position (melee tests); "fakehand off" clears it.
+				// position (melee tests), three more the left controller's yaw, pitch and roll (degrees; roll
+				// about its pointing axis: -90 turns the left palm up, +90 down; monitor 2026-11-03);
+				// "fakehand off" clears it.
 				stereo::hand_sample hands;
 				float yaw = 0.0f, pitch = 0.0f;
 				float left[3]{};
 				float right[3]{ 0.15f, -0.25f, -0.3f };
+				float left_turn[3]{};
 				const int given = argument == "off" ? 0
-					: sscanf_s(argument.c_str(), "%f %f %f %f %f %f %f %f", &yaw, &pitch, &left[0], &left[1], &left[2], &right[0], &right[1], &right[2]);
+					: sscanf_s(argument.c_str(), "%f %f %f %f %f %f %f %f %f %f %f", &yaw, &pitch, &left[0], &left[1], &left[2], &right[0], &right[1], &right[2],
+						&left_turn[0], &left_turn[1], &left_turn[2]);
 				if (given >= 5)
 				{
 					hands.valid[0] = true;
 					for (int i = 0; i < 3; ++i)
 					{
 						hands.aim[0].position[i] = hands.grip[0].position[i] = left[i];
+					}
+					// yaw about +y, pitch about +x, roll about -z (the pointing axis)
+					const float h = left_turn[0] * 3.14159265f / 360.0f, v = left_turn[1] * 3.14159265f / 360.0f, r = -left_turn[2] * 3.14159265f / 360.0f;
+					const float yq[4] = { 0, std::sin(h), 0, std::cos(h) }, pq[4] = { std::sin(v), 0, 0, std::cos(v) }, rq[4] = { 0, 0, std::sin(r), std::cos(r) };
+					const auto multiply = [](const float* a, const float* b, float* out) {
+						out[0] = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+						out[1] = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0];
+						out[2] = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3];
+						out[3] = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+					};
+					float yp[4], q[4];
+					multiply(yq, pq, yp);
+					multiply(yp, rq, q);
+					for (int i = 0; i < 4; ++i)
+					{
+						hands.aim[0].orientation[i] = hands.grip[0].orientation[i] = q[i];
 					}
 				}
 				if (given >= 1)

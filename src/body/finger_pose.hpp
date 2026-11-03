@@ -53,6 +53,7 @@ namespace bfvr::body::fingers
 		gun_grip,   // the gun hand on a gun: animated, but the index lies along the frame off the trigger
 		support,    // the off hand on the handguard: as animated
 		magazine,   // wrapped around a held magazine
+		cup,        // a held magazine stands on the upturned palm; the fingers close on it by contact
 		handle,     // hooked on the charging handle
 		reach,      // open, about to grab something (inside a grab zone)
 	};

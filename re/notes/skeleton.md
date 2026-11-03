@@ -139,3 +139,12 @@ of `Wep_Root`) back along its local -z by the pull.
 - Measured (reach = shoulder-to-goal over arm length): everything ahead 0.70/0.72; body and gun turned
   50 deg: torso 47.7, unchanged arms (the gun had turned the shoulders already); gun 60 deg right
   one-handed, body ahead: torso 0, right reach 0.81 -> 0.76 (shoulders stay with the body).
+
+## Contact grips (2026-11-03, monitor)
+
+- Fingertips: `<Hand><Finger>4` for all five (Thumb4 included); used as the finger's end point.
+- Hand bone +y is the palm on both hands: rolling the fake left controller -90 deg (pipe `fakehand`, 11
+  numbers: ... left yaw pitch roll) gives palm . up = 0.94, +90 gives -0.94, 0 gives 0 (palm sideways).
+- Cup on the AK-12 (magazine box 3 x 19 x 7.5 cm, base 2 cm above the hand bone's axis): middle and ring
+  touch at curl 0.54 / 0.51 (0 mm), index and pinky pass beside the 3 cm magazine (8 / 11 mm) and are held
+  at 0.64 by the coupling, the thumb closes fully 16 mm off the back face.

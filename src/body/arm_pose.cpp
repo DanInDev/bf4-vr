@@ -16,6 +16,7 @@
 
 #include "body/arm_ik.hpp"
 #include "body/finger_pose.hpp"
+#include "body/grasp_contact.hpp"
 #include "body/gun_recoil.hpp"
 #include "body/torso.hpp"
 #include "common/config.hpp"
@@ -88,6 +89,7 @@ namespace bfvr::body
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
 			// The bent finger joints per hand (body/finger_pose): index..pinky 1-3, Thumb2-3; <= 0 = none (0 is the root).
 			int finger_bones[2][fingers::count][fingers::joints]{};
+			int finger_tips[2][fingers::count]{}; // <Hand><Finger>4: the end of each finger (contact grips)
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -256,6 +258,17 @@ namespace bfvr::body
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
+		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
+		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
+		bool cupped{};
+		contact::cup_placement cup;        // this frame's cupped magazine, model space
+		float cup_palm_up{};
+		float cup_gap_mm[fingers::count]{}; // each finger's nearest point to the magazine after closing
+		float cup_weight{};                 // the drawn magazine's blend from the fist (0) onto the palm (1)
+		float last_finger_seconds{};        // frame time of the last finger update
+		constexpr float hand_half_thickness = 0.02f; // hand bone axis to the palm's skin
+		constexpr float finger_radius = 0.009f;
+		const contact::magazine_size magazine_body{}; // a rifle magazine (AK-12 / STANAG sized; not measured per gun yet)
 		ik::quat gun_hand_in_aim;      // the gun hand's rotation in its aim axes, last gun drawn
 		bool has_gun_hand_in_aim{};
 		// Racking: the inside of the hooked index (centroid of Index1-3), hand-bone axes, from the last shaping.
@@ -406,6 +419,9 @@ namespace bfvr::body
 							const bool used = finger != fingers::thumb || joint < 2;
 							fresh.finger_bones[hand][finger][joint] = used ? find_bone(bone_names, fresh.bones, wanted) : -1;
 						}
+						char tip[48];
+						std::snprintf(tip, sizeof(tip), "%s%s4", sides[hand], finger_names[finger]);
+						fresh.finger_tips[hand][finger] = find_bone(bone_names, fresh.bones, tip);
 					}
 				}
 			}
@@ -909,6 +925,108 @@ namespace bfvr::body
 				: fingers::task::free;
 		}
 
+		// The off hand's magazine standing on its palm: hand bone +y is the palm, the knuckles (Finger1)
+		// give the finger direction. Also how far the palm faces up (palm normal . OpenXR up).
+		contact::cup_placement place_cup(const ik::bone_transform* local)
+		{
+			const int hand_bone = rig.arms[0].hand;
+			const auto& bones = rig.finger_bones[0];
+			if (hand_bone < 0 || rig.camera < 0 || bones[fingers::index][0] <= 0 || bones[fingers::pinky][0] <= 0)
+			{
+				return {};
+			}
+			const ik::bone_transform hand = ik::model_of(local, rig.parents, hand_bone);
+			ik::vec3 knuckles;
+			int counted = 0;
+			for (const int finger : { fingers::index, fingers::middle, fingers::ring, fingers::pinky })
+			{
+				if (bones[finger][0] > 0)
+				{
+					knuckles = knuckles + ik::model_of(local, rig.parents, bones[finger][0]).position;
+					++counted;
+				}
+			}
+			knuckles = knuckles * (1.0f / static_cast<float>(counted));
+			const ik::vec3 normal = ik::rotate(hand.rotation, ik::vec3{ 0.0f, 1.0f, 0.0f });
+			const ik::vec3 up = ik::rotate(camera_frame(ik::model_of(local, rig.parents, rig.camera)), ik::vec3{ 0.0f, 1.0f, 0.0f });
+			cup_palm_up = ik::dot(normal, up);
+			// The middle of the palm: a little over halfway from the wrist to the knuckles.
+			const ik::vec3 palm = hand.position + (knuckles - hand.position) * 0.55f;
+			return contact::cup_magazine(palm, normal, knuckles - hand.position, magazine_body, hand_half_thickness);
+		}
+
+		// Closes one off-hand finger until a joint or its tip touches the cupped magazine (curl 0..1).
+		float close_on_cup(ik::bone_transform* local, int finger)
+		{
+			const int (&joints)[fingers::joints] = rig.finger_bones[0][finger];
+			const int tip = rig.finger_tips[0][finger];
+			if (tip <= 0 || joints[0] <= 0)
+			{
+				return fingers::shape_for(fingers::task::cup, {}).curl[finger];
+			}
+			ik::quat animated[fingers::joints];
+			for (int joint = 0; joint < fingers::joints; ++joint)
+			{
+				animated[joint] = joints[joint] > 0 ? local[joints[joint]].rotation : ik::quat{};
+			}
+			fingers::hand_shape probe;
+			probe.animated[finger] = 0.0f;
+			float nearest = 0.0f;
+			const auto touching = [&](float curl) {
+				probe.curl[finger] = curl;
+				for (int joint = 0; joint < fingers::joints; ++joint)
+				{
+					if (joints[joint] > 0)
+					{
+						local[joints[joint]].rotation = fingers::shaped(animated[joint], static_cast<fingers::finger>(finger), joint, probe);
+					}
+				}
+				nearest = 1e9f;
+				for (const int point : { joints[1], joints[2], tip })
+				{
+					if (point > 0)
+					{
+						nearest = std::fmin(nearest, contact::signed_distance(cup.body, ik::model_of(local, rig.parents, point).position));
+					}
+				}
+				return nearest <= finger_radius;
+			};
+			const float curl = contact::close_until(touching, 0.0f, 1.0f);
+			touching(curl); // for the gap report
+			cup_gap_mm[finger] = (nearest - finger_radius) * 1000.0f;
+			for (int joint = 0; joint < fingers::joints; ++joint)
+			{
+				if (joints[joint] > 0)
+				{
+					local[joints[joint]].rotation = animated[joint];
+				}
+			}
+			return curl;
+		}
+
+		// The off hand's grip on a held magazine: wrapped (fixed curls) or cupped (contact), by the
+		// setting or the palm facing up. Rewrites the task and its target shape for a cup.
+		void choose_magazine_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
+		{
+			const bool holding = task == fingers::task::magazine && magazine_request.detached && magazine_request.in_hand;
+			cup = holding ? place_cup(local) : contact::cup_placement{};
+			const int mode = magazine_grip.load(std::memory_order_relaxed);
+			cupped = cup.valid && (mode == 2 || (mode == 0 && contact::cup_grip(cupped, cup_palm_up)));
+			if (!cupped)
+			{
+				return;
+			}
+			task = fingers::task::cup;
+			target = fingers::shape_for(task, {});
+			bool touched[fingers::count]{};
+			for (int finger = 0; finger < fingers::count; ++finger)
+			{
+				target.curl[finger] = close_on_cup(local, finger);
+				touched[finger] = cup_gap_mm[finger] <= 0.5f;
+			}
+			contact::couple_free_fingers(target.curl, touched);
+		}
+
 		// Called with rig_lock held, after edit_arms: shapes the fingers (finger_poses), eased between tasks.
 		void edit_fingers(ik::bone_transform* local)
 		{
@@ -940,6 +1058,7 @@ namespace bfvr::body
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
 				has_hook = false; // racking falls back to the palm
+				cupped = false;
 				return;
 			}
 			LARGE_INTEGER counter{}, frequency{};
@@ -948,12 +1067,19 @@ namespace bfvr::body
 			const float seconds = last_finger_update.QuadPart
 				? std::fmin(static_cast<float>(counter.QuadPart - last_finger_update.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
 			last_finger_update = counter;
+			last_finger_seconds = seconds;
 			input::latest_fingers(last_input);
 			const ULONGLONG now = GetTickCount64();
 			for (int hand = 0; hand < 2; ++hand)
 			{
-				last_task[hand] = task_of(hand, now);
-				const fingers::hand_shape& shape = finger_shapes[hand].update(fingers::shape_for(last_task[hand], last_input[hand]), seconds);
+				fingers::task task = task_of(hand, now);
+				fingers::hand_shape target = fingers::shape_for(task, last_input[hand]);
+				if (hand == 0)
+				{
+					choose_magazine_grip(local, task, target);
+				}
+				last_task[hand] = task;
+				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
 				for (int finger = 0; finger < fingers::count; ++finger)
 				{
 					for (int joint = 0; joint < fingers::joints; ++joint)
@@ -1003,17 +1129,27 @@ namespace bfvr::body
 				complete = complete && bone > 0;
 			}
 			const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
+			const bool palm_valid = cup.valid && last_arms[0].solved;
 			const fingers::grasp fist = complete ? fingers::grasp_of(at(needed[0]), at(needed[1]), at(needed[2]), at(needed[3]), at(needed[4])) : fingers::grasp{};
-			if (!fist.valid)
+			if (!fist.valid && !palm_valid)
 			{
 				place_requested_magazine(local); // no drawn fist: where the reload put it from the controller
 				return;
 			}
-			// The magazine relative to the gun as seated (local is the animation's here), placed in the fist's frame.
+			// Between the grips the magazine slides from the fist onto the palm and back (as the fingers ease).
+			const float step = 1.0f - std::exp(-last_finger_seconds / 0.03f);
+			cup_weight += ((cupped && palm_valid ? 1.0f : 0.0f) - cup_weight) * step;
+			const float on_palm = !fist.valid ? 1.0f : !palm_valid ? 0.0f : cup_weight;
+			// The magazine relative to the gun as seated (local is the animation's here), placed in the
+			// fist's frame, or standing on the palm with its base plate on it (cup).
 			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
-			placed.rotation = ik::normalize(fist.frame * seated);
-			placed.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f });
+			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
+			const ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
+			const ik::quat palm_frame = palm_valid ? cup.frame : fist_frame;
+			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
+			placed.rotation = ik::normalize(nlerp(fist_frame, palm_frame, on_palm) * seated);
+			placed.position = fist_top + (palm_top - fist_top) * on_palm;
 			ik::bone_transform& current = local[rig.magazine];
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = current;
@@ -1368,6 +1504,11 @@ namespace bfvr::body
 		finger_poses = enabled;
 	}
 
+	void set_magazine_grip(const std::string& grip)
+	{
+		magazine_grip = grip == "wrap" ? 1 : grip == "cup" ? 2 : 0;
+	}
+
 	void set_off_hand_neutral(bool neutral)
 	{
 		off_hand_neutral = neutral;
@@ -1399,6 +1540,7 @@ namespace bfvr::body
 			case fingers::task::gun_grip: return "gun_grip";
 			case fingers::task::support: return "support";
 			case fingers::task::magazine: return "magazine";
+			case fingers::task::cup: return "cup";
 			case fingers::task::handle: return "handle";
 			case fingers::task::reach: return "reach";
 			}
@@ -1430,6 +1572,13 @@ namespace bfvr::body
 				in.trigger_touch ? 1 : 0, in.thumb_touch ? 1 : 0, s.curl[0], s.curl[1], s.curl[2], s.curl[3], s.curl[4], s.animated[0], s.animated[1], s.animated[2],
 				s.animated[3], s.animated[4], last_index_bend[hand][0] * 57.29578f, last_index_bend[hand][1] * 57.29578f,
 				last_index_bend[hand][2] * 57.29578f);
+		}
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			static const char* const grips[] = { "auto", "wrap", "cup" };
+			std::snprintf(text + length, sizeof(text) - length,
+				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f", grips[magazine_grip.load() % 3],
+				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4]);
 		}
 		return text;
 	}

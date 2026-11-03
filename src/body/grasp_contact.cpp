@@ -1,0 +1,72 @@
+#include "body/grasp_contact.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+#include "body/finger_pose.hpp"
+
+namespace bfvr::body::contact
+{
+	float signed_distance(const box& shape, ik::vec3 point)
+	{
+		const ik::vec3 p = ik::rotate(ik::conjugate(shape.frame), point - shape.centre);
+		const ik::vec3 q{ std::fabs(p.x) - shape.half.x, std::fabs(p.y) - shape.half.y, std::fabs(p.z) - shape.half.z };
+		const ik::vec3 outside{ std::fmax(q.x, 0.0f), std::fmax(q.y, 0.0f), std::fmax(q.z, 0.0f) };
+		return ik::length(outside) + std::fmin(std::fmax(q.x, std::fmax(q.y, q.z)), 0.0f);
+	}
+
+	void couple_free_fingers(float (&curl)[5], const bool (&touched)[5], float slack)
+	{
+		float limit = -1.0f;
+		for (int finger = 1; finger < 5; ++finger)
+		{
+			if (touched[finger])
+			{
+				limit = std::fmax(limit, curl[finger]);
+			}
+		}
+		if (limit < 0.0f)
+		{
+			return;
+		}
+		for (int finger = 1; finger < 5; ++finger)
+		{
+			if (!touched[finger])
+			{
+				curl[finger] = std::fmin(curl[finger], std::fmin(1.0f, limit + slack));
+			}
+		}
+	}
+
+	cup_placement cup_magazine(ik::vec3 palm_centre, ik::vec3 palm_normal, ik::vec3 finger_direction, const magazine_size& size, float palm_gap)
+	{
+		cup_placement out;
+		if (ik::length(palm_normal) < 1e-4f)
+		{
+			return out;
+		}
+		const ik::vec3 y = ik::normalize(palm_normal);
+		const ik::vec3 along = finger_direction - y * ik::dot(finger_direction, y);
+		if (ik::length(along) < 1e-4f)
+		{
+			return out;
+		}
+		const ik::vec3 z = ik::normalize(along);
+		out.frame = fingers::from_basis(ik::cross(y, z), y, z);
+		out.top = palm_centre + y * (palm_gap + size.height);
+		out.body.centre = palm_centre + y * (palm_gap + 0.5f * size.height);
+		out.body.frame = out.frame;
+		out.body.half = { 0.5f * size.width, 0.5f * size.height, 0.5f * size.depth };
+		out.valid = true;
+		return out;
+	}
+
+	bool cup_grip(bool cupped, float palm_up, float enter, float leave)
+	{
+		if (!std::isfinite(palm_up))
+		{
+			return cupped;
+		}
+		return cupped ? palm_up > leave : palm_up >= enter;
+	}
+}
