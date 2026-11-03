@@ -89,3 +89,12 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
   dead or absent, or the camera has been more than 10 deg off the aim for 0.25 s (back below 4 deg for
   0.5 s). `cutscene_view = screen` shows those frames on the theater screen (like menus), `look` keeps
   head-tracked stereo. Not yet seen in a real cutscene: this checkpoint has none.
+
+## Eye heights per stance and physical stance (2026-11-03, monitor)
+
+The game camera above the soldier's feet: stand 1.565 m, crouch 0.955 m, prone ~0.30 m (physical stance
+lifts the eye by the difference, measured live: 0.61 and 1.26 m). With `physical_stance` on and a fake
+head at -0.45 / -1.10 / -0.50 / 0 m the soldier went crouch / prone / crouch / stand within the 0.25 s
+hold plus a press, and the view stayed at standing minus the real drop (1.115 / 0.465 / 1.065 / 1.565 m).
+Without a headset the virtual pad is not connected, so a stance press now sets `connected` while held
+(the game ignores buttons of a disconnected pad).

@@ -274,6 +274,7 @@ namespace bfvr::input
 			if (tick < pulse_until)
 			{
 				pad.buttons |= pulse_buttons;
+				pad.connected = true; // the game ignores a pad that is not connected (no controllers yet)
 			}
 		}
 		// With controller aim the stick cannot aim (the aimer follows the controller every frame), so

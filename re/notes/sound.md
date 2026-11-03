@@ -90,6 +90,22 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   Recorded through the pipe: AK-12 grab +24 dB, insert +23/+28 dB, rack +34 dB; SCAR-H release +24,
   insert +29, rack +32, catch +23, stow +22; 0 refused.
 
+## The player's own foley (2026-11-03, #33)
+
+- Loaded in the campaign (memory scan for `Sound/Character/` names): waves
+  `Foley/ArmMovement/Soldier_Foley_ArmMovement_Loop_Wave`, `Foley/Soldier_Foley_PoseChange_Wave`,
+  `Soldier_Foley_Sprint_Loop_Wave`, `Soldier_Foley_Stand_To_Prone_Wave`, `Soldier_Foley_Sprint_To_Prone_Wave`,
+  `Soldier_Foley_Land_Wave`, `Soldier_Foley_Crawl_*`, surface footsteps (`Footsteps/<surface>/Walk|Run|Sprint_*`),
+  `FX/WindOnSpeed_Wave`, `SpecialMoves/Melee/Melee_Player`. So the game has an arm-movement cloth loop and a
+  pose-change sound: what #33 wants, without synthesising anything.
+- Not yet found: the patch that plays them for the player and its controls. `SoldierEntityData`
+  (soldier +0x30) +0xC8 `SoldierSoundData` has every SoundAsset null in the campaign (Movement, Death, ...;
+  floats 5.0 / 0.1 / 0.5). The level's `SoundEntity` objects are AI or level sounds only
+  (`Sound/Character/AI_Movement_Looped`, AI climbing, death screams). Five `ClientSoldierSoundComponent`
+  objects (vtable `0x141BDFEB0`) exist but name no asset directly: they hold the instances. Next: the
+  component's update in REA (what it plays, which graph parameters it sets: an arm speed for the
+  ArmMovement loop is the likely hook for "rustle on quick movements").
+
 ## Open
 
 - Other reload patches (shotguns, LMGs with belts, snipers, pistols) have their own events; only the
