@@ -90,6 +90,7 @@ namespace bfvr::body
 			// The bent finger joints per hand (body/finger_pose): index..pinky 1-3, Thumb2-3; <= 0 = none (0 is the root).
 			int finger_bones[2][fingers::count][fingers::joints]{};
 			int finger_tips[2][fingers::count]{}; // <Hand><Finger>4: the end of each finger (contact grips)
+			int thumb_base[2]{};                  // <Hand>Thumb1: the thumb's swing across the palm (only the pinch sets it)
 			ik::arm_bones arms[2]; // 0 = left, 1 = right
 			char name[48]{};
 		};
@@ -268,6 +269,18 @@ namespace bfvr::body
 		std::atomic<int> rack_grip{};       // live setting: 0 pinch (thumb and index side), 1 hook (the index's curl)
 		bool pinching{};
 		float pinch_gap_mm{};
+		float pinch_weight{};                // the authored pinch eased in (0..1)
+		bone_memory thumb_base_memory;       // the off hand's Thumb1 while the pinch sets it
+		// The game's own pinch on the AK-12's charging handle: the left hand's local rotations of
+		// Thumb1-3 and <Finger>1-3, captured from its empty reload as the slide moved (2026-11-03,
+		// re/notes/skeleton.md "Pinch"; thumb and index steady within 2 degrees through the pull).
+		constexpr ik::quat authored_pinch[fingers::count][3] = {
+			{ { 0.5502f, 0.2659f, -0.0928f, 0.7861f }, { 0.2034f, 0.0140f, 0.4286f, 0.8802f }, { 0.0f, 0.0f, -0.2339f, 0.9723f } },
+			{ { -0.1182f, -0.1661f, 0.0578f, 0.9773f }, { 0.0f, 0.0f, 0.1663f, 0.9861f }, { 0.0f, 0.0f, -0.0006f, 1.0f } },
+			{ { -0.1585f, -0.1258f, 0.1576f, 0.9665f }, { 0.0f, 0.0f, 0.2175f, 0.9760f }, { 0.0f, 0.0f, 0.0385f, 0.9993f } },
+			{ { -0.0905f, -0.0033f, 0.1269f, 0.9878f }, { 0.0f, 0.0f, 0.3840f, 0.9233f }, { 0.0f, 0.0f, 0.1027f, 0.9947f } },
+			{ { -0.0673f, 0.1470f, 0.2627f, 0.9512f }, { 0.0f, 0.0f, 0.2281f, 0.9736f }, { 0.0f, 0.0f, 0.0389f, 0.9992f } },
+		};
 		ik::vec3 pinch_in_hand;             // where the knob belongs, hand-bone axes, from the last shaping
 		bool has_pinch{};
 		constexpr float knob_half = 0.008f; // a charging handle's knob, half its size
@@ -428,6 +441,12 @@ namespace bfvr::body
 						char tip[48];
 						std::snprintf(tip, sizeof(tip), "%s%s4", sides[hand], finger_names[finger]);
 						fresh.finger_tips[hand][finger] = find_bone(bone_names, fresh.bones, tip);
+						if (finger == fingers::thumb)
+						{
+							char base[48];
+							std::snprintf(base, sizeof(base), "%sThumb1", sides[hand]);
+							fresh.thumb_base[hand] = find_bone(bone_names, fresh.bones, base);
+						}
 					}
 				}
 			}
@@ -964,7 +983,7 @@ namespace bfvr::body
 			return contact::cup_magazine(palm, normal, knuckles - hand.position, magazine_body, hand_half_thickness);
 		}
 
-		// Closes one off-hand finger from `from` until a joint or its tip touches the shape (curl 0..1);
+		// Closes one off-hand finger from `from` until a joint or its tip touches the shape (curl up to 1);
 		// gap_mm: its nearest point's distance to the surface then, less a finger's radius.
 		float close_on(ik::bone_transform* local, int finger, const contact::box& shape, float from, float fallback, float& gap_mm)
 		{
@@ -1046,20 +1065,53 @@ namespace bfvr::body
 			return { on_handle, gun.rotation, { knob_half, knob_half, knob_half } };
 		}
 
-		// Racking with rack_grip = pinch: the handle task becomes a pinch, the thumb closing on the knob.
-		void choose_rack_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
+		// Racking with rack_grip = pinch: the handle task becomes the game's own pinch (authored_pinch,
+		// eased in after the shaping). The curled thumb alone cannot reach the knob: the pinch needs
+		// Thumb1's swing across the palm, which only the authored pose has.
+		void choose_rack_grip(fingers::task& task, fingers::hand_shape& target)
 		{
 			pinching = task == fingers::task::handle && rack_grip.load(std::memory_order_relaxed) == 0 && rig.weapon >= 0
-				&& handle_request.weight > 0.0f && rig.finger_tips[0][fingers::thumb] > 0;
-			if (!pinching)
+				&& handle_request.weight > 0.0f && rig.thumb_base[0] > 0;
+			if (pinching)
+			{
+				task = fingers::task::pinch;
+				target = fingers::shape_for(task, {});
+			}
+		}
+
+		// The off hand's joint for authored_pinch[finger][joint]: Thumb1-3, else <Finger>1-3.
+		int pinch_bone(int finger, int joint)
+		{
+			if (finger == fingers::thumb)
+			{
+				return joint == 0 ? rig.thumb_base[0] : rig.finger_bones[0][fingers::thumb][joint - 1];
+			}
+			return rig.finger_bones[0][finger][joint];
+		}
+
+		void apply_pinch(ik::bone_transform* local, float seconds)
+		{
+			pinch_weight += ((pinching ? 1.0f : 0.0f) - pinch_weight) * (1.0f - std::exp(-seconds / 0.05f));
+			if (pinch_weight < 0.001f)
 			{
 				return;
 			}
-			task = fingers::task::pinch;
-			target = fingers::shape_for(task, {});
-			// From a little more open than the shape, so a thumb already past the knob still finds it.
-			const float from = std::fmax(0.0f, target.curl[fingers::thumb] - 0.4f);
-			target.curl[fingers::thumb] = close_on(local, fingers::thumb, handle_knob(local), from, target.curl[fingers::thumb], pinch_gap_mm);
+			for (int finger = 0; finger < fingers::count; ++finger)
+			{
+				for (int joint = 0; joint < 3; ++joint)
+				{
+					const int bone = pinch_bone(finger, joint);
+					if (bone <= 0)
+					{
+						continue;
+					}
+					local[bone].rotation = nlerp(local[bone].rotation, authored_pinch[finger][joint], pinch_weight);
+					bone_memory& remembered = finger == fingers::thumb && joint == 0 ? thumb_base_memory
+						: finger_memory[0][finger][finger == fingers::thumb ? joint - 1 : joint];
+					remembered.written = local[bone];
+					remembered.has_written = true;
+				}
+			}
 		}
 
 		// Called with rig_lock held, after edit_arms: shapes the fingers (finger_poses), eased between tasks.
@@ -1090,6 +1142,18 @@ namespace bfvr::body
 					}
 				}
 			}
+			if (const int base = rig.thumb_base[0]; base > 0)
+			{
+				if (thumb_base_memory.has_written && std::memcmp(&local[base], &thumb_base_memory.written, sizeof(local[base])) == 0)
+				{
+					local[base] = thumb_base_memory.animated;
+				}
+				else
+				{
+					thumb_base_memory.animated = local[base];
+				}
+				thumb_base_memory.has_written = false;
+			}
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
 				has_hook = false; // racking falls back to the palm
@@ -1114,7 +1178,7 @@ namespace bfvr::body
 				if (hand == 0)
 				{
 					choose_magazine_grip(local, task, target);
-					choose_rack_grip(local, task, target);
+					choose_rack_grip(task, target);
 				}
 				last_task[hand] = task;
 				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
@@ -1137,6 +1201,7 @@ namespace bfvr::body
 					}
 				}
 			}
+			apply_pinch(local, seconds);
 			// The inside of the off hand's index curl, for the next racking hold.
 			const int (&index_joints)[fingers::joints] = rig.finger_bones[0][fingers::index];
 			has_hook = rig.arms[0].hand >= 0 && index_joints[0] > 0 && index_joints[1] > 0 && index_joints[2] > 0;
@@ -1152,7 +1217,10 @@ namespace bfvr::body
 				if (has_pinch)
 				{
 					const ik::vec3 index_side = (ik::model_of(local, rig.parents, index_joints[1]).position + ik::model_of(local, rig.parents, index_joints[2]).position) * 0.5f;
-					const ik::vec3 knob = contact::pinch_point(index_side, ik::model_of(local, rig.parents, thumb_tip).position, knob_half, finger_radius);
+					const ik::vec3 thumb = ik::model_of(local, rig.parents, thumb_tip).position;
+					const ik::vec3 knob = contact::pinch_point(index_side, thumb, knob_half, finger_radius);
+					// Room left for the knob between the thumb and the index (negative: they press it).
+					pinch_gap_mm = (ik::length(thumb - index_side) - 2.0f * (knob_half + finger_radius)) * 1000.0f;
 					pinch_in_hand = ik::rotate(ik::conjugate(hand.rotation), knob - hand.position);
 				}
 			}

@@ -148,3 +148,12 @@ of `Wep_Root`) back along its local -z by the pull.
 - Cup on the AK-12 (magazine box 3 x 19 x 7.5 cm, base 2 cm above the hand bone's axis): middle and ring
   touch at curl 0.54 / 0.51 (0 mm), index and pinky pass beside the 3 cm magazine (8 / 11 mm) and are held
   at 0.64 by the coupling, the thumb closes fully 16 mm off the back face.
+
+## Pinch (2026-11-03)
+
+- Curling Thumb2/Thumb3 cannot bring the thumb onto the index's side: at curl 1 it stayed 6 mm short, at
+  1.4 (extrapolated) 19 mm short. A key pinch needs Thumb1's swing across the palm.
+- The game's own rack (AK-12 empty reload) has it: the left hand's local rotations of Thumb1-3 and
+  <Finger>1-3 at the moment the slide starts back are `authored_pinch` in `arm_pose.cpp` (Thumb1
+  (0.550, 0.266, -0.093, 0.786), ~70 degrees). Through the 10 cm pull thumb and index change < 2 deg,
+  middle/ring/pinky up to 8.5 deg.

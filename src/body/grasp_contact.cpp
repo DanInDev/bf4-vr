@@ -64,11 +64,13 @@ namespace bfvr::body::contact
 	ik::vec3 pinch_point(ik::vec3 index_side, ik::vec3 thumb_tip, float knob_half, float finger_radius)
 	{
 		const ik::vec3 towards = thumb_tip - index_side;
-		if (ik::length(towards) < 1e-5f)
+		const float apart = ik::length(towards);
+		if (apart < 1e-5f)
 		{
 			return index_side;
 		}
-		return index_side + ik::normalize(towards) * (knob_half + finger_radius);
+		// Centred between the two; never closer to the index than resting on it.
+		return index_side + towards * (std::fmax(0.5f * apart, knob_half + finger_radius) / apart);
 	}
 
 	bool cup_grip(bool cupped, float palm_up, float enter, float leave)

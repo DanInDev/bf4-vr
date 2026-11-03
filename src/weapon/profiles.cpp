@@ -20,14 +20,15 @@ namespace bfvr::weapon
 			std::string_view name;
 			float point[3];
 		};
-		// None verified yet (docs/tasks/hand-animation.md A1/A1b): add a gun once its knob is matched with
-		// `reload handle x y z` in a side view. The empty entry keeps the array non-empty.
+		// From the game's own empty reload: where its animated left hand pinches the handle as the slide
+		// starts back, moved forward by the slide's travel (re/notes/weapon.md "Charging handles"). Guns
+		// whose reload never pulls the handle (SCAR-H: bolt release) cannot be measured this way.
 		static constexpr measured table[] = {
-			{ "", { 0, 0, 0 } },
+			{ "U_AK12", { -0.02f, 0.06f, 0.53f } }, // right side, ahead of the magwell (2026-11-03)
 		};
 		for (const measured& gun : table)
 		{
-			if (!gun.name.empty() && gun.name == unlock_name)
+			if (gun.name == unlock_name)
 			{
 				std::copy(std::begin(gun.point), std::end(gun.point), point);
 				return true;

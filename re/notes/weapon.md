@@ -163,6 +163,21 @@ FiringFunctionData +0x168 FireLogic: +0x2C RecoilData (angle ranges), +0x60 Rate
   peak 7.7 deg, sideways up to 1.5 deg (mostly right); SCAR-H peak 14.9 deg (cap 15), sideways
   +-1.3 deg, settle time constant 0.32 s (expected 0.33).
 
+## Charging handles from the game's own reload (2026-11-03)
+
+Method: `arm_ik = 0`, `reload = button`, write 0 into the server magazine (the game then does a full empty
+reload), and sample the first-person local pose at ~100 Hz (forward kinematics in Python): the left
+hand's Thumb4, Index2/Index3 and Wep_Slide in Wep_Root axes (+z along the barrel, +y up, **+x left**).
+
+| Gun | What the reload does | Handle (Wep_Root axes) |
+| --- | --- | --- |
+| `U_AK12` | At 2.4-2.9 s the hand pinches (thumb to index side 3.0-3.3 cm) and pulls; Wep_Slide travels **10 cm** back | Pinch as the slide starts (-0.027, 0.062, 0.520) at 0.8 cm travel; at the peak minus the travel (-0.015, 0.060, 0.534): **(-0.02, 0.06, 0.53)**, right side ahead of the magwell. The old AK guess (0, 0.03, 0.40) was 13 cm back |
+| `U_SCAR-H` | The bolt locks back on empty (Wep_Slide 12.4 cm); ~1.8 s later the open hand (thumb-index 12 cm) hits the bolt release left of the magwell, (0.02, 0.0, 0.46), and the bolt slams home | Not shown by the animation; still the AR guess |
+
+- The empty AK reload ends with 30 in the gun, 30 taken from the reserve (as a real reload).
+- Wep_Slide does animate on the AK-12 although offsetting it moves no visible mesh (A2): the bolt may be
+  welded to the receiver mesh in first person.
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds

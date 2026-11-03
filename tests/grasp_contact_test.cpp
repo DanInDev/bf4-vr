@@ -111,12 +111,17 @@ namespace
 	void test_pinch()
 	{
 		const float knob = 0.008f, radius = 0.009f;
-		const ik::vec3 index{ 0.1f, 0.0f, 0.0f }, thumb{ 0.1f, 0.05f, 0.0f };
+		const ik::vec3 index{ 0.1f, 0.0f, 0.0f };
+		// Live (2026-11-03): the captured pinch leaves the thumb 4.2 cm from the index side.
+		const ik::vec3 thumb{ 0.1f, 0.042f, 0.0f };
 		const ik::vec3 at = pinch_point(index, thumb, knob, radius);
-		expect(near(at, { 0.1f, knob + radius, 0.0f }), "the knob sits against the index, towards the thumb");
+		expect(near(at, { 0.1f, 0.021f, 0.0f }), "the knob sits centred between the index and the thumb");
 		const box handle{ at, {}, { knob, knob, knob } };
-		expect(near(signed_distance(handle, index), radius), "the index's side touches the knob (one finger radius off its surface)");
-		expect(signed_distance(handle, thumb) > radius, "the thumb, still open, does not");
+		expect(near(signed_distance(handle, index), signed_distance(handle, thumb)), "with the same room on both sides");
+		const ik::vec3 pressed{ 0.1f, 0.02f, 0.0f };
+		const ik::vec3 tight = pinch_point(index, pressed, knob, radius);
+		expect(near(tight, { 0.1f, knob + radius, 0.0f }), "a tighter thumb than the knob: it rests on the index");
+		expect(near(signed_distance(box{ tight, {}, { knob, knob, knob } }, index), radius), "the index's side touches it (one finger radius off its surface)");
 		expect(near(pinch_point(index, index, knob, radius), index), "a thumb on the index gives the index itself");
 	}
 }
