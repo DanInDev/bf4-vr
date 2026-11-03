@@ -18,6 +18,8 @@ namespace bfvr::weapon
 
 	// A grenade is in the off hand: the reload and accessory gestures leave the grip alone.
 	bool grenade_in_hand();
+	// The open off hand is at the grenade belt with a grenade to take (the drawn hand opens).
+	bool off_hand_at_belt();
 
 	// XInput hook thread: LB is ours in physical mode (our throw pulse only); the gun-hand grip
 	// while it holds the pin.

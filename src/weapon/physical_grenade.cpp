@@ -143,6 +143,7 @@ namespace bfvr::weapon
 		std::atomic<bool> holding{};
 		std::atomic<bool> active{};
 		std::atomic<bool> gun_busy{};
+		std::atomic<bool> at_belt{};
 		std::atomic<ULONGLONG> pulse_until{};
 
 		std::mutex lock;
@@ -276,6 +277,11 @@ namespace bfvr::weapon
 		return holding.load(std::memory_order_relaxed);
 	}
 
+	bool off_hand_at_belt()
+	{
+		return at_belt.load(std::memory_order_relaxed);
+	}
+
 	void update_physical_grenades()
 	{
 #if defined(_M_X64)
@@ -296,6 +302,7 @@ namespace bfvr::weapon
 		{
 			hands.reset();
 			holding = false;
+			at_belt = false;
 			active = false;
 			gun_busy = false;
 			return;
@@ -350,6 +357,8 @@ namespace bfvr::weapon
 		}
 		holding = result.holding;
 		gun_busy = result.gun_busy;
+		// off_busy without a grenade in hand: the hand is at the belt.
+		at_belt = result.off_busy && !result.holding && frame.have_grenade && !frame.off_grip;
 		active = weapon.valid;
 #endif
 	}

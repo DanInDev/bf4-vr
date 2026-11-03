@@ -34,7 +34,8 @@ deployed since 2026-11-03 afternoon). Monitor-verified with fakehand and pipe `f
 above the thumb) and goes in from there; the off hand opens inside a grab zone; racking holds the palm on
 the handle and follows a 6 cm pull; the gun hand's index straightens off the trigger (8/10/6° bend) and goes
 back on it at a touch (25/34/95°). Not visible on the monitor: the handle hold's angle, the bolt moving, the
-slide-in of a seated magazine (0.1 s), how it all feels. Off switch: `finger_poses` (Body page).
+slide-in of a seated magazine (0.1 s), how it all feels. Off switch: `finger_poses` (Body page). Game-only
+checks to run first (handle spot, bolt movement, AR magazine) and the tuning knobs: `docs/tasks/hand-animation.md`.
 
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |

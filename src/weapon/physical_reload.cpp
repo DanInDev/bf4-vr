@@ -262,7 +262,8 @@ namespace bfvr::weapon
 
 		void draw_off_hand(body::fingers::task task, const hand_result* result, bool has_root, float seconds)
 		{
-			body::set_off_hand_task(grenade_in_hand() ? body::fingers::task::magazine : task);
+			body::set_off_hand_task(grenade_in_hand() ? body::fingers::task::magazine
+				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
 			const bool racking = result && result->racking && has_root;
 			if (racking)
 			{
