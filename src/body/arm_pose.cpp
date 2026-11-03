@@ -265,6 +265,12 @@ namespace bfvr::body
 		float cup_palm_up{};
 		float cup_gap_mm[fingers::count]{}; // each finger's nearest point to the magazine after closing
 		float cup_weight{};                 // the drawn magazine's blend from the fist (0) onto the palm (1)
+		std::atomic<int> rack_grip{};       // live setting: 0 pinch (thumb and index side), 1 hook (the index's curl)
+		bool pinching{};
+		float pinch_gap_mm{};
+		ik::vec3 pinch_in_hand;             // where the knob belongs, hand-bone axes, from the last shaping
+		bool has_pinch{};
+		constexpr float knob_half = 0.008f; // a charging handle's knob, half its size
 		float last_finger_seconds{};        // frame time of the last finger update
 		constexpr float hand_half_thickness = 0.02f; // hand bone axis to the palm's skin
 		constexpr float finger_radius = 0.009f;
@@ -730,11 +736,14 @@ namespace bfvr::body
 				}
 				if (hand == 0 && gun_placed && handle_request.weight > 0.0f)
 				{
-					// Racking: the handle stays inside the hooked index (else under the palm), moved back by the
-					// pull, wherever the gun goes; the hand keeps the controller's rotation.
+					// Racking: the handle stays between the thumb and the index's side (pinch), or inside the
+					// hooked index (hook), else under the palm, moved back by the pull, wherever the gun goes;
+					// the hand keeps the controller's rotation.
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
-					const ik::vec3 hooked = has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
+					const bool pinch = pinching && has_pinch;
+					const ik::vec3 hooked = pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
+						: has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
 						: goal.wrist + (on_handle - (camera.position + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
 				}
@@ -955,14 +964,16 @@ namespace bfvr::body
 			return contact::cup_magazine(palm, normal, knuckles - hand.position, magazine_body, hand_half_thickness);
 		}
 
-		// Closes one off-hand finger until a joint or its tip touches the cupped magazine (curl 0..1).
-		float close_on_cup(ik::bone_transform* local, int finger)
+		// Closes one off-hand finger from `from` until a joint or its tip touches the shape (curl 0..1);
+		// gap_mm: its nearest point's distance to the surface then, less a finger's radius.
+		float close_on(ik::bone_transform* local, int finger, const contact::box& shape, float from, float fallback, float& gap_mm)
 		{
 			const int (&joints)[fingers::joints] = rig.finger_bones[0][finger];
 			const int tip = rig.finger_tips[0][finger];
 			if (tip <= 0 || joints[0] <= 0)
 			{
-				return fingers::shape_for(fingers::task::cup, {}).curl[finger];
+				gap_mm = 0.0f;
+				return fallback;
 			}
 			ik::quat animated[fingers::joints];
 			for (int joint = 0; joint < fingers::joints; ++joint)
@@ -986,14 +997,14 @@ namespace bfvr::body
 				{
 					if (point > 0)
 					{
-						nearest = std::fmin(nearest, contact::signed_distance(cup.body, ik::model_of(local, rig.parents, point).position));
+						nearest = std::fmin(nearest, contact::signed_distance(shape, ik::model_of(local, rig.parents, point).position));
 					}
 				}
 				return nearest <= finger_radius;
 			};
-			const float curl = contact::close_until(touching, 0.0f, 1.0f);
+			const float curl = contact::close_until(touching, from, 1.0f);
 			touching(curl); // for the gap report
-			cup_gap_mm[finger] = (nearest - finger_radius) * 1000.0f;
+			gap_mm = (nearest - finger_radius) * 1000.0f;
 			for (int joint = 0; joint < fingers::joints; ++joint)
 			{
 				if (joints[joint] > 0)
@@ -1021,10 +1032,34 @@ namespace bfvr::body
 			bool touched[fingers::count]{};
 			for (int finger = 0; finger < fingers::count; ++finger)
 			{
-				target.curl[finger] = close_on_cup(local, finger);
+				target.curl[finger] = close_on(local, finger, cup.body, 0.0f, target.curl[finger], cup_gap_mm[finger]);
 				touched[finger] = cup_gap_mm[finger] <= 0.5f;
 			}
 			contact::couple_free_fingers(target.curl, touched);
+		}
+
+		// The knob of the charging handle where the racking hand holds it (moved back by the pull), model space.
+		contact::box handle_knob(const ik::bone_transform* local)
+		{
+			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+			const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
+			return { on_handle, gun.rotation, { knob_half, knob_half, knob_half } };
+		}
+
+		// Racking with rack_grip = pinch: the handle task becomes a pinch, the thumb closing on the knob.
+		void choose_rack_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
+		{
+			pinching = task == fingers::task::handle && rack_grip.load(std::memory_order_relaxed) == 0 && rig.weapon >= 0
+				&& handle_request.weight > 0.0f && rig.finger_tips[0][fingers::thumb] > 0;
+			if (!pinching)
+			{
+				return;
+			}
+			task = fingers::task::pinch;
+			target = fingers::shape_for(task, {});
+			// From a little more open than the shape, so a thumb already past the knob still finds it.
+			const float from = std::fmax(0.0f, target.curl[fingers::thumb] - 0.4f);
+			target.curl[fingers::thumb] = close_on(local, fingers::thumb, handle_knob(local), from, target.curl[fingers::thumb], pinch_gap_mm);
 		}
 
 		// Called with rig_lock held, after edit_arms: shapes the fingers (finger_poses), eased between tasks.
@@ -1058,6 +1093,8 @@ namespace bfvr::body
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
 				has_hook = false; // racking falls back to the palm
+				has_pinch = false;
+				pinching = false;
 				cupped = false;
 				return;
 			}
@@ -1077,6 +1114,7 @@ namespace bfvr::body
 				if (hand == 0)
 				{
 					choose_magazine_grip(local, task, target);
+					choose_rack_grip(local, task, target);
 				}
 				last_task[hand] = task;
 				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
@@ -1108,6 +1146,19 @@ namespace bfvr::body
 				const ik::vec3 curl = (ik::model_of(local, rig.parents, index_joints[0]).position + ik::model_of(local, rig.parents, index_joints[1]).position
 					+ ik::model_of(local, rig.parents, index_joints[2]).position) * (1.0f / 3.0f);
 				hook_in_hand = ik::rotate(ik::conjugate(hand.rotation), curl - hand.position);
+				// The pinch: the knob against the side of the index's middle segment, towards the thumb tip.
+				const int thumb_tip = rig.finger_tips[0][fingers::thumb];
+				has_pinch = thumb_tip > 0;
+				if (has_pinch)
+				{
+					const ik::vec3 index_side = (ik::model_of(local, rig.parents, index_joints[1]).position + ik::model_of(local, rig.parents, index_joints[2]).position) * 0.5f;
+					const ik::vec3 knob = contact::pinch_point(index_side, ik::model_of(local, rig.parents, thumb_tip).position, knob_half, finger_radius);
+					pinch_in_hand = ik::rotate(ik::conjugate(hand.rotation), knob - hand.position);
+				}
+			}
+			else
+			{
+				has_pinch = false;
 			}
 		}
 
@@ -1509,6 +1560,11 @@ namespace bfvr::body
 		magazine_grip = grip == "wrap" ? 1 : grip == "cup" ? 2 : 0;
 	}
 
+	void set_rack_grip(const std::string& grip)
+	{
+		rack_grip = grip == "hook" ? 1 : 0;
+	}
+
 	void set_off_hand_neutral(bool neutral)
 	{
 		off_hand_neutral = neutral;
@@ -1542,6 +1598,7 @@ namespace bfvr::body
 			case fingers::task::magazine: return "magazine";
 			case fingers::task::cup: return "cup";
 			case fingers::task::handle: return "handle";
+			case fingers::task::pinch: return "pinch";
 			case fingers::task::reach: return "reach";
 			}
 			return "?";
@@ -1577,8 +1634,10 @@ namespace bfvr::body
 		{
 			static const char* const grips[] = { "auto", "wrap", "cup" };
 			std::snprintf(text + length, sizeof(text) - length,
-				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f", grips[magazine_grip.load() % 3],
-				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4]);
+				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
+				"\nrack_grip=%s pinching=%d thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)", grips[magazine_grip.load() % 3],
+				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
+				rack_grip.load() == 0 ? "pinch" : "hook", pinching ? 1 : 0, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z);
 		}
 		return text;
 	}

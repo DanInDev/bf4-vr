@@ -75,7 +75,7 @@ namespace bfvr::weapon
 		// The charging handle: from the gun frame per variant, else the slide bone.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
-		const v3 handle_in_gun = ak ? config_.handle_ak : config_.handle_ar;
+		const v3 handle_in_gun = frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);

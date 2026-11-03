@@ -106,8 +106,24 @@ namespace
 	}
 }
 
+namespace
+{
+	void test_pinch()
+	{
+		const float knob = 0.008f, radius = 0.009f;
+		const ik::vec3 index{ 0.1f, 0.0f, 0.0f }, thumb{ 0.1f, 0.05f, 0.0f };
+		const ik::vec3 at = pinch_point(index, thumb, knob, radius);
+		expect(near(at, { 0.1f, knob + radius, 0.0f }), "the knob sits against the index, towards the thumb");
+		const box handle{ at, {}, { knob, knob, knob } };
+		expect(near(signed_distance(handle, index), radius), "the index's side touches the knob (one finger radius off its surface)");
+		expect(signed_distance(handle, thumb) > radius, "the thumb, still open, does not");
+		expect(near(pinch_point(index, index, knob, radius), index), "a thumb on the index gives the index itself");
+	}
+}
+
 int main()
 {
+	test_pinch();
 	test_coupling();
 	test_distance();
 	test_cup();

@@ -135,6 +135,9 @@ namespace bfvr::body
 	// on the palm (base plate in the palm, fingers closing on it by contact) once the palm faces up;
 	// "wrap" / "cup" = always that grip.
 	void set_magazine_grip(const std::string& grip);
+	// Live setting rack_grip: "pinch" = the charging handle between the thumb and the side of the index
+	// (the thumb closes on it by contact); "hook" = inside the curled index.
+	void set_rack_grip(const std::string& grip);
 	// What the off hand holds (magazine, charging handle, reaching for a grab); refresh every frame,
 	// a request older than 250 ms counts as free. The two-handed hold and the gun hand are decided here.
 	void set_off_hand_task(fingers::task task);

@@ -147,6 +147,9 @@ off_hand_pose = neutral
 # wrap again when it turns back (with a margin, so it does not flicker). Pipe `fingers` shows the grip
 # and each fingertip's gap to the magazine.
 magazine_grip = auto
+# Racking: pinch = the charging handle's knob between the thumb and the side of the index (a key pinch;
+# the thumb closes until it touches the knob); hook = the knob inside the curled index.
+rack_grip = pinch
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one

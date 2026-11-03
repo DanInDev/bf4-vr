@@ -75,6 +75,13 @@ namespace bfvr::body::contact
 	};
 	cup_placement cup_magazine(ik::vec3 palm_centre, ik::vec3 palm_normal, ik::vec3 finger_direction, const magazine_size& size, float palm_gap = 0.012f);
 
+	// A lateral (key) pinch on a charging handle: the knob rests against the side of the index's middle
+	// segment, towards the thumb, so the index touches it and the thumb closes onto it. index_side: the
+	// middle of Index2-Index3; thumb_tip: Thumb4; knob_half: the knob's half size. Returns where the
+	// knob's centre belongs (the hand is placed so this lands on the handle); the index side itself when
+	// the thumb sits on it.
+	ik::vec3 pinch_point(ik::vec3 index_side, ik::vec3 thumb_tip, float knob_half, float finger_radius);
+
 	// Cup or wrap: cup once the palm faces up past `enter` (palm normal . up), back to the wrap below
 	// `leave`, so a hand near the switch does not flicker.
 	bool cup_grip(bool cupped, float palm_up, float enter = 0.5f, float leave = 0.15f);

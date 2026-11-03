@@ -61,6 +61,16 @@ namespace bfvr::body::contact
 		return out;
 	}
 
+	ik::vec3 pinch_point(ik::vec3 index_side, ik::vec3 thumb_tip, float knob_half, float finger_radius)
+	{
+		const ik::vec3 towards = thumb_tip - index_side;
+		if (ik::length(towards) < 1e-5f)
+		{
+			return index_side;
+		}
+		return index_side + ik::normalize(towards) * (knob_half + finger_radius);
+	}
+
 	bool cup_grip(bool cupped, float palm_up, float enter, float leave)
 	{
 		if (!std::isfinite(palm_up))

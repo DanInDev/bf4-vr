@@ -40,6 +40,10 @@ namespace bfvr::weapon
 		bool has_held{};
 		v3 held_top;
 		q4 held_rotation;
+		// The charging handle's knob in the gun frame (Wep_Root axes) when known for this gun
+		// (weapon/profiles); otherwise hand_config's per-variant point.
+		bool has_handle_point{};
+		v3 handle_point;
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
 	};

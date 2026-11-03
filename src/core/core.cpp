@@ -98,6 +98,7 @@ namespace bfvr::core
 			body::set_finger_poses(store.boolean("finger_poses", true));
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
+			body::set_rack_grip(store.text("rack_grip", "pinch"));
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));

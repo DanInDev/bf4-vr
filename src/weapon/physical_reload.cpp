@@ -180,6 +180,8 @@ namespace bfvr::weapon
 		std::map<int, slot_memory> slots;
 		int current_slot{ -1 };
 		reload_hands hands;
+		bool handle_override_on{}; // research: pipe `reload handle x y z` (Wep_Root axes), `reload handle off`
+		float handle_override[3]{};
 		hand_result::zone last_zone{ hand_result::zone::none };
 		hand_result last_result; // for the pipe report
 		LARGE_INTEGER last_update{};
@@ -520,6 +522,17 @@ namespace bfvr::weapon
 		{
 			frame.chest = { 0.0f, -0.35f, -0.1f };
 		}
+		{
+			// The charging handle: the research override (pipe `reload handle x y z`), the gun's measured point, else the variant's.
+			float point[3]{};
+			frame.has_handle_point = handle_point_for(weapon.name, point);
+			if (handle_override_on)
+			{
+				std::copy(std::begin(handle_override), std::end(handle_override), point);
+				frame.has_handle_point = true;
+			}
+			frame.handle_point = { point[0], point[1], point[2] };
+		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
 		frame.held_rotation = q(points.held_rotation);
@@ -659,6 +672,17 @@ namespace bfvr::weapon
 			{
 				return "error: 'reload <event>' needs research = 1 in bfvr.ini";
 			}
+			if (argument.rfind("handle", 0) == 0)
+			{
+				float x{}, y{}, z{};
+				handle_override_on = sscanf_s(argument.c_str(), "handle %f %f %f", &x, &y, &z) == 3;
+				handle_override[0] = x;
+				handle_override[1] = y;
+				handle_override[2] = z;
+				char text[96];
+				std::snprintf(text, sizeof(text), "handle override %s (%.3f, %.3f, %.3f)", handle_override_on ? "on" : "off", x, y, z);
+				return text;
+			}
 			if (found == slots.end() || !active)
 			{
 				return "error: no physical reload active (reload = physical, a magazine weapon in hand)";
@@ -675,7 +699,7 @@ namespace bfvr::weapon
 			else if (argument == "stow") event = gun.let_go(true);
 			else if (argument == "insert") event = gun.insert();
 			else if (argument == "rack") event = gun.rack();
-			else return "error: usage: reload [fire|button|catch|grab|take|letgo|stow|insert|rack]";
+			else return "error: usage: reload [fire|button|catch|grab|take|letgo|stow|insert|rack|handle x y z|handle off]";
 			remember(event);
 			sound_if_magazine_left(magazine_was_in, gun);
 		}
