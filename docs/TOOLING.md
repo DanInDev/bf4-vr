@@ -41,7 +41,7 @@ the `deploy.ps1` marker format, `bfvr.ini` editing and the VR setup (profile pen
 refusal while the game runs, the ini preset with defaults, runtime manifest names) against a throwaway
 folder in `%TEMP%`.
 
-Not yet: starting SteamVR from the launcher and live headset/session status (#16), an update check (#17).
+Setup page, **Updates?**: asks GitHub for the latest release (only on that click) and offers its page when it is newer than this build's version (CMake `project(... VERSION)`). Not yet: starting SteamVR from the launcher and live headset/session status (#16).
 
 ## Release packaging: `tools/package.ps1` (issue #17)
 
@@ -52,6 +52,11 @@ Not yet: starting SteamVR from the launcher and live headset/session status (#16
 are an allow-list, checked again inside the finished zip: game files, dumps, screenshots, PDBs, `bfvr.ini` and
 logs can never end up in it. `LICENSE.txt` is a placeholder until a licence is chosen. There is no installer
 exe yet: the zip plus the launcher's install/remove is the release format.
+
+**Publishing:** bump `project(bfvr VERSION x.y.z)` in `CMakeLists.txt`, then push the tag `vx.y.z`. The `release`
+workflow checks the tag against the version, builds `bf4-release`, packages it and creates the GitHub release
+with the zip; the launcher's **Updates?** then reports it. `bfvr_launcher_test.exe --online` asks GitHub the way the
+button does.
 
 ## Driving the game: `tools/game.ps1`
 

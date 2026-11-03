@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(bfvr LANGUAGES C CXX)
+project(bfvr VERSION 0.1.0 LANGUAGES C CXX)
 
 # The DLL must match the game process: bf3.exe is x86, bf4.exe is x64.
 set(BFVR_GAME "bf4" CACHE STRING "Target game: bf3 (x86) or bf4 (x64)")
@@ -256,9 +256,12 @@ if(BFVR_GAME STREQUAL "bf4")
 	add_library(bfvr_launcher_core STATIC
 		src/launcher/ini_file.cpp
 		src/launcher/install.cpp
+		src/launcher/update.cpp
 		src/launcher/vr_setup.cpp
 	)
-	target_link_libraries(bfvr_launcher_core PUBLIC bfvr_common PRIVATE bcrypt shell32 ole32)
+	target_link_libraries(bfvr_launcher_core PUBLIC bfvr_common PRIVATE bcrypt shell32 ole32 winhttp)
+	# The version the update check compares with the latest GitHub release (tools/package.ps1 names the zip after it).
+	target_compile_definitions(bfvr_launcher_core PRIVATE BFVR_VERSION="${PROJECT_VERSION}")
 
 	add_executable(bfvr_launcher WIN32
 		src/launcher/main.cpp

@@ -1,7 +1,7 @@
 // Checks the launcher's install logic, the VR setup of the BF4 profile and bfvr.ini, and bfvr.ini editing against a throwaway folder in %TEMP%
 // with a fake game exe; the real game folder is never touched.
 //
-// Usage: bfvr_launcher_test.exe [--keep]   (--keep leaves the folder for inspection)
+// Usage: bfvr_launcher_test.exe [--keep]   (--keep leaves the folder for inspection; --online only asks GitHub for the latest release)
 // Exit code 0 when every check passes.
 
 #include <windows.h>
@@ -16,6 +16,7 @@
 
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
+#include "launcher/update.hpp"
 #include "launcher/vr_setup.hpp"
 
 namespace
@@ -168,8 +169,32 @@ namespace
 	}
 }
 
+namespace
+{
+	void test_update()
+	{
+		const release latest = parse_release(R"({"url":"https://api.github.com/x","html_url":"https://github.com/DanInDev/bf4-vr/releases/tag/v0.2.0",)"
+			R"( "tag_name" : "v0.2.0", "name":"bf-vr 0.2.0 \"hands\""})");
+		check(latest.ok && latest.tag == "v0.2.0", "update: tag_name read");
+		check(latest.url == "https://github.com/DanInDev/bf4-vr/releases/tag/v0.2.0", "update: html_url read (not url)");
+		check(!parse_release(R"({"message":"Not Found"})").ok, "update: an answer without a tag is no release");
+		check(compare_versions("v0.2.0", "0.1.0") > 0 && compare_versions("0.1.0", "v0.2.0") < 0, "update: newer and older");
+		check(compare_versions("v0.1", "0.1.0") == 0 && compare_versions("1.10.0", "1.9.3") > 0, "update: missing parts are 0, parts compare as numbers");
+		check(!mod_version().empty() && compare_versions(mod_version(), "0.0.1") >= 0, "update: this build has a version");
+	}
+}
+
 int wmain(int argc, wchar_t** argv)
 {
+	if (argc > 1 && _wcsicmp(argv[1], L"--online") == 0)
+	{
+		// Not part of ctest: asks GitHub as the launcher's "Updates?" button does.
+		const release latest = latest_release();
+		std::printf("version %s; latest release: %s %s %s\n", std::string(mod_version()).c_str(), latest.ok ? latest.tag.c_str() : "-",
+			latest.url.c_str(), latest.error.c_str());
+		return latest.ok || latest.error == "no release published yet" ? 0 : 1;
+	}
+	test_update();
 	const bool keep = argc > 1 && _wcsicmp(argv[1], L"--keep") == 0;
 	const fs::path root = fs::temp_directory_path() / (L"bfvr_launcher_test_" + std::to_wstring(GetCurrentProcessId()));
 	fs::create_directories(root);

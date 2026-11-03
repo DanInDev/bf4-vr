@@ -1,0 +1,40 @@
+name: release
+
+# Pushing a tag v<version> (the version in CMakeLists.txt's project()) builds the release zip with
+# tools/package.ps1 and publishes it as a GitHub release; the launcher's "Updates?" button finds it.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the project version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'project\(bfvr VERSION ([0-9.]+)').Matches[0].Groups[1].Value
+          if ("${{ github.ref_name }}" -ne "v$version") { throw "Tag ${{ github.ref_name }} does not match the project version $version" }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      # windows-latest ships Visual Studio 2026 only; the presets name 2022 for local builds.
+      - name: Configure
+        run: cmake --preset bf4 -G "Visual Studio 18 2026" -D BFVR_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build --preset bf4-release --parallel
+
+      - name: Package
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tools\package.ps1 -NoBuild -Version $env:VERSION
+
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "build/package/bf-vr-$env:VERSION.zip" --title "bf-vr $env:VERSION" --generate-notes

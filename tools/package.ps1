@@ -21,9 +21,18 @@ function Invoke-Native([string]$what, [scriptblock]$command) {
 	if ($LASTEXITCODE) { throw "$what failed (exit code $LASTEXITCODE)" }
 }
 
+# The CMake project version: the launcher's update check compares it with the latest GitHub release.
+$projectVersion = (Select-String -Path (Join-Path $root 'CMakeLists.txt') -Pattern 'project\(bfvr VERSION ([0-9.]+)').Matches[0].Groups[1].Value
 if (-not $Version) {
-	$Version = Invoke-Native 'git describe' { git -C $root describe --tags --always --dirty 2>$null }
-	if (-not $Version) { $Version = 'dev' }
+	$Version = $projectVersion
+	# No tag on HEAD is normal (exit code 128), so this one is not Invoke-Native.
+	$ErrorActionPreference = 'Continue'
+	$tag = git -C $root describe --tags --exact-match 2>$null
+	$ErrorActionPreference = 'Stop'
+	if ($tag -ne "v$projectVersion") {
+		$commit = Invoke-Native 'git rev-parse' { git -C $root rev-parse --short HEAD }
+		$Version = "$projectVersion-dev.$commit"
+	}
 }
 
 if (-not $NoBuild) {

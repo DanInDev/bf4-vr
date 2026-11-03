@@ -19,6 +19,7 @@
 #include "launcher/install.hpp"
 #include "launcher/resource.hpp"
 #include "launcher/theme.hpp"
+#include "launcher/update.hpp"
 #include "launcher/vr_setup.hpp"
 
 namespace bfvr::launcher
@@ -564,6 +565,31 @@ namespace bfvr::launcher
 			refresh(dialog, true);
 		}
 
+		// Asks GitHub for the latest release only on this click; offers its page when it is newer.
+		void check_update(HWND dialog)
+		{
+			say(dialog, L"Asking GitHub for the latest release...");
+			UpdateWindow(dialog);
+			const release latest = latest_release();
+			const std::wstring current = widen(std::string(mod_version()));
+			if (!latest.ok)
+			{
+				say(dialog, L"Update check: " + widen(latest.error) + L". This is version " + current + L".");
+				return;
+			}
+			if (compare_versions(latest.tag, mod_version()) <= 0)
+			{
+				say(dialog, L"Up to date: version " + current + L" (latest release " + widen(latest.tag) + L").");
+				return;
+			}
+			const std::wstring text = L"Release " + widen(latest.tag) + L" is out (this is " + current + L"). Open its page?";
+			say(dialog, text);
+			if (MessageBoxW(dialog, text.c_str(), L"bf-vr launcher", MB_YESNO | MB_ICONINFORMATION) == IDYES && !latest.url.empty())
+			{
+				ShellExecuteW(dialog, L"open", widen(latest.url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+			}
+		}
+
 		void open_path(HWND dialog, const std::filesystem::path& path)
 		{
 			if (reinterpret_cast<INT_PTR>(ShellExecuteW(dialog, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL)) > 32)
@@ -761,6 +787,7 @@ namespace bfvr::launcher
 				case IDC_SETUP: set_up(dialog); break;
 				case IDC_RESTORE_PROFILE: report(dialog, restore_profile(app.profile, game_running(app.game))); break;
 				case IDC_OPEN_LOG: open_log(dialog); break;
+				case IDC_CHECK_UPDATE: check_update(dialog); break;
 				case IDCANCEL: KillTimer(dialog, refresh_timer); EndDialog(dialog, 0); break;
 				default: return FALSE;
 				}
