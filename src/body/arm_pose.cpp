@@ -255,13 +255,18 @@ namespace bfvr::body
 			bool has_ads_sight{};
 			ik::vec3 ads_eye;
 			ik::vec3 ads_direction{ 0, 0, 1 };
-			ik::vec3 ads_gun;        // IK_Joint_RightHand in Wep_Root axes when sampled: another gun resets it
+			ik::vec3 sampled_gun;    // IK_Joint_RightHand in Wep_Root axes: another gun resets the samples
 			double aiming_since{ -1.0 };
+			double fired_at{ -100.0 };
 		};
 		constexpr double ads_settle_seconds = 0.5; // the game's zoom-in animation has finished
 		// Animated camera-in-gun samples off the sight by more than this are another hold (a grenade, the
 		// knife, a reload): the sight line keeps its last value.
-		constexpr float sight_min_cos = 0.97f;
+		constexpr float sight_min_cos = 0.9962f;     // 5 degrees
+		constexpr double sight_quiet_seconds = 0.4; // after the last shot
+		// The ADS eye point from Wep_Scope1, Wep_Root axes (monitor 2026-11-04: AK-12 red dot (0.001, 0.035,
+		// -0.159), SCAR-H holographic (0.001, 0.036, -0.141)).
+		constexpr ik::vec3 default_eye_from_optic{ 0.0f, 0.035f, -0.15f };
 		gun_geometry geometry;
 		// Physical reload: where the gun's magazine and slide are (published each evaluation) and
 		// where the magazine should be drawn (set by weapon/physical_reload).
@@ -613,17 +618,24 @@ namespace bfvr::body
 				}
 				if (rig.camera >= 0)
 				{
-					// The joint's z looks forward. Eased over ~10 evaluations (the hip sway moves it ~0.3
-					// degrees); a new gun (a jump of more than ~3 degrees) is taken at once.
+					// The joint's z looks forward. Samples are taken only while steady: never while firing or
+					// just after (the recoil and the game's aim pitch move the camera joint against the gun:
+					// +-13 degrees seen), and only within 5 degrees of the barrel (no sight is further off).
 					const ik::bone_transform eye = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.camera));
 					const ik::vec3 forward = ik::normalize(ik::rotate(eye.rotation, ik::vec3{ 0, 0, 1 }));
-					// The gun in hand, by where its grip sits: a swap forgets the ADS sample.
+					// The gun in hand, by where its grip sits: a swap forgets both samples.
 					const ik::vec3 gun_grip = geometry.has_ik[1] ? geometry.ik_hand[1].position : geometry.hand[1].position;
-					if (geometry.has_ads_sight && ik::length(gun_grip - geometry.ads_gun) > 0.01f)
+					if (ik::length(gun_grip - geometry.sampled_gun) > 0.01f)
 					{
+						geometry.has_sight = false;
 						geometry.has_ads_sight = false;
+						geometry.sampled_gun = gun_grip;
 					}
 					const double now = steady_seconds();
+					if (input::latest().right_trigger > 30)
+					{
+						geometry.fired_at = now;
+					}
 					if (!input::game_aiming())
 					{
 						geometry.aiming_since = -1.0;
@@ -632,10 +644,9 @@ namespace bfvr::body
 					{
 						geometry.aiming_since = now;
 					}
-					if (forward.z > sight_min_cos)
+					if (now - geometry.fired_at > sight_quiet_seconds && forward.z > sight_min_cos)
 					{
-						const bool jump = !geometry.has_sight || ik::dot(forward, geometry.sight_direction) < 0.9986f;
-						const float keep = jump ? 0.0f : 0.9f;
+						const float keep = geometry.has_sight ? 0.9f : 0.0f;
 						geometry.sight_direction = ik::normalize(geometry.sight_direction * keep + forward * (1.0f - keep));
 						geometry.sight_eye = geometry.sight_eye * keep + eye.position * (1.0f - keep);
 						geometry.has_sight = true;
@@ -644,7 +655,6 @@ namespace bfvr::body
 							const float ads_keep = geometry.has_ads_sight ? 0.9f : 0.0f;
 							geometry.ads_direction = ik::normalize(geometry.ads_direction * ads_keep + forward * (1.0f - ads_keep));
 							geometry.ads_eye = geometry.ads_eye * ads_keep + eye.position * (1.0f - ads_keep);
-							geometry.ads_gun = gun_grip;
 							geometry.has_ads_sight = true;
 						}
 					}
@@ -994,12 +1004,21 @@ namespace bfvr::body
 				points.root_rotation[1] = root_xr.y;
 				points.root_rotation[2] = root_xr.z;
 				points.root_rotation[3] = root_xr.w;
-				points.has_sight = geometry.has_sight;
+				points.has_sight = geometry.has_ads_sight || rig.optic >= 0 || geometry.has_sight;
 				if (points.has_sight)
 				{
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
-					const ik::vec3& sight_eye = geometry.has_ads_sight ? geometry.ads_eye : geometry.sight_eye;
-					const ik::vec3& sight_direction = geometry.has_ads_sight ? geometry.ads_direction : geometry.sight_direction;
+					// Until the game's own ADS was seen for this gun: the barrel line from where both
+					// measured guns have their eye point from the optic bone (the hip pose's camera is
+					// 7.6 cm off to the side, and moves with the aim pitch).
+					ik::vec3 sight_eye = geometry.ads_eye;
+					if (!geometry.has_ads_sight)
+					{
+						sight_eye = rig.optic >= 0
+							? ik::rotate(ik::conjugate(gun.rotation), ik::model_of(local, rig.parents, rig.optic).position - gun.position) + default_eye_from_optic
+							: geometry.sight_eye;
+					}
+					const ik::vec3 sight_direction = geometry.has_ads_sight ? geometry.ads_direction : ik::vec3{ 0, 0, 1 };
 					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, sight_eye) - camera.position);
 					points.sight_eye[0] = eye.x;
 					points.sight_eye[1] = eye.y;

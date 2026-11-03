@@ -32,6 +32,7 @@ namespace bfvr::weapon
 		std::atomic<bool> sight_ads{ true };      // live setting sight_ads
 		bool sight_aiming{};
 		bool sight_from_ads{};
+		float eye_from_optic[3]{}; // report
 		unsigned long long sight_changes{};
 		constexpr float sight_enter_metres = 0.025f; // eye this close to the sight line: aiming
 		constexpr float sight_leave_metres = 0.04f;
@@ -205,6 +206,16 @@ namespace bfvr::weapon
 		}
 		sight_line = drawn_line && points.has_sight;
 		sight_from_ads = points.sight_from_ads;
+		if (points.has_sight && points.has_optic && points.has_root)
+		{
+			// The sight's eye point relative to Wep_Scope1, in Wep_Root axes (+x left, +y up, +z barrel).
+			const float d[3]{ points.sight_eye[0] - points.optic[0], points.sight_eye[1] - points.optic[1], points.sight_eye[2] - points.optic[2] };
+			const body::ik::quat root{ points.root_rotation[0], points.root_rotation[1], points.root_rotation[2], points.root_rotation[3] };
+			const body::ik::vec3 local = body::ik::rotate(body::ik::conjugate(root), { d[0], d[1], d[2] });
+			eye_from_optic[0] = local.x;
+			eye_from_optic[1] = local.y;
+			eye_from_optic[2] = local.z;
+		}
 		if (points.has_sight)
 		{
 			// Wep_Root axes: +z barrel, +y up, +x left.
@@ -293,8 +304,8 @@ namespace bfvr::weapon
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
-				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
 		}
 		return text;

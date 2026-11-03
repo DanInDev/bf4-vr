@@ -477,6 +477,8 @@ namespace bfvr::input
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void set_game_buttons(bool, bool, bool) {}
 	void set_item_left_trigger(bool) {}
+	void set_sight_aim(bool) {}
+	bool game_aiming() { return false; }
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}
 	void set_neutral_pitch(bool) {}
