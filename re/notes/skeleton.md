@@ -157,3 +157,17 @@ of `Wep_Root`) back along its local -z by the pull.
   <Finger>1-3 at the moment the slide starts back are `authored_pinch` in `arm_pose.cpp` (Thumb1
   (0.550, 0.266, -0.093, 0.786), ~70 degrees). Through the 10 cm pull thumb and index change < 2 deg,
   middle/ring/pinky up to 8.5 deg.
+
+## Authored grips (2026-11-03)
+
+The game's own reload animations, captured with `arm_ik = 0`, `reload = button` and 0 written into the
+server magazine (an empty reload), sampled at ~100 Hz (forward kinematics over the live local pose):
+
+| Grip | Moment | Magazine (Wep_Mag) relative to the LeftHand bone |
+| --- | --- | --- |
+| Pinch (`pinch_grip`) | AK-12 rack, as the slide starts back | - |
+| AK magazine (`magazine_grip_ak`) | AK-12: the old magazine out (0.61-0.69 s) and the new one in (1.15-1.37 s) hold it the same within 3 mm | (0.1146, 0.0441, -0.1175), rot (0.2538, -0.2256, 0.6042, -0.7208) |
+| AR magazine (`magazine_grip_ar`) | SCAR-H: the new magazine (0.77-1.28 s, rigid for 60 samples) | (0.1558, 0.0372, -0.1136), rot (-0.0958, 0.4847, -0.7140, 0.4961) |
+
+`arm_pose` eases a grip's finger rotations (Thumb1-3, <Finger>1-3) in over ~50 ms and places a held
+magazine where the grip holds it relative to the hand bone; the cup (palm up) still overrides.

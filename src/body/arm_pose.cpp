@@ -269,18 +269,43 @@ namespace bfvr::body
 		std::atomic<int> rack_grip{};       // live setting: 0 pinch (thumb and index side), 1 hook (the index's curl)
 		bool pinching{};
 		float pinch_gap_mm{};
-		float pinch_weight{};                // the authored pinch eased in (0..1)
-		bone_memory thumb_base_memory;       // the off hand's Thumb1 while the pinch sets it
-		// The game's own pinch on the AK-12's charging handle: the left hand's local rotations of
-		// Thumb1-3 and <Finger>1-3, captured from its empty reload as the slide moved (2026-11-03,
-		// re/notes/skeleton.md "Pinch"; thumb and index steady within 2 degrees through the pull).
-		constexpr ik::quat authored_pinch[fingers::count][3] = {
+		// The game's own off-hand grips, captured from its empty reloads with arm IK off (2026-11-03,
+		// re/notes/skeleton.md "Authored grips"): the left hand's local rotations of Thumb1-3 and
+		// <Finger>1-3, and for magazines the Wep_Mag bone relative to the LeftHand bone.
+		struct authored_grip
+		{
+			ik::quat joints[fingers::count][3];
+			ik::vec3 magazine;          // position in hand-bone axes
+			ik::quat magazine_rotation; // rotation relative to the hand bone
+		};
+		// The AK-12's rack, as the slide moved (thumb and index steady within 2 degrees through the pull).
+		constexpr authored_grip pinch_grip{ {
 			{ { 0.5502f, 0.2659f, -0.0928f, 0.7861f }, { 0.2034f, 0.0140f, 0.4286f, 0.8802f }, { 0.0f, 0.0f, -0.2339f, 0.9723f } },
 			{ { -0.1182f, -0.1661f, 0.0578f, 0.9773f }, { 0.0f, 0.0f, 0.1663f, 0.9861f }, { 0.0f, 0.0f, -0.0006f, 1.0f } },
 			{ { -0.1585f, -0.1258f, 0.1576f, 0.9665f }, { 0.0f, 0.0f, 0.2175f, 0.9760f }, { 0.0f, 0.0f, 0.0385f, 0.9993f } },
 			{ { -0.0905f, -0.0033f, 0.1269f, 0.9878f }, { 0.0f, 0.0f, 0.3840f, 0.9233f }, { 0.0f, 0.0f, 0.1027f, 0.9947f } },
 			{ { -0.0673f, 0.1470f, 0.2627f, 0.9512f }, { 0.0f, 0.0f, 0.2281f, 0.9736f }, { 0.0f, 0.0f, 0.0389f, 0.9992f } },
-		};
+		}, {}, {} };
+		// The AK-12's new magazine on its way to the gun (the old one out held the same within 3 mm).
+		constexpr authored_grip magazine_grip_ak{ {
+			{ { 0.5565f, 0.4990f, -0.1566f, 0.6456f }, { 0.1068f, 0.2057f, 0.3889f, 0.8916f }, { 0.0f, 0.0f, 0.3482f, 0.9374f } },
+			{ { -0.1851f, -0.2113f, 0.2261f, 0.9327f }, { 0.0f, 0.0f, 0.5463f, 0.8376f }, { 0.0f, 0.0f, 0.4007f, 0.9162f } },
+			{ { -0.2661f, -0.1956f, 0.5247f, 0.7846f }, { 0.0f, 0.0f, 0.7072f, 0.7070f }, { 0.0f, 0.0f, 0.5949f, 0.8038f } },
+			{ { -0.1903f, -0.0947f, 0.6089f, 0.7642f }, { 0.0f, 0.0f, 0.3603f, 0.9329f }, { 0.0f, 0.0f, 0.4423f, 0.8969f } },
+			{ { -0.1934f, -0.0117f, 0.4644f, 0.8641f }, { 0.0f, 0.0f, 0.4077f, 0.9131f }, { 0.0f, 0.0f, 0.3861f, 0.9225f } },
+		}, { 0.1146f, 0.0441f, -0.1175f }, { 0.2538f, -0.2256f, 0.6042f, -0.7208f } };
+		// The SCAR-H's new magazine (AR pattern).
+		constexpr authored_grip magazine_grip_ar{ {
+			{ { 0.5623f, 0.3768f, 0.0936f, 0.7301f }, { 0.1298f, -0.1785f, -0.1483f, 0.9640f }, { 0.0f, 0.0f, -0.3126f, 0.9499f } },
+			{ { 0.1277f, -0.0618f, -0.0526f, 0.9885f }, { 0.0f, 0.0f, 0.2630f, 0.9648f }, { 0.0f, 0.0f, 0.8033f, 0.5955f } },
+			{ { 0.0729f, -0.0969f, 0.2824f, 0.9516f }, { 0.0f, 0.0f, 0.4992f, 0.8665f }, { 0.0f, 0.0f, 0.7576f, 0.6528f } },
+			{ { 0.0985f, -0.0403f, 0.2998f, 0.9480f }, { 0.0f, 0.0f, 0.6421f, 0.7666f }, { 0.0f, 0.0f, 0.7272f, 0.6864f } },
+			{ { 0.0088f, -0.1836f, 0.0891f, 0.9789f }, { 0.0f, 0.0f, 0.7955f, 0.6060f }, { 0.0f, 0.0f, 0.7965f, 0.6046f } },
+		}, { 0.1558f, 0.0372f, -0.1136f }, { -0.0958f, 0.4847f, -0.7140f, 0.4961f } };
+		const authored_grip* authored{};      // the grip the off hand takes this frame, if any
+		const authored_grip* authored_shown{}; // the one being eased (kept while easing out)
+		float authored_weight{};
+		bone_memory thumb_base_memory;       // the off hand's Thumb1 while an authored grip sets it
 		ik::vec3 pinch_in_hand;             // where the knob belongs, hand-bone axes, from the last shaping
 		bool has_pinch{};
 		constexpr float knob_half = 0.008f; // a charging handle's knob, half its size
@@ -1034,8 +1059,9 @@ namespace bfvr::body
 			return curl;
 		}
 
-		// The off hand's grip on a held magazine: wrapped (fixed curls) or cupped (contact), by the
-		// setting or the palm facing up. Rewrites the task and its target shape for a cup.
+		// The off hand's grip on a held magazine: wrapped the way the game's own reload holds it (an
+		// authored grip per variant) or cupped (contact), by the setting or the palm facing up. Rewrites
+		// the task and its target shape for a cup.
 		void choose_magazine_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
 		{
 			const bool holding = task == fingers::task::magazine && magazine_request.detached && magazine_request.in_hand;
@@ -1044,6 +1070,10 @@ namespace bfvr::body
 			cupped = cup.valid && (mode == 2 || (mode == 0 && contact::cup_grip(cupped, cup_palm_up)));
 			if (!cupped)
 			{
+				if (holding && rig.thumb_base[0] > 0)
+				{
+					authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+				}
 				return;
 			}
 			task = fingers::task::cup;
@@ -1065,7 +1095,7 @@ namespace bfvr::body
 			return { on_handle, gun.rotation, { knob_half, knob_half, knob_half } };
 		}
 
-		// Racking with rack_grip = pinch: the handle task becomes the game's own pinch (authored_pinch,
+		// Racking with rack_grip = pinch: the handle task becomes the game's own pinch (pinch_grip,
 		// eased in after the shaping). The curled thumb alone cannot reach the knob: the pinch needs
 		// Thumb1's swing across the palm, which only the authored pose has.
 		void choose_rack_grip(fingers::task& task, fingers::hand_shape& target)
@@ -1076,11 +1106,12 @@ namespace bfvr::body
 			{
 				task = fingers::task::pinch;
 				target = fingers::shape_for(task, {});
+				authored = &pinch_grip;
 			}
 		}
 
-		// The off hand's joint for authored_pinch[finger][joint]: Thumb1-3, else <Finger>1-3.
-		int pinch_bone(int finger, int joint)
+		// The off hand's joint for authored_grip::joints[finger][joint]: Thumb1-3, else <Finger>1-3.
+		int authored_bone(int finger, int joint)
 		{
 			if (finger == fingers::thumb)
 			{
@@ -1089,23 +1120,30 @@ namespace bfvr::body
 			return rig.finger_bones[0][finger][joint];
 		}
 
-		void apply_pinch(ik::bone_transform* local, float seconds)
+		// Eases the off hand's fingers into this frame's authored grip (over ~50 ms) and out of it.
+		void apply_authored(ik::bone_transform* local, float seconds)
 		{
-			pinch_weight += ((pinching ? 1.0f : 0.0f) - pinch_weight) * (1.0f - std::exp(-seconds / 0.05f));
-			if (pinch_weight < 0.001f)
+			if (authored && authored != authored_shown)
 			{
+				authored_weight = authored_shown ? 0.0f : authored_weight; // a different grip starts from the shaped fingers
+				authored_shown = authored;
+			}
+			authored_weight += ((authored ? 1.0f : 0.0f) - authored_weight) * (1.0f - std::exp(-seconds / 0.05f));
+			if (!authored_shown || authored_weight < 0.001f)
+			{
+				authored_shown = authored;
 				return;
 			}
 			for (int finger = 0; finger < fingers::count; ++finger)
 			{
 				for (int joint = 0; joint < 3; ++joint)
 				{
-					const int bone = pinch_bone(finger, joint);
+					const int bone = authored_bone(finger, joint);
 					if (bone <= 0)
 					{
 						continue;
 					}
-					local[bone].rotation = nlerp(local[bone].rotation, authored_pinch[finger][joint], pinch_weight);
+					local[bone].rotation = nlerp(local[bone].rotation, authored_shown->joints[finger][joint], authored_weight);
 					bone_memory& remembered = finger == fingers::thumb && joint == 0 ? thumb_base_memory
 						: finger_memory[0][finger][finger == fingers::thumb ? joint - 1 : joint];
 					remembered.written = local[bone];
@@ -1160,6 +1198,8 @@ namespace bfvr::body
 				has_pinch = false;
 				pinching = false;
 				cupped = false;
+				authored = authored_shown = nullptr;
+				authored_weight = 0.0f;
 				return;
 			}
 			LARGE_INTEGER counter{}, frequency{};
@@ -1177,6 +1217,7 @@ namespace bfvr::body
 				fingers::hand_shape target = fingers::shape_for(task, last_input[hand]);
 				if (hand == 0)
 				{
+					authored = nullptr;
 					choose_magazine_grip(local, task, target);
 					choose_rack_grip(task, target);
 				}
@@ -1201,7 +1242,7 @@ namespace bfvr::body
 					}
 				}
 			}
-			apply_pinch(local, seconds);
+			apply_authored(local, seconds);
 			// The inside of the off hand's index curl, for the next racking hold.
 			const int (&index_joints)[fingers::joints] = rig.finger_bones[0][fingers::index];
 			has_hook = rig.arms[0].hand >= 0 && index_joints[0] > 0 && index_joints[1] > 0 && index_joints[2] > 0;
@@ -1264,10 +1305,19 @@ namespace bfvr::body
 			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
-			const ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
-			const ik::quat palm_frame = palm_valid ? cup.frame : fist_frame;
+			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
+			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
+			if ((authored_shown == &magazine_grip_ak || authored_shown == &magazine_grip_ar) && authored_weight > 0.0f && rig.arms[0].hand >= 0)
+			{
+				// Where the game's own reload holds it, relative to the hand, eased in with the fingers.
+				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
+				const ik::vec3 held = hand.position + ik::rotate(hand.rotation, authored_shown->magazine);
+				fist_rotation = nlerp(fist_rotation, hand.rotation * authored_shown->magazine_rotation, authored_weight);
+				fist_top = fist_top + (held - fist_top) * authored_weight;
+			}
+			const ik::quat palm_rotation = palm_valid ? ik::normalize(cup.frame * seated) : fist_rotation;
 			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
-			placed.rotation = ik::normalize(nlerp(fist_frame, palm_frame, on_palm) * seated);
+			placed.rotation = nlerp(fist_rotation, palm_rotation, on_palm);
 			placed.position = fist_top + (palm_top - fist_top) * on_palm;
 			ik::bone_transform& current = local[rig.magazine];
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
@@ -1682,7 +1732,7 @@ namespace bfvr::body
 				}
 			}
 		}
-		char text[1024];
+		char text[1536];
 		int length = std::snprintf(text, sizeof(text), "finger_poses=%d joints=%d handle_hold=%.2f pull=%.3f handle=(%.3f,%.3f,%.3f)",
 			finger_poses.load() ? 1 : 0, found, handle_request.weight, handle_request.pull, handle_request.handle.x, handle_request.handle.y,
 			handle_request.handle.z);
@@ -1703,9 +1753,13 @@ namespace bfvr::body
 			static const char* const grips[] = { "auto", "wrap", "cup" };
 			std::snprintf(text + length, sizeof(text) - length,
 				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
-				"\nrack_grip=%s pinching=%d thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)", grips[magazine_grip.load() % 3],
+				"\nrack_grip=%s pinching=%d thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
+				"\nauthored=%s weight=%.2f", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
-				rack_grip.load() == 0 ? "pinch" : "hook", pinching ? 1 : 0, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z);
+				rack_grip.load() == 0 ? "pinch" : "hook", pinching ? 1 : 0, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
+				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
+					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
+				authored_weight);
 		}
 		return text;
 	}

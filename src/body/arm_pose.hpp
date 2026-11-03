@@ -91,6 +91,7 @@ namespace bfvr::body
 	{
 		bool detached{};
 		bool in_hand{};
+		bool ak{}; // an AK-pattern magazine (held the AK way), else AR (weapon/profiles)
 		float position[3]{};
 		float rotation[4]{ 0, 0, 0, 1 };
 	};

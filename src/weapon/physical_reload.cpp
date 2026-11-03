@@ -602,6 +602,7 @@ namespace bfvr::weapon
 			pose.detached = true;
 			// Held (not sliding home or falling): the drawn fist holds it.
 			pose.in_hand = gun.state().holding && result.draw == magazine_draw::in_hand;
+			pose.ak = gun.profile().kind == variant::ak;
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
 			pose.position[2] = result.magazine_position.z;
