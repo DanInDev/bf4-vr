@@ -195,6 +195,14 @@ namespace bfvr::body
 			float pull{};         // metres back along the barrel; the slide bone moves with it
 		};
 		handle_hold handle_request;
+		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
+		// animated handguard hold turned by the controller (false).
+		std::atomic<bool> off_hand_neutral{};
+		ik::quat gun_hand_in_aim;      // the gun hand's rotation in its aim axes, last gun drawn
+		bool has_gun_hand_in_aim{};
+		// Racking: the inside of the hooked index (centroid of Index1-3), hand-bone axes, from the last shaping.
+		ik::vec3 hook_in_hand;
+		bool has_hook{};
 		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
 		constexpr float held_magazine_drop = 0.07f;
 		bone_memory slide_memory;
@@ -554,6 +562,17 @@ namespace bfvr::body
 				ik::arm_goal goal;
 				goal.wrist = camera.position + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
+				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				{
+					// The gun hand's authored grip with the barrel along the aim ray: how a hand holds a
+					// pistol grip, i.e. the controller. Mirrored, it is the free off hand's wrist (off_hand_pose).
+					gun_hand_in_aim = ik::normalize(ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation));
+					has_gun_hand_in_aim = true;
+				}
+				if (hand == 0 && off_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim)
+				{
+					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim);
+				}
 				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
@@ -587,12 +606,13 @@ namespace bfvr::body
 				}
 				if (hand == 0 && gun_placed && handle_request.weight > 0.0f)
 				{
-					// Racking: the palm stays on the charging handle, moved back by the pull, wherever the gun
-					// goes; the hand keeps the controller's rotation.
+					// Racking: the handle stays inside the hooked index (else under the palm), moved back by the
+					// pull, wherever the gun goes; the hand keeps the controller's rotation.
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
-					const ik::vec3 palm_in_rig = camera.position + ik::rotate(frame, palm);
-					goal.wrist = goal.wrist + (on_handle - palm_in_rig) * handle_request.weight;
+					const ik::vec3 hooked = has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
+						: goal.wrist + (on_handle - (camera.position + ik::rotate(frame, palm)));
+					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
 				}
 				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
@@ -811,6 +831,7 @@ namespace bfvr::body
 			}
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
+				has_hook = false; // racking falls back to the palm
 				return;
 			}
 			LARGE_INTEGER counter{}, frequency{};
@@ -843,6 +864,16 @@ namespace bfvr::body
 						finger_memory[hand][finger][joint].has_written = true;
 					}
 				}
+			}
+			// The inside of the off hand's index curl, for the next racking hold.
+			const int (&index_joints)[fingers::joints] = rig.finger_bones[0][fingers::index];
+			has_hook = rig.arms[0].hand >= 0 && index_joints[0] > 0 && index_joints[1] > 0 && index_joints[2] > 0;
+			if (has_hook)
+			{
+				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
+				const ik::vec3 curl = (ik::model_of(local, rig.parents, index_joints[0]).position + ik::model_of(local, rig.parents, index_joints[1]).position
+					+ ik::model_of(local, rig.parents, index_joints[2]).position) * (1.0f / 3.0f);
+				hook_in_hand = ik::rotate(ik::conjugate(hand.rotation), curl - hand.position);
 			}
 		}
 
@@ -1193,6 +1224,11 @@ namespace bfvr::body
 	void set_finger_poses(bool enabled)
 	{
 		finger_poses = enabled;
+	}
+
+	void set_off_hand_neutral(bool neutral)
+	{
+		off_hand_neutral = neutral;
 	}
 
 	void set_off_hand_task(fingers::task task)

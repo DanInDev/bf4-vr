@@ -123,6 +123,10 @@ namespace bfvr::body
 	// Live setting finger_poses: the fingers follow the controller and what the hands hold
 	// (body/finger_pose); off = as the game animated them.
 	void set_finger_poses(bool enabled);
+	// Live setting off_hand_pose: the off hand, when not on the gun, takes the gun hand's grip mirrored
+	// (neutral: how a hand holds the controller) instead of the animated handguard hold turned by the
+	// controller (animated). Needs a gun drawn once.
+	void set_off_hand_neutral(bool neutral);
 	// What the off hand holds (magazine, charging handle, reaching for a grab); refresh every frame,
 	// a request older than 250 ms counts as free. The two-handed hold and the gun hand are decided here.
 	void set_off_hand_task(fingers::task task);

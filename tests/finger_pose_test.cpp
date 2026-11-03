@@ -138,6 +138,22 @@ namespace
 		expect(!grasp_of(index_knuckle, index_knuckle, middle_knuckle, middle_tip, thumb_tip).valid, "no grasp without a knuckle line");
 	}
 
+	void test_mirror()
+	{
+		// A right hand: fingers (+x local) forward-down, palm (+y local) to the left, index (+z local) up.
+		const ik::quat right = from_basis(ik::normalize(ik::vec3{ 0, -0.5f, -1 }), ik::vec3{ -1, 0, 0 },
+			ik::cross(ik::normalize(ik::vec3{ 0, -0.5f, -1 }), ik::vec3{ -1, 0, 0 }));
+		const ik::quat left = mirrored_hand(right);
+		const ik::vec3 fingers = ik::rotate(left, { 1, 0, 0 });
+		const ik::vec3 palm = ik::rotate(left, { 0, 1, 0 });
+		const ik::vec3 index_side = ik::rotate(left, { 0, 0, -1 }); // the left index is at local -z
+		const ik::vec3 right_index = ik::rotate(right, { 0, 0, 1 });
+		expect(near(fingers.x, 0) && near(ik::dot(fingers, ik::normalize(ik::vec3{ 0, -0.5f, -1 })), 1.0f), "mirrored fingers point the same way");
+		expect(near(palm.x, 1.0f), "the left palm faces right");
+		expect(near(index_side.x, -right_index.x) && near(index_side.y, right_index.y) && near(index_side.z, right_index.z), "the index side mirrors");
+		expect(angle_between(mirrored_hand(left), right) < 1e-3f, "mirroring twice is the identity");
+	}
+
 	void test_smoother()
 	{
 		shape_smoother smoother;
@@ -161,6 +177,7 @@ int main()
 	test_bend();
 	test_shapes();
 	test_grasp();
+	test_mirror();
 	test_smoother();
 	if (failures == 0)
 	{

@@ -145,6 +145,12 @@ namespace bfvr::body::fingers
 		return keep <= 0.0f ? drawn : nlerp(drawn, animated, keep);
 	}
 
+	ik::quat mirrored_hand(ik::quat right)
+	{
+		// diag(-1, 1, 1) * R * diag(1, 1, -1) = (reflect R in x) * (180 degrees about y).
+		return ik::normalize(ik::quat{ right.x, -right.y, -right.z, right.w } * ik::quat{ 0, 1, 0, 0 });
+	}
+
 	ik::quat from_basis(ik::vec3 x, ik::vec3 y, ik::vec3 z)
 	{
 		// Shepperd's method on the matrix with columns x, y, z.

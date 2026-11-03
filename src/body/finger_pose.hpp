@@ -65,6 +65,11 @@ namespace bfvr::body::fingers
 	// The drawn local rotation of a joint for a shape, from the animated one.
 	ik::quat shaped(ik::quat animated, finger which, int joint, const hand_shape& shape);
 
+	// The left hand's rotation that mirrors a right-hand rotation across the x = 0 plane (OpenXR x right).
+	// Hand bones: fingers along local +x, palm towards +y, the index at +z on the right hand and -z on
+	// the left, so the bone axes mirror in z. Turns the gun hand's grip into the same grip on the left.
+	ik::quat mirrored_hand(ik::quat right);
+
 	// Rotation whose columns are the given orthonormal axes.
 	ik::quat from_basis(ik::vec3 x, ik::vec3 y, ik::vec3 z);
 

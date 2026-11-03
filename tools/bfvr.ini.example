@@ -133,6 +133,10 @@ hide_legs = 1
 # magazine, hooks the charging handle; the gun hand's index leaves the trigger when you lift it.
 # 0 = the game's animated hands. Pipe `fingers` shows each hand's task and shape.
 finger_poses = 1
+# The off hand's wrist when it is not on the gun: animated = the game's handguard hold turned by the
+# controller; neutral = the gun hand's grip mirrored, i.e. how you hold the controller (magazines then
+# sit like a pistol grip in the fist). Not yet checked in the game.
+off_hand_pose = animated
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one
