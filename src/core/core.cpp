@@ -95,7 +95,7 @@ namespace bfvr::core
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_finger_poses(store.boolean("finger_poses", true));
-			body::set_off_hand_neutral(store.text("off_hand_pose", "animated") == "neutral");
+			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));

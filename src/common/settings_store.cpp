@@ -50,7 +50,7 @@ namespace bfvr::settings
 			{ "hud_show_crosshair", kind::boolean, 0, 0, 0, "0", "", "HUD: the game's crosshair in the middle" },
 			{ "arm_length", kind::real, 0.8f, 1.5f, 0.05f, "1.15", "", "first-person arms stretched by this (reach)" },
 			{ "hide_legs", kind::boolean, 0, 0, 0, "1", "", "first-person legs hidden (they sit oddly under a tracked head)" },
-			{ "off_hand_pose", kind::choice, 0, 0, 0, "animated", "animated|neutral", "the free off hand's wrist: the game's handguard hold turned by the controller (animated), or the gun hand's grip mirrored, as you hold the controller (neutral; check on the monitor first)" },
+			{ "off_hand_pose", kind::choice, 0, 0, 0, "neutral", "animated|neutral", "the free off hand's wrist: the gun hand's grip mirrored, as you hold the controller, a held magazine upright in the fist (neutral), or the game's handguard hold turned by the controller (animated)" },
 			{ "finger_poses", kind::boolean, 0, 0, 0, "1", "", "fingers follow the controller (squeeze, trigger, thumb) and wrap magazines and the charging handle; off = the game's animated hands" },
 			{ "shoulder_width", kind::real, -0.1f, 0.2f, 0.01f, "0", "", "first-person shoulders moved outwards by this, metres per side" },
 			{ "holsters", kind::boolean, 0, 0, 0, "1", "", "weapon holsters on the body: gun hand + grip over the shoulder (primary), at the hip (secondary), chest (knife), belt (gadgets)" },
