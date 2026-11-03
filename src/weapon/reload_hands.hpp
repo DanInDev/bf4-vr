@@ -83,9 +83,9 @@ namespace bfvr::weapon
 
 	struct hand_config
 	{
-		float reach_magazine{ 0.14f }; // off hand this close to the magwell grabs / catches; a held magazine this close seats
-		float reach_slide{ 0.12f };
-		float reach_chest{ 0.30f };
+		float reach_magazine{ 0.10f }; // off hand this close to the magwell grabs / catches; a held magazine this close seats
+		float reach_slide{ 0.085f };
+		float reach_chest{ 0.21f };
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears
@@ -97,7 +97,7 @@ namespace bfvr::weapon
 		// receiver on top, AK on the receiver above the magazine (either side within the reach).
 		v3 handle_ar{ 0.0f, 0.06f, 0.20f };
 		v3 handle_ak{ 0.0f, 0.03f, 0.40f };
-		float reach_handle{ 0.12f };
+		float reach_handle{ 0.085f };
 		// The magazine is grabbed by its body, this far below where it seats (gun frame -y): on an AK the
 		// charging handle sits only ~3 cm from the magwell, the hand on the magazine well below it.
 		float magazine_grab_drop{ 0.08f };

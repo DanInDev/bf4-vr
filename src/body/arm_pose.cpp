@@ -791,7 +791,13 @@ namespace bfvr::body
 						: goal.wrist + (on_handle - (camera.position + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
 				}
-				goal.pole = ik::model_of(local, rig.parents, bones.upper).position + ik::rotate(frame, pole_direction[hand]);
+				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
+				// the hand lies along the first, the belt and hip for the default hint.
+				const ik::quat body_frame = torso_turn * frame;
+				const ik::vec3 shoulder_at = ik::model_of(local, rig.parents, bones.upper).position;
+				goal.pole = shoulder_at + ik::rotate(body_frame, pole_direction[hand]);
+				goal.pole_fallback = shoulder_at + ik::rotate(body_frame, ik::vec3{ hand == 0 ? -0.6f : 0.6f, 0.0f, 1.0f });
+				goal.has_pole_fallback = true;
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
 				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
 				const float reach = ik::reach_ratio(local, rig.parents, bones, goal.wrist);

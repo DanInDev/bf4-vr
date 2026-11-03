@@ -172,7 +172,7 @@ hand's Thumb4, Index2/Index3 and Wep_Slide in Wep_Root axes (+z along the barrel
 | Gun | What the reload does | Handle (Wep_Root axes) |
 | --- | --- | --- |
 | `U_AK12` | At 2.4-2.9 s the hand pinches (thumb to index side 3.0-3.3 cm) and pulls; Wep_Slide travels **10 cm** back | Pinch as the slide starts (-0.027, 0.062, 0.520) at 0.8 cm travel; at the peak minus the travel (-0.015, 0.060, 0.534): **(-0.02, 0.06, 0.53)**, right side ahead of the magwell. The old AK guess (0, 0.03, 0.40) was 13 cm back |
-| `U_SCAR-H` | The bolt locks back on empty (Wep_Slide 12.4 cm); ~1.8 s later the open hand (thumb-index 12 cm) hits the bolt release left of the magwell, (0.02, 0.0, 0.46), and the bolt slams home | Not shown by the animation; still the AR guess |
+| `U_SCAR-H` | The bolt locks back on empty (Wep_Slide 12.4 cm); ~1.8 s later the open hand (thumb-index 12 cm) hits the bolt release left of the magwell, (0.02, 0.0, 0.46), and the bolt slams home | Not shown by the animation. The headset (2026-11-03) puts the real SCAR's handle front-left of the receiver: estimate **(0.035, 0.04, 0.57)**, ahead of Wep_Slide (0, 0.058, 0.505); to be checked against the drawn mesh |
 
 - The empty AK reload ends with 30 in the gun, 30 taken from the reserve (as a real reload).
 - Wep_Slide does animate on the AK-12 although offsetting it moves no visible mesh (A2): the bolt may be

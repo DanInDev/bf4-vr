@@ -126,6 +126,16 @@ namespace bfvr::weapon
 		*this = two_hand_grip(config_);
 	}
 
+	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4])
+	{
+		// root * (180 degrees about y): -z of the result is +z of the root.
+		const body::ik::quat turned = body::ik::normalize(to_quat(root_rotation) * body::ik::quat{ 0, 1, 0, 0 });
+		rotation[0] = turned.x;
+		rotation[1] = turned.y;
+		rotation[2] = turned.z;
+		rotation[3] = turned.w;
+	}
+
 	void converged_aim(const float (&origin)[3], const float (&grip)[3], const float (&rotation)[4], float convergence, float (&direction)[3])
 	{
 		const vec3 barrel = body::ik::rotate(to_quat(rotation), { 0, 0, -1 });

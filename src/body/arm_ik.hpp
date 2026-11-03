@@ -59,6 +59,10 @@ namespace bfvr::body::ik
 		vec3 wrist;     // model space
 		quat hand;      // model-space rotation of the hand bone
 		vec3 pole;      // model-space point the elbow bends towards
+		// Second elbow hint, taken over as the arm line nears the pole's direction (where the pole's
+		// side of the line flips): model space. Without one, the animated elbow's side.
+		vec3 pole_fallback;
+		bool has_pole_fallback{};
 		// Out of reach, the arm may lengthen by up to this fraction (0.25 = 25 %) to reach the goal:
 		// the forearm and hand translations are scaled. 0 = the rig's own length, the hand stops short.
 		float max_stretch{};

@@ -64,9 +64,12 @@ namespace bfvr::weapon
 		{
 			return reload_event::none;
 		}
-		if (state_.bolt_locked && state_.magazine_in && state_.inserted_since_lock)
+		// After a new magazine, the button chambers: from the locked bolt, and also with an empty chamber
+		// whose bolt did not lock (the old magazine came out before it ran dry); only then it releases.
+		if (state_.magazine_in && state_.inserted_since_lock && (state_.bolt_locked || (!state_.chamber && state_.magazine_rounds > 0)))
 		{
 			state_.bolt_locked = false;
+			state_.inserted_since_lock = false;
 			return feed();
 		}
 		if (!state_.magazine_in)

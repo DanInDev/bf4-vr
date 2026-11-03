@@ -172,6 +172,11 @@ namespace
 			text_pixels += pixel(x, save.y + save.h / 2) != 0xFF2F7D4F ? 1 : 0;
 		}
 		expect(text_pixels > 5, "the Save label is drawn");
+
+		// See-through backdrop: the keyed colour gets its alpha, premultiplied; the rest stays opaque.
+		expect(rasterise(items, settings_panel::width, settings_panel::height, pixels, { { panel_background, 128 } }), "rasterise keyed");
+		expect(pixel(settings_panel::width / 2, settings_panel::height - 5) == 0x800F1114, "backdrop at half alpha, premultiplied");
+		expect(pixel(save.x + 3, save.y + 3) == 0xFF2F7D4F, "buttons stay opaque");
 	}
 	void test_menu_button()
 	{

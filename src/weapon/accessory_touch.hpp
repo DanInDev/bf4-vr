@@ -29,7 +29,7 @@ namespace bfvr::weapon
 	class accessory_touch
 	{
 	public:
-		explicit accessory_touch(float reach = 0.07f) : reach_(reach) {}
+		explicit accessory_touch(float reach = 0.05f) : reach_(reach) {}
 		accessory_result update(const accessory_frame& frame);
 
 	private:

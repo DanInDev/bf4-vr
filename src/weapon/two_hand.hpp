@@ -9,7 +9,7 @@ namespace bfvr::weapon
 {
 	struct two_hand_config
 	{
-		float grab_reach{ 0.18f };  // off hand this close to the barrel line grabs
+		float grab_reach{ 0.125f };  // off hand this close to the barrel line grabs
 		float grab_near{ 0.05f };   // the handguard starts this far ahead of the gun hand
 		float grab_far{ 0.75f };    // and ends here
 		float min_separation{ 0.08f }; // hands closer than this: the line between them says nothing
@@ -77,4 +77,8 @@ namespace bfvr::weapon
 	// Bullets leave the game camera (OpenXR LOCAL origin), not the gun. To hit what the barrel points
 	// at, aim from origin at the point convergence metres down the barrel line. Unit vector.
 	void converged_aim(const float (&origin)[3], const float (&grip)[3], const float (&rotation)[4], float convergence, float (&direction)[3]);
+
+	// The drawn gun's barrel as a rotation for converged_aim (its -z along Wep_Root's +z barrel): shots
+	// and the reticle follow the gun as it is drawn, not the controller's aim pose.
+	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4]);
 }

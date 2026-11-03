@@ -2,6 +2,33 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## 2026-11-03 evening — feedback on `main` 246f2fb, fixes on `feature/headset-feedback-2`
+
+| Item | Result (user) | Change |
+| --- | --- | --- |
+| Shots and dot | hit the dot, but dot and bullets follow the controller's pointing ray, not the drawn barrel | `shot_line = gun` (new, default): shots and dot leave the drawn gun's optic (Wep_Scope1) along its Wep_Root barrel; `controller` = old behaviour. Shots now also follow the recoil kick |
+| Reload, chambering sounds | great, except the start of the chamber sound (not like a real asset) | the synthesised rear stop (`bolt_back`) is muted; only a supplied `bfvr_sounds\bolt_back.wav` plays |
+| Two-handed | fine on the SCAR, keeps dropping on the AK | the AK handle zone overlapped the handguard grip: a held two-hand grip now only lets go when the off hand really takes the magazine or handle (`reload_engages_off_hand`), and all zones are smaller |
+| Grab rings | liked, but 30 % smaller | every reach ×0.7 (magazine 10 cm, handle/slide 8.5 cm, chest 21 cm, handguard 12.5 cm, belt 15.5 cm, pin 10 cm, holsters 11-15.5 cm, accessories 5 cm) |
+| Wrists and hands | mostly fine; left shoulder (that whole side) glitches and twists | arm solver: (1) the elbow hint flipped as the hand passed its direction (down-out-back: belt, hip), the elbow jumped 35 cm in a 0.75 mm hand step in the unit test; a second hint (out and back) now takes over there (4.8 mm); (2) the upper arm turned by a shortest arc, so the elbow bent about a sideways axis: it now keeps the animated elbow hinge; (3) both hints turn with the torso; (4) the torso eases in as the hands' midpoint passes 15 cm instead of switching |
+| SCAR chambering | the handle is front-left; with a new magazine and an empty chamber, the reload button dropped the magazine | the button now chambers after a new magazine also when the bolt did not lock (old magazine out before empty); SCAR handle zone moved front-left (estimate: 0.035, 0.04, 0.57 on Wep_Root, not measured) |
+| Settings panel | looks great; should be see-through like the HUD, with the menu's pointer | backdrop at `panel_opacity` (0.6, Controls page), bars a little denser, buttons and text opaque; the laser beam and a dot on the panel from the pointing hand |
+| Physical stance, foley | on the backburner | — |
+| Sights | "broken beyond belief" | **open:** what they look like is not known yet (reticle wrong or missing in the scope, or misaligned with the shots) |
+
+Not monitor-checked yet (the user was at the PC): `twohand` shows `shot_line=gun`; the panel's opacity
+and pointer in `panel shot` and a screenshot; SCAR B chambering through `reload`.
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| H1 | One-handed, then two-handed: look down the sights at a mark ~15 m, fire single shots | Hits where the sight points, the dot on the sight line; recoil kicks the shots with the gun. `shot_line = controller` (Weapon page) for comparison | |
+| H2 | AK-12 two-handed: hold the handguard, move around, aim | The hold stays until you open the grip; it no longer drops by itself | |
+| H3 | All grab rings (`grab_debug = 1`) | ~30 % smaller, still easy to find | |
+| H4 | SCAR-H: empty it, new magazine in, press B (reload button) | It chambers (no magazine drop); B again drops the magazine. The front-left handle zone: does the ring sit on the handle? | |
+| H5 | Left arm: off hand to the belt, hip, chest, behind, across | The elbow and shoulder move smoothly, no flip or twist | |
+| H6 | Settings panel | See-through backdrop, readable text; the beam and dot show where you point; `panel_opacity` changes it live | |
+| H7 | Chambering sound | No synthetic first click; the rest as before | |
+
 ## Next — 2026-11-03 gun handling check (branch `test/vr-check-2026-11-03`)
 
 Build: `test/vr-check-2026-11-03` = `feature/gun-feel` + `claude/vr-menu-open-f3e3d1` (not on `main`). Its

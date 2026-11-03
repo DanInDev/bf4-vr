@@ -170,6 +170,10 @@ namespace bfvr::weapon
 			PlaySoundW(files[index].c_str(), nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
 			return;
 		}
+		if (which == cue::bolt_back)
+		{
+			return; // the synthesised rear stop sounded fake (headset, 2026-11-03): only a supplied WAV plays
+		}
 		PlaySoundW(reinterpret_cast<LPCWSTR>(waves[index].data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
 	}
 }

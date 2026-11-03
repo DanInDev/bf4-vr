@@ -28,7 +28,7 @@ namespace bfvr::ui
 		}
 	}
 
-	bool rasterise(const std::vector<draw_item>& items, int width, int height, std::vector<std::uint32_t>& pixels)
+	bool rasterise(const std::vector<draw_item>& items, int width, int height, std::vector<std::uint32_t>& pixels, const std::vector<see_through>& keys)
 	{
 		BITMAPINFO info{};
 		info.bmiHeader.biSize = sizeof(info.bmiHeader);
@@ -84,7 +84,24 @@ namespace bfvr::ui
 		std::memcpy(pixels.data(), bits, pixels.size() * sizeof(std::uint32_t));
 		for (std::uint32_t& pixel : pixels)
 		{
-			pixel |= 0xFF000000u; // GDI leaves alpha at 0; the panel is opaque
+			// GDI leaves alpha at 0: opaque, except the keyed colours.
+			const std::uint32_t rgb = pixel & 0xFFFFFFu;
+			std::uint32_t alpha = 255;
+			for (const see_through& key : keys)
+			{
+				if (key.color == rgb)
+				{
+					alpha = key.alpha;
+					break;
+				}
+			}
+			if (alpha == 255)
+			{
+				pixel = rgb | 0xFF000000u;
+				continue;
+			}
+			const auto scale = [&](int shift) { return (((rgb >> shift) & 0xFFu) * alpha / 255u) << shift; };
+			pixel = (alpha << 24) | scale(16) | scale(8) | scale(0);
 		}
 
 		SelectObject(dc, previous_font);

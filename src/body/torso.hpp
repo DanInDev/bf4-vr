@@ -13,6 +13,7 @@ namespace bfvr::body
 		float max_twist{ 0.70f };    // the head may turn ~40 degrees from the torso before it drags it along
 		float follow_seconds{ 0.25f }; // time constant of the easing
 		float min_hand_reach{ 0.15f }; // hands' midpoint at least this far from the head (horizontally) to count
+		float reach_blend{ 0.12f };    // and counts fully this much further out
 	};
 
 	struct torso_hands

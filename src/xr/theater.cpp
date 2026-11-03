@@ -969,6 +969,7 @@ namespace bfvr::xr
 			panel_quad.pose.position = { view.pose.position[0], view.pose.position[1], view.pose.position[2] };
 			panel_quad.pose.orientation = { view.pose.orientation[0], view.pose.orientation[1], view.pose.orientation[2], view.pose.orientation[3] };
 			panel_quad.size = { view.width, view.height };
+			panel_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT; // premultiplied, see-through backdrop
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&panel_quad);
 		}
 
@@ -1487,6 +1488,35 @@ namespace bfvr::xr
 			}
 		}
 
+		// The settings panel's pointer: the same beam, the dot lying on the panel (a smaller one: the
+		// panel is 0.8 m away, the screen several metres).
+		void add_panel_pointer(const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			const ui::panel_view view = ui::vr_panel_view();
+			if (!view.open || !view.pointing)
+			{
+				return;
+			}
+			place_pointer_visual(view.aim, view.hit);
+			if (pointer_dot_visible)
+			{
+				const float* q = view.pose.orientation;
+				// The panel's normal (+z of its rotation), towards the head.
+				const float n[3] = { 2.0f * (q[0] * q[2] + q[1] * q[3]), 2.0f * (q[1] * q[2] - q[0] * q[3]), 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]) };
+				pointer_dot.pose.position = { view.hit.point[0] + 0.003f * n[0], view.hit.point[1] + 0.003f * n[1], view.hit.point[2] + 0.003f * n[2] };
+				pointer_dot.pose.orientation = { q[0], q[1], q[2], q[3] };
+				pointer_dot.size = { 0.012f, 0.012f };
+			}
+			if (pointer_beam_visible)
+			{
+				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&pointer_beam);
+			}
+			if (pointer_dot_visible)
+			{
+				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&pointer_dot);
+			}
+		}
+
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
@@ -1903,7 +1933,7 @@ namespace bfvr::xr
 			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[10 + weapon::grab_zone_count]{};
+			const XrCompositionLayerBaseHeader* layers[12 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -1993,6 +2023,7 @@ namespace bfvr::xr
 			if (layer_count)
 			{
 				add_panel_layer(panel_quad, layers, layer_count);
+				add_panel_pointer(layers, layer_count);
 				add_notice_layer(notice_quad, layers, layer_count);
 			}
 

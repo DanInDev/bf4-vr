@@ -160,6 +160,8 @@ namespace bfvr::weapon
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
 		std::atomic<bool> block_grip{};
+		// The off hand is doing reload work (holding a magazine, racking), not only near a reload zone.
+		std::atomic<bool> hand_engaged{};
 		// Accessory toggle by touch (any gun, either reload mode): D-pad up pulse until this tick.
 		std::atomic<bool> touch_enabled{ true };
 		std::atomic<bool> accessory_busy{};
@@ -454,6 +456,7 @@ namespace bfvr::weapon
 			active = false;
 			block_trigger = false;
 			block_grip = false;
+			hand_engaged = false;
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -623,7 +626,13 @@ namespace bfvr::weapon
 		active = true;
 		block_trigger = !gun.state().chamber;
 		block_grip = result.off_hand_busy;
+		hand_engaged = gun.state().holding || result.racking;
 #endif
+	}
+
+	bool reload_engages_off_hand()
+	{
+		return active.load(std::memory_order_relaxed) && hand_engaged.load(std::memory_order_relaxed);
 	}
 
 	bool reload_owns_off_hand()

@@ -42,6 +42,9 @@ namespace bfvr::ui
 		LARGE_INTEGER last_update{};
 		int pointer_hand{ 1 };
 		bool trigger_down[2]{};
+		bool pointing{};
+		stereo::pose pointer_aim;
+		input::pointer_hit pointer_hit;
 		std::string status;
 		ULONGLONG status_until{};
 		bool hint_shown{};
@@ -170,7 +173,11 @@ namespace bfvr::ui
 			{
 				return;
 			}
-			if (rasterise(panel.draw(store, status), settings_panel::width, settings_panel::height, image))
+			// See-through like the HUD: the backdrop at panel_opacity, the bars a little denser.
+			const float opacity = std::fmin(std::fmax(store.real("panel_opacity", 0.6f), 0.2f), 1.0f);
+			const auto alpha = [](float a) { return static_cast<std::uint8_t>(std::lround(std::fmin(a, 1.0f) * 255.0f)); };
+			const std::vector<see_through> keys = { { panel_background, alpha(opacity) }, { panel_bar, alpha(opacity + 0.25f) } };
+			if (rasterise(panel.draw(store, status), settings_panel::width, settings_panel::height, image, keys))
 			{
 				drawn_key = current;
 				++image_revision;
@@ -298,9 +305,12 @@ namespace bfvr::ui
 		}
 		const stereo::hand_sample hands = stereo::latest_hand_sample();
 		target over;
-		if (hands.valid[pointer_hand])
+		pointing = hands.valid[pointer_hand];
+		if (pointing)
 		{
 			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], quad());
+			pointer_aim = hands.aim[pointer_hand];
+			pointer_hit = hit;
 			if (hit.hit)
 			{
 				over = panel.hit(hit.u, hit.v);
@@ -326,6 +336,9 @@ namespace bfvr::ui
 		view.pose = pose;
 		view.width = panel_width;
 		view.height = panel_width * settings_panel::height / settings_panel::width;
+		view.pointing = open && pointing;
+		view.aim = pointer_aim;
+		view.hit = pointer_hit;
 		return view;
 	}
 

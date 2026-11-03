@@ -19,8 +19,8 @@ namespace bfvr::ui
 		constexpr int help_top = settings_panel::height - 140;
 		constexpr int buttons_top = settings_panel::height - 78;
 
-		constexpr std::uint32_t background = 0x1E2228;
-		constexpr std::uint32_t bar = 0x2A3038;
+		constexpr std::uint32_t background = panel_background;
+		constexpr std::uint32_t bar = panel_bar;
 		constexpr std::uint32_t button = 0x3A424D;
 		constexpr std::uint32_t button_hover = 0x55606E;
 		constexpr std::uint32_t active_tab = 0x3D6FB6;
@@ -42,11 +42,11 @@ namespace bfvr::ui
 			static const std::vector<group> table = {
 				{ "View", { "stereo_render", "cutscene_view", "ipd_scale", "view_crop_h", "view_crop_v", "gun_life_size", "gun_scale", "vignette", "vignette_strength" } },
 				{ "Body", { "arm_ik", "arm_length", "shoulder_offset", "shoulder_width", "arm_reach", "shoulder_reach", "arm_stretch", "hide_legs", "torso_follow", "finger_poses", "off_hand_pose", "magazine_grip", "rack_grip" } },
-				{ "Weapon", { "aim", "gun_pose", "move_direction", "reticle", "reticle_size", "two_handed", "two_hand_mode", "aim_convergence", "recoil", "accessory_toggle", "reload", "reload_sounds", "game_sounds", "drop_discards_ammo", "grenade",
+				{ "Weapon", { "aim", "gun_pose", "move_direction", "reticle", "reticle_size", "two_handed", "two_hand_mode", "shot_line", "aim_convergence", "recoil", "accessory_toggle", "reload", "reload_sounds", "game_sounds", "drop_discards_ammo", "grenade",
 					"grenade_throw_scale", "holsters", "grab_debug", "squad_signal", "melee_gesture", "knife_grip", "knife_pitch", "use_reach", "c4_trigger", "grips_to_game", "ads_trigger" } },
 				{ "HUD", { "hud_mode", "hud_show_crosshair", "hud_show_main", "hud_show_minimap", "hud_show_ammo", "hud_show_bottom", "hud_distance", "hud_width",
 					"hud_marker_distance", "hud_watch_width", "hud_ammo_width" } },
-				{ "Controls", { "right_stick", "turn", "snap_turn_degrees", "stance_flicks", "physical_stance", "neutral_pitch", "dominant_hand", "haptics", "haptics_strength", "haptics_game", "haptics_gestures", "physical_pad", "menu_input", "pause_flat", "x_menu", "vr_panel", "stick_menu", "menu_hint", "focus_notice" } },
+				{ "Controls", { "right_stick", "turn", "snap_turn_degrees", "stance_flicks", "physical_stance", "neutral_pitch", "dominant_hand", "haptics", "haptics_strength", "haptics_game", "haptics_gestures", "physical_pad", "menu_input", "pause_flat", "x_menu", "vr_panel", "stick_menu", "panel_opacity", "menu_hint", "focus_notice" } },
 			};
 			return table;
 		}

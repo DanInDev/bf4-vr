@@ -102,7 +102,9 @@ namespace
 		expect(!gun.state().bolt_locked && !gun.state().chamber, "no magazine: bolt closes empty");
 		gun.take_from_chest();
 		gun.insert();
-		expect(gun.press_button(false) == reload_event::magazine_dropped, "button releases (bolt is not locked, so no catch)");
+		// Headset 2026-11-03: the button after a new magazine dropped it instead of chambering.
+		expect(gun.press_button(false) == reload_event::chambered && gun.state().chamber, "empty chamber, new magazine: the button chambers (bolt not locked)");
+		expect(gun.press_button(false) == reload_event::magazine_dropped && gun.state().chamber, "then it releases, the round stays chambered");
 		gun.take_from_chest();
 		expect(gun.state().held_rounds == 0 && !gun.state().holding, "reserve already used up");
 		reload again(ar);
@@ -655,7 +657,7 @@ namespace
 		turn.gun_hand = { 5.0f, 5.0f, 5.0f };
 		const holster_result rings = turning.update(turn);
 		expect(rings.has_centres && std::fabs(rings.centres[0].x - primary.x) < 1e-4f && std::fabs(rings.centres[0].z - primary.z) < 1e-4f
-			&& std::fabs(rings.radii[0] - 0.22f) < 1e-6f, "ring centre and radius of the primary holster");
+			&& std::fabs(rings.radii[0] - 0.155f) < 1e-6f, "ring centre and radius of the primary holster");
 		holster_frame mirrored_ring = left;
 		mirrored_ring.gun_hand = { 5.0f, 5.0f, 5.0f };
 		holsters mirrored_rings;
@@ -789,15 +791,15 @@ namespace
 		gun.press_button(false);
 		reload_hands hands(flat_hold());
 		hands.update(gun, at(chest, true));
-		const v3 hand{ magwell.x, magwell.y - 0.10f, magwell.z };
+		const v3 hand{ magwell.x, magwell.y - 0.07f, magwell.z };
 		hand_result r = hands.update(gun, at(hand, true));
-		expect(has(r, reload_event::magazine_in) && r.draw == magazine_draw::in_hand, "inserted 10 cm out: drawn sliding");
+		expect(has(r, reload_event::magazine_in) && r.draw == magazine_draw::in_hand, "inserted 7 cm out: drawn sliding");
 		expect(close(r.magazine_position.y, hand.y, 0.03f), "the slide starts at the hand");
 		for (int i = 0; i < 4; ++i)
 		{
 			r = hands.update(gun, at(hand, true));
 		}
-		expect(r.draw == magazine_draw::in_hand && r.magazine_position.y > hand.y + 0.03f && r.magazine_position.y < magwell.y,
+		expect(r.draw == magazine_draw::in_hand && r.magazine_position.y > hand.y + 0.02f && r.magazine_position.y < magwell.y,
 			"half way the magazine is between hand and magwell");
 		for (int i = 0; i < 10; ++i)
 		{

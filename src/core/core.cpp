@@ -115,6 +115,7 @@ namespace bfvr::core
 			weapon::set_two_handed(store.boolean("two_handed", true));
 			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
+			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.

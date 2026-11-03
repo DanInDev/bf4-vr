@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "input/gamepad.hpp"
+#include "input/pointer.hpp"
 #include "stereo/tracking.hpp"
 
 // The in-VR settings panel in the game (issue #7): a long press on the left menu button, or both
@@ -23,6 +24,10 @@ namespace bfvr::ui
 		stereo::pose pose; // OpenXR LOCAL; the quad faces +z (towards the head)
 		float width{};     // metres
 		float height{};
+		// The pointing controller's ray and where it meets the panel, for the beam and dot.
+		bool pointing{};
+		stereo::pose aim;
+		input::pointer_hit hit;
 	};
 	panel_view vr_panel_view();
 

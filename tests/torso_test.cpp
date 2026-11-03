@@ -79,6 +79,12 @@ namespace
 		one.valid[1] = false;
 		torso_yaw single;
 		expect(near(settle(single, 0.0f, one), 0.0f), "one hand alone does not turn it");
+		// Crossing the reach threshold eases in: just past it the hands barely pull.
+		torso_yaw edge;
+		edge.update(0.0f, ahead(40.0f * degree, config.min_hand_reach + 0.01f), 0.05f);
+		torso_yaw full;
+		full.update(0.0f, ahead(40.0f * degree, config.min_hand_reach + config.reach_blend + 0.05f), 0.05f);
+		expect(std::fabs(edge.yaw()) < 0.05f * std::fabs(full.yaw()), "hands just past the reach threshold barely turn it");
 	}
 
 	void test_easing()

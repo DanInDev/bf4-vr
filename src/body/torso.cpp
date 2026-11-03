@@ -43,9 +43,13 @@ namespace bfvr::body
 		{
 			const float x = 0.5f * (hands.offset[0][0] + hands.offset[1][0]);
 			const float z = 0.5f * (hands.offset[0][2] + hands.offset[1][2]);
-			if (std::isfinite(x) && std::isfinite(z) && std::sqrt(x * x + z * z) >= config_.min_hand_reach)
+			const float reach = std::sqrt(x * x + z * z);
+			if (std::isfinite(x) && std::isfinite(z) && reach > config_.min_hand_reach)
 			{
-				anchor = std::atan2(-x, -z);
+				// Weighted in over reach_blend past the threshold: hands passing it (the off hand to the
+				// chest or belt) do not snap the shoulders round.
+				const float t = std::clamp((reach - config_.min_hand_reach) / config_.reach_blend, 0.0f, 1.0f);
+				anchor = yaw_ + angle_between(std::atan2(-x, -z), yaw_) * (t * t * (3.0f - 2.0f * t));
 			}
 		}
 		const float twist = std::clamp(angle_between(anchor, head_yaw), -config_.max_twist, config_.max_twist);

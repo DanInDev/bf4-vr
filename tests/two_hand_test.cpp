@@ -191,8 +191,8 @@ namespace
 		out = run(plain, frame_with(level_gun, handguard, true), 0.3f);
 		expect(near(degrees_between(barrel(out), { 0, 0, -1 }), 7.13f, 0.1f) && barrel(out).y < 0, "lock: barrel on the hand line");
 
-		// A gun hand turned 25 degrees off the hand line snaps onto it (no remembered offset).
-		const quat off_line{ 0, std::sin(0.218f), 0, std::cos(0.218f) };
+		// A gun hand turned 18 degrees off the hand line snaps onto it (no remembered offset).
+		const quat off_line{ 0, std::sin(0.157f), 0, std::cos(0.157f) };
 		two_hand_grip snapped;
 		out = run(snapped, supported(frame_with(gun_at(gun_hand, off_line), handguard, true), 0, -0.04f), 0.3f);
 		expect(degrees_between(barrel(out), { 0, 0, -1 }) < 0.5f, "lock: the hand line wins over the gun hand's yaw");
@@ -278,6 +278,27 @@ namespace
 		converged_aim(origin, grip, turned, 25.0f, direction);
 		expect(direction[0] < -0.95f, "turned barrel aims left");
 	}
+
+	void test_drawn_barrel()
+	{
+		// A drawn gun whose Wep_Root (+z = barrel) points 30 degrees up and to the left of straight ahead.
+		const quat yaw{ 0, std::sin(0.5f * 2.6f), 0, std::cos(0.5f * 2.6f) };   // +z turned to face mostly -z, a little left
+		const quat pitch{ std::sin(-0.5f * 0.3f), 0, 0, std::cos(-0.5f * 0.3f) };
+		const quat root = yaw * pitch;
+		const float root_rotation[4]{ root.x, root.y, root.z, root.w };
+		float rotation[4];
+		drawn_barrel_rotation(root_rotation, rotation);
+		const body::ik::vec3 along = body::ik::rotate(root, { 0, 0, 1 });
+		const body::ik::vec3 barrel = body::ik::rotate(quat{ rotation[0], rotation[1], rotation[2], rotation[3] }, { 0, 0, -1 });
+		expect(near(along.x, barrel.x) && near(along.y, barrel.y) && near(along.z, barrel.z), "the drawn barrel is Wep_Root's +z");
+		const float origin[3]{ 0, 0, 0 };
+		const float sight[3]{ 0.1f, -0.2f, -0.4f };
+		float direction[3];
+		converged_aim(origin, sight, rotation, 25.0f, direction);
+		const float target[3]{ sight[0] + along.x * 25.0f, sight[1] + along.y * 25.0f, sight[2] + along.z * 25.0f };
+		const float length = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
+		expect(near(direction[0], target[0] / length, 1e-4f) && near(direction[1], target[1] / length, 1e-4f), "shots meet the drawn sight line 25 m out");
+	}
 }
 
 int main()
@@ -290,6 +311,7 @@ int main()
 	test_grip_claimed_before_the_grab();
 	test_accessory_trigger();
 	test_converged_aim();
+	test_drawn_barrel();
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

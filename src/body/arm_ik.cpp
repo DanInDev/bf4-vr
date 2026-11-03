@@ -190,7 +190,21 @@ namespace bfvr::body::ik
 			const vec3 v = point - shoulder;
 			return v - n * dot(v, n);
 		};
+		// Near the pole's own direction its side of the line flips (the elbow would spin round), so the
+		// second hint takes over there, blended by how far off the line the pole is.
 		vec3 bend = off_line(goal.pole);
+		const float pole_distance = length(goal.pole - shoulder);
+		const float clear = pole_distance > 1e-4f ? length(bend) / pole_distance : 0.0f; // sine of pole vs arm line
+		if (clear < 0.4f)
+		{
+			const vec3 second = off_line(goal.has_pole_fallback ? goal.pole_fallback : fore.position);
+			if (length(second) > 1e-4f)
+			{
+				const float t = std::clamp((clear - 0.1f) / 0.3f, 0.0f, 1.0f);
+				const float keep = t * t * (3.0f - 2.0f * t);
+				bend = normalize(bend) * keep + normalize(second) * (1.0f - keep);
+			}
+		}
 		if (length(bend) < 1e-4f)
 		{
 			bend = off_line(fore.position);
@@ -201,7 +215,29 @@ namespace bfvr::body::ik
 		const float sin_a = std::sqrt(std::max(0.0f, 1.0f - cos_a * cos_a));
 		const vec3 elbow = shoulder + n * (a * cos_a) + m * (a * sin_a);
 
-		set_model_rotation(local, parents, bones.upper, from_to(fore.position - shoulder, elbow - shoulder) * upper.rotation);
+		// The upper arm swings onto the new line and turns about it so the elbow's hinge axis (the
+		// animated bend's normal) becomes the new bend's normal: the forearm then only bends about the
+		// hinge. A nearly straight animated arm has no hinge to keep: the swing alone.
+		const vec3 old_upper = fore.position - shoulder;
+		const vec3 old_hinge = cross(old_upper, hand.position - fore.position);
+		quat turn = from_to(old_upper, elbow - shoulder);
+		const float old_bent = length(old_hinge) / (a * b);
+		if (old_bent > 0.03f)
+		{
+			const vec3 u = normalize(elbow - shoulder);
+			vec3 from = rotate(turn, old_hinge);
+			from = from - u * dot(from, u);
+			vec3 to = cross(m, n); // the new bend's normal, same handedness as cross(upper, fore)
+			to = to - u * dot(to, u);
+			if (length(from) > 1e-6f && length(to) > 1e-6f)
+			{
+				const float t = std::clamp((old_bent - 0.03f) / 0.09f, 0.0f, 1.0f);
+				const float angle = std::atan2(dot(u, cross(from, to)), dot(from, to)) * t * t * (3.0f - 2.0f * t);
+				const vec3 axis = u * std::sin(0.5f * angle);
+				turn = quat{ axis.x, axis.y, axis.z, std::cos(0.5f * angle) } * turn;
+			}
+		}
+		set_model_rotation(local, parents, bones.upper, normalize(turn) * upper.rotation);
 
 		const vec3 wrist = shoulder + n * d;
 		const auto aim_forearm = [&]

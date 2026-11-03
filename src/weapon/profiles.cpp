@@ -25,6 +25,9 @@ namespace bfvr::weapon
 		// whose reload never pulls the handle (SCAR-H: bolt release) cannot be measured this way.
 		static constexpr measured table[] = {
 			{ "U_AK12", { -0.02f, 0.06f, 0.53f } }, // right side, ahead of the magwell (2026-11-03)
+			// Not measured (its reload uses the bolt release): front-left of the receiver as seen in the
+			// headset (2026-11-03), ahead of its Wep_Slide (0, 0.058, 0.505), +x = left.
+			{ "U_SCAR-H", { 0.035f, 0.04f, 0.57f } },
 		};
 		for (const measured& gun : table)
 		{

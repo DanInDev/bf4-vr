@@ -190,9 +190,13 @@ two_hand_mode = lock
 # Recoil: the drawn gun kicks per shot (muzzle up about the wrist and a little sideways, back along the
 # barrel), full auto climbs, and it settles back to the controller in ~0.2 s; a support hand on the
 # handguard halves it. Each gun kicks by its own game data (the SCAR-H harder and slower than the
-# AK-12, a bigger first shot). 0 = off, up to 3. Only the drawn gun moves: the controller, the view and
-# where shots go do not.
+# AK-12, a bigger first shot). 0 = off, up to 3. The controller and the view do not move; with
+# shot_line = gun (below) the shots follow the kicked gun, as with a real one.
 recoil = 1
+# aim = controller: what the shots and the dot follow. gun = the gun as drawn (its optic or front sight
+# along the barrel), so looking down the sights is where you hit; controller = the controller's pointing
+# ray (the menu pointer's line; the drawn gun can sit a few degrees off it).
+shot_line = gun
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
 aim_convergence = 25
@@ -229,6 +233,9 @@ vr_panel = 1
 # panel opens or closes). SteamVR on Quest can take the left menu button for its dashboard; it never
 # takes the sticks. A stick click alone reaches the game 0.1 s late; a chord never does.
 stick_menu = 1
+# The panel's backdrop is see-through like the HUD: 0.2 (faint) .. 1 (opaque). Either controller's
+# beam and dot show where it points.
+panel_opacity = 0.6
 # After a level loads, "Hold both sticks: VR settings" shows below the view for 8 s.
 menu_hint = 1
 # While SteamVR has the controllers (dashboard open, OpenXR session VISIBLE, not FOCUSED), a notice

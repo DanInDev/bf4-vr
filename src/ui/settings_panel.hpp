@@ -13,6 +13,10 @@
 // draw (ui/panel_canvas rasterises it). Tested by tests/settings_panel_test.cpp.
 namespace bfvr::ui
 {
+	// The panel's backdrop and its title/tab bars: the colours vr_panel draws see-through.
+	constexpr std::uint32_t panel_background = 0x1E2228;
+	constexpr std::uint32_t panel_bar = 0x2A3038;
+
 	struct rect
 	{
 		int x{}, y{}, w{}, h{};

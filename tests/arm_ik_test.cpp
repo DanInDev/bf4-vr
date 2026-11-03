@@ -199,6 +199,79 @@ int main()
 		expect(length(local[3].position - fore_before.position) < 1e-6f, "reachable goal stretched the arm", -1);
 	}
 
+	// The elbow is a hinge: after the solve the forearm bends about the same axis of the upper arm
+	// as in the animated pose (no upper-arm twist that bends the elbow sideways).
+	for (int round = 0; round < 300; ++round)
+	{
+		bone_transform local[7];
+		local[0].rotation = random_rotation(random, 3.0f);
+		local[1].position = { 0.2f, 1.5f, 0.0f };
+		local[2].position = { 0.14f, 0.01f, 0.0f };
+		local[3].position = { 0.15f, 0.0f, 0.02f };
+		local[4].position = { 0.10f, 0.0f, 0.0f };
+		local[5].position = { 0.16f, 0.0f, 0.0f };
+		for (int bone = 1; bone < 7; ++bone)
+		{
+			local[bone].rotation = random_rotation(random, 2.0f);
+		}
+		const auto hinge_in_upper = [&]
+		{
+			const bone_transform upper = model_of(local, parents, 1);
+			const vec3 elbow = model_of(local, parents, 3).position;
+			const vec3 wrist = model_of(local, parents, 5).position;
+			return rotate(conjugate(upper.rotation), normalize(cross(elbow - upper.position, wrist - elbow)));
+		};
+		const vec3 shoulder = model_of(local, parents, 1).position;
+		const vec3 elbow0 = model_of(local, parents, 3).position;
+		const vec3 wrist0 = model_of(local, parents, 5).position;
+		const float a = length(elbow0 - shoulder);
+		const float b = length(wrist0 - elbow0);
+		if (length(cross(elbow0 - shoulder, wrist0 - elbow0)) < 0.3f * a * b)
+		{
+			continue; // nearly straight: the animated hinge is not defined well enough to compare
+		}
+		const vec3 before = hinge_in_upper();
+		const vec3 direction = normalize(vec3{ unit(random), unit(random), unit(random) });
+		arm_goal goal;
+		goal.wrist = shoulder + direction * ((a + b) * (0.45f + 0.4f * (0.5f + 0.5f * unit(random))));
+		goal.hand = random_rotation(random, 3.0f);
+		goal.pole = shoulder + normalize(cross(direction, vec3{ unit(random), unit(random), unit(random) })) * 0.5f;
+		expect(solve_arm(local, parents, bones, goal), "hinge: solver refused", round);
+		expect(dot(hinge_in_upper(), before) > 0.999f, "hinge: the elbow bends about another axis of the upper arm", round);
+	}
+
+	// A hand moving through the pole's direction (left arm, elbow hint down-out-back: the belt and
+	// hip) moves the elbow smoothly: no flip where the pole's side of the arm line is undefined.
+	{
+		const vec3 pole_direction = normalize(vec3{ -0.5f, -1.0f, 0.3f });
+		vec3 last_elbow{};
+		float worst = 0.0f;
+		for (int step = 0; step <= 400; ++step)
+		{
+			bone_transform local[7];
+			local[1].position = { -0.18f, 1.4f, 0.0f };
+			local[3].position = { 0.0f, -0.28f, -0.05f };
+			local[5].position = { 0.0f, -0.05f, -0.26f };
+			const float t = static_cast<float>(step) / 400.0f;
+			// A line through the pole's direction, 0.4 m from the shoulder at its middle.
+			const vec3 across = normalize(cross(pole_direction, vec3{ 0.0f, 0.0f, 1.0f }));
+			arm_goal goal;
+			goal.wrist = local[1].position + pole_direction * 0.4f + across * (0.3f * (t - 0.5f)) + vec3{ 0.0f, 0.0f, 0.02f * (t - 0.5f) };
+			goal.pole = local[1].position + pole_direction;
+			goal.pole_fallback = local[1].position + normalize(vec3{ -0.6f, 0.0f, 1.0f });
+			goal.has_pole_fallback = true;
+			expect(solve_arm(local, parents, bones, goal), "sweep: solver refused", step);
+			const vec3 elbow = model_of(local, parents, 3).position;
+			if (step > 0)
+			{
+				worst = std::fmax(worst, length(elbow - last_elbow));
+			}
+			last_elbow = elbow;
+		}
+		std::printf("pole sweep: largest elbow step %.4f m\n", worst);
+		expect(worst < 0.01f, "sweep: the elbow jumps as the hand passes the pole's direction", -1);
+	}
+
 	std::printf(failures ? "arm_ik_test: %d failures\n" : "arm_ik_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

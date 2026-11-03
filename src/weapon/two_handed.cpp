@@ -26,6 +26,8 @@ namespace bfvr::weapon
 	{
 		std::atomic<bool> enabled{ true };
 		std::atomic<float> convergence{ 25.0f };
+		std::atomic<bool> shot_from_gun{ true }; // live setting shot_line
+		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
 		std::atomic<bool> trigger_toggles{ true };
 		std::atomic<bool> claim_trigger{};
@@ -77,6 +79,11 @@ namespace bfvr::weapon
 		convergence = metres;
 	}
 
+	void set_shot_from_gun(bool gun)
+	{
+		shot_from_gun = gun;
+	}
+
 	void set_accessory_trigger(bool on)
 	{
 		trigger_toggles = on;
@@ -126,7 +133,9 @@ namespace bfvr::weapon
 			const input::gamepad_state pad = input::latest();
 			input.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 			input.trigger = static_cast<float>(pad.left_trigger) / 255.0f;
-			input.busy = grenade_in_hand() || reload_owns_off_hand();
+			// A new grab waits while the hand is inside a reload zone; a hold already on the handguard only
+			// ends when the reload really takes the hand (a magazine, the handle), not when it passes a zone.
+			input.busy = grenade_in_hand() || (last.held ? reload_engages_off_hand() : reload_owns_off_hand());
 			input.seconds = seconds;
 			out = grip.update(input);
 			last_input = input;
@@ -169,12 +178,24 @@ namespace bfvr::weapon
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
 		const float metres = convergence.load(std::memory_order_relaxed);
-		converged_aim(origin, hands.grip[1].position, out.rotation, metres, last_shot);
-		const float* q = out.rotation;
+		// shot_line = gun: along the gun as drawn (the optic, else Wep_Root, along its barrel), so the
+		// reticle and the bullets sit on what you see; controller: the controller's aim ray.
+		float start[3]{ hands.grip[1].position[0], hands.grip[1].position[1], hands.grip[1].position[2] };
+		float line[4]{ out.rotation[0], out.rotation[1], out.rotation[2], out.rotation[3] };
+		const body::weapon_points points = body::latest_weapon_points();
+		drawn_line = shot_from_gun.load(std::memory_order_relaxed) && points.valid && points.has_root && GetTickCount64() - points.at < 250;
+		if (drawn_line)
+		{
+			const float* from = points.has_optic ? points.optic : points.root;
+			std::copy(from, from + 3, start);
+			drawn_barrel_rotation(points.root_rotation, line);
+		}
+		converged_aim(origin, start, line, metres, last_shot);
+		const float* q = line;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		for (int axis = 0; axis < 3; ++axis)
 		{
-			last_point[axis] = hands.grip[1].position[axis] + barrel[axis] * std::fmax(metres, 0.5f);
+			last_point[axis] = start[axis] + barrel[axis] * std::fmax(metres, 0.5f);
 		}
 		shot_valid = true;
 		input::set_aim_direction(true, last_shot);
@@ -218,10 +239,10 @@ namespace bfvr::weapon
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		const two_hand_input& in = last_input;
 		char text[768];
-		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) convergence=%.1f aim_controller=%d",
+		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f aim_controller=%d",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
-			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], convergence.load(), input::controller_aim_active() ? 1 : 0);
+			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			std::snprintf(text + length, sizeof(text) - length, "\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",

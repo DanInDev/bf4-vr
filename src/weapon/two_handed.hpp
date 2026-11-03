@@ -13,6 +13,9 @@ namespace bfvr::weapon
 {
 	void set_two_handed(bool enabled);
 	void set_aim_convergence(float metres);
+	// shot_line: aim along the gun as drawn (true: the optic, else Wep_Root, along its barrel) or the
+	// controller's aim ray (false). Bullets and the reticle follow it.
+	void set_shot_from_gun(bool gun);
 	// two_hand_mode: lock (barrel on the line between the hands) or soft (the hand line steers).
 	void set_two_hand_lock(bool lock);
 	// accessory_toggle = trigger: off-hand trigger while holding the gun = D-pad up (laser, light, magnifier).

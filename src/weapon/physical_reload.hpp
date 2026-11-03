@@ -27,6 +27,8 @@ namespace bfvr::weapon
 	input::gamepad_state filter_pad(const input::gamepad_state& pad);
 	// The off-hand grip belongs to a reload step or an accessory touch this frame.
 	bool reload_owns_off_hand();
+	// Stricter: the off hand holds a magazine or racks (a hand merely inside a reload zone does not count).
+	bool reload_engages_off_hand();
 
 	// Pipe "reload": state and the last events. "reload <event>" (research builds) drives the state
 	// machine directly: fire button grab take letgo stow insert rack.
