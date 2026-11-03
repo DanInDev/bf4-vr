@@ -163,6 +163,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `tools/sound_probe.py <reference\|buttons\|physical\|physical_ar\|grips\|stages>` | Live: records the playback device (`bfvr_audio_loopback`) while the pipe drives one step at a time; per step the sound onset and rise, clips in `re/dumps/sound/` (`re/notes/sound.md`) |
 | `tools/reload_sound_probe.py [--event <name> --name <part>]` | Live: the reload SoundEntity of every gun (pipe `scan`), and sends one entity event to one (pipe `entityevent`) |
 | `tools/weapon_sound_probe.py [--slot n]` | Live: the gun's sound asset, its sound patch graph events and parameters with hash-matched names |
+| `tools/sight_probe.py [--ads s]` | Live: the camera joint in Wep_Root axes (the sight's eye point and line), optionally after holding the aim button; run with `armik 0`, `aim head`, `gun_pose animated` for the game's own pose (`re/notes/weapon.md` "Sights") |
 | `tools/recoil_probe.py [--watch s]` | Live: every gun's GunSwayData recoil per stance and zoom, first-shot multiplier, fire logic, the stance; `--watch` samples the aiming sway/recoil offset (`re/notes/weapon.md` "Recoil data") |
 | `tools/grenade_probe.py [--slot 6]` | Live: the grenade weapon's launch data (shot, hold-and-release, projectile) and its count (`re/notes/weapon.md` "Grenades") |
 | `tools/ammo_probe.py` | Live: fires and reloads with the pad and lists int fields that follow the magazine and reserve (`re/notes/weapon.md`) |

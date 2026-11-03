@@ -2,6 +2,31 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## Next — overnight 2026-11-04 (`feature/overnight-2026-11-04`, on top of `feature/headset-feedback-2`)
+
+Use the **Release** build in the headset (Debug runs at ~14 fps). Monitor-verified overnight (fakehead +
+fakehand, Release unless noted):
+
+| Area | Monitor result |
+| --- | --- |
+| Sights | The AK's red dot lens is opaque outside the game's ADS and clear in it. Holding the sight to an eye now gives the game its ADS (`sight_ads`): lens clears, front post visible through it, gun stays life size (gun pass 17 deg in ADS, compensated) |
+| Bullets | Shots follow the sight line measured in the game's own ADS (AK 0.0 deg, SCAR 0.25 deg off the barrel). Five single shots through the AK's red dot: one hole ~4 cm below the view centre at ~2.5 m (a constant offset). A bug found and fixed on the way: firing swung the old hip estimate by +-13 deg |
+| Chest rig | Knife from the high left chest, SCAR over the right shoulder, AK from the right hip, gadget 1/2 over the left shoulder / left hip (drawn by either hand; the checkpoint's gadget slots are empty, so the game had nothing to switch to), grenade taken from the high right chest and put back, magazine pouch on the low chest, no zone overlaps |
+| Left arm | Elbow no longer flips at the belt/hip; shoulders anchored either side of the neck (`body_shoulders`): worst elbow step 19.8 -> 7.6 cm (hand passing its own shoulder), others 1-2.5x the hand step |
+| SCAR | Empty chamber + new magazine + B: chambers (20 -> 19, chamber 1) |
+| AK two-handed | Hold stays through a slide along the whole handguard under the handle zone |
+| Panel | Backdrop premultiplied at 60 %, bars 85 % |
+| Performance | Release, 2160x2160 per eye, pair rendering: 96-116 fps in the checkpoint room (mono 108) |
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| N1 | **Aim down the sights**: raise the gun until one eye looks through the optic | Within ~2.5 cm of the line the game aims down the sights (lens clears, the walk slows); the green dot sits in the optic; gun size unchanged. Lower it: back to the hip. `sight_ads` off (Weapon page) to compare | |
+| N2 | Shots through the sight at ~10 m and ~25 m, single shots | Hits where the dot / the optic's centre is. Hip shots: where the dot is | |
+| N3 | Scoped or magnified optic (flip the AK's magnifier with the accessory toggle, then aim) | Note what the lens shows and whether a black scope overlay covers the view | |
+| N4 | **Chest rig**: look down; left hand to the high right chest + grip: grenade; right hand high left chest: knife; right hip: secondary; over the right shoulder: primary; either hand over the left shoulder / left hip: gadgets 1 / 2 (after taking C4 / M320 from the stash) | Each on the first try; the magazine pouch is now low on the chest | |
+| N5 | Left arm: reach to the belt, hip, chest, across, behind | Elbow and shoulder move smoothly; the shoulder sits beside the neck, not mid-chest. `body_shoulders` off to compare | |
+| N6 | Comfort of auto-ADS while moving | ADS slows walking; if it engages by accident (gun near the face), note when | |
+
 ## 2026-11-03 evening — feedback on `main` 246f2fb, fixes on `feature/headset-feedback-2`
 
 | Item | Result (user) | Change |

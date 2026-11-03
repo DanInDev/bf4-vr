@@ -188,3 +188,12 @@ arms were magnified about the view centre by cot(22.5)/cot(half fovY), ~2.7x, an
 controllers. `gun_life_size` (default on) scales the first-person right/up rows by
 tan(22.5 deg)/tan(fovY/2) every head-tracked frame, on top of `gun_scale`; pipe `gunscale` prints the
 applied value.
+
+## The gun pass FOV in ADS (2026-11-04, live)
+
+The per-view constant block of the first-person camera (`constant_patch::shift_per_view_block`) holds
+the gun pass's projection: y scale cot(fov/2). Hip 2.414 (45 deg), **ADS 6.69 (17 deg)** on the AK-12
+red dot (`WeaponZoomLevelData.RenderFov`, candidate 2 above, by its effect). Other per-view blocks of
+the same layout show 45 (the first-person shadow view, also in ADS) and the world's FOV, so the gun's
+is the narrowest of a frame. `stereo/eye_pass` publishes it per second-eye pass; `camera_hook` scales
+the gun by tan(that/2) / tan(world/2), so the gun stays life size while the game aims down the sights.

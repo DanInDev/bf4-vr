@@ -178,6 +178,33 @@ hand's Thumb4, Index2/Index3 and Wep_Slide in Wep_Root axes (+z along the barrel
 - Wep_Slide does animate on the AK-12 although offsetting it moves no visible mesh (A2): the bolt may be
   welded to the receiver mesh in first person.
 
+## Sights and aiming down sights (2026-11-04, monitor: fakehead + fakehand, tools/sight_probe.py)
+
+The game's first-person animation keeps the **CameraJoint on the gun's sight**: in its own aim down
+sights (LT held, the zoom animation settled) the camera in Wep_Root axes is the eye point behind the
+sight and the sight's line. At the hip the same relation is the rifle pose's cant and moves with the
+game's aim pitch and the firing animation, so it is no sight line.
+
+| Gun (optic) | ADS eye point from Wep_Scope1 (Wep_Root axes, +x left, +y up, +z barrel) | Sight vs barrel in ADS | Hip pose camera |
+| --- | --- | --- | --- |
+| `U_AK12` (red dot + flip magnifier) | (0.001, 0.035, -0.159) | 0.0 deg (0.03 up, 0.01 left) | 7.6 cm to the left, 5 cm up, 1.4 deg right of the barrel; after firing +-13 deg |
+| `U_SCAR-H` (holographic) | (0.001, 0.036, -0.141) | 0.25 deg down | (0.075, 0.045, -0.202) from Scope1 |
+
+- **Lenses**: the AK's red dot renders **opaque black** outside the game's ADS and **clear** in it
+  (front post visible through it); the SCAR's holographic window is clear either way. No red dot is
+  drawn in the lens on the monitor (red wall, maybe invisible); the mod's reticle (an XR layer on the
+  sight line) stands in for it.
+- **Gun pass FOV**: 45 deg at the hip, **17 deg in ADS** (the narrowest per-view constant block of the
+  frame; the first-person shadow view also uses 45, the world its own). The life-size scale must use
+  it, else the gun is drawn 2.7 times too large while aiming. The world FOV is the mod's and does not zoom.
+- **Shots**: with the eye on the sight (ADS sample), five single AK shots at a wall ~2.5 m away made one
+  hole, 2 px left and 20 px (~4 cm) below the view centre: a constant offset of the bullet origin, not
+  an angle (it stays ~4 cm at any range).
+- Mod: `body/arm_pose` samples the sight (steady only: not within 0.4 s of firing, within 5 deg of
+  the barrel), prefers the ADS sample per gun (reset when the gun in hand changes), and before it
+  uses Wep_Scope1 + (0, 0.035, -0.15) along the barrel. `weapon/two_handed` aims along it
+  (`shot_line = gun`) and holds the game's LT while an eye is within 2.5 cm of the line (`sight_ads`).
+
 ## Open
 
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds
