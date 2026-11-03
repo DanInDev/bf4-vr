@@ -12,9 +12,14 @@ LocalPose, +0x38 ModelPose; arrays keep their count at data-4).
 """
 import argparse
 import math
+import os
 import struct
+import sys
 
-from camera_probe import command, peek, peek_many, pointer
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)  # `python -P` leaves the script folder off the path
+
+from camera_probe import command, peek, peek_many, pointer  # noqa: E402
 
 SOLDIER_GLOBAL = 0x14230F260
 
