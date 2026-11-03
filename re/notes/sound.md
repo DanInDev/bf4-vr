@@ -98,13 +98,30 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   `Soldier_Foley_Land_Wave`, `Soldier_Foley_Crawl_*`, surface footsteps (`Footsteps/<surface>/Walk|Run|Sprint_*`),
   `FX/WindOnSpeed_Wave`, `SpecialMoves/Melee/Melee_Player`. So the game has an arm-movement cloth loop and a
   pose-change sound: what #33 wants, without synthesising anything.
-- Not yet found: the patch that plays them for the player and its controls. `SoldierEntityData`
-  (soldier +0x30) +0xC8 `SoldierSoundData` has every SoundAsset null in the campaign (Movement, Death, ...;
-  floats 5.0 / 0.1 / 0.5). The level's `SoundEntity` objects are AI or level sounds only
-  (`Sound/Character/AI_Movement_Looped`, AI climbing, death screams). Five `ClientSoldierSoundComponent`
-  objects (vtable `0x141BDFEB0`) exist but name no asset directly: they hold the instances. Next: the
-  component's update in REA (what it plays, which graph parameters it sets: an arm speed for the
-  ArmMovement loop is the likely hook for "rustle on quick movements").
+- `SoldierEntityData` (soldier +0x30) +0xC8 `SoldierSoundData` has every SoundAsset null in the campaign
+  (Movement, Death, ...; floats 5.0 / 0.1 / 0.5). Five `ClientSoldierSoundComponent` objects (vtable
+  `0x141BDFEB0`) exist but name no asset directly.
+- **The player's movement patch is `Sound/Character/Soldier_Movement_1p`**, found by typing the objects
+  around the `SamplerNodeData` that plays the ArmMovement loop wave (+0x90). One `SoundEntity` (live vtable
+  `0x141CE88C0`) uses it through a `SoundEntityData` (+0x18 Sound). Its instance (+0x80) exists only while
+  the soldier moves (walking creates it, so does `OnStart`), with the parameter values as floats at
+  `[instance + 0x8] + 0x80` by ValueIndex.
+- Graph inputs (names by hash h*33^c; the rest brute-forced over 1-3 movement words, unnamed):
+
+| Kind | Named | Unnamed hashes |
+| --- | --- | --- |
+| Events (19) | `OnStart`, `OnStop`, `Stop`, `OnLand`, `OnJump`, `OnEnterAir`, `OnEnterWater`, `OnDamage`, `Vault`, `DiveStart`, `DiveEnd` | `14CDD291 184BEDD0 2A2A53AB 89210E72 89680ECF A83B87A0 AF14D0C9 D9FEB84B` |
+| Parameters (9) | `Speed` (index 8; 3.05 walking), `Pose` (index 4; 0 stand, 1 crouch: set by the game when the physical stance crouches), `WaterDepth` (10) | `A4FCD045` (1), `D565F120` (3), `9DCCF178` (5), `B0922CC1` (6), `8C4BF2EB` (7), `9002E2CC` (9) |
+
+- Tried on the monitor, all without result: no unnamed parameter changes while the fake gun hand sweeps
+  100 deg, the stick turns the view, or the soldier walks, sprints or crouches. Writing 1.0 into each one,
+  and firing every event at the entity (`entityevent`, as for the reload sounds), gave nothing above the
+  checkpoint's ambience and music (-20 dB median; one shot is only +8 dB over it). So this entity does not
+  sound on events the way the reload entities do, and what drives the ArmMovement loop is not found.
+- Next: decode the graph's node connections (which input feeds the ArmMovement sampler's gain), find the
+  instance that actually sounds (the `ClientSoldierSoundComponent` may own another), and record in a quiet
+  spot. Until then a rustle on quick hand movement can only be a mod cue (a `bfvr_sounds` WAV), not the
+  game's own.
 
 ## Open
 
