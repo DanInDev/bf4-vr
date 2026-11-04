@@ -108,6 +108,15 @@ namespace
 		expect(gun.press_button(false) == reload_event::magazine_dropped && gun.state().chamber, "then it releases, the round stays chambered");
 		gun.take_from_chest();
 		expect(gun.state().held_rounds == 0 && !gun.state().holding, "reserve already used up");
+		// Headset 2026-11-04: a tactical reload (round chambered), new magazine, the button ejected it again.
+		reload tactical(ar);
+		tactical.load(11, 60);
+		expect(tactical.press_button(false) == reload_event::magazine_dropped && tactical.state().chamber, "tactical: release, round stays");
+		tactical.take_from_chest();
+		tactical.insert();
+		expect(tactical.press_button(false) == reload_event::none && tactical.state().magazine_in && tactical.state().magazine_rounds == 30,
+			"tactical: the first press after the new magazine keeps it (bolt already forward)");
+		expect(tactical.press_button(false) == reload_event::magazine_dropped, "tactical: the next press releases");
 		reload again(ar);
 		again.load(1, 30);
 		again.press_button(false);
@@ -373,6 +382,17 @@ namespace
 		racker.update(second, palm_at(handle + v3{ 0.04f, 0.03f, 0.0f }, true));
 		r = racker.update(second, palm_at(handle + v3{ 0.04f, 0.03f, 0.05f }, false));
 		expect(has(r, reload_event::round_ejected) && second.state().magazine_in, "palm at the handle racks, the magazine stays in");
+
+		// Headset 2026-11-04: an underhand rack missed the AK's handle. Its zone now sits out on the
+		// handle's side (here world +x) and is larger: 10 cm out and 6 cm below the knob still racks.
+		reload under(ak);
+		under.load(11, 60);
+		reload_hands underhand(flat_hold());
+		underhand.update(under, palm_at(away, false));
+		r = underhand.update(under, palm_at(handle + v3{ 0.10f, -0.06f, 0.0f }, true));
+		expect(r.racking && under.state().magazine_in, "underhand: the palm out beside and below the handle starts the rack");
+		r = underhand.update(under, palm_at(handle + v3{ 0.10f, -0.06f, 0.05f }, false));
+		expect(has(r, reload_event::round_ejected), "underhand: pulled back and let go, it racks");
 
 		reload third(ak);
 		third.load(11, 60);
@@ -855,7 +875,9 @@ static void test_reload_sound_cues()
 	expect(cues_for(reload_event::chambered, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: chambered");
 	expect(cues_for(reload_event::racked_empty, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: racked empty");
 	expect(cues_for(reload_event::magazine_stowed, cues) == 1 && cues[0].event == reload_sound::settle, "cue: stowed");
-	for (const reload_event silent : { reload_event::none, reload_event::shot, reload_event::dry_fire, reload_event::magazine_taken, reload_event::magazine_dropped })
+	// Headset 2026-11-04: the synthesised cloth at the pouch did not sound right; the game's settle does.
+	expect(cues_for(reload_event::magazine_taken, cues) == 1 && cues[0].event == reload_sound::settle, "cue: taken from the pouch");
+	for (const reload_event silent : { reload_event::none, reload_event::shot, reload_event::dry_fire, reload_event::magazine_dropped })
 	{
 		expect(cues_for(silent, cues) == 0, "cue: no sound");
 	}

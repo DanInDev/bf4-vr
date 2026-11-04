@@ -88,6 +88,11 @@ namespace bfvr::body
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
+			// The body's branches: the children of the bone where the arms' chain meets the camera's
+			// (SpineX and its siblings, not CameraBase). The game turns them with the aimer, i.e. the gun.
+			static constexpr int max_trunk = 8;
+			int trunk[max_trunk]{};
+			int trunk_count{};
 			// The bent finger joints per hand (body/finger_pose): index..pinky 1-3, Thumb2-3; <= 0 = none (0 is the root).
 			int finger_bones[2][fingers::count][fingers::joints]{};
 			int finger_tips[2][fingers::count]{}; // <Hand><Finger>4: the end of each finger (contact grips)
@@ -142,8 +147,9 @@ namespace bfvr::body
 		std::atomic<std::uint64_t> rig_pose{}; // rig.local_pose, for the lock-free match
 		std::atomic<ULONGLONG> next_refresh{};
 		std::atomic<ULONGLONG> next_check{};
-		// Bones the IK rewrites: both arms (upper, fore, roll, hand) and the weapon root.
-		constexpr int max_edited = 11; // + the two shoulder (clavicle) bones for shoulder_width
+		// Bones the IK rewrites: both arms (upper, fore, roll, hand), the weapon root, the two shoulder
+		// (clavicle) bones and the body's branches (rig_info::trunk).
+		constexpr int max_edited = 11 + rig_info::max_trunk;
 		int edited[max_edited]{};
 		int edited_count{};
 		bone_memory memory[max_edited];
@@ -514,6 +520,29 @@ namespace bfvr::body
 			}
 			const bool complete = fresh.camera >= 0 && fresh.arms[0].upper >= 0 && fresh.arms[0].fore >= 0 && fresh.arms[0].hand >= 0
 				&& fresh.arms[1].upper >= 0 && fresh.arms[1].fore >= 0 && fresh.arms[1].hand >= 0;
+			if (complete)
+			{
+				// Where the left arm's chain meets the camera's (AITrajectory in the BF4 rig): its children
+				// other than the camera's own branch carry the body (re/notes/skeleton.md).
+				bool camera_line[max_bones]{};
+				for (int bone = fresh.camera; bone >= 0; bone = fresh.parents[bone])
+				{
+					camera_line[bone] = true;
+				}
+				int meet = fresh.arms[0].upper;
+				while (meet >= 0 && !camera_line[meet])
+				{
+					meet = fresh.parents[meet];
+				}
+				for (int bone = 0; meet >= 0 && bone < fresh.bones && fresh.trunk_count < rig_info::max_trunk; ++bone)
+				{
+					if (fresh.parents[bone] == meet && !camera_line[bone])
+					{
+						fresh.trunk[fresh.trunk_count++] = bone;
+					}
+				}
+				log::write("arms: body branches from bone %d: %d (first %d)", meet, fresh.trunk_count, fresh.trunk_count ? fresh.trunk[0] : -1);
+			}
 			log::write("arms: skeleton %s, %d bones, camera %d, weapon %d, left %d/%d/%d/%d, right %d/%d/%d/%d%s", fresh.name, fresh.bones,
 				fresh.camera, fresh.weapon, fresh.arms[0].upper, fresh.arms[0].fore, fresh.arms[0].roll, fresh.arms[0].hand, fresh.arms[1].upper,
 				fresh.arms[1].fore, fresh.arms[1].roll, fresh.arms[1].hand, complete ? "" : " (incomplete: arms left alone)");
@@ -545,6 +574,10 @@ namespace bfvr::body
 					{
 						edited[edited_count++] = rig.parents[arm.upper];
 					}
+				}
+				for (int i = 0; i < rig.trunk_count; ++i)
+				{
+					edited[edited_count++] = rig.trunk[i];
 				}
 			}
 		}
@@ -681,20 +714,40 @@ namespace bfvr::body
 				head_rotation = { q[0], q[1], q[2], q[3] };
 				head_valid = true;
 			}
-			// Torso (#13): the shoulders turn about the spine (behind the head) to face where the
-			// tracked head and hands say the body faces; the game body only turns with the stick.
-			// The rig's shoulders already face the camera joint's yaw, which under controller aim
-			// follows the gun (frame turns it back by turn.yaw), so they turn by the difference.
+			// Torso (#13): the body turns about the spine (behind the head) to face where the tracked
+			// head and hands say it faces; the game body only turns with the stick.
 			const float torso_yaw_now = update_torso(head_valid, head_position, head_rotation, hands);
-			const stereo::first_person_turn view_turn = stereo::first_person_view_turn();
-			const float shoulders_yaw = view_turn.active && rendered_frame.load(std::memory_order_relaxed) ? -view_turn.yaw : 0.0f;
-			const float torso = torso_follow.load(std::memory_order_relaxed) && head_valid ? angle_between(torso_yaw_now, shoulders_yaw) : 0.0f;
+			const float torso = torso_follow.load(std::memory_order_relaxed) && head_valid ? angle_between(torso_yaw_now, 0.0f) : 0.0f;
 			const ik::vec3 torso_axis = ik::rotate(frame, ik::vec3{ 0.0f, 1.0f, 0.0f });
 			const ik::vec3 spine = camera.position + ik::rotate(frame, head_position + ik::vec3{ 0.0f, 0.0f, torso_spine_back });
 			const float torso_sin = std::sin(0.5f * torso);
 			const ik::quat torso_turn{ torso_axis.x * torso_sin, torso_axis.y * torso_sin, torso_axis.z * torso_sin, std::cos(0.5f * torso) };
 			bool any = false;
 			bool shaped = false; // written bones must be remembered even when no arm solves
+			{
+				// Under controller aim the game turns its whole first-person body (chest, clavicles, gun
+				// root) with the aimer, i.e. with the gun: a wrist turn or the knife pointed across swung
+				// the chest round (headset 2026-11-04). The rendered frame faces the body's yaw (frame turns
+				// the joint by turn.yaw), so the body's branches turn by the same angle about the camera
+				// joint first, then by the torso about the spine. The camera's own branch stays.
+				const stereo::first_person_turn view_turn = stereo::first_person_view_turn();
+				const float back = view_turn.active && rendered_frame.load(std::memory_order_relaxed) ? view_turn.yaw : 0.0f;
+				const ik::quat about_joint{ 0, std::sin(0.5f * back), 0, std::cos(0.5f * back) };
+				const ik::quat to_body = ik::normalize(camera.rotation * about_joint * ik::conjugate(camera.rotation));
+				const ik::quat whole = ik::normalize(torso_turn * to_body);
+				if (back != 0.0f || torso != 0.0f)
+				{
+					for (int i = 0; i < rig.trunk_count; ++i)
+					{
+						ik::bone_transform branch = ik::model_of(local, rig.parents, rig.trunk[i]);
+						const ik::vec3 at_body = camera.position + ik::rotate(to_body, branch.position - camera.position);
+						branch.position = spine + ik::rotate(torso_turn, at_body - spine);
+						branch.rotation = ik::normalize(whole * branch.rotation);
+						ik::set_model_transform(local, rig.parents, rig.trunk[i], branch);
+						shaped = true;
+					}
+				}
+			}
 			bool gun_placed = false;
 			// The gun hand first: a two-handed off hand is drawn on the gun where it now is.
 			for (const int hand : { 1, 0 })
@@ -754,7 +807,7 @@ namespace bfvr::body
 					const int clavicle = rig.parents[bones.upper];
 					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
 					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y, shoulder_anchor.z };
-					const ik::vec3 wanted = camera.position + ik::rotate(frame, head_position + anchor);
+					const ik::vec3 wanted = spine + ik::rotate(torso_turn, camera.position + ik::rotate(frame, head_position + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
 					ik::set_model_transform(local, rig.parents, clavicle, moved);
@@ -764,17 +817,8 @@ namespace bfvr::body
 				{
 					const int clavicle = rig.parents[bones.upper];
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
-					moved.position = moved.position + ik::rotate(frame, ik::vec3{ hand == 0 ? -width : width, 0.0f, 0.0f });
+					moved.position = moved.position + ik::rotate(torso_turn * frame, ik::vec3{ hand == 0 ? -width : width, 0.0f, 0.0f });
 					ik::set_model_transform(local, rig.parents, clavicle, moved);
-					shaped = true;
-				}
-				if (torso != 0.0f && bones.upper >= 0 && rig.parents[bones.upper] >= 0 && rig.parents[bones.upper] != rig.camera)
-				{
-					const int clavicle = rig.parents[bones.upper];
-					ik::bone_transform turned = ik::model_of(local, rig.parents, clavicle);
-					turned.position = spine + ik::rotate(torso_turn, turned.position - spine);
-					turned.rotation = ik::normalize(torso_turn * turned.rotation);
-					ik::set_model_transform(local, rig.parents, clavicle, turned);
 					shaped = true;
 				}
 				const float length = arm_length.load(std::memory_order_relaxed);

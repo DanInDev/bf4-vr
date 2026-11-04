@@ -62,7 +62,8 @@ $config = if ($Preset -like '*release') { 'Release' } else { 'Debug' }
 if (-not $UseRunning) {
 	Invoke-Tool 'game.ps1' @('stop') | Out-Null
 	Invoke-Tool 'deploy.ps1' @('-Action', 'deploy', '-Game', 'bf4', '-Config', $config) | Out-Null
-	Remove-Item 'E:\EA\Battlefield 4\bfvr.log' -ErrorAction SilentlyContinue
+	# The previous run's log stays as bfvr.prev.log: a problem seen before a restart can still be read.
+	Move-Item 'E:\EA\Battlefield 4\bfvr.log' 'E:\EA\Battlefield 4\bfvr.prev.log' -Force -ErrorAction SilentlyContinue
 	Invoke-Tool 'game.ps1' @('start')
 }
 Wait-Seconds $MenuWaitSeconds

@@ -64,12 +64,17 @@ namespace bfvr::weapon
 		{
 			return reload_event::none;
 		}
-		// After a new magazine, the button chambers: from the locked bolt, and also with an empty chamber
-		// whose bolt did not lock (the old magazine came out before it ran dry); only then it releases.
-		if (state_.magazine_in && state_.inserted_since_lock && (state_.bolt_locked || (!state_.chamber && state_.magazine_rounds > 0)))
+		// The first press after a new magazine is the bolt catch: it chambers from the locked bolt or an
+		// empty chamber, and with a round already chambered (a tactical reload) the bolt is forward and
+		// nothing happens. Only the next press releases the magazine (headset 2026-11-04: it ejected).
+		if (state_.magazine_in && state_.inserted_since_lock)
 		{
-			state_.bolt_locked = false;
 			state_.inserted_since_lock = false;
+			if (state_.chamber)
+			{
+				return reload_event::none;
+			}
+			state_.bolt_locked = false;
 			return feed();
 		}
 		if (!state_.magazine_in)

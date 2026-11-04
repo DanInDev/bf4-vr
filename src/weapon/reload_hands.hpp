@@ -98,6 +98,11 @@ namespace bfvr::weapon
 		v3 handle_ar{ 0.0f, 0.06f, 0.20f };
 		v3 handle_ak{ 0.0f, 0.03f, 0.40f };
 		float reach_handle{ 0.085f };
+		// AK: the handle's grab zone sits this far from the knob (Wep_Root axes: +x is the gun's left, so
+		// out on its right, where the AK's handle is, and a little low) and is larger, so an underhand rack
+		// finds it; the drawn hand still pinches the knob.
+		v3 handle_grab_ak{ -0.04f, -0.02f, 0.0f };
+		float reach_handle_ak{ 0.11f };
 		// The magazine is grabbed by its body, this far below where it seats (gun frame -y): on an AK the
 		// charging handle sits only ~3 cm from the magwell, the hand on the magazine well below it.
 		float magazine_grab_drop{ 0.08f };

@@ -16,8 +16,9 @@
 #include "common/log.hpp"
 #include "input/haptics.hpp"
 #include "stereo/tracking.hpp"
-#include "weapon/grenade_hands.hpp"
 #include "weapon/body_rig.hpp"
+#include "weapon/grab_debug.hpp"
+#include "weapon/grenade_hands.hpp"
 #include "weapon/reload_sounds.hpp"
 #include "weapon/weapon_swap.hpp"
 
@@ -315,6 +316,16 @@ namespace bfvr::weapon
 		frame.gun_grip = (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 		frame.have_grenade = weapon.valid && weapon.count > 0;
 		const grenade_result result = hands.update(frame);
+		// grab_debug: the grenade pouch had no ring and could not be found in the headset (2026-11-04).
+		if (frame.hands_valid && frame.have_grenade && !result.holding)
+		{
+			const float pouch[3] = { frame.belt.x, frame.belt.y, frame.belt.z };
+			publish_grab_zone(grab_slot::grenade, pouch, grenade_config{}.reach_belt, result.off_busy);
+		}
+		else
+		{
+			clear_grab_zone(grab_slot::grenade);
+		}
 		if (result.event != grenade_event::none)
 		{
 			last_event = event_name(result.event);

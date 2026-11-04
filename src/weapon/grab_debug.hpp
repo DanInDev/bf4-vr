@@ -11,6 +11,7 @@ namespace bfvr::weapon
 		magazine,
 		handle,
 		pouch,
+		grenade,
 		handguard,
 		primary,
 		secondary,

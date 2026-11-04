@@ -76,14 +76,18 @@ namespace bfvr::weapon
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
 		const v3 handle_in_gun = frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar;
+		// Where the hand grabs it: the knob itself, or for an AK a larger zone out beside the gun on the
+		// handle's side, so it is also found reaching under the gun (headset 2026-11-04).
+		v3 handle_grab = handle;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
-			handle_reach = config_.reach_handle;
+			handle_reach = ak ? config_.reach_handle_ak : config_.reach_handle;
+			handle_grab = ak ? handle + rotate(frame.root_rotation, config_.handle_grab_ak) : handle;
 		}
 		// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
 		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
-		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle) : 1e9f;
+		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle_grab) : 1e9f;
 		// Zones overlap on small guns: the nearest one wins.
 		const bool near_magwell = to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
@@ -191,7 +195,7 @@ namespace bfvr::weapon
 		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < handle_reach;
 		result.zone_centre[0] = magazine_body;
 		result.zone_reach[0] = config_.reach_magazine;
-		result.zone_centre[1] = handle;
+		result.zone_centre[1] = handle_grab;
 		result.zone_reach[1] = handle_reach;
 		result.has_handle = frame.has_root || frame.has_slide;
 		if (racking_ && valid)

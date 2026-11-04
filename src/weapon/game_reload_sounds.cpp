@@ -33,6 +33,7 @@ namespace bfvr::weapon
 			cues[0] = { reload_sound::bolt, 0 };
 			return 1;
 		case reload_event::magazine_stowed:
+		case reload_event::magazine_taken: // the synthesised cloth at the pouch did not sound right (headset 2026-11-04)
 			cues[0] = { reload_sound::settle, 0 };
 			return 1;
 		default:
