@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 // Engine-free: turns a constant block written for the centre camera into the second eye's block.
@@ -46,7 +48,18 @@ namespace bfvr::stereo
 			float centre[3];
 			float eye[3];
 		};
+		// (first centre value, entry): apply() finds the candidates by binary search instead of comparing
+		// every window with every entry (a camera that turns changes ~150 windows, not ~25).
+		using index = std::vector<std::pair<float, std::uint32_t>>;
+		void rebuild_index();
 		std::vector<matrix> matrices_;
 		std::vector<position> positions_;
+		index matrix_index_;
+		index position_index_;
+		// One bit per (float bits >> 12) of every centre value and its neighbours: most block values
+		// match none, and a bit test rules them out before the search.
+		std::vector<std::uint64_t> filter_;
+		bool near_zero_{}; // a centre value within the tolerance of 0: small block values always search
+		bool may_match(float value) const;
 	};
 }

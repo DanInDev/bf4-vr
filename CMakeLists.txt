@@ -115,6 +115,9 @@ add_library(bfvr_runtime STATIC
 	src/stereo/eye_pass.cpp
 	src/stereo/hud_capture.cpp
 	src/stereo/hud_layout.cpp
+	src/stereo/scope.cpp
+	src/stereo/scope_compose.cpp
+	src/stereo/scope_math.cpp
 	src/stereo/scripted_view.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
@@ -148,7 +151,7 @@ add_library(bfvr_runtime STATIC
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
 )
-target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid windowscodecs ole32 winmm)
+target_link_libraries(bfvr_runtime PUBLIC bfvr_common PRIVATE minhook OpenXR::openxr_loader OpenXR::headers d3d11 dxgi dxguid d3dcompiler windowscodecs ole32 winmm)
 
 # Loaded by the game as dinput8.dll; forwards to the system DLL and starts the runtime.
 add_library(bfvr_loader SHARED
@@ -170,6 +173,8 @@ if(BFVR_BUILD_TESTS)
 	# Per-eye maths: pose composition, rendered frustum, complete pairs; exits non-zero on failure.
 	add_executable(bfvr_eye_math_test tests/eye_math_test.cpp src/stereo/eye_math.cpp src/stereo/constant_patch.cpp src/stereo/hud_layout.cpp)
 	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
+	add_executable(bfvr_scope_test tests/scope_test.cpp src/stereo/scope_math.cpp)
+	target_link_libraries(bfvr_scope_test PRIVATE bfvr_common)
 
 	# Settings registry: ini load, pipe text, write-back; exits non-zero on failure.
 	add_executable(bfvr_settings_test tests/settings_test.cpp)
@@ -241,6 +246,7 @@ if(BFVR_BUILD_TESTS)
 	enable_testing()
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
 	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
+	add_test(NAME scope COMMAND bfvr_scope_test)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)

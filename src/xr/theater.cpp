@@ -36,6 +36,7 @@
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
+#include "stereo/scope_compose.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/reticle.hpp"
@@ -1000,6 +1001,141 @@ namespace bfvr::xr
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&notice_quad);
 		}
 
+		// Magnified sights (stereo/scope): the eye pass's lens picture (premultiplied, round) on a quad at
+		// the lens. Its own swap chain in the image's format, copied once per new image.
+		XrSwapchain scope_swapchain{ XR_NULL_HANDLE };
+		std::vector<XrSwapchainImageD3D11KHR> scope_images;
+		D3D11_TEXTURE2D_DESC scope_swapchain_desc{};
+		std::uint64_t scope_frame_copied{};
+		bool scope_shown{};
+		static constexpr ULONGLONG scope_stale_ms = 150;
+
+		void destroy_scope_swapchain()
+		{
+			if (scope_swapchain != XR_NULL_HANDLE)
+			{
+				xrDestroySwapchain(scope_swapchain);
+				scope_swapchain = XR_NULL_HANDLE;
+			}
+			scope_images.clear();
+			scope_swapchain_desc = {};
+			scope_frame_copied = 0;
+			scope_shown = false;
+		}
+
+		bool ensure_scope_swapchain(const D3D11_TEXTURE2D_DESC& desc)
+		{
+			if (scope_swapchain != XR_NULL_HANDLE && desc.Width == scope_swapchain_desc.Width && desc.Height == scope_swapchain_desc.Height
+				&& desc.Format == scope_swapchain_desc.Format)
+			{
+				return true;
+			}
+			destroy_scope_swapchain();
+			std::uint32_t count{};
+			if (!check(xrEnumerateSwapchainFormats(session, 0, &count, nullptr), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			std::vector<std::int64_t> formats(count);
+			if (!check(xrEnumerateSwapchainFormats(session, count, &count, formats.data()), "xrEnumerateSwapchainFormats"))
+			{
+				return false;
+			}
+			DXGI_FORMAT chosen = DXGI_FORMAT_UNKNOWN;
+			for (const DXGI_FORMAT candidate : format_preferences(desc.Format))
+			{
+				if (std::find(formats.begin(), formats.end(), static_cast<std::int64_t>(candidate)) != formats.end())
+				{
+					chosen = candidate;
+					break;
+				}
+			}
+			if (chosen == DXGI_FORMAT_UNKNOWN)
+			{
+				return false;
+			}
+			XrSwapchainCreateInfo info{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+			info.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+			info.format = chosen;
+			info.sampleCount = 1;
+			info.width = desc.Width;
+			info.height = desc.Height;
+			info.faceCount = 1;
+			info.arraySize = 1;
+			info.mipCount = 1;
+			if (!check(xrCreateSwapchain(session, &info, &scope_swapchain), "xrCreateSwapchain(scope)")
+				|| !check(xrEnumerateSwapchainImages(scope_swapchain, 0, &count, nullptr), "xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			scope_images.assign(count, XrSwapchainImageD3D11KHR{ XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+			if (!check(xrEnumerateSwapchainImages(scope_swapchain, count, &count, reinterpret_cast<XrSwapchainImageBaseHeader*>(scope_images.data())),
+					"xrEnumerateSwapchainImages"))
+			{
+				return false;
+			}
+			scope_swapchain_desc = desc;
+			log::write("theater: scope swap chain %ux%u, format %d", desc.Width, desc.Height, chosen);
+			return true;
+		}
+
+		// A fresh lens picture to show; the reticle stays off while it is (the lens has its own dot).
+		bool scope_visible()
+		{
+			const stereo::scope_image image = stereo::latest_scope_image();
+			return image.texture && image.frame != 0 && GetTickCount64() - image.at < scope_stale_ms;
+		}
+
+		void add_scope_layer(XrCompositionLayerQuad& scope_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			const stereo::scope_image image = stereo::latest_scope_image();
+			if (!scope_visible() || layer_count >= max_layers)
+			{
+				return;
+			}
+			D3D11_TEXTURE2D_DESC desc{};
+			image.texture->GetDesc(&desc);
+			if (!ensure_scope_swapchain(desc))
+			{
+				return;
+			}
+			if (image.frame != scope_frame_copied)
+			{
+				std::uint32_t index{};
+				XrSwapchainImageAcquireInfo acquire{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+				if (!check(xrAcquireSwapchainImage(scope_swapchain, &acquire, &index), "xrAcquireSwapchainImage(scope)"))
+				{
+					return;
+				}
+				XrSwapchainImageWaitInfo wait{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+				wait.timeout = XR_INFINITE_DURATION;
+				if (check(xrWaitSwapchainImage(scope_swapchain, &wait), "xrWaitSwapchainImage(scope)"))
+				{
+					ComPtr<ID3D11DeviceContext> context;
+					device->GetImmediateContext(&context);
+					context->CopySubresourceRegion(scope_images[index].texture, 0, 0, 0, 0, image.texture, 0, nullptr);
+				}
+				XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+				scope_shown = check(xrReleaseSwapchainImage(scope_swapchain, &release), "xrReleaseSwapchainImage(scope)") || scope_shown;
+				scope_frame_copied = image.frame;
+			}
+			if (!scope_shown)
+			{
+				return;
+			}
+			scope_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			scope_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			scope_quad.space = space;
+			// Like a real eyepiece: the other eye sees the drawn optic, not a second picture.
+			scope_quad.eyeVisibility = image.eye == 0 ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_RIGHT;
+			scope_quad.subImage.swapchain = scope_swapchain;
+			scope_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(desc.Width), static_cast<std::int32_t>(desc.Height) };
+			scope_quad.pose.position = { image.quad.position[0], image.quad.position[1], image.quad.position[2] };
+			scope_quad.pose.orientation = { image.quad.orientation[0], image.quad.orientation[1], image.quad.orientation[2], image.quad.orientation[3] };
+			scope_quad.size = { image.quad_size, image.quad_size };
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&scope_quad);
+		}
+
 		// Aim reticle (#3, #12): with controller aim, a dot where the shots converge, facing the head,
 		// a constant angular size; world-locked so it sits at that depth in both eyes.
 		void add_reticle_layer(XrCompositionLayerQuad& reticle_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
@@ -1007,7 +1143,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (!store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
+			if (scope_visible() || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
 				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;
@@ -1065,8 +1201,8 @@ namespace bfvr::xr
 			}
 			const stereo::pose centre = stereo::eye_math::centre_pose(head);
 			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
-			// The reticle, the panel and the notice come after the rings: keep room for them.
-			constexpr std::uint32_t reserved = 3;
+			// The scope, the reticle, the panel and the notice come after the rings: keep room for them.
+			constexpr std::uint32_t reserved = 4;
 			for (int i = 0; i < weapon::grab_zone_count && layer_count + reserved < max_layers; ++i)
 			{
 				if (!zones[i].valid)
@@ -1933,7 +2069,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[12 + weapon::grab_zone_count]{};
+			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			const XrCompositionLayerBaseHeader* layers[13 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -1990,6 +2127,7 @@ namespace bfvr::xr
 					}
 				}
 				add_grab_zone_layers(zone_quads, layers, layer_count);
+				add_scope_layer(scope_quad, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
@@ -2068,6 +2206,7 @@ namespace bfvr::xr
 			stop_waiter();
 			destroy_swapchain();
 			destroy_hud_swapchain();
+			destroy_scope_swapchain();
 			destroy_overlay(panel_overlay);
 			destroy_overlay(notice_overlay);
 			destroy_overlay(vignette_overlay);

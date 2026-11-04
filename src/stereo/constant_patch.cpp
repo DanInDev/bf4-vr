@@ -1,5 +1,6 @@
 #include "stereo/constant_patch.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -49,6 +50,70 @@ namespace bfvr::stereo
 	{
 		matrices_.clear();
 		positions_.clear();
+		matrix_index_.clear();
+		position_index_.clear();
+		filter_.clear();
+		near_zero_ = false;
+	}
+
+	void constant_patch::rebuild_index()
+	{
+		matrix_index_.clear();
+		position_index_.clear();
+		for (std::uint32_t i = 0; i < matrices_.size(); ++i)
+		{
+			matrix_index_.emplace_back(matrices_[i].centre[0], i);
+		}
+		for (std::uint32_t i = 0; i < positions_.size(); ++i)
+		{
+			position_index_.emplace_back(positions_[i].centre[0], i);
+		}
+		std::sort(matrix_index_.begin(), matrix_index_.end());
+		std::sort(position_index_.begin(), position_index_.end());
+		filter_.assign((1u << 20) / 64, 0);
+		near_zero_ = false;
+		const auto mark = [this](float value) {
+			if (std::fabs(value) < 1e-5f)
+			{
+				near_zero_ = true;
+			}
+			std::uint32_t bits{};
+			std::memcpy(&bits, &value, sizeof(bits));
+			const std::uint32_t key = bits >> 12;
+			// A key spans 2^-11 of the magnitude; same()'s tolerance 1e-6 + 1e-5 |c| spans this many keys
+			// (doubled: below an exponent boundary the keys are twice as fine), plus one.
+			const float magnitude = std::fmax(std::fabs(value), 1e-5f);
+			const auto span = static_cast<std::uint32_t>(std::fmin(2.0f * (1e-6f + 1e-5f * magnitude) / (magnitude * 4.8828125e-4f), 1024.0f)) + 1;
+			const std::uint32_t low = key > span ? key - span : 0;
+			for (std::uint32_t k = low; k <= key + span && k < (1u << 20); ++k)
+			{
+				filter_[k >> 6] |= std::uint64_t{ 1 } << (k & 63);
+			}
+		};
+		for (const auto& entry : matrix_index_)
+		{
+			mark(entry.first);
+		}
+		for (const auto& entry : position_index_)
+		{
+			mark(entry.first);
+		}
+	}
+
+	bool constant_patch::may_match(float value) const
+	{
+		if (filter_.empty())
+		{
+			return false;
+		}
+		if (near_zero_ && std::fabs(value) < 2e-5f)
+		{
+			return true;
+		}
+		std::uint32_t bits{};
+		std::memcpy(&bits, &value, sizeof(bits));
+		const std::uint32_t key = bits >> 12;
+		return (filter_[key >> 6] >> (key & 63)) & 1u;
 	}
 
 	void constant_patch::add_view(const float* centre, const float* eye, std::size_t floats)
@@ -91,6 +156,7 @@ namespace bfvr::stereo
 				positions_.push_back(p);
 			}
 		}
+		rebuild_index();
 	}
 
 	int constant_patch::shift_view_projections(float* block, std::size_t floats, float sx, float sy, float d)
@@ -143,14 +209,15 @@ namespace bfvr::stereo
 		const auto near_value = [](float a, float b) { return std::fabs(a - b) <= 1e-3f * std::fabs(b) + 1e-4f; };
 		// Rows of unit length, or, with the camera hook's gun size factor g (gun_scale, gun_life_size),
 		// right and up of 1/g and forward of 1/g^2 (live, g = 0.466: 2.146, 2.146, 4.605): the
-		// projection divides x and y by depth, so the gun shrinks by g.
+		// projection divides x and y by depth, so the gun shrinks by g. Aiming down the sights the gun
+		// pass narrows to 17 deg and g to 0.168 (rows 5.95, 2026-11-04): up to g = 0.04 is accepted.
 		float lengths[3];
 		for (int r = 0; r < 3; ++r)
 		{
 			const float* row = view + r * 4;
 			lengths[r] = std::sqrt(row[0] * row[0] + row[1] * row[1] + row[2] * row[2]);
 		}
-		if (!near_value(lengths[1], lengths[0]) || !near_value(lengths[2], lengths[0] * lengths[0]) || lengths[0] < 0.2f || lengths[0] > 5.0f)
+		if (!near_value(lengths[1], lengths[0]) || !near_value(lengths[2], lengths[0] * lengths[0]) || lengths[0] < 0.2f || lengths[0] > 25.0f)
 		{
 			return false;
 		}
@@ -193,15 +260,29 @@ namespace bfvr::stereo
 
 	int constant_patch::apply(float* block, std::size_t floats) const
 	{
+		// same() allows 1e-6 + 1e-5 |centre|; the search window is a little wider.
+		const auto candidates = [](const index& sorted, float value) {
+			const float tolerance = 2e-6f + 2e-5f * std::fabs(value);
+			const auto first = std::lower_bound(sorted.begin(), sorted.end(), std::make_pair(value - tolerance, std::uint32_t{ 0 }));
+			return std::make_pair(first, value + tolerance);
+		};
 		int replaced = 0;
 		std::size_t i = 0;
 		while (i + 3 <= floats)
 		{
-			bool done = false;
-			if (i + 16 <= floats)
+			const float value = block[i];
+			if (!may_match(value))
 			{
-				for (const matrix& m : matrices_)
+				i += 4;
+				continue;
+			}
+			bool done = false;
+			if (i + 16 <= floats && !matrix_index_.empty())
+			{
+				const auto [it, last] = candidates(matrix_index_, value);
+				for (auto entry = it; entry != matrix_index_.end() && entry->first <= last; ++entry)
 				{
+					const matrix& m = matrices_[entry->second];
 					if (same(block + i, m.centre, 16))
 					{
 						std::memcpy(block + i, m.eye, sizeof(m.eye));
@@ -216,13 +297,18 @@ namespace bfvr::stereo
 			{
 				continue;
 			}
-			for (const position& p : positions_)
+			if (!position_index_.empty())
 			{
-				if (same(block + i, p.centre, 3))
+				const auto [it, last] = candidates(position_index_, value);
+				for (auto entry = it; entry != position_index_.end() && entry->first <= last; ++entry)
 				{
-					std::memcpy(block + i, p.eye, sizeof(p.eye));
-					++replaced;
-					break;
+					const position& p = positions_[entry->second];
+					if (same(block + i, p.centre, 3))
+					{
+						std::memcpy(block + i, p.eye, sizeof(p.eye));
+						++replaced;
+						break;
+					}
 				}
 			}
 			i += 4;

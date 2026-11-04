@@ -33,6 +33,9 @@ namespace bfvr::stereo
 	// stereo_render = pair: the camera hook sets the right eye's offset (metres along the left eye's
 	// right axis) every frame.
 	void set_eye_pass_shift(float metres);
+	// Research (pipe eyezoom): the second eye keeps the first eye's camera but renders with this
+	// vertical FOV (degrees; 0 / out of range = off), to test whether the constant patch follows a zoom.
+	std::string set_eye_zoom(float degrees);
 	// Complete pairs so far (both eyes rendered from one frame); the theater submits a pair only when
 	// this advanced since its last one.
 	std::uint64_t eye_pass_pairs();

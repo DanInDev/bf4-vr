@@ -205,8 +205,49 @@ game's aim pitch and the firing animation, so it is no sight line.
   uses Wep_Scope1 + (0, 0.035, -0.15) along the barrel. `weapon/two_handed` aims along it
   (`shot_line = gun`) and holds the game's LT while an eye is within 2.5 cm of the line (`sight_ads`).
 
+## Magnified sights (2026-11-04, monitor: fakehead, LT with `ads_trigger 1`)
+
+**The game's zoom.** The world FOV the game asks for is in the view-params block (`+0xB4`) before
+the camera hook replaces it with the headset's. Live, AK-12: hip **45 deg**, red dot ADS **40 deg**
+(1.14x), flip magnifier ADS **27 deg** (1.73x as tan(hip/2)/tan(aim/2)); it eases between them. The
+weapon data has the pieces (SoldierWeaponData +0x138 WeaponZoomLevels: RenderFov 55/18 deg, the gun
+pass; +0x148 AimingController +0x10 ZoomLevels: FieldOfView 55/42, FieldOfViewSP 45/-1), the
+magnifier's value comes from a weapon modifier (+0x140, not decoded). The static candidate from REA,
+the camera `+0x11C` override in `0x140FA8270`, stays -1/0 in ADS: not the zoom.
+
+**The magnifier in the model**, from the sight's eye point (fakehead 1 mm), both eyes 64 mm apart:
+
+| Part | Measured | Result |
+| --- | --- | --- |
+| Rear lens opening | 112 px across at 2160 px, tan(half FOV) 0.889 | 2.6 deg radius from the eye point |
+| Housing | 522 px between the eyes | 14.9 cm ahead of the eye point, about 2 cm in radius |
+| Rear lens | 0.73 of the housing | 1.45 cm radius (the `stereo/scope` lens) |
+| `Wep_Scope2` | child of Wep_Scope1 at (-0.0185, 0.0013, 0) | probably the flip hinge, not the lens |
+| Red dot ring (magnifier folded) | ~450 px between the eyes | ~17 cm ahead (Scope1 is 15.9 cm ahead) |
+
+**What the mod does** (`stereo/scope`, `scope_compose`, `eye_pass` `render_scope`): when the game aims
+at 1.25x or more and the drawn gun's sight is fresh, the world is rendered a third time from the sight's
+eye point along the sight line (the gun's up), with the lens's narrow FOV (lens angle from the eye that
+looks through it, divided by the magnification) widened so the lens circle covers 30 % of the render's
+height. The constants are patched from the first eye's like the second eye's (a FOV change patches
+correctly: `eyezoom` test, lighting matches); the gun's per-view blocks are blanked (gun and arms
+not drawn). The lens circle is cut out with a pixel shader (round, premultiplied, a red dot on the
+sight line) and shown on an OpenXR quad at the lens, for the sighting eye only; the aim reticle hides
+meanwhile. Cost, Release 2160x2160: 66-71 fps while scoped (98-107 at the hip), scope pass ~6 ms on
+the render thread (patching 3.3, render 2.5). The patch table is indexed and bit-filtered for it (a
+turning camera changes ~150 windows, not ~25), which also trimmed the second eye's patching.
+
+**Gun depth in ADS (bug found on the way, also on `main`)**: the life-size factor drops to 0.168 in ADS
+(gun pass 17 deg), the gun camera's rows grow to 5.95, and `shift_per_view_block` refused rows over 5:
+the gun had **no second-eye offset in ADS** (0 px between the eyes) and could not be hidden from the
+scope. The limit is now 25 (g down to 0.04); ADS: 22 -> 56 per-view blocks moved per frame, the red dot
+now ~450 px apart between the eyes (~17 cm, as expected).
+
 ## Open
 
+- Scopes on other guns (4x ACOG, sniper scopes): their lens size and distance (one `scope_math::lens`
+  per optic, now the magnifier's for every gun), and the game's own scope overlay at high zoom.
+- The scope pass at a lower resolution (the lens picture is 512 px; the render is full 2160 px).
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds
   ever show (HUD) or leak (a full-auto burst faster than one frame).
 - Shotguns, bolt actions, belt-fed guns, pistols: variants and their bones (`Wep_Belt*`, `Wep_Slide`).

@@ -214,6 +214,8 @@ Every direct caller of setFovY `0x140B89EE0` in the full analysis: `0x140828090`
 - When the game's own stereo 3D is on (`[[0x142738080]+0x60](0)+0x28`) it sets RenderView `+0xD4`
   (convergence) to Twinkle video `+0x50` × 0.05, dirty |= 0xB.
 
-Candidate for the ADS world zoom (`ZoomLevelData.FieldOfViewSP` reaching the camera's `+0x11C`): not
-verified live yet. Live check: aim down a scope and read the active camera's `+0x11C` and `+0xF0`. The mod's
-`copy_detour` runs after this and sets the headset FOV, which is why the world never zooms in ADS.
+Candidate for the ADS world zoom (`ZoomLevelData.FieldOfViewSP` reaching the camera's `+0x11C`):
+**ruled out live** (2026-11-04): the active camera (`VeniceFPSCamera`, vtable `0x141BC94F0`) keeps `+0x11C`
+0, `+0xF0` 0 and `+0x100` -1 at the hip, in red-dot and magnifier ADS. The zoom itself is readable where
+the mod overrides it: view params `+0xB4` before the camera hook (45 / 40 / 27 deg; re/notes/weapon.md
+"Magnified sights"). The mod's `copy_detour` sets the headset FOV there, which is why the world never zooms.

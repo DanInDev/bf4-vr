@@ -125,6 +125,8 @@ offline mode is the legitimate way to play without a connection.
 | `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |
 | `fov <rad>` | Research: override the vertical FOV (`RenderView+0xB4`; 0 = off) |
+| `scope` / `scopeshot <path.png>` | Magnified sights: the game's FOV (hip and aiming), magnification, whether the scope render runs, its FOV, lens quad and which eye; the eye pass's scope timing is in `status` (`scope_ms`, prepare/render/compose). `scopeshot` writes the lens picture (512x512, round, premultiplied) |
+| `eyezoom <deg>` | Research: the second eye keeps the first eye's camera but renders with this vertical FOV (0 = off); `eyeshot2` to look at it. Showed that the constant patch follows a zoom (lighting correct) |
 
 Static helpers (local analysis of the dump, `python -E -P`, needs `pip install --user capstone`):
 `tools/disasm.py <dump> <address> [--full]` disassembles the containing function (bounds from

@@ -204,6 +204,12 @@ shot_line = gun
 # down the sights: the optic's lens clears (it is opaque at the hip), the reticle shows, and the
 # game's ADS accuracy and slower walk apply. 0 = never (ads_trigger still gives LT by hand).
 sight_ads = 1
+# Magnifying sights (the AK-12's flip magnifier): while the game aims through one, the world is
+# rendered once more from the sight with the lens's narrow view and shown on the lens, with a red dot
+# on the sight line. Costs one extra world render while aiming. scope_zoom multiplies the game's own
+# magnification (the magnifier: 1.7x).
+scope = 1
+scope_zoom = 1
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
 aim_convergence = 25

@@ -24,6 +24,9 @@
 #include "safety/mp_guard.hpp"
 #include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
+#include "stereo/scope.hpp"
+#include "stereo/scope_compose.hpp"
+#include "stereo/scope_math.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -57,6 +60,9 @@ namespace bfvr::stereo
 		constexpr std::size_t sub_view_count = 0x33fb8;
 		constexpr std::size_t transform = 0x40;
 		constexpr std::size_t dirty_flags = 0xe0;
+		constexpr std::size_t view_fov_y = 0xb4;  // radians
+		constexpr std::size_t view_aspect = 0xc4;
+		constexpr std::size_t view_fov_x = 0x250; // radians, kept in step by setFovY / setAspect
 
 		std::atomic<int> mode{};
 		std::atomic<float> shift{ 0.064f };
@@ -311,21 +317,72 @@ namespace bfvr::stereo
 		std::atomic<float> eye_shift_metres{};
 		float projection_sx{};
 		float projection_sy{};
+		// Research (pipe eyezoom): the second eye renders the same camera with this vertical FOV
+		// (radians, 0 = off) instead of moving sideways: does the constant patch follow a zoom?
+		std::atomic<float> zoom_test_fov{};
+		bool zoom_active{}; // render thread, second eye of a zoom test
+		// Magnified sights (stereo/scope): a third render from the sight. The gun and arms are drawn
+		// with their own per-view block, which is blanked so they do not block the lens's view.
+		bool scope_rendering{}; // render thread
+		float scope_y_scale{};  // cot(render FOV / 2) of the scope render
+		std::atomic<std::uint64_t> scope_renders{};
+		std::atomic<std::uint64_t> scope_hidden_blocks{};
+		std::atomic<float> scope_ms{};
+
+		float block_shift()
+		{
+			return zoom_active || scope_rendering ? 0.0f : eye_shift_metres.load(std::memory_order_relaxed);
+		}
+
+		// A per-view block (layout checked by shift_per_view_block) of neither world camera (the first
+		// eye's, being replaced, or the scope's): another projection (the gun pass at 45 / 17 deg, the
+		// first-person shadow view) or rows scaled by the gun size factor.
+		bool foreground_block(const float* block)
+		{
+			const float* view = block + 0x30 / 4;
+			const float right = std::sqrt(view[0] * view[0] + view[1] * view[1] + view[2] * view[2]);
+			const float sy = block[0x70 / 4 + 5];
+			const auto same_scale = [sy](float expected) { return expected > 0.0f && std::fabs(sy - expected) <= 0.01f * expected; };
+			return std::fabs(right - 1.0f) > 1e-3f || !(same_scale(scope_y_scale) || same_scale(projection_sy));
+		}
+
+		std::atomic<std::uint64_t> scope_prepare_us{};
+		std::atomic<std::uint64_t> scope_render_us{};
+		std::atomic<std::uint64_t> scope_compose_us{};
+
+		int patch_scope_block(float* block, UINT count)
+		{
+			// Before the table: the gun's block can hold a value of the world camera's too (its position),
+			// which would otherwise count as a change and leave the gun drawn.
+			if (count == 32 && constant_patch::shift_per_view_block(block, count * 4, 0.0f) && foreground_block(block))
+			{
+				// Projection, view-projection and rotation-only view-projection zero: every vertex at w = 0.
+				std::memset(block + 0x70 / 4, 0, 16 * sizeof(float));
+				std::memset(block + 0xb0 / 4, 0, 32 * sizeof(float));
+				++scope_hidden_blocks;
+				return 1;
+			}
+			return patch.apply(block, count * 4);
+		}
 
 		int patch_block(float* block, UINT count)
 		{
+			if (scope_rendering)
+			{
+				return patch_scope_block(block, count);
+			}
 			int changed = 0;
 			if (view_projection_rule.load(std::memory_order_relaxed) && projection_sx > 0.0f && projection_sy > 0.0f)
 			{
 				const int shifted = constant_patch::shift_view_projections(block, count * 4, projection_sx, projection_sy,
-					eye_shift_metres.load(std::memory_order_relaxed));
+					block_shift());
 				view_projections_shifted += static_cast<std::uint64_t>(shifted);
 				changed += shifted;
 			}
 			changed += patch.apply(block, count * 4);
 			// Per-view blocks of other cameras (the first-person camera the gun and arms are drawn
 			// with) hold no RenderView value; they are recognised by their layout instead.
-			if (changed == 0 && count == 32 && constant_patch::shift_per_view_block(block, count * 4, eye_shift_metres.load(std::memory_order_relaxed)))
+			if (changed == 0 && count == 32 && constant_patch::shift_per_view_block(block, count * 4, block_shift()))
 			{
 				++per_view_blocks_shifted;
 				changed = 1;
@@ -798,6 +855,32 @@ namespace bfvr::stereo
 			}
 		}
 
+		// Zoom test: the slot's two RenderViews get vertical FOV fov (radians); fov 0 restores saved.
+		void zoom_slot(std::uint8_t* slot, float fov, float (&saved)[2][2])
+		{
+			for (int v = 0; v < 2; ++v)
+			{
+				std::uint8_t* const view = slot + slot_views[v];
+				auto* const fov_y = reinterpret_cast<float*>(view + view_fov_y);
+				auto* const fov_x = reinterpret_cast<float*>(view + view_fov_x);
+				if (fov > 0.0f)
+				{
+					saved[v][0] = *fov_y;
+					saved[v][1] = *fov_x;
+					const float aspect = *reinterpret_cast<const float*>(view + view_aspect);
+					*fov_y = fov;
+					*fov_x = 2.0f * std::atan(std::tan(0.5f * fov) * aspect);
+				}
+				else
+				{
+					*fov_y = saved[v][0];
+					*fov_x = saved[v][1];
+				}
+				*reinterpret_cast<std::uint32_t*>(view + dirty_flags) |= 0xf;
+				view_update(view, 0xf);
+			}
+		}
+
 		// Render thread, after the first eye's tonemap into the back buffer.
 		void copy_eye(ComPtr<ID3D11Texture2D>& target)
 		{
@@ -836,6 +919,89 @@ namespace bfvr::stereo
 			ComPtr<ID3D11DeviceContext> context;
 			device->GetImmediateContext(&context);
 			context->CopyResource(target.Get(), source);
+		}
+
+		// After the second eye, with the arenas still read back: the slot's RenderViews move to the scope
+		// camera (the first eye's, centre, moved by the request's relative pose) with the lens's FOV, the
+		// constants are patched from the first eye's as for the second eye, the world is rendered once
+		// more, the lens is cut out of the back buffer, and the back buffer and slot are put back.
+		void render_scope(void* renderer, std::uint8_t* slot, void* context, const scope_request& request, const float (&centre)[2][0x4e0 / 4])
+		{
+			ID3D11Resource* const buffer = back_buffer.load();
+			ComPtr<ID3D11Texture2D> texture;
+			if (!buffer || FAILED(buffer->QueryInterface(IID_PPV_ARGS(&texture))) || !(request.render_fov_y > 0.0f && request.render_fov_y < 3.0f))
+			{
+				return;
+			}
+			LARGE_INTEGER start{}, end{}, frequency{};
+			QueryPerformanceCounter(&start);
+			alignas(16) static std::uint8_t saved[2][0x4e0];
+			for (int v = 0; v < 2; ++v)
+			{
+				std::memcpy(saved[v], slot + slot_views[v], sizeof(saved[v]));
+			}
+			const float aspect = *reinterpret_cast<const float*>(slot + slot_views[0] + view_aspect);
+			for (int v = 0; v < 2; ++v)
+			{
+				std::uint8_t* const view = slot + slot_views[v];
+				float rows[16];
+				std::memcpy(rows, reinterpret_cast<const std::uint8_t*>(centre[v]) + transform, sizeof(rows));
+				float moved[16];
+				scope_math::compose_rows(rows, request.relative, moved);
+				std::memcpy(view + transform, moved, sizeof(moved));
+				const float view_aspect_value = *reinterpret_cast<const float*>(view + view_aspect);
+				*reinterpret_cast<float*>(view + view_fov_y) = request.render_fov_y;
+				*reinterpret_cast<float*>(view + view_fov_x) = 2.0f * std::atan(std::tan(0.5f * request.render_fov_y) * view_aspect_value);
+				*reinterpret_cast<std::uint32_t*>(view + dirty_flags) |= 0xf;
+				view_update(view, 0xf);
+			}
+			scope_y_scale = 1.0f / std::tan(0.5f * request.render_fov_y);
+			patch.clear();
+			for (int v = 0; v < 2; ++v)
+			{
+				patch.add_view(centre[v], reinterpret_cast<const float*>(slot + slot_views[v]), 0x4e0 / 4);
+			}
+			patched_blocks.clear();
+			eye_offset = 0;
+			eye_buffer_discarded = false;
+			scope_rendering = true;
+			const auto microseconds = [&frequency](const LARGE_INTEGER& a, const LARGE_INTEGER& b) {
+				return static_cast<std::uint64_t>(1e6 * static_cast<double>(b.QuadPart - a.QuadPart) / static_cast<double>(frequency.QuadPart));
+			};
+			QueryPerformanceFrequency(&frequency);
+			LARGE_INTEGER prepared{}, rendered{}, composed_at{};
+			prepare_eye_blocks();
+			QueryPerformanceCounter(&prepared);
+			patching = true;
+			original_per_view_render(renderer, slot, context);
+			patching = false;
+			scope_rendering = false;
+			QueryPerformanceCounter(&rendered);
+
+			ComPtr<ID3D11Device> device;
+			texture->GetDevice(&device);
+			ComPtr<ID3D11DeviceContext> immediate;
+			device->GetImmediateContext(&immediate);
+			compose_scope(immediate.Get(), texture.Get(), aspect, request);
+			{
+				// The monitor and the UI pass keep the second eye's image.
+				const std::lock_guard guard(image_lock);
+				if (image_second)
+				{
+					immediate->CopyResource(texture.Get(), image_second.Get());
+				}
+			}
+			for (int v = 0; v < 2; ++v)
+			{
+				std::memcpy(slot + slot_views[v], saved[v], sizeof(saved[v]));
+			}
+			++scope_renders;
+			QueryPerformanceCounter(&composed_at);
+			scope_prepare_us = microseconds(start, prepared);
+			scope_render_us = microseconds(prepared, rendered);
+			scope_compose_us = microseconds(rendered, composed_at);
+			QueryPerformanceCounter(&end);
+			scope_ms = static_cast<float>(1000.0 * static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart));
 		}
 
 		void __fastcall per_view_render_detour(void* renderer, std::uint8_t* slot, void* context)
@@ -924,7 +1090,14 @@ namespace bfvr::stereo
 					std::memcpy(centre_views[v], slot + slot_views[v], sizeof(centre_views[v]));
 				}
 			}
-			if (shifted_last)
+			const float zoom_fov = patch_constants ? zoom_test_fov.load(std::memory_order_relaxed) : 0.0f;
+			zoom_active = zoom_fov > 0.0f;
+			float zoom_saved[2][2]{};
+			if (zoom_active)
+			{
+				zoom_slot(slot, zoom_fov, zoom_saved);
+			}
+			else if (shifted_last)
 			{
 				shift_slot(slot, metres);
 			}
@@ -982,11 +1155,27 @@ namespace bfvr::stereo
 				probe_result = device ? write_probe(device.Get(), slot) : "error: no device yet";
 				SetEvent(probe_done);
 			}
+			if (patch_constants && !zoom_active)
+			{
+				const scope_request request = latest_scope_request();
+				if (request.active && GetTickCount64() - request.at < 250)
+				{
+					render_scope(renderer, slot, context, request, centre_views);
+				}
+			}
 			if (patch_constants)
 			{
 				end_readback();
-				shift_slot(slot, -metres);
+				if (zoom_active)
+				{
+					zoom_slot(slot, 0.0f, zoom_saved);
+				}
+				else
+				{
+					shift_slot(slot, -metres);
+				}
 			}
+			zoom_active = false;
 			QueryPerformanceCounter(&end);
 			QueryPerformanceFrequency(&frequency);
 			extra_ms = static_cast<float>(1000.0 * static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart));
@@ -1097,6 +1286,13 @@ namespace bfvr::stereo
 		}
 	}
 
+	std::string set_eye_zoom(float degrees)
+	{
+		const bool on = std::isfinite(degrees) && degrees >= 1.0f && degrees <= 120.0f;
+		zoom_test_fov = on ? degrees * 3.14159265f / 180.0f : 0.0f;
+		return on ? "eyezoom " + std::to_string(degrees) + " deg (second eye; eyeshot2 to compare)" : "eyezoom off";
+	}
+
 	std::uint64_t eye_pass_pairs()
 	{
 		return pairs.load();
@@ -1139,11 +1335,13 @@ namespace bfvr::stereo
 
 	std::string eye_pass_report()
 	{
-		char text[400];
+		char text[512];
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
-			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu",
+			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
+			"scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (prepare %llu us, render %llu us, compose %llu us)",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
-			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load());
+			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
+			scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_render_us.load(), scope_compose_us.load());
 		return text;
 	}
 

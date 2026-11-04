@@ -254,6 +254,37 @@ namespace
 		}
 		block[19] *= 1.0f + 2e-7f;
 		expect(patch.apply(block, 64) == 1, "rounded copy not matched");
+
+		// The lookup filter must not lose matches whose first value is off by the tolerance: relative
+		// (large values), absolute (small values), and values next to zero.
+		for (const float first : { -1.5f, 1234.5f, 0.001f, 3e-6f, 0.0f })
+		{
+			float c[16], e[16];
+			for (int i = 0; i < 16; ++i)
+			{
+				c[i] = 0.3f * static_cast<float>(i) + 0.7f;
+				e[i] = c[i] + 0.5f;
+			}
+			c[0] = first;
+			constant_patch p;
+			p.add_view(c, e, 16);
+			float b[16];
+			std::memcpy(b, c, sizeof(b));
+			const float tolerance = 1e-6f + 1e-5f * std::fabs(first);
+			// Index 15 changes only when the whole matrix is replaced (float3 windows end at 14).
+			b[0] = first + 0.9f * tolerance;
+			p.apply(b, 16);
+			expect(b[15] == e[15], "near first value not matched");
+			std::memcpy(b, c, sizeof(b));
+			b[0] = first - 0.9f * tolerance;
+			p.apply(b, 16);
+			expect(b[15] == e[15], "near first value (below) not matched");
+			std::memcpy(b, c, sizeof(b));
+			b[0] = first + 50.0f * tolerance + 0.01f;
+			b[1] += 1.0f;
+			p.apply(b, 16);
+			expect(b[15] == c[15], "different window matched");
+		}
 	}
 }
 
@@ -404,11 +435,13 @@ namespace
 			const float p[3] = { 2.0f * camera.position[0], 1.6f + camera.position[1], camera.position[2] };
 			const float d = 0.064f;
 			const float p_eye[3] = { p[0] + d * rot[0], p[1] + d * rot[1], p[2] + d * rot[2] };
-			// Every other round with the life-size gun factor (0.466 at the headset's rendered FOV).
-			const float gun = round % 2 ? 0.466f : 1.0f;
+			// Rounds with the life-size gun factor: 0.466 at the hip (45 deg gun pass), 0.168 aiming down
+			// the sights (17 deg, cot 6.69): the ADS gun lost its second-eye offset while 5 was the limit.
+			const float gun = round % 3 == 1 ? 0.466f : (round % 3 == 2 ? 0.168f : 1.0f);
+			const float gun_sy = round % 3 == 2 ? 6.69f : 2.414f;
 			float block[128], expected[128];
-			per_view_block(rot, p, 2.001f, 2.414f, block, gun);
-			per_view_block(rot, p_eye, 2.001f, 2.414f, expected, gun);
+			per_view_block(rot, p, gun_sy * 0.829f, gun_sy, block, gun);
+			per_view_block(rot, p_eye, gun_sy * 0.829f, gun_sy, expected, gun);
 			expect(constant_patch::shift_per_view_block(block, 128, d), "per-view block not recognised", round);
 			bool ok = true;
 			for (int i = 0; i < 128; ++i)

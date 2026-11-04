@@ -93,6 +93,8 @@ namespace bfvr::settings
 			{ "two_hand_mode", kind::choice, 0, 0, 0, "lock", "lock|soft", "two-handed: the barrel lies on the line between your hands (lock), or the hand line only steers the gun from where it was at the grab (soft)" },
 			{ "shot_line", kind::choice, 0, 0, 0, "gun", "gun|controller", "aim = controller: shots and the dot follow the gun as drawn (its sight), or the controller's pointing ray" },
 			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy)" },
+			{ "scope", kind::boolean, 0, 0, 0, "1", "", "magnifying sights (the AK-12's flip magnifier): while aiming, the lens shows the world magnified (one more render)" },
+			{ "scope_zoom", kind::real, 0.5f, 4.0f, 0.1f, "1", "", "scope magnification times the game's own (1 = the game's: the magnifier 1.7x)" },
 			{ "aim_convergence", kind::real, 2.0f, 100.0f, 1.0f, "25", "", "aim = controller: shots meet the barrel line this far away, metres (bullets leave the game camera, not the gun)" },
 			{ "move_direction", kind::choice, 0, 0, 0, "head", "head|gun|body", "left stick forward walks where your head faces, where the gun points, or along the body (the game's own way)" },
 			{ "neutral_pitch", kind::boolean, 0, 0, 0, "0", "", "hold the game's aim pitch at 0: only the head pitches the view (level horizon)" },

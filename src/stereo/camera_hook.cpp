@@ -20,6 +20,7 @@
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/scope.hpp"
 #include "input/physical_stance.hpp"
 #include "stereo/scripted_view.hpp"
 #include "stereo/tracking.hpp"
@@ -448,6 +449,7 @@ namespace bfvr::stereo
 				const float half_horizontal = rendered.half_horizontal;
 				const float half_vertical = rendered.half_vertical;
 				world_half_vertical = half_vertical;
+				const float game_fov_y = *reinterpret_cast<const float*>(params + fov_y); // the game's, zoomed while aiming
 				*reinterpret_cast<float*>(params + fov_y) = 2.0f * half_vertical;
 				aspect_override = rendered.aspect;
 
@@ -474,6 +476,7 @@ namespace bfvr::stereo
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
 				apply_eye_pose(params, eye_pose);
+				scope_on_view_copy(game_fov_y, eye_pose, head);
 
 				tag.stereo = true;
 				tag.eye = eye;

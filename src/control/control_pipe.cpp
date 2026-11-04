@@ -30,6 +30,8 @@
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/hud_capture.hpp"
+#include "stereo/scope.hpp"
+#include "stereo/scope_compose.hpp"
 #include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
 #include "weapon/hit_feedback.hpp"
@@ -92,10 +94,10 @@ namespace bfvr::control
 			}
 			if (eye)
 			{
-				back_buffer = stereo::eye_pass_image(eye_index);
+				back_buffer = eye_index == 2 ? stereo::latest_scope_image().texture : stereo::eye_pass_image(eye_index);
 				if (!back_buffer)
 				{
-					return "no eye image (eyepass off, or no frame rendered yet)";
+					return eye_index == 2 ? "no scope image yet (not aiming through a magnifying sight)" : "no eye image (eyepass off, or no frame rendered yet)";
 				}
 			}
 			if ((!hud && !eye && FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) || FAILED(swap_chain->GetDevice(IID_PPV_ARGS(&device))))
@@ -545,7 +547,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -557,6 +559,8 @@ namespace bfvr::control
 			if (command == "hudshot") return take_screenshot(argument, true);
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
+			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
+			if (command == "scope") return stereo::scope_report();
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;
@@ -653,6 +657,12 @@ namespace bfvr::control
 				float shift = 0.064f;
 				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
 				return stereo::set_eye_pass(mode, shift); // no argument = report only
+			}
+			if (command == "eyezoom")
+			{
+				float degrees = 0.0f;
+				sscanf_s(argument.c_str(), "%f", &degrees);
+				return stereo::set_eye_zoom(degrees);
 			}
 			if (command == "viewcount")
 			{
