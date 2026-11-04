@@ -122,11 +122,12 @@ offline mode is the legitimate way to play without a connection.
 | `motion` | The game camera's own yaw rate and speed (no head pose), the comfort vignette's input (#10) |
 | `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
-| `watch <hex address> [len] [ms]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace |
+| `watch <hex address> [len] [ms] [rw]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace; `rw` traps reads too ("what accesses this", e.g. the per-frame reader of a widget's `Visible`) |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |
 | `fov <rad>` | Research: override the vertical FOV (`RenderView+0xB4`; 0 = off) |
 | `scope` / `scopeshot <path.png>` | Magnified sights: the game's FOV (hip and aiming), magnification, whether the scope render runs, its FOV, lens quad and which eye; the eye pass's scope timing is in `status` (`scope_ms`, prepare/render/compose). `scopeshot` writes the lens picture (512x512, round, premultiplied) |
 | `eyezoom <deg>` | Research: the second eye keeps the first eye's camera but renders with this vertical FOV (0 = off); `eyeshot2` to look at it. Showed that the constant patch follows a zoom (lighting correct) |
+| `hudwidgets` | HUD element toggles (#28): hook state, hidden-element mask, `isVisible` calls and hidden answers since the last report (about one hidden answer per frame per class of a hidden element) |
 | `foveation` | Fixed foveated rendering: level, radii, share of pixels at each rate, whether NVAPI variable rate shading is available, targets shaded / left alone (set the level with `setting set foveation off\|light\|medium\|strong`) |
 | `scopescissor [0\|1]` | Research: the scope render's scissor to the lens circle off/on (default on) and its counters. `status` carries `gpu_ms eye1= eye2= scope=` (GPU timestamps around each render, pair rendering) |
 

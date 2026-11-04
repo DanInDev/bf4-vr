@@ -13,7 +13,7 @@
 namespace bfvr::control
 {
 #if !defined(_M_X64)
-	std::string watch_writes(std::uintptr_t, unsigned, unsigned)
+	std::string watch_writes(std::uintptr_t, unsigned, unsigned, bool)
 	{
 		return "error: watch is implemented for x64 (BF4) only";
 	}
@@ -136,7 +136,7 @@ namespace bfvr::control
 		}
 	}
 
-	std::string watch_writes(std::uintptr_t address, unsigned length, unsigned duration_ms)
+	std::string watch_writes(std::uintptr_t address, unsigned length, unsigned duration_ms, bool reads)
 	{
 		std::uint64_t length_bits = 0;
 		switch (length)
@@ -165,8 +165,8 @@ namespace bfvr::control
 			std::fill(std::begin(entry.backtrace), std::end(entry.backtrace), 0);
 		}
 
-		// DR7: local enable L0 (bit 0), RW0 = 01 write (bits 16-17), LEN0 (bits 18-19).
-		const std::uint64_t dr7 = 1 | (std::uint64_t{ 1 } << 16) | (length_bits << 18);
+		// DR7: local enable L0 (bit 0), RW0 = 01 write or 11 read/write (bits 16-17), LEN0 (bits 18-19).
+		const std::uint64_t dr7 = 1 | (std::uint64_t{ reads ? 3u : 1u } << 16) | (length_bits << 18);
 		armed = true;
 		const int threads = set_on_all_threads(address, dr7);
 		Sleep(duration_ms);

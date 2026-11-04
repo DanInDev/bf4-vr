@@ -39,6 +39,7 @@
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "ui/hud_widgets.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -563,6 +564,7 @@ namespace bfvr::control
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
 			if (command == "scope") return stereo::scope_report();
 			if (command == "foveation") return stereo::foveation_report();
+			if (command == "hudwidgets") return ui::hud_widgets_report();
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;
@@ -973,13 +975,15 @@ namespace bfvr::control
 				unsigned long long address = 0;
 				unsigned length = 8;
 				unsigned duration_ms = 1000;
-				if (sscanf_s(argument.c_str(), "%llx %u %u", &address, &length, &duration_ms) < 1 || duration_ms > 10000)
+				char mode[8]{};
+				if (sscanf_s(argument.c_str(), "%llx %u %u %7s", &address, &length, &duration_ms, mode, static_cast<unsigned>(sizeof(mode))) < 1
+					|| duration_ms > 10000)
 				{
-					return "error: usage: watch <hex address> [length 1|2|4|8] [ms <= 10000]";
+					return "error: usage: watch <hex address> [length 1|2|4|8] [ms <= 10000] [rw]";
 				}
-				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms);
+				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms, std::strcmp(mode, "rw") == 0);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] [rw] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 

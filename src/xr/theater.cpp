@@ -727,38 +727,6 @@ namespace bfvr::xr
 			return true;
 		}
 
-		// hud_show_crosshair = 0: the middle of the HUD texture (the game's crosshair) is cleared to
-		// transparent with a copy from a small zero texture. Markers passing the middle lose a few pixels.
-		ComPtr<ID3D11Texture2D> crosshair_clear;
-		void hide_crosshair(ID3D11DeviceContext* context, ID3D11Texture2D* target)
-		{
-			D3D11_TEXTURE2D_DESC desc{};
-			target->GetDesc(&desc);
-			const UINT box = std::max<UINT>(8, desc.Width / 25); // 4 % of the width: 86 px at 2160
-			D3D11_TEXTURE2D_DESC have{};
-			if (crosshair_clear)
-			{
-				crosshair_clear->GetDesc(&have);
-			}
-			if (!crosshair_clear || have.Format != desc.Format || have.Width != box)
-			{
-				crosshair_clear.Reset();
-				D3D11_TEXTURE2D_DESC clear{};
-				clear.Width = clear.Height = box;
-				clear.MipLevels = clear.ArraySize = 1;
-				clear.Format = desc.Format;
-				clear.SampleDesc.Count = 1;
-				clear.Usage = D3D11_USAGE_DEFAULT;
-				std::vector<std::uint8_t> zeros(static_cast<std::size_t>(box) * box * 16);
-				const D3D11_SUBRESOURCE_DATA data{ zeros.data(), box * 16, 0 };
-				if (FAILED(device->CreateTexture2D(&clear, &data, &crosshair_clear)))
-				{
-					return;
-				}
-			}
-			context->CopySubresourceRegion(target, 0, (desc.Width - box) / 2, (desc.Height - box) / 2, 0, crosshair_clear.Get(), 0, nullptr);
-		}
-
 		// The latest captured HUD into its swap chain; false when there is none to show.
 		bool copy_hud_to_swapchain()
 		{
@@ -795,10 +763,6 @@ namespace bfvr::xr
 			ComPtr<ID3D11DeviceContext> context;
 			device->GetImmediateContext(&context);
 			context->CopySubresourceRegion(hud_images[index].texture, 0, 0, 0, 0, hud.texture, 0, nullptr);
-			if (!settings::global().boolean("hud_show_crosshair", false))
-			{
-				hide_crosshair(context.Get(), hud_images[index].texture);
-			}
 			XrSwapchainImageReleaseInfo release{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
 			return check(xrReleaseSwapchainImage(hud_swapchain, &release), "xrReleaseSwapchainImage(HUD)");
 		}

@@ -146,6 +146,8 @@ add_library(bfvr_runtime STATIC
 	src/ui/reticle.cpp
 	src/ui/settings_panel.cpp
 	src/ui/vignette.cpp
+	src/ui/hud_widgets.cpp
+	src/ui/hud_widget_table.cpp
 	src/ui/vr_panel.cpp
 	src/weapon/two_hand.cpp
 	src/weapon/two_handed.cpp
@@ -214,6 +216,8 @@ if(BFVR_BUILD_TESTS)
 	# Comfort vignette strength and texture; exits non-zero on failure.
 	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp src/ui/reticle.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
+	add_executable(bfvr_hud_widgets_test tests/hud_widgets_test.cpp src/ui/hud_widget_table.cpp)
+	target_link_libraries(bfvr_hud_widgets_test PRIVATE bfvr_common)
 
 	# Melee gesture (thrust detection); exits non-zero on failure.
 	add_executable(bfvr_melee_test tests/melee_test.cpp src/weapon/melee_gesture.cpp)
@@ -262,6 +266,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
+	add_test(NAME hud_widgets COMMAND bfvr_hud_widgets_test)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)

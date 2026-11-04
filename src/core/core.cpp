@@ -37,6 +37,8 @@
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/hit_feedback.hpp"
 #include "weapon/reload_sounds.hpp"
+#include "ui/hud_widget_table.hpp"
+#include "ui/hud_widgets.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -120,6 +122,15 @@ namespace bfvr::core
 			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			stereo::set_foveation(store.text("foveation", "light"));
+			{
+				bool shown[32]{};
+				const auto elements = ui::hud_widgets::elements();
+				for (std::size_t i = 0; i < elements.size() && i < 32; ++i)
+				{
+					shown[i] = store.boolean(elements[i].setting, elements[i].shown_by_default);
+				}
+				ui::set_hud_widgets_hidden(ui::hud_widgets::hidden_mask({ shown, elements.size() }));
+			}
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.
@@ -248,6 +259,7 @@ namespace bfvr::core
 				log::write("core: Present hook unavailable; theater mode and screenshots inactive");
 				return 0;
 			}
+			ui::install_hud_widgets();
 
 			// The VR controllers reach the game as an Xbox pad through its own XInput calls.
 			if (theater && config::get_bool("gamepad", true))
