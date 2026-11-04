@@ -2,6 +2,17 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+## Next — no walking sway (`feature/steady-walk`)
+
+Release build. The game's walk animation swung the view 12 cm side to side with every pair of steps;
+`steady_walk` (View page, default on) takes it off the world camera. Monitor: 11.8 cm → 1.0 cm, the gun
+stays still in view.
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| W1 | Walk and sprint along a corridor with `steady_walk` on, then off, then on | On: the world glides, no side-to-side rocking; your gun and hands stay where you hold them. Off: the old sway, for comparison | |
+| W2 | Walk while aiming down the sights, and while looking sideways | No drift of the sight against the target beyond your own movement; nothing lags when you stop | |
+
 ## Next — fixed foveated rendering (merged into `main`)
 
 Release build. Monitor (2160x2160 per eye): `foveation` off 102 fps, **light (default) 116**, medium

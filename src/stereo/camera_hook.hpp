@@ -56,6 +56,8 @@ namespace bfvr::stereo
 	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
 	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.
 	void set_view_crop(float horizontal, float vertical);
+	// steady_walk: the walk animation's sideways camera sway removed (stereo/steady_camera.hpp).
+	void set_steady_walk(bool enabled);
 	void current_view_crop(float& horizontal, float& vertical);
 
 	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,

@@ -23,6 +23,7 @@
 #include "stereo/scope.hpp"
 #include "input/physical_stance.hpp"
 #include "stereo/scripted_view.hpp"
+#include "stereo/steady_camera.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::stereo
@@ -195,6 +196,39 @@ namespace bfvr::stereo
 		std::atomic<float> fp_turn_yaw{};
 		std::atomic<ULONGLONG> fp_turn_until{};
 		constexpr ULONGLONG fp_turn_hold_ms = 200;
+
+		// steady_walk (stereo/steady_camera.hpp): the fast part of the first-person eye's sideways offset
+		// (soldier space, +0xED0 row 3 x) comes off the world camera only. The gun pass stays as it is:
+		// it is anchored to the same swaying camera joint as the arms, so the gun already holds still in
+		// the view (monitor 2026-11-04: steadying the first-person camera too made the gun sway instead).
+		void mark_dirty(std::uint8_t* view);
+		std::atomic<bool> steady_walk_on{ true };
+		sway_filter steady_sway;
+		LARGE_INTEGER steady_last{};
+
+		void steady_walk_sway(std::uint8_t* params, bool walking_frame)
+		{
+			LARGE_INTEGER counter{}, frequency{};
+			QueryPerformanceCounter(&counter);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = steady_last.QuadPart
+				? static_cast<float>(counter.QuadPart - steady_last.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
+			steady_last = counter;
+			if (!steady_walk_on.load(std::memory_order_relaxed) || !walking_frame || seconds > 0.5f)
+			{
+				steady_sway.reset();
+				return;
+			}
+			const auto* fp = reinterpret_cast<const float*>(params + first_person_transform);
+			auto* world = reinterpret_cast<float*>(params + transform);
+			const float sway = steady_sway.update(fp[12], seconds);
+			// Soldier x in world axes: x . F^T . W (rows: F soldier-local camera, W world camera).
+			for (int a = 0; a < 3; ++a)
+			{
+				world[12 + a] -= (fp[0] * world[a] + fp[4] * world[4 + a] + fp[8] * world[8 + a]) * sway;
+			}
+			mark_dirty(params);
+		}
 
 		// Game thread, once per head-tracked copy: the body camera (world rows before the eye pose).
 		void track_body_motion(const float* world)
@@ -437,6 +471,8 @@ namespace bfvr::stereo
 				// every copy is the left eye; the eye pass renders the right eye from the same frame.
 				const bool pair = pair_render.load(std::memory_order_relaxed);
 				const int eye = pair ? 0 : static_cast<int>(index % 2 == 1 ? 0 : 1);
+				// steady_walk: before anything turns the cameras, while both are still the game's.
+				steady_walk_sway(params, !scripted_frame);
 
 				// Render a symmetric frustum covering both eyes' FOVs. With the headset aspect the
 				// 16:9 image is anamorphic and spends its pixels only on what the lens shows; with
@@ -492,6 +528,7 @@ namespace bfvr::stereo
 			}
 			else
 			{
+				steady_walk_sway(params, false); // no head tracking: nothing removed, the filter starts over
 				aspect_override = research_aspect.load(std::memory_order_relaxed);
 				const float override_fov = fov_override.load(std::memory_order_relaxed);
 				if (override_fov > 0.0f)
@@ -752,6 +789,12 @@ namespace bfvr::stereo
 		view_crop_h = clamp(horizontal);
 		view_crop_v = clamp(vertical);
 	}
+
+	void set_steady_walk(bool enabled)
+	{
+		steady_walk_on = enabled;
+	}
+
 
 	void current_view_crop(float& horizontal, float& vertical)
 	{
