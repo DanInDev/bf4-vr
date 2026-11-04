@@ -2,10 +2,10 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-**One build for the next session: branch `test/vr-check-2026-11-04`** = `main` + `feature/hud-toggles` +
-`feature/view-crop-bottom` + `feature/steady-walk` (rows U1–U4, V1–V2, W1–W2 below, then F, S and N).
+**Next session: `main`** (HUD toggles, bottom crop and steady walk merged 2026-11-04): rows U1–U4,
+V1–V2, W1–W2 below, then F, S and N.
 
-## Next — HUD element toggles (`feature/hud-toggles`, #28)
+## Next — HUD element toggles (merged into `main`, #28)
 
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The
 crosshair has been verified on the HUD capture (484 px → 0). The others are live widgets that the hook
@@ -20,7 +20,7 @@ before), `hud_show_hit_markers`, `hud_show_damage`, `hud_show_objectives`, `hud_
 | U3 | Walk to the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or `use_reach` still opens it. Objectives off: note what disappears (the objective marker or hint) | |
 | U4 | `hud_show_markers` off (monitor: squad markers 636 → 0 px) | The names and triangles over your companions are gone; note whether the objective's marker in the world or a grenade warning icon goes with them (all world icons share that screen) | |
 
-## Next — sharper view by cutting the bottom (`feature/view-crop-bottom`)
+## Next — sharper view by cutting the bottom (merged into `main`)
 
 Release build. `view_crop_bottom` (View page, degrees, default 0) keeps the top edge of the view,
 raises the bottom edge and tilts each eye's camera up by half. Monitor: gun and world stay together,
@@ -31,7 +31,7 @@ raises the bottom edge and tilts each eye's camera up by half. Monitor: gun and 
 | V1 | Step `view_crop_bottom` up from 0 (try 8, 12, 16) while looking straight ahead and at your feet | Where a black band starts to show at the bottom edge of the lens; keep the highest value without it. Is the picture visibly sharper (text on walls, the HUD's world markers)? | |
 | V2 | At the chosen value: look around, aim, reload, look down at the chest rig | Nothing is off: the gun sits in your hands, horizons stay level, no tilt or swimming when you turn your head | |
 
-## Next — no walking sway (`feature/steady-walk`)
+## Next — no walking sway (merged into `main`)
 
 Release build. The game's walk animation swung the view 12 cm side to side with every pair of steps;
 `steady_walk` (View page, default on) takes it off the world camera. Monitor: 11.8 cm → 1.0 cm, the gun
