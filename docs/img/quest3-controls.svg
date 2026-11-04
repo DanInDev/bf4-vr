@@ -140,5 +140,5 @@
 <circle class="mod dot" cx="2056" cy="2400" r="16"/>
 <text class="bl" x="2090" y="2418">Off hand on the handguard + grip</text>
 <text class="bd" x="2090" y="2468">two-handed hold</text>
-<text class="note" x="80" y="2700">Left-handed (hand = left) swaps the controllers. right_stick = look brings back stick aiming; grips_to_game and ads_trigger pass the grips and left trigger to the game.</text>
+<text class="note" x="80" y="2700">Left-handed (dominant_hand = left) swaps the controllers. right_stick = look brings back stick aiming; grips_to_game and ads_trigger pass the grips and left trigger to the game.</text>
 </svg>
