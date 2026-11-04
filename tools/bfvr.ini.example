@@ -140,13 +140,15 @@ grips_to_game = 0
 ads_trigger = 0
 # Single HUD elements on (1) or off (0), hidden by the game itself, so they disappear everywhere (issue
 # #28): the game's crosshair (aim with the sights), hit markers, the red damage-direction arcs,
-# objective markers and hints, interaction prompts (pick up, open), score pop-ups and awards.
+# objective markers and hints, interaction prompts (pick up, open), score pop-ups and awards, and the
+# markers in the world (squad names and triangles over your companions).
 hud_show_crosshair = 0
 hud_show_hit_markers = 1
 hud_show_damage = 1
 hud_show_objectives = 1
 hud_show_prompts = 1
 hud_show_score = 1
+hud_show_markers = 1
 # Whole regions of the HUD layer: everything above the minimap and ammo, the minimap with its
 # objective text, the ammo and grenade counter, the weapon and stance icons at the bottom.
 hud_show_main = 1

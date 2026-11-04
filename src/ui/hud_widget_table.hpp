@@ -24,9 +24,19 @@ namespace bfvr::ui::hud_widgets
 
 	std::span<const element> elements();
 	std::span<const widget_class> classes();
+	std::span<const widget_class> screens(); // vtable = the owning screen's
 
 	// The element a widget with this vtable belongs to, -1 for widgets the settings do not touch.
 	int element_of(std::uint64_t vtable);
+
+	// The element every widget of a screen with this vtable belongs to, -1 if none.
+	int element_of_screen(std::uint64_t screen_vtable);
+
+	// Bits of the elements that are matched by screen (worth the extra pointer read only then).
+	std::uint32_t screen_elements();
+
+	// The widget's owning screen (UIWidgetEntity; base isVisible dereferences it unconditionally).
+	constexpr std::uint64_t widget_screen_offset = 0xA0;
 
 	// Bit i set = element i hidden, from the per-element shown flags (same order as elements()).
 	std::uint32_t hidden_mask(std::span<const bool> shown);

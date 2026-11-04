@@ -55,6 +55,7 @@ namespace bfvr::settings
 			{ "hud_show_objectives", kind::boolean, 0, 0, 0, "1", "", "HUD: objective markers and hints" },
 			{ "hud_show_prompts", kind::boolean, 0, 0, 0, "1", "", "HUD: interaction prompts (pick up, open)" },
 			{ "hud_show_score", kind::boolean, 0, 0, 0, "1", "", "HUD: score pop-ups and awards" },
+			{ "hud_show_markers", kind::boolean, 0, 0, 0, "1", "", "HUD: markers in the world (squad names and triangles)" },
 			{ "arm_length", kind::real, 0.8f, 1.5f, 0.05f, "1.15", "", "first-person arms stretched by this (reach)" },
 			{ "hide_legs", kind::boolean, 0, 0, 0, "1", "", "first-person legs hidden (they sit oddly under a tracked head)" },
 			{ "torso_follow", kind::boolean, 0, 0, 0, "1", "", "the shoulders turn with your real body (from head and hands), not only with the stick" },

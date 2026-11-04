@@ -17,4 +17,8 @@ namespace bfvr::ui
 
 	// Pipe `hudwidgets`: hook state, mask, calls and hidden answers since the last report.
 	std::string hud_widgets_report();
+
+	// Pipe `hudwidgets [classes | hide <hex vtable>]`: the report; research: every vtable that asked
+	// isVisible during one second with its visible answers, or one extra vtable hidden (0 = none).
+	std::string hud_widgets_command(const std::string& argument);
 }

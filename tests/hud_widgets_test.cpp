@@ -42,9 +42,24 @@ int main()
 			++classes_per_element[static_cast<std::size_t>(entry.element)];
 		}
 	}
+	std::uint32_t by_screen = 0;
+	for (const widget_class& entry : screens())
+	{
+		expect(entry.element >= 0 && entry.element < count, "screen maps to an element");
+		expect(vtables.insert(entry.vtable).second, "screen vtable distinct from widget vtables");
+		expect(element_of_screen(entry.vtable) == entry.element, "screen lookup");
+		expect(element_of(entry.vtable) == -1, "a screen vtable is not a widget class");
+		if (entry.element >= 0 && entry.element < count)
+		{
+			++classes_per_element[static_cast<std::size_t>(entry.element)];
+			by_screen |= 1u << entry.element;
+		}
+	}
+	expect(screen_elements() == by_screen, "screen element bits");
+	expect(element_of_screen(0x141BFB5D0) == -1, "the HUD screen itself is not hidden");
 	for (int n : classes_per_element)
 	{
-		expect(n > 0, "every element hides at least one class");
+		expect(n > 0, "every element hides at least one class or screen");
 	}
 	expect(element_of(0x141D1BBF0) == -1, "UIWidgetEntity itself is not touched");
 	expect(element_of(0) == -1, "null vtable");

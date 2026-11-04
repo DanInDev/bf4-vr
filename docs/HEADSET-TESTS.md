@@ -7,13 +7,15 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The
 crosshair has been verified on the HUD capture (484 px → 0). The others are live widgets that the hook
 hides every frame, but they only appear in gameplay. HUD page of the panel: `hud_show_crosshair` (off by default, as
-before), `hud_show_hit_markers`, `hud_show_damage`, `hud_show_objectives`, `hud_show_prompts`, `hud_show_score`.
+before), `hud_show_hit_markers`, `hud_show_damage`, `hud_show_objectives`, `hud_show_prompts`, `hud_show_score`,
+`hud_show_markers` (squad names and triangles, verified on the monitor).
 
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |
 | H1 | Turn `hud_show_crosshair` on and off | The game's crosshair appears and disappears; nothing else in the middle of the HUD changes (the old version cut a square out of markers passing the middle) | |
 | H2 | Fight with each of `hud_show_hit_markers`, `hud_show_damage`, `hud_show_score` off in turn | Off: no hit marker on hits, no red damage arcs when shot, no "+100" pop-ups. On: they come back | |
-| H3 | Walk to the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or `use_reach` still opens it. Objectives off: note what disappears (the objective marker or hint) and whether squad markers stay (they are not widgets yet) | |
+| H3 | Walk to the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or `use_reach` still opens it. Objectives off: note what disappears (the objective marker or hint) | |
+| H4 | `hud_show_markers` off (monitor: squad markers 636 → 0 px) | The names and triangles over your companions are gone; note whether the objective's marker in the world or a grenade warning icon goes with them (all world icons share that screen) | |
 
 ## Next — fixed foveated rendering (merged into `main`)
 

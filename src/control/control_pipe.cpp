@@ -564,7 +564,7 @@ namespace bfvr::control
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
 			if (command == "scope") return stereo::scope_report();
 			if (command == "foveation") return stereo::foveation_report();
-			if (command == "hudwidgets") return ui::hud_widgets_report();
+			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;

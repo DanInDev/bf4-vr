@@ -1,8 +1,8 @@
 # HUD widgets — BF4 build 179547
 
 Status: **element toggles shipped (#28, 2026-11-04).** The HUD is a set of widget entities; each
-one can be hidden at its source through one hook on the shared `isVisible`. World markers (squad
-names and triangles) are not widgets and are still open.
+one can be hidden at its source through one hook on the shared `isVisible`, the world markers (squad
+names and triangles) too, by their owning screen.
 
 ## Widgets
 
@@ -31,7 +31,7 @@ within one frame, and setting it back shows it again.
 | Ammo panel, bottom right | `UIHudBackgroundWidget` with two plain `UIWidgetEntity` pieces |
 | Weapon and stance icons, bottom middle | `UIHudBackgroundWidget` + `UIHudInventoryWidget` |
 | Nothing on screen at the checkpoint (named only) | `UIHitIndicatorWidget`, `UIReceiveDamageIndicatorWidget`, `UIObjectiveWidget`, `UIObjectiveHintWidget`, `UIInteractionWidget`, `UIScoringWidget`, `UIAwardPresentationWidget`, `UISubtitlesWidget`, `UISquadListWidget`, `UISoldierStatusWidget`, … |
-| Squad names and triangles over companions | **not a widget**: none of the 46 HUD widgets removes them (see below) |
+| Squad names and triangles over companions | Not in the HUD screen: the world icons screen's root `UIWidgetEntity` (see below) |
 
 Method: for each widget, HUD capture (`hudshot`, simulated head), `Visible` = 0, capture, restore.
 Then the pixels whose alpha dropped were compared. Whole-frame shots are useless for this because the
@@ -62,14 +62,29 @@ each). The crosshair's 484 opaque HUD pixels in the middle drop to 0. Hit marker
 objective markers, prompts and score pop-ups need gameplay to appear, so they are a headset check
 (`docs/HEADSET-TESTS.md` H1–H3).
 
-## Open: world markers
+## World markers (squad names and triangles)
 
-Squad names and triangles (and probably the objective's world marker) come from the world-icons
-screen: `UIWorldIconsScreenData` (margins, `DrawDeathFlowIcons`), `UIWorldIconCompData`,
-`BFUIWorldIconBehavior`. The runtime screen class is not reflected. Next step: find the screen's
-per-frame icon loop (read-watch an icon field, or REA cross-references from `UIWorldIconsScreenData`)
-and gate it the same way.
+They are not drawn by the HUD screen. They belong to the **world icons screen** (C++ class, not
+reflected; vtable **`0x141BFBAD0`**, slot 0 `0x1408C9BD0`; its `+0x10` holds the
+`UIWorldIconsScreenData` asset named `UI/CppScreens/WorldIconsScreen`). That screen draws its
+icons under one plain `UIWidgetEntity` root widget (data followed by the string
+`UI/CppScreens/WorldIconsScreenRoot.Widgets`). The root asks `isVisible` twice per frame.
 
+How they were found (2026-11-04):
+- The research mode `hudwidgets classes` lists every vtable that asks `isVisible` in one second (23 classes,
+  about 19 plain `UIWidgetEntity` answers per frame). `hudwidgets instances 141d1bbf0` lists the plain
+  ones with their data.
+- Clearing `Visible` on each instance's data: one removed every squad marker (632 green HUD pixels
+  → 0, about 1,800 HUD pixels in all), and one blanked the whole HUD (the HUD root).
+- The widget's owner is at **widget `+0xA0`** (base `isVisible` dereferences it unconditionally): the
+  marker root's owner has vtable `0x141BFBAD0`, the crosshair's has `0x141BFB5D0` (HUD screen).
+- The screen data's margins (`+0x30`) and `DrawDeathFlowIcons` are not read per frame (read watch);
+  the screen copies them when it is created.
+
+`hud_show_markers = 0` hides every widget whose owner screen has that vtable. Monitor: markers
+636 → 0 → 606 green pixels (off, then on again), the rest of the HUD unchanged. All world icons go with it:
+squad markers for sure. Objective markers and grenade warnings, if they are world icons, have not been
+seen yet (headset row H4).
 ## Dead end
 
 `frametrace` with the eye pass running ends at the UI render's first clear, so the HUD draws are not
