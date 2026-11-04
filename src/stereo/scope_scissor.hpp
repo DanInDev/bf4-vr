@@ -21,4 +21,9 @@ namespace bfvr::stereo
 	std::string scope_scissor_report();
 	// Called by another OMSetRenderTargets hook (stereo/hud_capture) after the call went through.
 	void scope_scissor_targets_changed(ID3D11DeviceContext* context);
+
+	// A second client of the same hooks (stereo/foveation): while set, called after every render-target,
+	// viewport or rasterizer change with the bound target's size and whether the first viewport covers it.
+	using target_listener = void (*)(ID3D11DeviceContext* context, UINT width, UINT height, bool full_viewport);
+	void set_target_listener(target_listener listener);
 }

@@ -28,6 +28,7 @@
 #include "stereo/scope_compose.hpp"
 #include "stereo/scope_math.hpp"
 #include "stereo/scope_scissor.hpp"
+#include "stereo/foveation.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -1214,6 +1215,20 @@ namespace bfvr::stereo
 			scope_ms = static_cast<float>(microseconds(start, composed_at) / 1000.0);
 		}
 
+		// Fixed foveated rendering for one eye's render, sized to the back buffer.
+		void begin_eye_foveation()
+		{
+			ID3D11Resource* const buffer = back_buffer.load();
+			ComPtr<ID3D11Texture2D> texture;
+			if (!eye_context || !buffer || FAILED(buffer->QueryInterface(IID_PPV_ARGS(&texture))))
+			{
+				return;
+			}
+			D3D11_TEXTURE2D_DESC desc{};
+			texture->GetDesc(&desc);
+			begin_foveation(eye_context.Get(), desc.Width, desc.Height);
+		}
+
 		void __fastcall per_view_render_detour(void* renderer, std::uint8_t* slot, void* context)
 		{
 			const int flags = mode.load(std::memory_order_relaxed);
@@ -1269,10 +1284,12 @@ namespace bfvr::stereo
 				eye_context->GetDevice(&device);
 				gpu_begin(device.Get(), eye_context.Get());
 				gpu_stamp(0);
+				begin_eye_foveation();
 			}
 			original_per_view_render(renderer, slot, context);
 			if (patch_constants)
 			{
+				end_foveation(eye_context.Get());
 				gpu_stamp(1);
 			}
 			collecting = false;
@@ -1359,7 +1376,15 @@ namespace bfvr::stereo
 			}
 			LARGE_INTEGER start{}, end{}, frequency{};
 			QueryPerformanceCounter(&start);
+			if (patch_constants)
+			{
+				begin_eye_foveation();
+			}
 			original_per_view_render(renderer, slot, context);
+			if (patch_constants)
+			{
+				end_foveation(eye_context.Get());
+			}
 			patching = false;
 			if (frame_foreground_y > 0.0f)
 			{

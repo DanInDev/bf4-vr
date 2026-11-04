@@ -229,3 +229,30 @@ Monitor result (64 mm): world −5/−8 px, gun scope **−297 px** (expected �
 a scope ~0.3 m away). With a 1 mm shift the eyes differ only along the gun's edges (no inconsistency).
 In eye 2 the gun is seen from a visibly different side (12° at 0.3 m) and can look darker; whether that
 matches reality is a headset question.
+
+## GPU per eye, fixed foveation (2026-11-04, Release, 2160x2160, monitor)
+
+GPU timestamps around each per-view render (`status`: `gpu_ms eye1 eye2 scope`): first eye ~5 ms, second
+~4 ms, a ~10 ms frame: **GPU-bound**. The "readback" time is the CPU waiting for that GPU work.
+
+- **Nothing view-independent to skip in the second eye**: switching off (only while it renders)
+  GenerateShadowmapsEnable, SkyEnvmapUpdateEnable, SpotLightShadowmapEnable, PlanarReflectionEnable,
+  TransparencyShadowmapsEnable, CloudShadowEnable, LensFlaresEnable or DecalVolumeEnable leaves its GPU
+  time at 4.0-4.4 ms and its image as it was (differences as between two plain frames). Shadow maps
+  and envmaps are not drawn in the per-view render.
+- **Fixed foveated rendering** (`stereo/foveation`, setting `foveation`): NVIDIA variable rate shading
+  through NVAPI (D3D11 `CreateShadingRateResourceView`, `RSSetShadingRateResourceView`,
+  `RSSetViewportsPixelShadingRates`, function IDs from the MIT SDK), one byte per 16x16 tile; full rate
+  inside a radius of the image's half extent, 2x2 to a second radius, 4x4 beyond. Applied while the two
+  eyes render, on targets proportional to the back buffer with a covering viewport (shared hooks with
+  the scope scissor); not the scope render or the UI.
+
+| foveation | full / 2x2 / 4x4 radius | fps (hip) | GPU eye 1 + eye 2 |
+| --- | --- | --- | --- |
+| off | - | 101.6 | 9.3 ms |
+| light (default) | 0.80 / 1.10 | 116.1 | 8.0 ms |
+| medium | 0.65 / 0.95 | 122.9 | 7.4 ms |
+| strong | 0.50 / 0.80 | 129.8 | 7.1 ms |
+
+  With light, scoped through the magnifier: 100 fps (89-91 without). At the far image edge light is
+  hard to tell from off; medium and strong show 4x4 blocks on wet and shiny surfaces.

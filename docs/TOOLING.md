@@ -127,6 +127,7 @@ offline mode is the legitimate way to play without a connection.
 | `fov <rad>` | Research: override the vertical FOV (`RenderView+0xB4`; 0 = off) |
 | `scope` / `scopeshot <path.png>` | Magnified sights: the game's FOV (hip and aiming), magnification, whether the scope render runs, its FOV, lens quad and which eye; the eye pass's scope timing is in `status` (`scope_ms`, prepare/render/compose). `scopeshot` writes the lens picture (512x512, round, premultiplied) |
 | `eyezoom <deg>` | Research: the second eye keeps the first eye's camera but renders with this vertical FOV (0 = off); `eyeshot2` to look at it. Showed that the constant patch follows a zoom (lighting correct) |
+| `foveation` | Fixed foveated rendering: level, radii, share of pixels at each rate, whether NVAPI variable rate shading is available, targets shaded / left alone (set the level with `setting set foveation off\|light\|medium\|strong`) |
 | `scopescissor [0\|1]` | Research: the scope render's scissor to the lens circle off/on (default on) and its counters. `status` carries `gpu_ms eye1= eye2= scope=` (GPU timestamps around each render, pair rendering) |
 
 Static helpers (local analysis of the dump, `python -E -P`, needs `pip install --user capstone`):

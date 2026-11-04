@@ -2,7 +2,17 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-## Next — magnified sights (`feature/scopes`)
+## Next — fixed foveated rendering (`feature/eye2-gpu`)
+
+Release build. Monitor (2160x2160 per eye): `foveation` off 102 fps, **light (default) 116**, medium
+123, strong 130; scoped with light 100 (was 89-91).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| F1 | Play with `foveation = light` (View page), look around, then switch it off and on | The edge of the view looks the same; no shimmering or blocks where the eyes look straight ahead; the frame rate holds 90 | |
+| F2 | Try medium and strong | Whether the blockier edge (shiny floors, highlights) is visible through the lens; pick the strongest you do not notice | |
+
+## Next — magnified sights (merged into `main`)
 
 Release build. Monitor (fakehead, game ADS by LT): with the AK's flip magnifier the game zooms 45 -> 27
 deg (1.73x); the world is rendered once more from the sight and the lens shows it magnified, round,

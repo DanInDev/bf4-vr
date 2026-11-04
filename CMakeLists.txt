@@ -113,6 +113,8 @@ add_library(bfvr_runtime STATIC
 	src/stereo/constant_patch.cpp
 	src/stereo/eye_math.cpp
 	src/stereo/eye_pass.cpp
+	src/stereo/foveation.cpp
+	src/stereo/foveation_pattern.cpp
 	src/stereo/hud_capture.cpp
 	src/stereo/hud_layout.cpp
 	src/stereo/scope.cpp
@@ -176,6 +178,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_eye_math_test PRIVATE bfvr_common)
 	add_executable(bfvr_scope_test tests/scope_test.cpp src/stereo/scope_math.cpp)
 	target_link_libraries(bfvr_scope_test PRIVATE bfvr_common)
+	add_executable(bfvr_foveation_test tests/foveation_test.cpp src/stereo/foveation_pattern.cpp)
+	target_link_libraries(bfvr_foveation_test PRIVATE bfvr_common)
 
 	# Settings registry: ini load, pipe text, write-back; exits non-zero on failure.
 	add_executable(bfvr_settings_test tests/settings_test.cpp)
@@ -248,6 +252,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME arm_ik COMMAND bfvr_arm_ik_test)
 	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
 	add_test(NAME scope COMMAND bfvr_scope_test)
+	add_test(NAME foveation COMMAND bfvr_foveation_test)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)

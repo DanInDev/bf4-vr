@@ -28,6 +28,7 @@
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
@@ -118,6 +119,7 @@ namespace bfvr::core
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
 			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
+			stereo::set_foveation(store.text("foveation", "light"));
 			input::set_left_handed(store.text("dominant_hand", "right") == "left");
 			input::configure_turn(store.text("turn", "snap"), store.integer("snap_turn_degrees", 30), store.boolean("stance_flicks", true));
 			// Modes are switched only on a change: start-up already applied the ini values.

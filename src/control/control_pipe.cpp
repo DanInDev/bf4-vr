@@ -29,6 +29,7 @@
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/scope.hpp"
 #include "stereo/scope_compose.hpp"
@@ -561,6 +562,7 @@ namespace bfvr::control
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
 			if (command == "scope") return stereo::scope_report();
+			if (command == "foveation") return stereo::foveation_report();
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;

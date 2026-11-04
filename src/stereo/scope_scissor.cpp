@@ -136,6 +136,26 @@ namespace bfvr::stereo
 			return false;
 		}
 
+		target_listener listener{}; // render thread
+
+		bool target_size(ID3D11DeviceContext* context, UINT& width, UINT& height);
+
+		void notify(ID3D11DeviceContext* context)
+		{
+			UINT width{}, height{};
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			context->RSGetViewports(&viewports, &viewport);
+			if (!target_size(context, width, height))
+			{
+				listener(context, 0, 0, false);
+				return;
+			}
+			const bool full = viewports >= 1 && viewport.TopLeftX < 1.0f && viewport.TopLeftY < 1.0f && std::fabs(viewport.Width - static_cast<float>(width)) <= 1.0f
+				&& std::fabs(viewport.Height - static_cast<float>(height)) <= 1.0f;
+			listener(context, width, height, full);
+		}
+
 		void apply(ID3D11DeviceContext* context)
 		{
 			UINT width{}, height{};
@@ -173,23 +193,29 @@ namespace bfvr::stereo
 			++scissored_targets;
 		}
 
+		void changed(ID3D11DeviceContext* context)
+		{
+			if (active)
+			{
+				apply(context);
+			}
+			if (listener)
+			{
+				notify(context);
+			}
+		}
+
 		void STDMETHODCALLTYPE om_set_render_targets_detour(ID3D11DeviceContext* c, UINT n, ID3D11RenderTargetView* const* views, ID3D11DepthStencilView* depth)
 		{
 			original_om_set_render_targets(c, n, views, depth);
-			if (active)
-			{
-				apply(c);
-			}
+			changed(c);
 		}
 
 		void STDMETHODCALLTYPE om_set_render_targets_uav_detour(ID3D11DeviceContext* c, UINT n, ID3D11RenderTargetView* const* views, ID3D11DepthStencilView* depth,
 			UINT start, UINT uavs, ID3D11UnorderedAccessView* const* uav, const UINT* counts)
 		{
 			original_om_set_render_targets_uav(c, n, views, depth, start, uavs, uav, counts);
-			if (active)
-			{
-				apply(c);
-			}
+			changed(c);
 		}
 
 		void STDMETHODCALLTYPE rs_set_state_detour(ID3D11DeviceContext* c, ID3D11RasterizerState* state)
@@ -206,10 +232,7 @@ namespace bfvr::stereo
 		void STDMETHODCALLTYPE rs_set_viewports_detour(ID3D11DeviceContext* c, UINT n, const D3D11_VIEWPORT* viewports)
 		{
 			original_rs_set_viewports(c, n, viewports);
-			if (active)
-			{
-				apply(c);
-			}
+			changed(c);
 		}
 
 		void STDMETHODCALLTYPE rs_set_scissor_rects_detour(ID3D11DeviceContext* c, UINT n, const D3D11_RECT* rects)
@@ -258,10 +281,12 @@ namespace bfvr::stereo
 
 	void scope_scissor_targets_changed(ID3D11DeviceContext* context)
 	{
-		if (active)
-		{
-			apply(context);
-		}
+		changed(context);
+	}
+
+	void set_target_listener(target_listener l)
+	{
+		listener = l;
 	}
 
 	void begin_scope_scissor(ID3D11DeviceContext* context, UINT back_width, UINT back_height, float half_width, float half_height)

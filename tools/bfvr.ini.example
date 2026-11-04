@@ -36,6 +36,11 @@ gun_scale = 1.0
 # small shows black edges. Tune in the headset (pipe: viewcrop <h> <v>).
 view_crop_h = 1.0
 view_crop_v = 1.0
+# Fixed foveated rendering (NVIDIA GPUs, Turing or newer): the outer part of each eye's image is shaded
+# once per 2x2 (and in the corners 4x4) pixels; the middle stays at full rate. off | light | medium |
+# strong. Monitor, 2160x2160 per eye: off 102 fps, light 116, medium 123, strong 130; medium and strong
+# show blocky highlights at the very edge.
+foveation = light
 # First-person arms follow the VR controllers (two-bone IK on the arm bones, the gun stays in the
 # right hand). 0 = the game's animated arms. Pipe: armik 0|1, arms (diagnostics).
 arm_ik = 1

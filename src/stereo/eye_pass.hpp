@@ -37,7 +37,8 @@ namespace bfvr::stereo
 	// vertical FOV (degrees; 0 / out of range = off), to test whether the constant patch follows a zoom.
 	std::string set_eye_zoom(float degrees);
 	// Pipe scopescissor 0|1 (else report): the scope render's scissor to the lens (stereo/scope_scissor).
-	std::string set_scope_scissor(int on);	// Complete pairs so far (both eyes rendered from one frame); the theater submits a pair only when
+	std::string set_scope_scissor(int on);
+	// Complete pairs so far (both eyes rendered from one frame); the theater submits a pair only when
 	// this advanced since its last one.
 	std::uint64_t eye_pass_pairs();
 	// One status line: eye_frames, eye_pairs, eye_rejected, eye_abandoned, eye_ms (last extra render).
