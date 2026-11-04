@@ -230,6 +230,7 @@ namespace bfvr::stereo
 		// vertical (1 = all of it); config view_crop_h / view_crop_v.
 		std::atomic<float> view_crop_h{ 1.0f };
 		std::atomic<float> view_crop_v{ 1.0f };
+		std::atomic<float> view_crop_bottom_rad{ 0.0f }; // view_crop_bottom: radians cut at the bottom, camera tilted up by half
 		std::atomic<float> view_fov[3]{};
 		std::atomic<float> view_shift[3]{};
 		// Research: shift any transform (rows right, up, forward, position) inside the view-params
@@ -444,8 +445,11 @@ namespace bfvr::stereo
 				// The runtime's FOV can be wider than what the lens shows (Quest 3 via Steam Link:
 				// headset test 2026-10-25). Cropping (in tangent space) spends the pixels on the
 				// visible part; the compositor still gets exactly the FOV that was rendered.
-				const eye_math::render_fov rendered = eye_math::symmetric_fov(head.fovs, view_crop_h.load(std::memory_order_relaxed),
-					view_crop_v.load(std::memory_order_relaxed), stereo_headset_aspect, *reinterpret_cast<const float*>(params + aspect));
+				// view_crop_bottom: the bottom edge comes up and the camera tilts up by half, the top stays.
+				const eye_math::tilted_fov tilted = eye_math::crop_bottom(eye_math::symmetric_fov(head.fovs, view_crop_h.load(std::memory_order_relaxed),
+					view_crop_v.load(std::memory_order_relaxed), stereo_headset_aspect, *reinterpret_cast<const float*>(params + aspect)),
+					view_crop_bottom_rad.load(std::memory_order_relaxed), stereo_headset_aspect);
+				const eye_math::render_fov& rendered = tilted.fov;
 				const float half_horizontal = rendered.half_horizontal;
 				const float half_vertical = rendered.half_vertical;
 				world_half_vertical = half_vertical;
@@ -475,6 +479,12 @@ namespace bfvr::stereo
 				}
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
+				// Only the rendered views turn: hands, gun and body are placed in tracking space, and the
+				// compositor gets this same pose, so the picture stays where it belongs.
+				if (tilted.tilt != 0.0f)
+				{
+					eye_pose = eye_math::pitched(eye_pose, tilted.tilt);
+				}
 				apply_eye_pose(params, eye_pose);
 				scope_on_view_copy(game_fov_y, eye_pose, head);
 
@@ -751,6 +761,12 @@ namespace bfvr::stereo
 		const auto clamp = [](float value) { return std::isfinite(value) && value > 0.0f ? std::fmin(std::fmax(value, 0.4f), 1.0f) : 1.0f; };
 		view_crop_h = clamp(horizontal);
 		view_crop_v = clamp(vertical);
+	}
+
+	void set_view_crop_bottom(float degrees)
+	{
+		const float clamped = std::isfinite(degrees) ? std::fmin(std::fmax(degrees, 0.0f), 30.0f) : 0.0f;
+		view_crop_bottom_rad = clamped * 3.14159265f / 180.0f;
 	}
 
 	void current_view_crop(float& horizontal, float& vertical)

@@ -20,6 +20,7 @@ namespace bfvr::settings
 			{ "gun_life_size", kind::boolean, 0, 0, 0, "1", "", "draw the gun and arms at life size, on the controllers (the game draws them with a fixed 45 degree FOV: about 2.7 times too large in the headset)" },
 			{ "view_crop_h", kind::real, 0.4f, 1.0f, 0.02f, "1", "", "rendered part of the headset FOV, horizontal" },
 			{ "view_crop_v", kind::real, 0.4f, 1.0f, 0.02f, "1", "", "rendered part of the headset FOV, vertical" },
+			{ "view_crop_bottom", kind::real, 0.0f, 30.0f, 1.0f, "0", "", "degrees cut off the bottom of the view (the top stays): the lens shows less below than above, so the image gets sharper; raise until the bottom edge shows, then back off" },
 			{ "foveation", kind::choice, 0, 0, 0, "light", "off|light|medium|strong", "fixed foveated rendering (NVIDIA): the edge of each eye's image is shaded at a lower rate, the lens blurs it anyway; more frame rate" },
 			{ "vignette", kind::choice, 0, 0, 0, "off", "off|turning|moving|both", "comfort vignette: darken the edge of the view while the game turns or moves you (not your head)" },
 			{ "vignette_strength", kind::real, 0.1f, 1.0f, 0.05f, "0.7", "", "comfort vignette: how far it closes in at full turn or speed" },

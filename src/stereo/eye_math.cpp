@@ -65,6 +65,38 @@ namespace bfvr::stereo::eye_math
 		return out;
 	}
 
+	tilted_fov crop_bottom(const render_fov& symmetric, float bottom, bool headset_aspect)
+	{
+		tilted_fov out{ symmetric, 0.0f };
+		if (!(bottom > 0.0f))
+		{
+			return out;
+		}
+		// At least 10 degrees of half angle stay.
+		const float limit = std::fmax(0.0f, 2.0f * (symmetric.half_vertical - 0.1745f));
+		const float cut = std::fmin(bottom, limit);
+		out.tilt = 0.5f * cut;
+		out.fov.half_vertical = symmetric.half_vertical - out.tilt;
+		if (headset_aspect && out.fov.half_vertical > 0.0f)
+		{
+			out.fov.aspect = std::tan(out.fov.half_horizontal) / std::tan(out.fov.half_vertical);
+		}
+		return out;
+	}
+
+	pose pitched(const pose& eye, float radians)
+	{
+		// eye * (rotation about local x)
+		const float s = std::sin(0.5f * radians), c = std::cos(0.5f * radians);
+		const float x = eye.orientation[0], y = eye.orientation[1], z = eye.orientation[2], w = eye.orientation[3];
+		pose out = eye;
+		out.orientation[0] = w * s + x * c;
+		out.orientation[1] = y * c + z * s;
+		out.orientation[2] = z * c - y * s;
+		out.orientation[3] = w * c - x * s;
+		return out;
+	}
+
 	pose centre_pose(const head_sample& head)
 	{
 		pose centre = head.eyes[0];
