@@ -46,6 +46,8 @@ $contents = [ordered]@{
 	'dinput8.dll'       = Join-Path $release 'dinput8.dll'
 	'bfvr.ini.example'  = Join-Path $root 'tools\bfvr.ini.example'
 	'README.txt'        = Join-Path $root 'tools\package\README.txt'
+	'quest3-controls.svg' = Join-Path $root 'docs\img\quest3-controls.svg'
+	'grab-zones.svg'    = Join-Path $root 'docs\img\grab-zones.svg'
 	'LICENSE.txt'       = Join-Path $root 'tools\package\LICENSE.txt'
 }
 $notices = [ordered]@{

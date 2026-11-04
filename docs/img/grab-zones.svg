@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4700 2900" width="1175" height="725" role="img" aria-label="Grab zones around the body">
+<title>Grab zones around the body</title>
+<style>
+  svg { --bg:#f7f8f4; --fg:#1d231f; --muted:#5d665f; --line:#a8b0a6; --body:#d5dacf; --body-line:#6f786f;
+        --gun:#c2541b; --off:#2367a3; --both:#7b4aa3; --mod:#2f7d4f; --plate:#2b302c; --plate-line:#596059; }
+  @media (prefers-color-scheme: dark) {
+    svg { --bg:#1c211d; --fg:#e3e7df; --muted:#9aa39b; --line:#3d453f; --body:#2b322d; --body-line:#8c968d;
+          --gun:#f08a4b; --off:#63a6e6; --both:#b48ae0; --mod:#62c08a; --plate:#3a413b; --plate-line:#80897f; }
+  }
+  .bg { fill:var(--bg); }
+  .title { font:700 92px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); }
+  .sub { font:400 44px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .head { font:600 56px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); letter-spacing:2px; }
+  .axis { font:400 36px Consolas,monospace; fill:var(--muted); }
+  .note { font:400 42px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .grid { stroke:var(--line); stroke-width:2; stroke-dasharray:10 14; }
+  .floor { stroke:var(--line); stroke-width:6; }
+  .part { fill:var(--body); stroke:var(--body-line); stroke-width:6; stroke-linejoin:round; }
+  .visor { fill:var(--fg); }
+  .lens { fill:var(--muted); opacity:.55; }
+  .strap { fill:none; stroke:var(--fg); stroke-width:14; stroke-linecap:round; }
+  .side { font:600 50px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--muted); letter-spacing:3px; }
+  .gun { stroke:var(--gun); fill:var(--gun); }
+  .off { stroke:var(--off); fill:var(--off); }
+  .both { stroke:var(--both); fill:var(--both); }
+  .mod { stroke:var(--mod); fill:var(--mod); }
+  .game { stroke:var(--muted); fill:var(--muted); }
+  .reach { fill-opacity:.16; stroke-width:7; }
+  .lead { fill:none; stroke-width:3; }
+  .zl { font:600 64px 'Barlow Condensed','Arial Narrow',sans-serif; stroke:none; }
+  .zs { font:400 36px Consolas,monospace; fill:var(--muted); stroke:none; }
+  .plate { fill:var(--plate); stroke:var(--plate-line); stroke-width:6; }
+  .shell { fill:var(--body); stroke:var(--body-line); stroke-width:6; stroke-linejoin:round; }
+  .key { fill:var(--bg); stroke:var(--fg); stroke-width:6; }
+  .keyt { font:700 40px 'Segoe UI',system-ui,sans-serif; fill:var(--fg); text-anchor:middle; }
+  .bl { font:600 62px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); }
+  .bd { font:400 46px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .dot { stroke:none; }
+</style>
+
+<rect class="bg" width="4700" height="2900" rx="24"/>
+<text class="title" x="80" y="140">Grab zones around the body</text>
+<text class="sub" x="80" y="210">bf4-vr, right-handed, to scale on a 1.78 m player. Circles are the real reach. Squeeze the grip inside one.</text>
+<circle class="gun reach" cx="102" cy="282" r="22"/>
+<text class="bd" x="140" y="296">Gun hand</text>
+<circle class="off reach" cx="432" cy="282" r="22"/>
+<text class="bd" x="470" y="296">Off hand</text>
+<circle class="both reach" cx="762" cy="282" r="22"/>
+<text class="bd" x="800" y="296">Either hand</text>
+<g transform="translate(1450 820)">
+<text class="head" x="-1300" y="-380">FRONT</text>
+<text class="axis" x="-1060" y="-380">facing you: their right (gun side) is on your left</text>
+<line class="grid" x1="-1300" x2="1300" y1="1160" y2="1160"/>
+<text class="axis" x="-1300" y="1148">0.5 m</text>
+<line class="grid" x1="-1300" x2="1300" y1="660" y2="660"/>
+<text class="axis" x="-1300" y="648">1.0 m</text>
+<line class="grid" x1="-1300" x2="1300" y1="160" y2="160"/>
+<text class="axis" x="-1300" y="148">1.5 m</text>
+<line class="floor" x1="-1300" x2="1300" y1="1660" y2="1660"/>
+<path class="part" d="M -60 1640 L -165 1640 L -175 800 L 175 800 L 165 1640 L 60 1640 L 30 950 L -30 950 Z"/>
+<path class="part" d="M -205 195 Q -230 500 -150 640 L -180 810 L 180 810 L 150 640 Q 230 500 205 195 Z"/>
+<path class="part" d="M -200 180 L -860 180 Q -900 220 -860 260 L -200 270 Z"/>
+<path class="part" d="M 200 180 L 860 180 Q 900 220 860 260 L 200 270 Z"/>
+<ellipse class="part" cx="-915" cy="220" rx="55" ry="48"/>
+<ellipse class="part" cx="915" cy="220" rx="55" ry="48"/>
+<rect class="part" x="-38" y="110" width="76" height="95"/>
+<ellipse class="part" cx="0" cy="10" rx="82" ry="122"/>
+<path class="strap" d="M -86 -10 Q -95 -150 0 -150 Q 95 -150 86 -10"/>
+<rect class="visor" x="-108" y="-48" width="216" height="92" rx="30"/>
+<ellipse class="lens" cx="-48" cy="-2" rx="30" ry="22"/>
+<ellipse class="lens" cx="48" cy="-2" rx="30" ry="22"/>
+<text class="side" x="-915" y="130" text-anchor="middle">GUN HAND</text>
+<text class="side" x="915" y="130" text-anchor="middle">OFF HAND</text>
+<g class="gun">
+<circle class="reach" cx="-200" cy="-50" r="155"/>
+<circle class="dot" cx="-200" cy="-50" r="12"/>
+<line class="lead" x1="-355" y1="-50" x2="-586" y2="-70"/>
+<text class="zl" x="-600" y="-50" text-anchor="end">Primary</text>
+<text class="zs" x="-600" y="-6" text-anchor="end">over the shoulder, 16 cm</text>
+</g>
+<g class="both">
+<circle class="reach" cx="200" cy="-50" r="140"/>
+<circle class="dot" cx="200" cy="-50" r="12"/>
+<line class="lead" x1="340" y1="-50" x2="586" y2="-70"/>
+<text class="zl" x="600" y="-50" text-anchor="start">Gadget 1</text>
+<text class="zs" x="600" y="-6" text-anchor="start">over the shoulder, 14 cm</text>
+</g>
+<g class="off">
+<circle class="reach" cx="-110" cy="270" r="100"/>
+<circle class="dot" cx="-110" cy="270" r="12"/>
+<line class="lead" x1="-210" y1="270" x2="-586" y2="350"/>
+<text class="zl" x="-600" y="370" text-anchor="end">Grenades</text>
+<text class="zs" x="-600" y="414" text-anchor="end">high chest, 10 cm</text>
+</g>
+<g class="gun">
+<circle class="reach" cx="100" cy="270" r="110"/>
+<circle class="dot" cx="100" cy="270" r="12"/>
+<line class="lead" x1="210" y1="270" x2="586" y2="350"/>
+<text class="zl" x="600" y="370" text-anchor="start">Knife</text>
+<text class="zs" x="600" y="414" text-anchor="start">high chest, 11 cm</text>
+</g>
+<g class="off">
+<circle class="reach" cx="40" cy="470" r="130"/>
+<circle class="dot" cx="40" cy="470" r="12"/>
+<line class="lead" x1="170" y1="470" x2="506" y2="490"/>
+<text class="zl" x="520" y="510" text-anchor="start">Magazines</text>
+<text class="zs" x="520" y="554" text-anchor="start">low chest, 13 cm</text>
+</g>
+<g class="gun">
+<circle class="reach" cx="-220" cy="750" r="140"/>
+<circle class="dot" cx="-220" cy="750" r="12"/>
+<line class="lead" x1="-360" y1="750" x2="-506" y2="730"/>
+<text class="zl" x="-520" y="750" text-anchor="end">Secondary</text>
+<text class="zs" x="-520" y="794" text-anchor="end">hip, 14 cm</text>
+</g>
+<g class="both">
+<circle class="reach" cx="220" cy="750" r="140"/>
+<circle class="dot" cx="220" cy="750" r="12"/>
+<line class="lead" x1="360" y1="750" x2="506" y2="730"/>
+<text class="zl" x="520" y="750" text-anchor="start">Gadget 2</text>
+<text class="zs" x="520" y="794" text-anchor="start">hip, 14 cm</text>
+</g>
+</g>
+<g transform="translate(3900 820)">
+<text class="head" x="-760" y="-380">SIDE</text>
+<text class="axis" x="-600" y="-380">from the gun side, facing left</text>
+<line class="grid" x1="-760" x2="740" y1="1160" y2="1160"/>
+<line class="grid" x1="-760" x2="740" y1="660" y2="660"/>
+<line class="grid" x1="-760" x2="740" y1="160" y2="160"/>
+<line class="floor" x1="-760" x2="740" y1="1660" y2="1660"/>
+<line class="grid" x1="0" x2="0" y1="-300" y2="1660"/>
+<text class="axis" x="12" y="-300">eyes</text>
+<text class="axis" x="-760" y="-300">&#8592; forward</text>
+<path class="part" d="M 0 800 L 150 800 L 140 1640 L 30 1640 L -110 1650 L -110 1600 L -10 1590 Z"/>
+<path class="part" d="M 0 200 Q -70 330 -55 500 Q -40 650 -10 810 L 170 810 Q 200 600 190 420 Q 185 260 170 200 Z"/>
+<ellipse class="part" cx="80" cy="230" rx="60" ry="60"/>
+<rect class="part" x="50" y="110" width="70" height="100"/>
+<ellipse class="part" cx="75" cy="10" rx="108" ry="122"/>
+<rect class="visor" x="-55" y="-50" width="90" height="95" rx="26"/>
+<path class="strap" d="M 20 -20 L 175 -10"/>
+<g class="gun">
+<circle class="reach" cx="150" cy="-50" r="155"/>
+<circle class="dot" cx="150" cy="-50" r="12"/>
+<text class="zl" x="325" y="-62" text-anchor="start">Primary</text>
+<text class="zl" x="325" y="4" text-anchor="start">Gadget 1</text>
+</g>
+<g class="off">
+<circle class="reach" cx="-100" cy="270" r="100"/>
+<circle class="dot" cx="-100" cy="270" r="12"/>
+<text class="zl" x="-220" y="258" text-anchor="end">Grenades</text>
+<text class="zl" x="-220" y="324" text-anchor="end">Knife</text>
+</g>
+<g class="off">
+<circle class="reach" cx="-100" cy="470" r="130"/>
+<circle class="dot" cx="-100" cy="470" r="12"/>
+<text class="zl" x="-250" y="490" text-anchor="end">Magazines</text>
+</g>
+<g class="gun">
+<circle class="reach" cx="0" cy="750" r="140"/>
+<circle class="dot" cx="0" cy="750" r="12"/>
+<text class="zl" x="160" y="738" text-anchor="start">Secondary</text>
+<text class="zl" x="160" y="804" text-anchor="start">Gadget 2</text>
+</g>
+</g>
+<text class="note" x="80" y="2650">Zones are measured from between the eyes and turn with the head only once it is 34° off the body, so looking down at a pouch does not move it.</text>
+<text class="note" x="80" y="2706">Shoulder zones are 15 cm behind and 5 cm above the eyes: reach back over the shoulder. grab_debug = 1 draws every zone as a ring in the headset.</text>
+<text class="note" x="80" y="2762">Also on the gun: the magazine and charging handle (off hand, physical reload), the handguard (two-handed hold) and the pin of a held grenade (gun hand).</text>
+</svg>

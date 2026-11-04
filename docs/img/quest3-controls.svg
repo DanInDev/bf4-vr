@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4000 2760" width="1000" height="690" role="img" aria-label="Quest 3 controllers in bf4-vr">
+<title>Quest 3 controllers in bf4-vr</title>
+<style>
+  svg { --bg:#f7f8f4; --fg:#1d231f; --muted:#5d665f; --line:#a8b0a6; --body:#d5dacf; --body-line:#6f786f;
+        --gun:#c2541b; --off:#2367a3; --both:#7b4aa3; --mod:#2f7d4f; --plate:#2b302c; --plate-line:#596059; }
+  @media (prefers-color-scheme: dark) {
+    svg { --bg:#1c211d; --fg:#e3e7df; --muted:#9aa39b; --line:#3d453f; --body:#2b322d; --body-line:#8c968d;
+          --gun:#f08a4b; --off:#63a6e6; --both:#b48ae0; --mod:#62c08a; --plate:#3a413b; --plate-line:#80897f; }
+  }
+  .bg { fill:var(--bg); }
+  .title { font:700 92px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); }
+  .sub { font:400 44px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .head { font:600 56px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); letter-spacing:2px; }
+  .axis { font:400 36px Consolas,monospace; fill:var(--muted); }
+  .note { font:400 42px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .grid { stroke:var(--line); stroke-width:2; stroke-dasharray:10 14; }
+  .floor { stroke:var(--line); stroke-width:6; }
+  .part { fill:var(--body); stroke:var(--body-line); stroke-width:6; stroke-linejoin:round; }
+  .visor { fill:var(--fg); }
+  .lens { fill:var(--muted); opacity:.55; }
+  .strap { fill:none; stroke:var(--fg); stroke-width:14; stroke-linecap:round; }
+  .side { font:600 50px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--muted); letter-spacing:3px; }
+  .gun { stroke:var(--gun); fill:var(--gun); }
+  .off { stroke:var(--off); fill:var(--off); }
+  .both { stroke:var(--both); fill:var(--both); }
+  .mod { stroke:var(--mod); fill:var(--mod); }
+  .game { stroke:var(--muted); fill:var(--muted); }
+  .reach { fill-opacity:.16; stroke-width:7; }
+  .lead { fill:none; stroke-width:3; }
+  .zl { font:600 64px 'Barlow Condensed','Arial Narrow',sans-serif; stroke:none; }
+  .zs { font:400 36px Consolas,monospace; fill:var(--muted); stroke:none; }
+  .plate { fill:var(--plate); stroke:var(--plate-line); stroke-width:6; }
+  .shell { fill:var(--body); stroke:var(--body-line); stroke-width:6; stroke-linejoin:round; }
+  .key { fill:var(--bg); stroke:var(--fg); stroke-width:6; }
+  .keyt { font:700 40px 'Segoe UI',system-ui,sans-serif; fill:var(--fg); text-anchor:middle; }
+  .bl { font:600 62px 'Barlow Condensed','Arial Narrow',sans-serif; fill:var(--fg); }
+  .bd { font:400 46px 'Segoe UI',system-ui,sans-serif; fill:var(--muted); }
+  .dot { stroke:none; }
+</style>
+
+<rect class="bg" width="4000" height="2760" rx="24"/>
+<text class="title" x="80" y="140">Quest 3 controllers in bf4-vr</text>
+<text class="sub" x="80" y="210">In a level, right-handed, default settings. Seen from above, schematic. In menus they act as an Xbox pad.</text>
+<circle class="game dot" cx="98" cy="286" r="18"/>
+<text class="bd" x="132" y="300">The game's button</text>
+<circle class="gun dot" cx="658" cy="286" r="18"/>
+<text class="bd" x="692" y="300">Changed by the mod</text>
+<circle class="mod dot" cx="1218" cy="286" r="18"/>
+<text class="bd" x="1252" y="300">The mod's own</text>
+<g transform="translate(1330 1030) scale(1.6)">
+<path class="shell" d="M 150 60 Q 170 300 95 520 Q 20 590 -60 540 Q -120 320 -150 80 Z"/>
+<ellipse class="shell" cx="0" cy="0" rx="230" ry="205"/>
+<ellipse class="plate" cx="0" cy="0" rx="190" ry="165"/>
+<circle class="key" cx="70" cy="-30" r="72"/>
+<circle class="key" cx="70" cy="-30" r="34"/>
+<circle class="key" cx="-92" cy="-78" r="40"/>
+<text class="keyt" x="-92" y="-64">Y</text>
+<circle class="key" cx="-112" cy="32" r="40"/>
+<text class="keyt" x="-112" y="46">X</text>
+<rect class="key" x="-10" y="89" width="60" height="32" rx="16"/>
+<path class="key" d="M -95 -196 Q 0 -262 95 -196" style="fill:none;stroke-width:16;stroke-linecap:round"/>
+<path class="key" d="M 163 150 Q 175 300 118 440" style="fill:none;stroke-width:16;stroke-linecap:round"/>
+</g>
+<g transform="translate(2670 1030) scale(1.6)">
+<path class="shell" d="M -150 60 Q -170 300 -95 520 Q -20 590 60 540 Q 120 320 150 80 Z"/>
+<ellipse class="shell" cx="0" cy="0" rx="230" ry="205"/>
+<ellipse class="plate" cx="0" cy="0" rx="190" ry="165"/>
+<circle class="key" cx="-70" cy="-30" r="72"/>
+<circle class="key" cx="-70" cy="-30" r="34"/>
+<circle class="key" cx="92" cy="-78" r="40"/>
+<text class="keyt" x="92" y="-64">B</text>
+<circle class="key" cx="112" cy="32" r="40"/>
+<text class="keyt" x="112" y="46">A</text>
+<rect class="key" x="-50" y="89" width="60" height="32" rx="16"/>
+<path class="key" d="M -95 -196 Q 0 -262 95 -196" style="fill:none;stroke-width:16;stroke-linecap:round"/>
+<path class="key" d="M -163 150 Q -175 300 -118 440" style="fill:none;stroke-width:16;stroke-linecap:round"/>
+</g>
+<g class="gun"><line class="lead" x1="1305" y1="654" x2="862" y2="452" style="stroke-width:5"/><circle class="dot" cx="1305" cy="654" r="10"/><circle class="dot" cx="862" cy="452" r="7"/></g>
+<text class="bl" x="880" y="470" text-anchor="end">Trigger</text>
+<text class="bd" x="880" y="524" text-anchor="end">off: raise the gun to</text>
+<text class="bd" x="880" y="574" text-anchor="end">your eye to aim · C4: detonate</text>
+<g class="game"><line class="lead" x1="1122" y1="867" x2="862" y2="702" style="stroke-width:5"/><circle class="dot" cx="1122" cy="867" r="10"/><circle class="dot" cx="862" cy="702" r="7"/></g>
+<text class="bl" x="880" y="720" text-anchor="end">Y</text>
+<text class="bd" x="880" y="774" text-anchor="end">switch weapon</text>
+<g class="game"><line class="lead" x1="1321" y1="961" x2="862" y2="882" style="stroke-width:5"/><circle class="dot" cx="1321" cy="961" r="10"/><circle class="dot" cx="862" cy="882" r="7"/></g>
+<text class="bl" x="880" y="900" text-anchor="end">Stick · click</text>
+<text class="bd" x="880" y="954" text-anchor="end">walk where you look</text>
+<text class="bd" x="880" y="1004" text-anchor="end">click: sprint</text>
+<g class="gun"><line class="lead" x1="1079" y1="1089" x2="862" y2="1112" style="stroke-width:5"/><circle class="dot" cx="1079" cy="1089" r="10"/><circle class="dot" cx="862" cy="1112" r="7"/></g>
+<text class="bl" x="880" y="1130" text-anchor="end">X</text>
+<text class="bd" x="880" y="1184" text-anchor="end">the game's menu</text>
+<g class="mod"><line class="lead" x1="1304" y1="1209" x2="862" y2="1292" style="stroke-width:5"/><circle class="dot" cx="1304" cy="1209" r="10"/><circle class="dot" cx="862" cy="1292" r="7"/></g>
+<text class="bl" x="880" y="1310" text-anchor="end">Menu ≡</text>
+<text class="bd" x="880" y="1364" text-anchor="end">tap: pause</text>
+<text class="bd" x="880" y="1414" text-anchor="end">hold: bf-vr panel</text>
+<g class="mod"><line class="lead" x1="1572" y1="1510" x2="862" y2="1522" style="stroke-width:5"/><circle class="dot" cx="1572" cy="1510" r="10"/><circle class="dot" cx="862" cy="1522" r="7"/></g>
+<text class="bl" x="880" y="1540" text-anchor="end">Grip</text>
+<text class="bd" x="880" y="1594" text-anchor="end">grab: magazines, grenades,</text>
+<text class="bd" x="880" y="1644" text-anchor="end">handguard, gadgets, use</text>
+<g class="game"><line class="lead" x1="2695" y1="654" x2="3138" y2="452" style="stroke-width:5"/><circle class="dot" cx="2695" cy="654" r="10"/><circle class="dot" cx="3138" cy="452" r="7"/></g>
+<text class="bl" x="3120" y="470" text-anchor="start">Trigger</text>
+<text class="bd" x="3120" y="524" text-anchor="start">fire</text>
+<g class="gun"><line class="lead" x1="2875" y1="862" x2="3138" y2="662" style="stroke-width:5"/><circle class="dot" cx="2875" cy="862" r="10"/><circle class="dot" cx="3138" cy="662" r="7"/></g>
+<text class="bl" x="3120" y="680" text-anchor="start">B</text>
+<text class="bd" x="3120" y="734" text-anchor="start">magazine release, bolt catch</text>
+<text class="bd" x="3120" y="784" text-anchor="start">(reload = button: reload)</text>
+<g class="gun"><line class="lead" x1="2680" y1="965" x2="3138" y2="902" style="stroke-width:5"/><circle class="dot" cx="2680" cy="965" r="10"/><circle class="dot" cx="3138" cy="902" r="7"/></g>
+<text class="bl" x="3120" y="920" text-anchor="start">Stick · click</text>
+<text class="bd" x="3120" y="974" text-anchor="start">← → snap turn 30°</text>
+<text class="bd" x="3120" y="1024" text-anchor="start">↑ ↓ stand, crouch, prone</text>
+<text class="bd" x="3120" y="1074" text-anchor="start">click: melee</text>
+<g class="game"><line class="lead" x1="2917" y1="1105" x2="3138" y2="1182" style="stroke-width:5"/><circle class="dot" cx="2917" cy="1105" r="10"/><circle class="dot" cx="3138" cy="1182" r="7"/></g>
+<text class="bl" x="3120" y="1200" text-anchor="start">A</text>
+<text class="bd" x="3120" y="1254" text-anchor="start">jump</text>
+<g class="game"><line class="lead" x1="2695" y1="1214" x2="3138" y2="1342" style="stroke-width:5"/><circle class="dot" cx="2695" cy="1214" r="10"/><circle class="dot" cx="3138" cy="1342" r="7"/></g>
+<text class="bl" x="3120" y="1360" text-anchor="start">Meta</text>
+<text class="bd" x="3120" y="1414" text-anchor="start">Quest system menu</text>
+<g class="mod"><line class="lead" x1="2428" y1="1511" x2="3138" y2="1542" style="stroke-width:5"/><circle class="dot" cx="2428" cy="1511" r="10"/><circle class="dot" cx="3138" cy="1542" r="7"/></g>
+<text class="bl" x="3120" y="1560" text-anchor="start">Grip</text>
+<text class="bd" x="3120" y="1614" text-anchor="start">draw from a holster,</text>
+<text class="bd" x="3120" y="1664" text-anchor="start">pull the grenade pin</text>
+<text class="head" x="1330" y="1900" text-anchor="middle">LEFT · OFF HAND</text>
+<text class="head" x="2670" y="1900" text-anchor="middle">RIGHT · GUN HAND</text>
+<text class="head" x="80" y="2080">BOTH STICKS AND GESTURES</text>
+<circle class="mod dot" cx="96" cy="2152" r="16"/>
+<text class="bl" x="130" y="2170">Both stick clicks</text>
+<text class="bd" x="130" y="2220">tap: mark a moment · hold 0.5 s: bf-vr panel</text>
+<circle class="mod dot" cx="2056" cy="2152" r="16"/>
+<text class="bl" x="2090" y="2170">Point the gun hand</text>
+<text class="bd" x="2090" y="2220">aims the gun; bullets leave the barrel</text>
+<circle class="mod dot" cx="96" cy="2276" r="16"/>
+<text class="bl" x="130" y="2294">Thrust the gun hand</text>
+<text class="bd" x="130" y="2344">melee (knife stab)</text>
+<circle class="mod dot" cx="2056" cy="2276" r="16"/>
+<text class="bl" x="2090" y="2294">Gun up to the eye</text>
+<text class="bd" x="2090" y="2344">aim down the sights; scopes magnify</text>
+<circle class="mod dot" cx="96" cy="2400" r="16"/>
+<text class="bl" x="130" y="2418">Off hand ahead + grip</text>
+<text class="bd" x="130" y="2468">use: pick up, doors, prompts</text>
+<circle class="mod dot" cx="2056" cy="2400" r="16"/>
+<text class="bl" x="2090" y="2418">Off hand on the handguard + grip</text>
+<text class="bd" x="2090" y="2468">two-handed hold</text>
+<text class="note" x="80" y="2700">Left-handed (hand = left) swaps the controllers. right_stick = look brings back stick aiming; grips_to_game and ads_trigger pass the grips and left trigger to the game.</text>
+</svg>

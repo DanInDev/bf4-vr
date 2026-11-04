@@ -9,6 +9,8 @@ Contents
   bfvr_launcher.exe       sets BF4 up for VR, installs/removes the mod, edits settings, starts BF4
   dinput8.dll             the mod; the launcher copies it into the BF4 folder
   bfvr.ini.example        settings template (the launcher creates bfvr.ini from it)
+  quest3-controls.svg     what each controller button and gesture does (open in a browser)
+  grab-zones.svg          where on the body to reach for weapons, magazines and grenades
   LICENSE.txt             licence of the mod
   THIRD-PARTY-NOTICES.txt licences of MinHook and the OpenXR loader built into the mod
 

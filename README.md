@@ -73,7 +73,19 @@ as `deploy.ps1`, so both tools work together), edits the main `bfvr.ini` keys, s
 EA app and opens `bfvr.log`. **Remove mod (required before multiplayer)** takes the DLL out again.
 `tools\package.ps1` builds the release zip for players (see docs/TOOLING.md).
 
-## Controls in theater mode (Quest Touch → Xbox pad)
+## Controls in a level
+
+![Quest 3 controllers in bf4-vr: what each button and gesture does](docs/img/quest3-controls.svg)
+
+Grab by putting a hand in a zone and squeezing its grip. Circles show the real reach; `grab_debug = 1`
+draws them in the headset too.
+
+![Grab zones around the body: shoulders, chest, hips](docs/img/grab-zones.svg)
+
+Both maps come from `tools/body_maps.py`, which copies its zone offsets and bindings from the code.
+Run it again (`python -E -P tools\body_maps.py`) after changing either.
+
+## Controls in theater mode (menus, Quest Touch → Xbox pad)
 
 | Quest controller | Xbox pad | BF4 default (controller) |
 | --- | --- | --- |
