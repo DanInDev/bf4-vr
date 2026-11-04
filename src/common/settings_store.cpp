@@ -77,6 +77,7 @@ namespace bfvr::settings
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand ahead above your eyes and squeeze the grip" },
 			{ "grenade", kind::choice, 0, 0, 0, "physical", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },
 			{ "grenade_throw_scale", kind::real, 0.5f, 4.0f, 0.1f, "1.5", "", "physical grenades: launch speed = hand speed times this" },
+			{ "grenade_model", kind::boolean, 0, 0, 0, "1", "", "physical grenades: draw the grenade in the off hand while you hold it (the game shows none until the throw)" },
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "game_sounds", kind::boolean, 0, 0, 0, "1", "", "reload sounds: the game's own magazine-out, magazine-in and bolt sounds where the gun's are found (assault rifles)" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },

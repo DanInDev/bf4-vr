@@ -131,6 +131,9 @@ accessory_toggle = trigger
 # the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
 # letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
 grenade = physical
+# Physical grenades: the grenade is drawn in the off hand while you hold it (pin ring until pulled);
+# the game itself shows none until the throw. 0 = nothing in the hand.
+grenade_model = 1
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
 holsters = 1

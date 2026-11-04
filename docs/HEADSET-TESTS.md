@@ -5,6 +5,19 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 **Next session: `main`** (HUD toggles, bottom crop and steady walk merged 2026-11-04): rows U1–U4,
 V1–V2, W1–W2 below, then F, S and N.
 
+## Next — grenade in the hand (`feature/held-grenade`)
+
+The game shows no grenade until it is thrown. With `grenade = physical`, a shaded M67 is now drawn in
+the off hand from the moment you take it from the belt: fuse up out of the fist, pin ring until the gun
+hand pulls it. Setting `grenade_model` (Weapon page, default on). Not testable on the monitor (it is an
+OpenXR layer). The texture and its placement are unit-tested. Pipe `status`: `held_grenade_frames`
+counts up while you hold one.
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| K1 | Take a grenade from the belt, look at it, turn the hand | A green M67 in the fist, about fist size, the fuse out of the top (thumb side) and following the hand's tilt; it stays in the hand as you move. Note if it sits off the palm (which way) or the fuse points the wrong way | |
+| K2 | Pull the pin with the gun hand, then throw | The ring disappears at the pull; the grenade is gone the moment it leaves the hand (the game's own takes over); in dark rooms it doesn't glow. Also put one back on the belt: it disappears | |
+
 ## Next — HUD element toggles (merged into `main`, #28)
 
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The

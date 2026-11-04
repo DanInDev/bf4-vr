@@ -145,6 +145,7 @@ add_library(bfvr_runtime STATIC
 	src/ui/menu_button.cpp
 	src/ui/panel_canvas.cpp
 	src/ui/reticle.cpp
+	src/ui/held_grenade.cpp
 	src/ui/settings_panel.cpp
 	src/ui/vignette.cpp
 	src/ui/hud_widgets.cpp
@@ -217,6 +218,8 @@ if(BFVR_BUILD_TESTS)
 	# Comfort vignette strength and texture; exits non-zero on failure.
 	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp src/ui/reticle.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
+	add_executable(bfvr_held_grenade_test tests/held_grenade_test.cpp src/ui/held_grenade.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_held_grenade_test PRIVATE bfvr_common)
 	add_executable(bfvr_hud_widgets_test tests/hud_widgets_test.cpp src/ui/hud_widget_table.cpp)
 	target_link_libraries(bfvr_hud_widgets_test PRIVATE bfvr_common)
 
@@ -269,6 +272,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
+	add_test(NAME held_grenade COMMAND bfvr_held_grenade_test)
 	add_test(NAME hud_widgets COMMAND bfvr_hud_widgets_test)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)

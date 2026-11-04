@@ -26,6 +26,7 @@ namespace bfvr::xr
 		bool input_focus{};          // the session reads the controllers (FOCUSED)
 		std::uint32_t focus_losses{}; // FOCUSED left for another state
 		double unfocused_seconds{};  // since focus was last lost, while it is still lost
+		std::uint64_t held_grenade_frames{}; // frames that showed the grenade in the off hand
 	};
 
 	// Stage 1: shows the game's back buffer on a virtual screen in the headset.

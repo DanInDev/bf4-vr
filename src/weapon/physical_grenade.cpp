@@ -143,6 +143,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<float> throw_scale{ 1.5f };
 		std::atomic<bool> holding{};
+		std::atomic<bool> armed{};
 		std::atomic<bool> active{};
 		std::atomic<bool> gun_busy{};
 		std::atomic<bool> at_belt{};
@@ -262,6 +263,11 @@ namespace bfvr::weapon
 		return holding.load(std::memory_order_relaxed);
 	}
 
+	bool grenade_armed()
+	{
+		return armed.load(std::memory_order_relaxed);
+	}
+
 	bool off_hand_at_belt()
 	{
 		return at_belt.load(std::memory_order_relaxed);
@@ -287,6 +293,7 @@ namespace bfvr::weapon
 		{
 			hands.reset();
 			holding = false;
+			armed = false;
 			at_belt = false;
 			active = false;
 			gun_busy = false;
@@ -341,6 +348,7 @@ namespace bfvr::weapon
 			}
 		}
 		holding = result.holding;
+		armed = result.armed;
 		gun_busy = result.gun_busy;
 		// off_busy without a grenade in hand: the hand is at the belt.
 		at_belt = result.off_busy && !result.holding && frame.have_grenade && !frame.off_grip;
