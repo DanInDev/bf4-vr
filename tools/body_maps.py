@@ -283,7 +283,7 @@ def quest_controls():
         add(f'<circle class="mod dot" cx="{x + 16}" cy="{y - 18}" r="16"/>')
         add(f'<text class="bl" x="{x + 50}" y="{y}">{what}</text>')
         add(f'<text class="bd" x="{x + 50}" y="{y + 50}">{does}</text>')
-    add('<text class="note" x="80" y="2700">Left-handed (hand = left) swaps the controllers. right_stick = look brings '
+    add('<text class="note" x="80" y="2700">Left-handed (dominant_hand = left) swaps the controllers. right_stick = look brings '
         'back stick aiming; grips_to_game and ads_trigger pass the grips and left trigger to the game.</text>')
     return svg(width, height, "Quest 3 controllers in bf4-vr", parts)
 
