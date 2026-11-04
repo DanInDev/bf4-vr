@@ -17,6 +17,11 @@ namespace bfvr::control
 
 	void start(status_provider provider);
 
+	// Marks this moment (mark_tap): writes the state reports, the live settings and a screenshot to
+	// bfvr_marks\mark-<time>-<n>.txt/.png beside the game, on a worker thread; returns n. Any thread.
+	// Pipe "mark [note]" does the same and waits for it.
+	int request_mark(const char* source);
+
 	// Call from the Present hook: measures frame rate and services screenshot requests.
 	void on_present(IDXGISwapChain* swap_chain);
 

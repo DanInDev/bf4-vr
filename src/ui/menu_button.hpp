@@ -30,6 +30,9 @@ namespace bfvr::ui
 	{
 		bool started{}; // both clicks went down: the hold is counting
 		bool fired{};   // once per chord, when the hold time is reached
+		// once, when both clicks are up again after a chord that did not reach the hold time and began
+		// with both clicks fresh (not one already held for the game, e.g. sprinting): mark_tap
+		bool tapped{};
 	};
 
 	// Both thumbstick clicks held together (stick_menu): the panel's second opener, which SteamVR
@@ -64,6 +67,7 @@ namespace bfvr::ui
 		bool chord_{}; // both went down; ends when both are up
 		bool both_{};
 		bool fired_{};
+		bool fresh_{};
 		float held_{};
 	};
 

@@ -42,6 +42,7 @@ namespace bfvr::ui
 			if (!both_)
 			{
 				events.started = true;
+				fresh_ = !chord_ && !clicks_[0].passing && !clicks_[1].passing;
 				held_ = 0.0f;
 				fired_ = false;
 				for (click& one : clicks_)
@@ -66,6 +67,7 @@ namespace bfvr::ui
 		if (chord_)
 		{
 			chord_ = left || right;
+			events.tapped = !chord_ && fresh_ && !fired_;
 			for (int stick = 0; stick < 2; ++stick)
 			{
 				clicks_[stick].down = down[stick];

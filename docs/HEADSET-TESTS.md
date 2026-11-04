@@ -5,6 +5,18 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 **Next session: `main`** (HUD toggles, bottom crop and steady walk merged 2026-11-04): rows U1–U4,
 V1–V2, W1–W2 below, then F, S and N.
 
+## Next — marking moments (`feature/mark-moment`)
+
+When something looks wrong in the headset, **tap both stick clicks briefly** (let go before the
+panel's 0.5 s hold). You get a pulse on both hands and "Marked moment N" below the view. The mod
+saves its state, the live settings and a screenshot to `bfvr_marks\` beside `bf4.exe`. Afterwards,
+"mark 3 was the gun floating" is enough for me to read what the mod saw then. Setting `mark_tap`
+(Controls page, default on).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| T1 | Tap both sticks once in a level; hold both for the panel; sprint (hold left) and press right (melee) | Tap: one pulse and the notice, no sprint or melee. Hold: the panel as before, no mark. Sprint + melee: works, no mark | |
+
 ## Next — HUD element toggles (merged into `main`, #28)
 
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The

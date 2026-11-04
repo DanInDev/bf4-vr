@@ -83,6 +83,7 @@ namespace bfvr::settings
 			{ "accessory_toggle", kind::choice, 0, 0, 0, "trigger", "trigger|touch|off", "accessory toggle (laser, light, magnifier: D-pad up): trigger = holding the gun two-handed, press the off-hand trigger; touch = off hand on the optic or front rail + grip" },
 			{ "vr_panel", kind::boolean, 0, 0, 0, "1", "", "hold the left menu button to open this panel (a short press stays the game's Start)" },
 			{ "stick_menu", kind::boolean, 0, 0, 0, "1", "", "hold both thumbstick clicks ~0.5 s to open or close this panel (SteamVR can take the left menu button)" },
+			{ "mark_tap", kind::boolean, 0, 0, 0, "1", "", "tap both thumbstick clicks briefly to mark a moment for feedback (state and screenshot saved to bfvr_marks)" },
 			{ "panel_opacity", kind::real, 0.2f, 1.0f, 0.05f, "0.6", "", "how solid this panel's backdrop is (1 = opaque); the pointer beam and dot show where it points" },
 			{ "menu_hint", kind::boolean, 0, 0, 0, "1", "", "after a level loads, show how to open this panel for 8 s" },
 			{ "focus_notice", kind::boolean, 0, 0, 0, "1", "", "a notice while SteamVR has the controllers (its dashboard is open, the game gets no input)" },
