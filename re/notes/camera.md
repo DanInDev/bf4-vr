@@ -98,3 +98,31 @@ head at -0.45 / -1.10 / -0.50 / 0 m the soldier went crouch / prone / crouch / s
 hold plus a press, and the view stayed at standing minus the real drop (1.115 / 0.465 / 1.065 / 1.565 m).
 Without a headset the virtual pad is not connected, so a stance press now sets `connected` while held
 (the game ignores buttons of a disconnected pad).
+
+## Walking sway and `steady_walk` (2026-11-04, monitor)
+
+Sampled at ~100 Hz through the pipe while the virtual pad walked (Release, Baku checkpoint):
+
+| Value | Standing | Walking (3 m/s) |
+| --- | --- | --- |
+| First-person eye `+0xED0` row 3 x (soldier space, sideways) | −0.0004 | ±0.058 m at **0.9 Hz** (one swing per two steps) |
+| `+0xED0` row 3 y (eye above the feet) | 1.5604 | 1.555–1.5705 (±0.8 cm at 1.8 Hz) |
+| `+0xED0` row 3 z | 0.0772 | 0.0769–0.0775 |
+| World camera − feet | = `+0xED0` position turned by the soldier | same sway |
+
+The sway is the walk animation of the camera joint; `FirstPersonCameraData` has only weapon lag
+and spring fields. In a headset it swings the whole world by 12 cm with every pair of steps.
+
+`steady_walk` (default on, `camera_hook.cpp` `steady_walk_sway`, filter `stereo/steady_camera.*`):
+a 2 s low-pass of the sideways offset is kept. The rest (`offset − low-pass`) comes off the **world
+camera only**, along the soldier's x axis in world (x·Fᵀ·W from the game's own first-person and world
+rows, before the eye pose and controller aim turn them).
+
+- The gun pass must stay as it is. It is anchored to the same swaying camera joint as the arms, so
+  the gun already holds still in the view. Research A/B (`steadymode`, removed again), with eye images
+  during a backwards walk: world only = gun as still as with the feature off (±8–10 px in a 300 px
+  crop). Steadying `+0xED0` too made the gun sway in view (±22 px). Moving the IK's camera joint
+  changed nothing visible.
+- Result: camera sideways of the feet along its own right axis 11.8 cm → **1.0 cm** (range over 2 s
+  of walking). The gun is steady in view, fps unchanged. A step above 15 cm (cut, vehicle) is followed
+  at once. Cutscenes, menus and frames without head tracking reset the filter.

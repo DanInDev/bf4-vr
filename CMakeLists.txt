@@ -122,6 +122,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/scope_math.cpp
 	src/stereo/scope_scissor.cpp
 	src/stereo/scripted_view.cpp
+	src/stereo/steady_camera.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
 	src/weapon/accessory_touch.cpp
@@ -240,6 +241,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_gun_recoil_test PRIVATE bfvr_common)
 	add_executable(bfvr_scripted_view_test tests/scripted_view_test.cpp src/stereo/scripted_view.cpp)
 	target_link_libraries(bfvr_scripted_view_test PRIVATE bfvr_common)
+	add_executable(bfvr_steady_camera_test tests/steady_camera_test.cpp src/stereo/steady_camera.cpp)
+	target_link_libraries(bfvr_steady_camera_test PRIVATE bfvr_common)
 	add_executable(bfvr_torso_test tests/torso_test.cpp src/body/torso.cpp)
 	target_link_libraries(bfvr_torso_test PRIVATE bfvr_common)
 	add_executable(bfvr_grasp_contact_test tests/grasp_contact_test.cpp src/body/grasp_contact.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
@@ -274,6 +277,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 	add_test(NAME torso COMMAND bfvr_torso_test)
 	add_test(NAME scripted_view COMMAND bfvr_scripted_view_test)
+	add_test(NAME steady_camera COMMAND bfvr_steady_camera_test)
 	add_test(NAME grasp_contact COMMAND bfvr_grasp_contact_test)
 endif()
 

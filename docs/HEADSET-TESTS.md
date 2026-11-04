@@ -2,6 +2,9 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
+**One build for the next session: branch `test/vr-check-2026-11-04`** = `main` + `feature/hud-toggles` +
+`feature/view-crop-bottom` + `feature/steady-walk` (rows U1–U4, V1–V2, W1–W2 below, then F, S and N).
+
 ## Next — HUD element toggles (`feature/hud-toggles`, #28)
 
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The
@@ -27,6 +30,17 @@ raises the bottom edge and tilts each eye's camera up by half. Monitor: gun and 
 | --- | --- | --- | --- |
 | V1 | Step `view_crop_bottom` up from 0 (try 8, 12, 16) while looking straight ahead and at your feet | Where a black band starts to show at the bottom edge of the lens; keep the highest value without it. Is the picture visibly sharper (text on walls, the HUD's world markers)? | |
 | V2 | At the chosen value: look around, aim, reload, look down at the chest rig | Nothing is off: the gun sits in your hands, horizons stay level, no tilt or swimming when you turn your head | |
+
+## Next — no walking sway (`feature/steady-walk`)
+
+Release build. The game's walk animation swung the view 12 cm side to side with every pair of steps;
+`steady_walk` (View page, default on) takes it off the world camera. Monitor: 11.8 cm → 1.0 cm, the gun
+stays still in view.
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| W1 | Walk and sprint along a corridor with `steady_walk` on, then off, then on | On: the world glides, no side-to-side rocking; your gun and hands stay where you hold them. Off: the old sway, for comparison | |
+| W2 | Walk while aiming down the sights, and while looking sideways | No drift of the sight against the target beyond your own movement; nothing lags when you stop | |
 
 ## Next — fixed foveated rendering (merged into `main`)
 

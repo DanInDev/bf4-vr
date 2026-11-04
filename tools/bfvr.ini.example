@@ -64,6 +64,10 @@ arm_reach = 1
 shoulder_reach = 0.12
 arm_stretch = 0.25
 
+# Comfort: the game's walk animation swings the first-person camera about 6 cm side to side with every
+# step, which sways the whole world in a headset. 1 = removed (hands and gun follow); your head still moves.
+steady_walk = 1
+
 # Comfort vignette (issue #10): darkens the edge of the view while the game turns or moves you (stick
 # turning and aiming, walking, vehicles; never your own head): off | turning | moving | both, and how
 # far it closes in. Seated play needs no setting: recenter while seated (the view starts at your head).

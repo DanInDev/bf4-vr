@@ -58,6 +58,8 @@ namespace bfvr::stereo
 	void set_view_crop(float horizontal, float vertical);
 	// Degrees cut off the bottom of the rendered view (top kept; the camera tilts up by half), 0..30.
 	void set_view_crop_bottom(float degrees);
+	// steady_walk: the walk animation's sideways camera sway removed (stereo/steady_camera.hpp).
+	void set_steady_walk(bool enabled);
 	void current_view_crop(float& horizontal, float& vertical);
 
 	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,
