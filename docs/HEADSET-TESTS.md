@@ -2,7 +2,7 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-## Next — fixed foveated rendering (`feature/eye2-gpu`)
+## Next — fixed foveated rendering (merged into `main`)
 
 Release build. Monitor (2160x2160 per eye): `foveation` off 102 fps, **light (default) 116**, medium
 123, strong 130; scoped with light 100 (was 89-91).
