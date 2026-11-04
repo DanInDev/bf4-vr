@@ -197,3 +197,23 @@ red dot (`WeaponZoomLevelData.RenderFov`, candidate 2 above, by its effect). Oth
 the same layout show 45 (the first-person shadow view, also in ADS) and the world's FOV, so the gun's
 is the narrowest of a frame. `stereo/eye_pass` publishes it per second-eye pass; `camera_hook` scales
 the gun by tan(that/2) / tan(world/2), so the gun stays life size while the game aims down the sights.
+
+## Who sets a RenderView's FOV (2026-11-04, REA/Ghidra, dump only)
+
+Every direct caller of setFovY `0x140B89EE0` in the full analysis: `0x140828090`, View setup
+`0x140848B00`, `0x1408A9160`, World FOV from camera `0x1408AE170`, the renderer's `0x140CD81A0`,
+`0x140CD8BF0`, `0x140CD9060`, `0x140CE0010`, and `0x140FA8270` (indirect calls are not covered).
+
+`0x140FA8270` is the soldier-side one: slot 9 of an unnamed vtable `0x141E61980` (no RTTI; built at
+`0x140F86F41` / `0x140F8854B`), which tail-calls the base `0x140848A00` (next to View setup). Per call
+`(…, view, camera, …, active, worldView, fgView, …, dirty*)`:
+
+- If the camera's flag `+0xF0` bit 8 is set and its `+0x11C` (degrees) is not −1, both RenderViews get
+  setFovY(`+0x11C`·π/180, clamped 0.0002..π), and both take the override lists at player view `+0x13E0`
+  / `+0x1470` (`0x140B8A0A0`).
+- When the game's own stereo 3D is on (`[[0x142738080]+0x60](0)+0x28`) it sets RenderView `+0xD4`
+  (convergence) to Twinkle video `+0x50` × 0.05, dirty |= 0xB.
+
+Candidate for the ADS world zoom (`ZoomLevelData.FieldOfViewSP` reaching the camera's `+0x11C`): not
+verified live yet. Live check: aim down a scope and read the active camera's `+0x11C` and `+0xF0`. The mod's
+`copy_detour` runs after this and sets the headset FOV, which is why the world never zooms in ADS.

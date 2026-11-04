@@ -143,8 +143,18 @@ Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
 | `tools/skeleton_probe.py [--match Hand]` (run from `tools\`) | Live: the first-person skeleton's bones (index, parent, name); with `--match`, the live local pose of the matching bones (fingers: re/notes/skeleton.md) |
 | `tools/aim_probe.py [--axis yaw\|pitch] [--static]` | Live: turns with the `pad` stick and lists floats (soldier/camera manager, 2 hops deep) whose change equals the camera's yaw or pitch change |
 
-REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline. The user
-variable `REA_GHIDRA_STARTUP_TIMEOUT_MS = 10800000` (3 h) is set and takes effect after Claude restarts.
+REA/Ghidra on the 47 MB dump needs more than REA's default 5.5-minute analysis deadline, so the user
+variable `REA_GHIDRA_STARTUP_TIMEOUT_MS = 10800000` (3 h) is set. Measured 2026-11-04 (REA 6.7,
+Ghidra 12.1.4, #20): the full auto-analysis takes **about 10 minutes** and finds 142,493 functions
+and 52,460 strings. REA keeps the Ghidra database only while the target is open, so every
+`open_binary` runs the analysis again. The snapshot `close_binary` writes
+(`re/dumps/bf4-179547-mem.rea-snapshot`, about 35 KB, git-ignored) holds REA's evidence records, not the
+database. Workflow: `open_binary` on `re\dumps\bf4-179547-mem.exe` with `provider_id ghidra`. The first
+query waits for the analysis; after that, `procedure_callers`, `xrefs`, `procedure_pseudo_code` and
+`search_strings` answer in seconds. Keep the target open for the whole session and `close_binary` at
+the end. A dump from another game session needs a new analysis (the image has to be the same bytes).
+Names come from the in-memory typeinfo (`tools/typeinfo_dump.py` vtables), not from Ghidra, which has
+no symbols for this image.
 
 Per-eye research (2026-10-25, research builds): `eyepass <flags> [shift m]` (1 render twice, 2 shifted
 eye last, 4 restore the slot snapshot), `eyeshot <path.png>` (first eye's image), `frametrace` now also

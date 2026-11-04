@@ -17,7 +17,7 @@ reverse-engineering session produces something reusable. Verified results go int
 | Live memory reads | Following pointer chains, reading structures | pipe `peek`, `tools/camera_probe.py` |
 | Hardware write-watch | "Who writes this value every frame?" plus a backtrace | pipe `watch <addr> [len] [ms]` |
 | Single-function disassembly | Reading a writer/caller found by `watch` | `tools/disasm.py`, `tools/callers.py` (decrypted dump) |
-| Full static analysis | Cross-references, strings, larger subsystems | REA + Ghidra on the dump (3 h limit; save a snapshot) |
+| Full static analysis | Cross-references, strings, larger subsystems | REA + Ghidra on the dump (about 10 min per `open_binary`; docs/TOOLING.md) |
 | Type information | Class names, field names/offsets of engine types | Frosty `Profiles\BF4SDK.dll`; in-memory `typeinfo` section |
 | Frame capture | Render passes, constant buffers, which draw is the weapon/HUD | RenderDoc |
 | Console | Live engine settings and their names | `tools/console-probe.ps1` (`list`, `<Setting> <value>`) |
@@ -47,7 +47,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 | Render resolution independent of the window | Sharp image, per-eye aspect (#1) | Find where the render-target size comes from (window size × `Render.ResolutionScale`); override for VR | ⬜ |
 | Post-process settings (DOF, motion blur, TAA history) | Blurry centre (#1), per-eye history artefacts | Console names known (`WorldRender.*`, `PostProcess.*`); map their storage + setter | 🟡 |
 | HUD / UI pass (Scaleform) | Head-locked crosshair and HUD (#3); render HUD to its own layer | RenderDoc: last passes before Present; find the UI render target and its draw call site | ⬜ |
-| Zoom / ADS / scope FOV | Optics in VR; FOV changes while aiming | Frosty `ZoomLevelData`, `SoldierAimingSimulationData`; watch FOV during ADS | ⬜ |
+| Zoom / ADS / scope FOV | Optics in VR; FOV changes while aiming | Gun pass FOV in ADS measured live (17° on the AK-12 red dot). World zoom candidate from REA: the camera `+0x11C` override applied by `0x140FA8270` ([first_person.md](notes/first_person.md)); live check open | 🟡 |
 | Shadow/culling views using the camera | Culling errors when the head turns far from the game camera | Check whether culling uses RenderView 0 or another frustum (view 2 `+0x9C0`?) | ⬜ |
 
 ### 3. Player, input and aiming

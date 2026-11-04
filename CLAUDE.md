@@ -22,8 +22,8 @@ Read those instead of reconstructing history.
   never committed). Quick and enough for single functions: `python -E tools\disasm.py <dump> <address> --full`
   (capstone + `.pdata`), `tools\callers.py`, plus the pipe's `watch <address> 4 <ms>` (hardware write watch with
   backtraces) and `peek`. For cross-references and whole subsystems: **REA** (MCP tools `mcp__rea__*`, skill
-  `reverse-engineer-anything`) driving Ghidra on the dump; setup in `docs/SETUP.md`, the 3 h analysis limit
-  in `docs/TOOLING.md`; the full analysis has not been run yet (#20). Same rules as all tools: never while
+  `reverse-engineer-anything`) driving Ghidra on the dump; setup in `docs/SETUP.md`. The full analysis takes about 10 min
+  and runs again at every `open_binary`, so open once per session (`docs/TOOLING.md`, #20). Same rules as all tools: never while
   Battlefield 6 / EasyAntiCheat games run.
 - `docs/SAFETY.md` is binding: campaign only, no tools while Battlefield 6 / EasyAntiCheat games run,
   never commit dumps, screenshots, game files or profile data; DRM-protected code is analysed in memory only.
