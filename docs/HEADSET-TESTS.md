@@ -2,8 +2,40 @@
 
 Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
-**Next session: `main`** (HUD toggles, bottom crop and steady walk merged 2026-11-04): rows U1–U4,
-V1–V2, W1–W2 below, then F, S and N.
+**Next session: `main`** (HUD toggles, bottom crop and steady walk merged 2026-11-04). Use the run
+sheet below. The rows it names are in the sections further down.
+
+## Run sheet — next session on `main`
+
+Setup:
+- Launcher, then **Update mod** (installs `main`'s Release DLL). Resume the campaign.
+- `bfvr.ini` keeps `physical_pad = 0`. Set `grab_debug = 1` for block D only.
+- **G0** first: `tools\pipe.ps1 status`, line `physical_pad` says `ignored`.
+
+Blocks are in order of value. Stop wherever time runs out. Each block sets what the next one builds on: the
+view first, then what is drawn in it, then the gun.
+
+| Block | Rows | About | Time |
+| --- | --- | --- | --- |
+| A. View | V1, V2, W1, W2, F1, F2 | The `view_crop_bottom` value, walking without sway, the foveation level. Keep the chosen values on (panel **Save**) for the rest | 10 min |
+| B. HUD | U1–U4 | Each HUD element on and off | 5 min |
+| C. Sights and shots | N1, S1, S2, S3, S6, S4, S5, N2, N3, H1 | Auto-ADS, the gun's depth in ADS, the magnifier's picture, where shots land | 15 min |
+| D. Gun handling | G1, H2, H3, H4, G6, N4, N5, N6, H6, H7 | Gun size, two-handed AK hold, smaller grab rings, SCAR chambering, reloads, chest rig, left arm, panel, chambering sound | 15 min |
+| E. If time is left | 17, 18, 12, 15b, 15c, 2, 0a, 0b | Haptics, melee, use-reach and the stash, arm reach, opening the panel | 10 min |
+
+Feedback in any form works, for example "V1 12 is the highest without a band; W1 fine; S2 picture
+too low in the lens". I fill in the Result cells and turn what's left into fixes. For anything that
+looks wrong, say what you saw and where, and leave BF4 running if you can. Pipe output from the same
+moment (`status`, `twohand`, `arms`, `scope`) often shows the cause.
+
+| Block | Results (filled in after the session) |
+| --- | --- |
+| A | |
+| B | |
+| C | |
+| D | |
+| E | |
+| Other | |
 
 ## Next — grenade in the hand (`feature/held-grenade`)
 
