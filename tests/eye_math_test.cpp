@@ -145,6 +145,37 @@ namespace
 		const render_fov game = symmetric_fov(quest, 1, 1, false, 16.0f / 9.0f);
 		expect(game.aspect == 0.0f, "game aspect mode must not override the aspect");
 		expect(near(std::tan(game.half_horizontal), std::tan(0.890f) * 16.0f / 9.0f), "game aspect horizontal FOV wrong");
+
+		// Bottom crop: top edge kept, bottom raised by the cut, camera tilted up by half.
+		const float deg = 3.14159265f / 180.0f;
+		const tilted_fov none = crop_bottom(cropped, 0.0f, true);
+		expect(none.tilt == 0.0f && none.fov.half_vertical == cropped.half_vertical, "no cut: unchanged");
+		const tilted_fov cut = crop_bottom(cropped, 14 * deg, true);
+		expect(near(cut.tilt, 7 * deg), "tilt is half the cut");
+		expect(near(cut.tilt + cut.fov.half_vertical, cropped.half_vertical), "top edge kept");
+		expect(near(cut.tilt - cut.fov.half_vertical, -cropped.half_vertical + 14 * deg), "bottom edge raised by the cut");
+		expect(near(cut.fov.half_horizontal, cropped.half_horizontal), "horizontal unchanged");
+		expect(near(cut.fov.aspect, std::tan(cropped.half_horizontal) / std::tan(cut.fov.half_vertical)), "aspect follows");
+		const tilted_fov huge = crop_bottom(cropped, 3.0f, true);
+		expect(huge.fov.half_vertical >= 10 * deg - 1e-4f, "at least 10 degrees of half angle stay");
+
+		// pitched: forward (-z) turns up; position kept; composes with a yaw.
+		pose eye{};
+		eye.position[0] = 1;
+		eye.orientation[3] = 1;
+		const pose up = pitched(eye, 7 * deg);
+		const float* q = up.orientation;
+		const float forward_y = -2 * (q[1] * q[2] - q[0] * q[3]);
+		const float forward_z = -(1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+		expect(near(forward_y, std::sin(7 * deg)) && near(forward_z, -std::cos(7 * deg)), "pitched forward up");
+		expect(up.position[0] == 1, "position kept");
+		pose turned{};
+		turned.orientation[1] = std::sin(0.5f * 1.0f);
+		turned.orientation[3] = std::cos(0.5f * 1.0f); // 1 rad yaw
+		const pose both = pitched(turned, 7 * deg);
+		const float* b = both.orientation;
+		const float fy = -2 * (b[1] * b[2] - b[0] * b[3]);
+		expect(near(fy, std::sin(7 * deg)), "pitch is about the eye's own x axis after a yaw");
 	}
 
 	void test_family()

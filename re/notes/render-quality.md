@@ -58,7 +58,24 @@ Session 2026-10-25, branch `feature/render-quality`. Monitor-only measurements (
 ## Next steps
 
 2. Measure `Render.ResolutionScale` 1.25/1.5 and `AntiAliasingPost 0` (user.cfg / console), per lever.
-3. Prototype the up-tilt of the render frustum (above).
+3. ~~Prototype the up-tilt of the render frustum (above).~~ Built 2026-11-04 as `view_crop_bottom` (see below).
 4. HUD in the corners: try `GstRender.ScreenSafeAreaWidth/Height` < 1 to pull the HUD into the visible area
    (coordinate with the `feature/hud` worktree / #3).
 5. User-side fallback that needs no code: NVIDIA DSR/DLDSR (e.g. 2880x1620 or 3840x2160 as a real mode).
+
+## Bottom crop with an up-tilted camera (`view_crop_bottom`, 2026-11-04)
+
+The lens shows about +44° up but only ~30° down, while the rendered frustum is symmetric (about ±46°
+at `view_crop_v 0.72`). `view_crop_bottom = d` (degrees, 0–30, default 0) keeps the top edge,
+raises the bottom edge by d, and pitches each eye's camera up by d/2 about its own x axis
+(`eye_math::crop_bottom`, `eye_math::pitched`, applied in `camera_hook.cpp` after physical stance).
+The compositor gets the same tilted pose and the smaller symmetric FOV, so it reprojects exactly.
+
+- Only the rendered views turn. The arms, gun and body are placed in the body frame from tracking-space
+  positions (`arm_pose.cpp camera_frame`), the second eye is moved along the (unchanged) right axis,
+  and the scope and the projected HUD use the rendered pose. So all of them stay where they were in the world.
+- Monitor check (Release, fake head facing the gun, fake hand pitched −15°): the sight top at
+  y = 455/720 with d = 0 is predicted at y = 543 with d = 14 by the projection, and measured at about 540.
+  The wall corner and the gun keep their columns. 116.5 fps either way.
+- Gain at `view_crop_v 0.72`, d = 14: half angle 45.8° → 38.8°, so tan 1.028 → 0.804, which gives **28 % more
+  lines per degree vertically**. Too much cut shows a black band at the bottom; headset row V1.

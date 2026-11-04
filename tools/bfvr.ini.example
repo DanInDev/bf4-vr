@@ -36,6 +36,11 @@ gun_scale = 1.0
 # small shows black edges. Tune in the headset (pipe: viewcrop <h> <v>).
 view_crop_h = 1.0
 view_crop_v = 1.0
+# Degrees cut off the bottom of the rendered view (0-30); the top edge stays and each eye's camera
+# tilts up by half. The Quest 3 shows about 44 degrees up but only ~30 down, so the lines below are
+# wasted: 14 here puts them where the lens looks (about 28 % sharper vertically at view_crop_v 0.72).
+# Too much shows a black band at the bottom of the view.
+view_crop_bottom = 0
 # Fixed foveated rendering (NVIDIA GPUs, Turing or newer): the outer part of each eye's image is shaded
 # once per 2x2 (and in the corners 4x4) pixels; the middle stays at full rate. off | light | medium |
 # strong. Monitor, 2160x2160 per eye: off 102 fps, light 116, medium 123, strong 130; medium and strong

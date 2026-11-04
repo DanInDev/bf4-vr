@@ -56,6 +56,8 @@ namespace bfvr::stereo
 	// Fraction (tangent space, 0.4..1) of the headset's reported FOV rendered per eye, horizontal and
 	// vertical; config view_crop_h / view_crop_v. Smaller = sharper, but too small shows black edges.
 	void set_view_crop(float horizontal, float vertical);
+	// Degrees cut off the bottom of the rendered view (top kept; the camera tilts up by half), 0..30.
+	void set_view_crop_bottom(float degrees);
 	void current_view_crop(float& horizontal, float& vertical);
 
 	// Research: world-view aspect (width/height) handed to the engine instead of the viewport's,

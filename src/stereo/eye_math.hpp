@@ -25,6 +25,20 @@ namespace bfvr::stereo::eye_math
 	};
 	render_fov symmetric_fov(const fov (&fovs)[2], float crop_h, float crop_v, bool headset_aspect, float game_aspect);
 
+	// Crops the bottom of a symmetric frustum by `bottom` radians and keeps its top: the half vertical
+	// angle shrinks by bottom/2 and the camera pitches up by `tilt` = bottom/2. The same lines then
+	// cover only what the lens shows (Quest 3 via Steam Link: about +44 / -30 degrees). With the
+	// headset aspect the engine aspect follows; the horizontal half angle is unchanged.
+	struct tilted_fov
+	{
+		render_fov fov;
+		float tilt{}; // radians, camera pitched up about its own x axis
+	};
+	tilted_fov crop_bottom(const render_fov& symmetric, float bottom, bool headset_aspect);
+
+	// The pose turned about its own x axis (right) by radians; positive pitches -z (forward) up.
+	pose pitched(const pose& eye, float radians);
+
 	// Eye midpoint with the left eye's orientation: what once-per-frame consumers (arm IK)
 	// use when both eyes are rendered from one head sample.
 	pose centre_pose(const head_sample& head);
