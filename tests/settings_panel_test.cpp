@@ -211,7 +211,7 @@ namespace
 	{
 		constexpr float frame = 1.0f / 90.0f;
 		stick_chord chord;
-		int starts = 0, fires = 0, left_frames = 0, right_frames = 0;
+		int starts = 0, fires = 0, taps = 0, left_frames = 0, right_frames = 0;
 		const auto run = [&](bool left, bool right, float seconds)
 		{
 			for (float t = 0; t < seconds - 1e-6f; t += frame)
@@ -219,6 +219,7 @@ namespace
 				const stick_chord_events events = chord.update(left, right, frame);
 				starts += events.started ? 1 : 0;
 				fires += events.fired ? 1 : 0;
+				taps += events.tapped ? 1 : 0;
 				left_frames += chord.to_game(0) ? 1 : 0;
 				right_frames += chord.to_game(1) ? 1 : 0;
 			}
@@ -226,7 +227,7 @@ namespace
 		const auto reset = [&]
 		{
 			run(false, false, 0.5f);
-			starts = fires = left_frames = right_frames = 0;
+			starts = fires = taps = left_frames = right_frames = 0;
 		};
 
 		run(true, true, 0.6f);
@@ -236,12 +237,21 @@ namespace
 		expect(fires == 1, "one toggle however long the chord is held");
 		run(false, true, 0.3f);
 		run(false, false, 0.2f);
+		expect(taps == 0, "a chord that opened the panel is no tap");
 		expect(left_frames == 0 && right_frames == 0, "nothing reaches the game while letting go one click at a time");
 
 		reset();
 		run(true, true, 0.3f);
 		run(false, false, 0.2f);
 		expect(starts == 1 && fires == 0, "a chord let go early does not toggle");
+		expect(taps == 1, "a chord let go early is one tap (mark_tap)");
+
+		reset();
+		run(true, true, 0.15f);
+		run(true, false, 0.1f);
+		expect(taps == 0, "no tap while one click is still down");
+		run(false, false, 0.1f);
+		expect(taps == 1 && left_frames == 0, "the tap comes when both are up; the game saw neither");
 
 		reset();
 		run(true, false, 0.05f);
@@ -265,6 +275,12 @@ namespace
 		run(true, false, 0.3f);
 		run(true, true, 0.6f);
 		expect(fires == 1, "a chord also opens when one click was already held");
+
+		reset();
+		run(true, false, 0.3f);
+		run(true, true, 0.1f);
+		run(false, false, 0.2f);
+		expect(taps == 0, "sprinting (left held for the game), then a quick right click: no tap");
 		const int before = left_frames;
 		run(false, false, 0.2f);
 		expect(left_frames == before, "the held click is not given back after the chord");

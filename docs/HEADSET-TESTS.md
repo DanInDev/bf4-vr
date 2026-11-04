@@ -18,6 +18,18 @@ counts up while you hold one.
 | K1 | Take a grenade from the belt, look at it, turn the hand | A green M67 in the fist, about fist size, the fuse out of the top (thumb side) and following the hand's tilt; it stays in the hand as you move. Note if it sits off the palm (which way) or the fuse points the wrong way | |
 | K2 | Pull the pin with the gun hand, then throw | The ring disappears at the pull; the grenade is gone the moment it leaves the hand (the game's own takes over); in dark rooms it doesn't glow. Also put one back on the belt: it disappears | |
 
+## Next — marking moments (`feature/mark-moment`)
+
+When something looks wrong in the headset, **tap both stick clicks briefly** (let go before the
+panel's 0.5 s hold). You get a pulse on both hands and "Marked moment N" below the view. The mod
+saves its state, the live settings and a screenshot to `bfvr_marks\` beside `bf4.exe`. Afterwards,
+"mark 3 was the gun floating" is enough for me to read what the mod saw then. Setting `mark_tap`
+(Controls page, default on).
+
+| # | Check | Look for | Result |
+| --- | --- | --- | --- |
+| T1 | Tap both sticks once in a level; hold both for the panel; sprint (hold left) and press right (melee) | Tap: one pulse and the notice, no sprint or melee. Hold: the panel as before, no mark. Sprint + melee: works, no mark | |
+
 ## Next — HUD element toggles (merged into `main`, #28)
 
 Release build. Monitor: each element is hidden by the game itself (one hook, no texture masking). The

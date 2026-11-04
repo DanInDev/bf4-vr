@@ -278,6 +278,10 @@ vr_panel = 1
 # panel opens or closes). SteamVR on Quest can take the left menu button for its dashboard; it never
 # takes the sticks. A stick click alone reaches the game 0.1 s late; a chord never does.
 stick_menu = 1
+# A short tap of both thumbstick clicks (let go before the panel opens) marks the moment: a pulse,
+# "Marked moment N" below the view, and the mod's state, live settings and a screenshot saved to
+# bfvr_marks\mark-<time>-<N>.txt/.png beside bf4.exe, for headset feedback. Pipe: mark [note].
+mark_tap = 1
 # The panel's backdrop is see-through like the HUD: 0.2 (faint) .. 1 (opaque). Either controller's
 # beam and dot show where it points.
 panel_opacity = 0.6

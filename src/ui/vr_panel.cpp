@@ -11,6 +11,7 @@
 #include "body/arm_ik.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
+#include "control/control_pipe.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "safety/mp_guard.hpp"
@@ -27,6 +28,7 @@ namespace bfvr::ui
 		constexpr float panel_width = 0.8f;  // metres; height follows the image aspect
 		constexpr ULONGLONG start_pulse_ms = 150;
 		constexpr ULONGLONG status_ms = 2500;
+		constexpr ULONGLONG mark_notice_ms = 2000;
 		constexpr std::uint8_t trigger_press = 150;
 		constexpr std::uint8_t trigger_release = 80;
 		constexpr std::uint16_t stick_clicks = XINPUT_GAMEPAD_LEFT_THUMB | XINPUT_GAMEPAD_RIGHT_THUMB;
@@ -48,6 +50,8 @@ namespace bfvr::ui
 		std::string status;
 		ULONGLONG status_until{};
 		bool hint_shown{};
+		std::string mark_notice;
+		ULONGLONG mark_notice_until{};
 
 		// The image and what it was drawn from.
 		std::vector<std::uint32_t> image;
@@ -263,6 +267,15 @@ namespace bfvr::ui
 			{
 				set_open(!open, "both sticks");
 			}
+			// mark_tap: a short tap of both sticks marks this moment for the headset feedback.
+			if (chord_events.tapped && store.boolean("mark_tap", true))
+			{
+				const int number = control::request_mark("both sticks tapped");
+				input::haptic(0, input::pulses::grab);
+				input::haptic(1, input::pulses::grab);
+				mark_notice = "Marked moment " + std::to_string(number);
+				mark_notice_until = GetTickCount64() + mark_notice_ms;
+			}
 		}
 		sticks_to_game = game_sticks(chord.to_game(0), chord.to_game(1));
 
@@ -275,6 +288,10 @@ namespace bfvr::ui
 		if (focus_lost.load() && store.boolean("focus_notice", true))
 		{
 			show_notice("SteamVR has the controllers: close its menu", true);
+		}
+		else if (GetTickCount64() < mark_notice_until)
+		{
+			show_notice(mark_notice, false);
 		}
 		else if (hint_shown)
 		{

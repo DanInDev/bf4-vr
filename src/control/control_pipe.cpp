@@ -55,6 +55,10 @@ namespace bfvr::control
 
 		status_provider provider{};
 
+		// Marked moments (write_mark): numbered per game run.
+		std::atomic<int> mark_count{};
+		std::mutex mark_lock;
+
 		// Frame pacing, written by the present thread.
 		std::atomic<double> frames_per_second{};
 		std::atomic<UINT> back_buffer_width{};
@@ -539,6 +543,8 @@ namespace bfvr::control
 			return text + (provider ? provider() : std::string());
 		}
 
+		std::string write_mark(int number, const std::string& note);
+
 		std::string handle(const std::string& line)
 		{
 			const auto space = line.find(' ');
@@ -558,6 +564,7 @@ namespace bfvr::control
 				}
 			}
 			if (command == "shot") return take_screenshot(argument);
+			if (command == "mark") return write_mark(++mark_count, argument.empty() ? "pipe" : argument);
 			if (command == "hudshot") return take_screenshot(argument, true);
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
@@ -983,8 +990,51 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms, std::strcmp(mode, "rw") == 0);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] [rw] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] [rw] | mark [note] | help";
 			return "error: unknown command '" + command + "' (try help)";
+		}
+
+		// A marked moment (mark_tap in the headset, or pipe "mark"): the state reports, the live settings
+		// and a screenshot, under bfvr_marks beside the game's executable, so headset feedback can be
+		// read against what the mod saw at that moment.
+		std::string write_mark(int number, const std::string& note)
+		{
+			const std::lock_guard guard(mark_lock);
+			char directory[MAX_PATH]{};
+			const DWORD length = GetModuleFileNameA(nullptr, directory, MAX_PATH);
+			char* slash = length ? std::strrchr(directory, '\\') : nullptr;
+			if (!slash)
+			{
+				return "error: no game directory";
+			}
+			std::snprintf(slash + 1, static_cast<std::size_t>(directory + MAX_PATH - (slash + 1)), "bfvr_marks");
+			CreateDirectoryA(directory, nullptr);
+			SYSTEMTIME time{};
+			GetLocalTime(&time);
+			char base[MAX_PATH + 64];
+			std::snprintf(base, sizeof(base), "%s\\mark-%04u%02u%02u-%02u%02u%02u-%d", directory, time.wYear, time.wMonth, time.wDay, time.wHour,
+				time.wMinute, time.wSecond, number);
+			char header[160];
+			std::snprintf(header, sizeof(header), "mark %d at %02u:%02u:%02u.%03u: ", number, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
+			std::string text = header + note + "\n";
+			static constexpr const char* reports[] = { "status", "twohand", "arms", "scope", "grenade", "fingers", "reload", "cutscene", "stance",
+				"haptics", "hudwidgets", "setting list" };
+			for (const char* report : reports)
+			{
+				text += std::string("\n== ") + report + "\n" + handle(report) + "\n";
+			}
+			const std::string shot_result = take_screenshot(std::string(base) + ".png");
+			text += "\n== shot\n" + shot_result + "\n";
+			const std::string path = std::string(base) + ".txt";
+			std::FILE* file = nullptr;
+			if (fopen_s(&file, path.c_str(), "wb") != 0 || !file)
+			{
+				return "error: cannot write " + path;
+			}
+			std::fwrite(text.data(), 1, text.size(), file);
+			std::fclose(file);
+			log::write("mark %d (%s): %s", number, note.c_str(), path.c_str());
+			return "ok " + path + "\n" + shot_result;
 		}
 
 		DWORD WINAPI server_thread(LPVOID)
@@ -1032,6 +1082,19 @@ namespace bfvr::control
 		{
 			CloseHandle(thread);
 		}
+	}
+
+	int request_mark(const char* source)
+	{
+		const int number = ++mark_count;
+		std::thread([number, note = std::string(source ? source : "")]
+		{
+			// WIC (the screenshot's PNG) needs COM on this thread.
+			CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+			write_mark(number, note);
+			CoUninitialize();
+		}).detach();
+		return number;
 	}
 
 	void on_game_thread()
