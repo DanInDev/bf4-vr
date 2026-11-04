@@ -60,7 +60,7 @@ Verified on the monitor (Release, 2026-11-04): with all elements shown, no false
 one element answers false once per frame per class (twice for objectives and score, two classes
 each). The crosshair's 484 opaque HUD pixels in the middle drop to 0. Hit markers, damage arcs,
 objective markers, prompts and score pop-ups need gameplay to appear, so they are a headset check
-(`docs/HEADSET-TESTS.md` H1–H3).
+(`docs/HEADSET-TESTS.md` U1–U3).
 
 ## World markers (squad names and triangles)
 
@@ -84,7 +84,7 @@ How they were found (2026-11-04):
 `hud_show_markers = 0` hides every widget whose owner screen has that vtable. Monitor: markers
 636 → 0 → 606 green pixels (off, then on again), the rest of the HUD unchanged. All world icons go with it:
 squad markers for sure. Objective markers and grenade warnings, if they are world icons, have not been
-seen yet (headset row H4).
+seen yet (headset row U4).
 ## Dead end
 
 `frametrace` with the eye pass running ends at the UI render's first clear, so the HUD draws are not

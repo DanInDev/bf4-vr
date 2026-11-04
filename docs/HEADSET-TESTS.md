@@ -12,10 +12,10 @@ before), `hud_show_hit_markers`, `hud_show_damage`, `hud_show_objectives`, `hud_
 
 | # | Check | Look for | Result |
 | --- | --- | --- | --- |
-| H1 | Turn `hud_show_crosshair` on and off | The game's crosshair appears and disappears; nothing else in the middle of the HUD changes (the old version cut a square out of markers passing the middle) | |
-| H2 | Fight with each of `hud_show_hit_markers`, `hud_show_damage`, `hud_show_score` off in turn | Off: no hit marker on hits, no red damage arcs when shot, no "+100" pop-ups. On: they come back | |
-| H3 | Walk to the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or `use_reach` still opens it. Objectives off: note what disappears (the objective marker or hint) | |
-| H4 | `hud_show_markers` off (monitor: squad markers 636 → 0 px) | The names and triangles over your companions are gone; note whether the objective's marker in the world or a grenade warning icon goes with them (all world icons share that screen) | |
+| U1 | Turn `hud_show_crosshair` on and off | The game's crosshair appears and disappears; nothing else in the middle of the HUD changes (the old version cut a square out of markers passing the middle) | |
+| U2 | Fight with each of `hud_show_hit_markers`, `hud_show_damage`, `hud_show_score` off in turn | Off: no hit marker on hits, no red damage arcs when shot, no "+100" pop-ups. On: they come back | |
+| U3 | Walk to the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or `use_reach` still opens it. Objectives off: note what disappears (the objective marker or hint) | |
+| U4 | `hud_show_markers` off (monitor: squad markers 636 → 0 px) | The names and triangles over your companions are gone; note whether the objective's marker in the world or a grenade warning icon goes with them (all world icons share that screen) | |
 
 ## Next — fixed foveated rendering (merged into `main`)
 
