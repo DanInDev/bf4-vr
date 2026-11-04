@@ -118,6 +118,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/scope.cpp
 	src/stereo/scope_compose.cpp
 	src/stereo/scope_math.cpp
+	src/stereo/scope_scissor.cpp
 	src/stereo/scripted_view.cpp
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp

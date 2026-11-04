@@ -233,9 +233,26 @@ height. The constants are patched from the first eye's like the second eye's (a 
 correctly: `eyezoom` test, lighting matches); the gun's per-view blocks are blanked (gun and arms
 not drawn). The lens circle is cut out with a pixel shader (round, premultiplied, a red dot on the
 sight line) and shown on an OpenXR quad at the lens, for the sighting eye only; the aim reticle hides
-meanwhile. Cost, Release 2160x2160: 66-71 fps while scoped (98-107 at the hip), scope pass ~6 ms on
-the render thread (patching 3.3, render 2.5). The patch table is indexed and bit-filtered for it (a
-turning camera changes ~150 windows, not ~25), which also trimmed the second eye's patching.
+meanwhile.
+
+**Cost** (Release, 2160x2160 per eye, monitor), measured with GPU timestamps around each render
+(`status`: `gpu_ms eye1 eye2 scope`):
+
+| Version | Scoped fps | Scope GPU | Scope on the render thread |
+| --- | --- | --- | --- |
+| First, linear patch table | 33 | – | 22 ms (patching 11, render 7) |
+| Patch table indexed + bit filter (a turned camera changes ~150 windows, not ~25) | 66-71 | 3.3-4.3 ms | 6 ms |
+| Scope patching on a worker during the second eye | 72.5 | 4.3 ms | 3.4 ms |
+| + scissor to the lens circle (`stereo/scope_scissor`) | **87-91** (50 s: avg 90.8, p5 88.8) | **1.2 ms** | 3.4-4.4 ms (overlapped) |
+| Hip, no scope | 98-107 | – | – |
+
+The frame is GPU-bound (hip: eye 1 ~5 ms + eye 2 ~4 ms of GPU per ~10 ms frame; the "readback" wait is
+the CPU waiting for it). Tried and dropped: switching off shadow-map generation, the foreground passes
+or the sky envmap update for the scope render (no measurable gain), and a scope at every second frame
+(87.5 fps, but uneven frames and a 45 Hz lens picture: the scissor reaches the same with a steady one).
+The scissor keeps 1.3x the lens circle on targets proportional to the back buffer whose viewport covers
+them (shadow maps and other sizes untouched); compute passes still run over the whole image. Lens
+images with and without it are identical (wall, and the room with a fake controller).
 
 **Gun depth in ADS (bug found on the way, also on `main`)**: the life-size factor drops to 0.168 in ADS
 (gun pass 17 deg), the gun camera's rows grow to 5.95, and `shift_per_view_block` refused rows over 5:
@@ -247,7 +264,8 @@ now ~450 px apart between the eyes (~17 cm, as expected).
 
 - Scopes on other guns (4x ACOG, sniper scopes): their lens size and distance (one `scope_math::lens`
   per optic, now the magnifier's for every gun), and the game's own scope overlay at high zoom.
-- The scope pass at a lower resolution (the lens picture is 512 px; the render is full 2160 px).
+- The scope's compute passes (tiled lighting, SSAO) still cover the whole image; a smaller render
+  target for the scope pass would cut them too.
 - Hardware-watch the writer of the server ammo to find the auto-reload decision, if the spare rounds
   ever show (HUD) or leak (a full-auto burst faster than one frame).
 - Shotguns, bolt actions, belt-fed guns, pistols: variants and their bones (`Wep_Belt*`, `Wep_Slide`).

@@ -658,6 +658,12 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
 				return stereo::set_eye_pass(mode, shift); // no argument = report only
 			}
+			if (command == "scopescissor")
+			{
+				int on = -1;
+				sscanf_s(argument.c_str(), "%d", &on);
+				return stereo::set_scope_scissor(on);
+			}
 			if (command == "eyezoom")
 			{
 				float degrees = 0.0f;

@@ -27,6 +27,7 @@
 #include "stereo/scope.hpp"
 #include "stereo/scope_compose.hpp"
 #include "stereo/scope_math.hpp"
+#include "stereo/scope_scissor.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -346,11 +347,89 @@ namespace bfvr::stereo
 			return std::fabs(right - 1.0f) > 1e-3f || !(same_scale(scope_y_scale) || same_scale(projection_sy));
 		}
 
-		std::atomic<std::uint64_t> scope_prepare_us{};
+		// GPU time of each render (timestamp queries, read a few frames later without waiting):
+		// 0 = before the first eye, 1 = after it, 2 = after the second eye, 3 = after the scope.
+		struct gpu_frame
+		{
+			ComPtr<ID3D11Query> disjoint;
+			ComPtr<ID3D11Query> stamps[4];
+			bool issued{};
+			bool scope{};
+		};
+		constexpr int gpu_frames = 4;
+		gpu_frame gpu_ring[gpu_frames];
+		int gpu_index{};
+		std::atomic<float> gpu_eye_ms[3]{}; // first eye, second eye, scope
+		ID3D11DeviceContext* gpu_context{};
+
+		void gpu_stamp(int which)
+		{
+			gpu_frame& f = gpu_ring[gpu_index];
+			if (gpu_context && f.stamps[which])
+			{
+				gpu_context->End(f.stamps[which].Get());
+			}
+		}
+
+		void gpu_begin(ID3D11Device* device, ID3D11DeviceContext* context)
+		{
+			gpu_context = context;
+			gpu_index = (gpu_index + 1) % gpu_frames;
+			gpu_frame& f = gpu_ring[gpu_index];
+			if (f.issued)
+			{
+				D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjoint{};
+				UINT64 t[4]{};
+				bool ready = context->GetData(f.disjoint.Get(), &disjoint, sizeof(disjoint), D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK;
+				for (int i = 0; ready && i < (f.scope ? 4 : 3); ++i)
+				{
+					ready = context->GetData(f.stamps[i].Get(), &t[i], sizeof(t[i]), D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK;
+				}
+				if (ready && !disjoint.Disjoint && disjoint.Frequency)
+				{
+					const auto ms = [&](int a, int b) { return static_cast<float>(1000.0 * static_cast<double>(t[b] - t[a]) / static_cast<double>(disjoint.Frequency)); };
+					gpu_eye_ms[0] = ms(0, 1);
+					gpu_eye_ms[1] = ms(1, 2);
+					gpu_eye_ms[2] = f.scope ? ms(2, 3) : 0.0f;
+				}
+				f.issued = false;
+			}
+			if (!f.disjoint)
+			{
+				D3D11_QUERY_DESC desc{ D3D11_QUERY_TIMESTAMP_DISJOINT, 0 };
+				device->CreateQuery(&desc, &f.disjoint);
+				desc.Query = D3D11_QUERY_TIMESTAMP;
+				for (auto& stamp : f.stamps)
+				{
+					device->CreateQuery(&desc, &stamp);
+				}
+			}
+			if (f.disjoint)
+			{
+				context->Begin(f.disjoint.Get());
+				f.issued = true;
+				f.scope = false;
+			}
+		}
+
+		void gpu_end()
+		{
+			gpu_frame& f = gpu_ring[gpu_index];
+			if (gpu_context && f.issued)
+			{
+				gpu_context->End(f.disjoint.Get());
+			}
+		}
+
+		std::atomic<bool> scope_scissor_on{ true }; // pipe scopescissor: A/B the scissor
+		std::atomic<std::uint64_t> scope_prepare_us{}; // worker: patching the scope's blocks
+		std::atomic<std::uint64_t> scope_wait_us{};    // render thread: waiting for the worker after eye 2
 		std::atomic<std::uint64_t> scope_render_us{};
 		std::atomic<std::uint64_t> scope_compose_us{};
 
-		int patch_scope_block(float* block, UINT count)
+		// The scope camera's copy of a block (render thread for late blocks, the worker for the first
+		// eye's): the gun's per-view blocks blanked, the world's camera values replaced from table.
+		int patch_scope_block(const constant_patch& table, float* block, UINT count)
 		{
 			// Before the table: the gun's block can hold a value of the world camera's too (its position),
 			// which would otherwise count as a change and leave the gun drawn.
@@ -362,14 +441,14 @@ namespace bfvr::stereo
 				++scope_hidden_blocks;
 				return 1;
 			}
-			return patch.apply(block, count * 4);
+			return table.apply(block, count * 4);
 		}
 
 		int patch_block(float* block, UINT count)
 		{
 			if (scope_rendering)
 			{
-				return patch_scope_block(block, count);
+				return patch_scope_block(patch, block, count);
 			}
 			int changed = 0;
 			if (view_projection_rule.load(std::memory_order_relaxed) && projection_sx > 0.0f && projection_sy > 0.0f)
@@ -395,7 +474,8 @@ namespace bfvr::stereo
 			return changed;
 		}
 
-		bool patched_copy(ID3D11Buffer* buffer, UINT first, UINT count, float* block)
+		// The block as the first eye saw it, from the read-back arenas (read only: the worker uses it too).
+		bool read_back(ID3D11Buffer* buffer, UINT first, UINT count, float* block)
 		{
 			const std::uint8_t* cpu{};
 			UINT size{};
@@ -413,7 +493,12 @@ namespace bfvr::stereo
 				return false;
 			}
 			std::memcpy(block, cpu + first * 16, bytes);
-			return patch_block(block, count) > 0;
+			return true;
+		}
+
+		bool patched_copy(ID3D11Buffer* buffer, UINT first, UINT count, float* block)
+		{
+			return read_back(buffer, first, count, block) && patch_block(block, count) > 0;
 		}
 
 		// Blocks the first eye bound: the second eye replays the same draw lists, so they are patched
@@ -921,61 +1006,187 @@ namespace bfvr::stereo
 			context->CopyResource(target.Get(), source);
 		}
 
-		// After the second eye, with the arenas still read back: the slot's RenderViews move to the scope
-		// camera (the first eye's, centre, moved by the request's relative pose) with the lens's FOV, the
-		// constants are patched from the first eye's as for the second eye, the world is rendered once
-		// more, the lens is cut out of the back buffer, and the back buffer and slot are put back.
-		void render_scope(void* renderer, std::uint8_t* slot, void* context, const scope_request& request, const float (&centre)[2][0x4e0 / 4])
+		// The scope's constant patching runs on a worker while the second eye renders: the first eye's
+		// blocks are read back and mapped by then, and the scope camera is built on copies of the
+		// RenderViews, so the render thread only uploads the result afterwards.
+		alignas(16) std::uint8_t scope_views[2][0x4e0];
+		constant_patch scope_patch;
+		std::vector<std::uint8_t> scope_upload;
+		std::vector<std::pair<std::uint64_t, UINT>> scope_results; // block key -> first constant, ~0u = unchanged
+		UINT scope_used{};
+		HANDLE scope_start{};
+		HANDLE scope_done{};
+		bool scope_job_running{}; // render thread
+
+		double microseconds(const LARGE_INTEGER& a, const LARGE_INTEGER& b)
 		{
-			ID3D11Resource* const buffer = back_buffer.load();
-			ComPtr<ID3D11Texture2D> texture;
-			if (!buffer || FAILED(buffer->QueryInterface(IID_PPV_ARGS(&texture))) || !(request.render_fov_y > 0.0f && request.render_fov_y < 3.0f))
-			{
-				return;
-			}
-			LARGE_INTEGER start{}, end{}, frequency{};
+			LARGE_INTEGER frequency{};
+			QueryPerformanceFrequency(&frequency);
+			return 1e6 * static_cast<double>(b.QuadPart - a.QuadPart) / static_cast<double>(frequency.QuadPart);
+		}
+
+		void scope_job()
+		{
+			LARGE_INTEGER start{}, end{};
 			QueryPerformanceCounter(&start);
-			alignas(16) static std::uint8_t saved[2][0x4e0];
-			for (int v = 0; v < 2; ++v)
+			scope_upload.resize(eye_buffer_size);
+			scope_results.clear();
+			std::unordered_map<std::uint64_t, UINT> seen;
+			UINT used = 0;
+			for (const used_block& b : first_eye_blocks)
 			{
-				std::memcpy(saved[v], slot + slot_views[v], sizeof(saved[v]));
+				if (!b.buffer || b.count == 0 || b.count > 4096)
+				{
+					continue;
+				}
+				const std::uint64_t key = block_key(b.buffer, b.first);
+				if (!seen.emplace(key, 0u).second)
+				{
+					continue;
+				}
+				const UINT aligned = (b.count * 16 + 255) & ~255u;
+				UINT result = ~0u;
+				float* const block = reinterpret_cast<float*>(scope_upload.data() + used);
+				if (used + aligned > eye_buffer_size)
+				{
+					++eye_buffer_overflows;
+				}
+				else if (read_back(b.buffer, b.first, b.count, block) && patch_scope_block(scope_patch, block, b.count) > 0)
+				{
+					result = used / 16;
+					used += aligned;
+				}
+				scope_results.emplace_back(key, result);
 			}
-			const float aspect = *reinterpret_cast<const float*>(slot + slot_views[0] + view_aspect);
+			scope_used = used;
+			QueryPerformanceCounter(&end);
+			scope_prepare_us = static_cast<std::uint64_t>(microseconds(start, end));
+		}
+
+		DWORD WINAPI scope_worker(void*)
+		{
+			for (;;)
+			{
+				WaitForSingleObject(scope_start, INFINITE);
+				scope_job();
+				SetEvent(scope_done);
+			}
+		}
+
+		// Before the second eye: the scope camera on copies of the first eye's RenderViews (centre), its
+		// patch table, and the worker started. False when the scope cannot run this frame.
+		bool start_scope_job(const scope_request& request, const float (&centre)[2][0x4e0 / 4])
+		{
+			if (!(request.render_fov_y > 0.0f && request.render_fov_y < 3.0f))
+			{
+				return false;
+			}
+			if (!scope_start)
+			{
+				scope_start = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+				scope_done = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+				HANDLE thread = scope_start && scope_done ? CreateThread(nullptr, 0, scope_worker, nullptr, 0, nullptr) : nullptr;
+				if (!thread)
+				{
+					log::write("eye pass: scope worker not started");
+					return false;
+				}
+				CloseHandle(thread);
+			}
 			for (int v = 0; v < 2; ++v)
 			{
-				std::uint8_t* const view = slot + slot_views[v];
+				std::uint8_t* const view = scope_views[v];
+				std::memcpy(view, centre[v], sizeof(scope_views[v]));
 				float rows[16];
-				std::memcpy(rows, reinterpret_cast<const std::uint8_t*>(centre[v]) + transform, sizeof(rows));
+				std::memcpy(rows, view + transform, sizeof(rows));
 				float moved[16];
 				scope_math::compose_rows(rows, request.relative, moved);
 				std::memcpy(view + transform, moved, sizeof(moved));
-				const float view_aspect_value = *reinterpret_cast<const float*>(view + view_aspect);
+				const float aspect = *reinterpret_cast<const float*>(view + view_aspect);
 				*reinterpret_cast<float*>(view + view_fov_y) = request.render_fov_y;
-				*reinterpret_cast<float*>(view + view_fov_x) = 2.0f * std::atan(std::tan(0.5f * request.render_fov_y) * view_aspect_value);
+				*reinterpret_cast<float*>(view + view_fov_x) = 2.0f * std::atan(std::tan(0.5f * request.render_fov_y) * aspect);
 				*reinterpret_cast<std::uint32_t*>(view + dirty_flags) |= 0xf;
 				view_update(view, 0xf);
 			}
 			scope_y_scale = 1.0f / std::tan(0.5f * request.render_fov_y);
-			patch.clear();
+			scope_patch.clear();
 			for (int v = 0; v < 2; ++v)
 			{
-				patch.add_view(centre[v], reinterpret_cast<const float*>(slot + slot_views[v]), 0x4e0 / 4);
+				scope_patch.add_view(centre[v], reinterpret_cast<const float*>(scope_views[v]), 0x4e0 / 4);
 			}
+			scope_job_running = true;
+			SetEvent(scope_start);
+			return true;
+		}
+
+		// The worker must be done before the read-back arenas are unmapped.
+		void finish_scope_job()
+		{
+			if (scope_job_running)
+			{
+				WaitForSingleObject(scope_done, INFINITE);
+				scope_job_running = false;
+			}
+		}
+
+		// After the second eye: the slot's RenderViews take the scope camera, the worker's blocks are
+		// uploaded, the world is rendered once more, the lens is cut out of the back buffer, and the back
+		// buffer and slot are put back.
+		void render_scope(void* renderer, std::uint8_t* slot, void* context, const scope_request& request)
+		{
+			LARGE_INTEGER start{}, waited{}, rendered{}, composed_at{};
+			QueryPerformanceCounter(&start);
+			finish_scope_job();
+			QueryPerformanceCounter(&waited);
+			ID3D11Resource* const buffer = back_buffer.load();
+			ComPtr<ID3D11Texture2D> texture;
+			if (!buffer || FAILED(buffer->QueryInterface(IID_PPV_ARGS(&texture))))
+			{
+				return;
+			}
+			alignas(16) static std::uint8_t saved[2][0x4e0];
+			for (int v = 0; v < 2; ++v)
+			{
+				std::memcpy(saved[v], slot + slot_views[v], sizeof(saved[v]));
+				std::memcpy(slot + slot_views[v], scope_views[v], sizeof(scope_views[v]));
+			}
+			const float aspect = *reinterpret_cast<const float*>(slot + slot_views[0] + view_aspect);
+			// Blocks the render thread writes during the scope render are patched with the scope's table.
+			std::swap(patch, scope_patch);
 			patched_blocks.clear();
+			for (const auto& [key, result] : scope_results)
+			{
+				patched_blocks.emplace(key, result);
+			}
 			eye_offset = 0;
 			eye_buffer_discarded = false;
+			D3D11_MAPPED_SUBRESOURCE mapped{};
+			if (scope_used && SUCCEEDED(original_map(eye_context.Get(), eye_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+			{
+				std::memcpy(mapped.pData, scope_upload.data(), scope_used);
+				eye_context->Unmap(eye_buffer.Get(), 0);
+				eye_buffer_discarded = true;
+				eye_offset = scope_used;
+			}
+			// Only the lens circle is used: pixel work outside it (with a margin for blurs) is scissored away.
+			const bool scissor = scope_scissor_on.load(std::memory_order_relaxed) && eye_context;
+			if (scissor)
+			{
+				install_scope_scissor(eye_context.Get());
+				D3D11_TEXTURE2D_DESC desc{};
+				texture->GetDesc(&desc);
+				constexpr float margin = 1.3f;
+				begin_scope_scissor(eye_context.Get(), desc.Width, desc.Height, 0.5f * request.crop * margin / aspect, 0.5f * request.crop * margin);
+			}
 			scope_rendering = true;
-			const auto microseconds = [&frequency](const LARGE_INTEGER& a, const LARGE_INTEGER& b) {
-				return static_cast<std::uint64_t>(1e6 * static_cast<double>(b.QuadPart - a.QuadPart) / static_cast<double>(frequency.QuadPart));
-			};
-			QueryPerformanceFrequency(&frequency);
-			LARGE_INTEGER prepared{}, rendered{}, composed_at{};
-			prepare_eye_blocks();
-			QueryPerformanceCounter(&prepared);
 			patching = true;
 			original_per_view_render(renderer, slot, context);
 			patching = false;
 			scope_rendering = false;
+			if (scissor)
+			{
+				end_scope_scissor(eye_context.Get());
+			}
 			QueryPerformanceCounter(&rendered);
 
 			ComPtr<ID3D11Device> device;
@@ -997,11 +1208,10 @@ namespace bfvr::stereo
 			}
 			++scope_renders;
 			QueryPerformanceCounter(&composed_at);
-			scope_prepare_us = microseconds(start, prepared);
-			scope_render_us = microseconds(prepared, rendered);
-			scope_compose_us = microseconds(rendered, composed_at);
-			QueryPerformanceCounter(&end);
-			scope_ms = static_cast<float>(1000.0 * static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart));
+			scope_wait_us = static_cast<std::uint64_t>(microseconds(start, waited));
+			scope_render_us = static_cast<std::uint64_t>(microseconds(waited, rendered));
+			scope_compose_us = static_cast<std::uint64_t>(microseconds(rendered, composed_at));
+			scope_ms = static_cast<float>(microseconds(start, composed_at) / 1000.0);
 		}
 
 		void __fastcall per_view_render_detour(void* renderer, std::uint8_t* slot, void* context)
@@ -1055,8 +1265,16 @@ namespace bfvr::stereo
 				first_eye_blocks.clear();
 				collecting = true;
 				begin_readback();
+				ComPtr<ID3D11Device> device;
+				eye_context->GetDevice(&device);
+				gpu_begin(device.Get(), eye_context.Get());
+				gpu_stamp(0);
 			}
 			original_per_view_render(renderer, slot, context);
+			if (patch_constants)
+			{
+				gpu_stamp(1);
+			}
 			collecting = false;
 			probing = false;
 			pair.rendered(0, frame);
@@ -1092,6 +1310,8 @@ namespace bfvr::stereo
 			}
 			const float zoom_fov = patch_constants ? zoom_test_fov.load(std::memory_order_relaxed) : 0.0f;
 			zoom_active = zoom_fov > 0.0f;
+			scope_request scope;
+			bool scope_this_frame = false;
 			float zoom_saved[2][2]{};
 			if (zoom_active)
 			{
@@ -1119,6 +1339,11 @@ namespace bfvr::stereo
 				LARGE_INTEGER read_start{}, read_end{}, read_frequency{};
 				QueryPerformanceCounter(&read_start);
 				map_readbacks();
+				if (!zoom_active)
+				{
+					scope = latest_scope_request();
+					scope_this_frame = scope.active && GetTickCount64() - scope.at < 250 && start_scope_job(scope, centre_views);
+				}
 				prepare_eye_blocks();
 				QueryPerformanceCounter(&read_end);
 				QueryPerformanceFrequency(&read_frequency);
@@ -1155,16 +1380,23 @@ namespace bfvr::stereo
 				probe_result = device ? write_probe(device.Get(), slot) : "error: no device yet";
 				SetEvent(probe_done);
 			}
-			if (patch_constants && !zoom_active)
+			QueryPerformanceCounter(&end);
+			QueryPerformanceFrequency(&frequency);
+			extra_ms = static_cast<float>(1000.0 * static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart));
+			if (patch_constants)
 			{
-				const scope_request request = latest_scope_request();
-				if (request.active && GetTickCount64() - request.at < 250)
-				{
-					render_scope(renderer, slot, context, request, centre_views);
-				}
+				gpu_stamp(2);
+			}
+			if (scope_this_frame)
+			{
+				render_scope(renderer, slot, context, scope);
+				gpu_stamp(3);
+				gpu_ring[gpu_index].scope = true;
 			}
 			if (patch_constants)
 			{
+				gpu_end();
+				finish_scope_job();
 				end_readback();
 				if (zoom_active)
 				{
@@ -1176,9 +1408,6 @@ namespace bfvr::stereo
 				}
 			}
 			zoom_active = false;
-			QueryPerformanceCounter(&end);
-			QueryPerformanceFrequency(&frequency);
-			extra_ms = static_cast<float>(1000.0 * static_cast<double>(end.QuadPart - start.QuadPart) / static_cast<double>(frequency.QuadPart));
 
 			const std::uint64_t rejected_before = pair.rejected();
 			pair.rendered(1, frame);
@@ -1286,6 +1515,15 @@ namespace bfvr::stereo
 		}
 	}
 
+	std::string set_scope_scissor(int on)
+	{
+		if (on == 0 || on == 1)
+		{
+			scope_scissor_on = on == 1;
+		}
+		return std::string("scopescissor ") + (scope_scissor_on.load() ? "1 " : "0 ") + scope_scissor_report();
+	}
+
 	std::string set_eye_zoom(float degrees)
 	{
 		const bool on = std::isfinite(degrees) && degrees >= 1.0f && degrees <= 120.0f;
@@ -1335,13 +1573,13 @@ namespace bfvr::stereo
 
 	std::string eye_pass_report()
 	{
-		char text[512];
+		char text[768];
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
 			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
-			"scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (prepare %llu us, render %llu us, compose %llu us)",
+			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us)",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
 			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
-			scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_render_us.load(), scope_compose_us.load());
+			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load());
 		return text;
 	}
 

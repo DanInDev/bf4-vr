@@ -9,6 +9,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "stereo/scope_scissor.hpp"
 #include "stereo/tracking.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -80,6 +81,7 @@ namespace bfvr::stereo
 				}
 			}
 			original_om_set_render_targets(context, count, views, depth);
+			scope_scissor_targets_changed(context);
 		}
 
 		bool hook(void* target, void* detour, void** original, const char* name)

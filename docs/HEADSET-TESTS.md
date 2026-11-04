@@ -6,8 +6,8 @@ Quest 3 via Steam Link, SteamVR 2.18.4 OpenXR, RTX 5070. Newest first.
 
 Release build. Monitor (fakehead, game ADS by LT): with the AK's flip magnifier the game zooms 45 -> 27
 deg (1.73x); the world is rendered once more from the sight and the lens shows it magnified, round,
-with a red dot, gun and arms not in it. Red dot alone (1.14x): no lens picture. 66-71 fps while scoped,
-98-107 at the hip. Found and fixed: **the gun had no stereo depth while aiming down the sights**
+with a red dot, gun and arms not in it. Red dot alone (1.14x): no lens picture. **87-91 fps while
+scoped** (50 s average 90.8; scissored, patched on a worker), 98-107 at the hip. Found and fixed: **the gun had no stereo depth while aiming down the sights**
 (both eyes drew it from the same place; now ~17 cm deep at the red dot, as measured).
 
 | # | Check | Look for | Result |
@@ -16,7 +16,8 @@ with a red dot, gun and arms not in it. Red dot alone (1.14x): no lens picture. 
 | S2 | Flip the magnifier in (accessory toggle), aim through it | The lens shows the world magnified (~1.7x) with a red dot where the shots go; only the aiming eye sees it, the other eye sees the magnifier body. Note whether the picture sits inside the lens rim | |
 | S3 | Shots through the magnifier at ~25 m | Hits at the lens's red dot | |
 | S4 | Move the eye closer to / further from the magnifier, and off-centre | The picture stays on the lens; the magnification follows the lens size | |
-| S5 | Frame rate while scoped | Smooth at 72/90 Hz? (monitor: 66-71 fps). `scope` off (Weapon page) to compare; `scope_zoom` changes the magnification | |
+| S5 | Frame rate while scoped | Smooth at 90 Hz? (monitor: 87-91 fps scoped, 98-107 at the hip). `scope` off (Weapon page) to compare; `scope_zoom` changes the magnification | |
+| S6 | Look at bright lights or the window through the magnifier, then pan across an edge | No dark or smeared ring inside the lens edge (the scope render is cut to the lens with a margin) | |
 
 ## Next — overnight 2026-11-04 (`feature/overnight-2026-11-04`, on top of `feature/headset-feedback-2`)
 
