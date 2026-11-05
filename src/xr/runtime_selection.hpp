@@ -20,4 +20,8 @@ namespace bfvr::xr
 	// SteamVR, so retries wait for this instead (otherwise SteamVR keeps restarting while the user
 	// tries to connect the headset, headset test 2026-10-25).
 	bool steamvr_running();
+
+	// The process id of SteamVR's server, 0 when it is not running. A different id than the one an
+	// instance was created against means SteamVR was restarted under the game (e.g. from the headset).
+	unsigned long steamvr_server_id();
 }

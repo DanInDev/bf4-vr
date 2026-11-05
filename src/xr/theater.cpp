@@ -62,8 +62,14 @@ namespace bfvr::xr
 		constexpr float screen_width = 3.0f;
 		// How often to look for a headset again while none is available.
 		constexpr ULONGLONG retry_interval_ms = 2000;
-		// Consecutive frame-loop errors tolerated before theater mode gives up.
+		// Consecutive frame-loop errors before the connection is rebuilt, and rebuilds without a
+		// single good frame before theater mode gives up.
 		constexpr int max_frame_errors = 30;
+		constexpr int max_rebuilds = 5;
+		// How often SteamVR's server process is looked up (on its own thread).
+		constexpr ULONGLONG server_check_ms = 2000;
+		// How long stopping the frame waiter may take; a runtime that died may never return xrWaitFrame.
+		constexpr auto waiter_stop_timeout = std::chrono::seconds(3);
 
 		enum class phase
 		{
@@ -173,6 +179,32 @@ namespace bfvr::xr
 		bool waiting_for_steamvr_logged{};
 		std::atomic<bool> steamvr_restart_pending{}; // set on EXITING (Present thread), read by the instance worker
 		std::atomic<bool> runtime_is_steamvr{};      // written by the instance worker
+		// SteamVR's server process: the one the instance was created against, the one that sent
+		// EXITING, and the one running now (server_watch). A new id under a live instance means
+		// SteamVR was restarted from the headset while the game ran (MP3, 2026-11-04).
+		std::atomic<unsigned long> connected_server{};
+		std::atomic<unsigned long> exited_server{};
+		std::atomic<unsigned long> server_now{};
+		std::atomic<std::uint64_t> server_samples{};  // server_now updates so far
+		std::atomic<std::uint64_t> connected_sample{}; // server_samples when the instance was created
+		std::atomic<bool> connection_lost{}; // a call returned INSTANCE_LOST or SESSION_LOST
+		int rebuilds{};                      // since the last good frame
+		bool waiter_done{};                  // the current waiter thread has returned
+		std::uint64_t waiter_generation{};   // a detached waiter from an older session sees a newer one
+		std::condition_variable waiter_exit;
+		// A process snapshot takes milliseconds: never on the game's Present thread.
+		std::jthread server_watch{ [this](std::stop_token stop)
+			{
+				while (!stop.stop_requested())
+				{
+					server_now = steamvr_server_id();
+					++server_samples;
+					for (ULONGLONG slept = 0; slept < server_check_ms && !stop.stop_requested(); slept += 100)
+					{
+						Sleep(100);
+					}
+				}
+			} };
 		// Every runtime call from the game's Present and the waiter's hidden-frame begin/end are
 		// serialised: concurrent calls froze the game when Steam Link reconnected (2026-10-25).
 		std::mutex xr_calls;
@@ -244,6 +276,10 @@ namespace bfvr::xr
 			{
 				return true;
 			}
+			if (result == XR_ERROR_INSTANCE_LOST || result == XR_ERROR_SESSION_LOST)
+			{
+				connection_lost = true;
+			}
 
 			char text[XR_MAX_RESULT_STRING_SIZE]{};
 			if (instance == XR_NULL_HANDLE || XR_FAILED(xrResultToString(instance, result, text)))
@@ -272,8 +308,9 @@ namespace bfvr::xr
 			}
 			runtime_is_steamvr = runtime.rfind("steamvr", 0) == 0;
 			// Never be the one that starts SteamVR: wait until the user's headset connection has.
-			// After SteamVR exited, wait for its server to disappear before waiting for a new one.
-			if (steamvr_restart_pending && !steamvr_running())
+			// After SteamVR exited, wait until the server that exited is gone or replaced: a restart
+			// from the headset can bring up a new server between two retries.
+			if (steamvr_restart_pending && steamvr_server_id() != exited_server)
 			{
 				steamvr_restart_pending = false;
 			}
@@ -308,6 +345,8 @@ namespace bfvr::xr
 				return XR_NULL_HANDLE;
 			}
 			instance_failures = 0;
+			connected_sample = server_samples.load();
+			connected_server = runtime_is_steamvr ? steamvr_server_id() : 0;
 
 			XrInstanceProperties properties{ XR_TYPE_INSTANCE_PROPERTIES };
 			if (XR_SUCCEEDED(xrGetInstanceProperties(created, &properties)) && last_runtime_name != properties.runtimeName)
@@ -511,6 +550,7 @@ namespace bfvr::xr
 				// The user or runtime ended VR (e.g. quitting SteamVR). With SteamVR, reconnect only
 				// after its server has gone and been started again by the user; never while it shuts
 				// down. Other runtimes stay out until the game restarts.
+				exited_server = connected_server ? connected_server.load() : steamvr_server_id();
 				destroy_all();
 				if (runtime_is_steamvr)
 				{
@@ -1920,14 +1960,80 @@ namespace bfvr::xr
 		{
 			if (++frame_errors >= max_frame_errors)
 			{
-				log::write("theater: %d consecutive frame errors; disabling theater mode", frame_errors);
+				frame_errors = 0;
 				destroy_all();
-				set_phase(phase::failed);
+				if (++rebuilds > max_rebuilds)
+				{
+					log::write("theater: %d rebuilds without a good frame; disabling theater mode", max_rebuilds);
+					set_phase(phase::failed);
+				}
+				else
+				{
+					log::write("theater: %d consecutive frame errors; rebuilding the connection (%d of %d)", max_frame_errors, rebuilds, max_rebuilds);
+					retry_later();
+				}
 			}
 		}
 
-		void waiter_loop()
+		// The connection is dead or belongs to a SteamVR that is gone: rebuild it, choosing the runtime again.
+		void rebuild_if_lost()
 		{
+			const unsigned long connected = connected_server.load();
+			const unsigned long now = server_now.load();
+			// Only a sample begun after the instance was created counts.
+			const bool fresh = server_samples.load() >= connected_sample.load() + 2;
+			const bool server_replaced = instance != XR_NULL_HANDLE && runtime_is_steamvr && connected != 0 && fresh && now != connected;
+			if ((!connection_lost && !server_replaced) || current == phase::stopped || current == phase::failed)
+			{
+				return;
+			}
+			if (server_replaced)
+			{
+				log::write("theater: SteamVR's server %s (pid %lu, now %lu); rebuilding the connection",
+					now ? "was restarted" : "is gone", connected, now);
+			}
+			else
+			{
+				log::write("theater: the runtime lost the instance or session; rebuilding the connection");
+			}
+			connection_lost = false;
+			destroy_all();
+			retry_later();
+		}
+
+		// Under waiter_lock: this waiter was told to stop, or was given up on and a newer one runs.
+		bool waiter_stale(std::uint64_t generation) const
+		{
+			return waiter_stop || generation != waiter_generation;
+		}
+
+		bool waiter_stop_requested(std::uint64_t generation)
+		{
+			const std::lock_guard guard(waiter_lock);
+			return waiter_stale(generation);
+		}
+
+		// Only touches the session it was started for, so a waiter given up on (stop_waiter) never
+		// reaches a newer one.
+		void waiter_loop(std::uint64_t generation, XrSession waited)
+		{
+			struct on_exit
+			{
+				state* owner;
+				std::uint64_t generation;
+				~on_exit()
+				{
+					{
+						const std::lock_guard guard(owner->waiter_lock);
+						if (generation == owner->waiter_generation)
+						{
+							owner->waiter_done = true;
+						}
+					}
+					owner->waiter_exit.notify_all();
+				}
+			} const exit_signal{ this, generation };
+
 			bool wait_again = false; // the previous frame was completed here; no request needed
 			for (;;)
 			{
@@ -1935,19 +2041,26 @@ namespace bfvr::xr
 					std::unique_lock guard(waiter_lock);
 					if (!wait_again)
 					{
-						waiter_wake.wait(guard, [this] { return waiter_stop || wait_requested; });
-						wait_requested = false;
+						waiter_wake.wait(guard, [this, generation] { return waiter_stale(generation) || wait_requested; });
 					}
-					if (waiter_stop)
+					if (waiter_stale(generation))
 					{
-						return;
+						return; // a pending request belongs to a newer waiter
+					}
+					if (!wait_again)
+					{
+						wait_requested = false;
 					}
 				}
 				wait_again = false;
 
 				XrFrameWaitInfo wait_info{ XR_TYPE_FRAME_WAIT_INFO };
 				XrFrameState frame{ XR_TYPE_FRAME_STATE };
-				const XrResult result = xrWaitFrame(session, &wait_info, &frame);
+				const XrResult result = xrWaitFrame(waited, &wait_info, &frame);
+				if (waiter_stop_requested(generation))
+				{
+					return;
+				}
 				if (stereo_mode && XR_SUCCEEDED(result))
 				{
 					publish_head_sample(frame.predictedDisplayTime);
@@ -1965,18 +2078,22 @@ namespace bfvr::xr
 					std::unique_lock xr(xr_calls, std::defer_lock);
 					while (!xr.try_lock())
 					{
-						if (waiter_stop_requested())
+						if (waiter_stop_requested(generation))
 						{
 							return;
 						}
 						Sleep(1);
 					}
+					if (waiter_stop_requested(generation))
+					{
+						return;
+					}
 					XrFrameBeginInfo begin_info{ XR_TYPE_FRAME_BEGIN_INFO };
 					XrFrameEndInfo end_info{ XR_TYPE_FRAME_END_INFO };
 					end_info.displayTime = frame.predictedDisplayTime;
 					end_info.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
-					const XrResult begun = xrBeginFrame(session, &begin_info);
-					const XrResult ended = XR_SUCCEEDED(begun) ? xrEndFrame(session, &end_info) : begun;
+					const XrResult begun = xrBeginFrame(waited, &begin_info);
+					const XrResult ended = XR_SUCCEEDED(begun) ? xrEndFrame(waited, &end_info) : begun;
 					if (XR_FAILED(ended) && !warned_hidden_frame)
 					{
 						log::write("theater: completing a hidden frame failed: XrResult %d", static_cast<int>(ended));
@@ -1988,41 +2105,58 @@ namespace bfvr::xr
 				}
 
 				const std::lock_guard guard(waiter_lock);
+				if (waiter_stale(generation))
+				{
+					return;
+				}
 				ready_result = result;
 				ready_frame = frame;
 				frame_ready = true;
 			}
 		}
 
-		bool waiter_stop_requested()
-		{
-			const std::lock_guard guard(waiter_lock);
-			return waiter_stop;
-		}
-
 		void start_waiter()
 		{
 			stop_waiter();
-			waiter_stop = false;
-			frame_ready = false;
+			std::uint64_t generation{};
+			{
+				const std::lock_guard guard(waiter_lock);
+				waiter_stop = false;
+				waiter_done = false;
+				frame_ready = false;
+				wait_requested = true;
+				generation = ++waiter_generation;
+			}
 			latest_display_time = 0;
-			wait_requested = true;
-			waiter = std::thread([this] { waiter_loop(); });
+			waiter = std::thread([this, generation, waited = session] { waiter_loop(generation, waited); });
 		}
 
-		// Must run before the session is ended or destroyed; xrWaitFrame returns at the next headset frame.
+		// Must run before the session is ended or destroyed; xrWaitFrame returns at the next headset
+		// frame. A runtime that died under the game may never return it: then the waiter is left
+		// behind (it never touches a newer session) instead of freezing the game's Present.
 		void stop_waiter()
 		{
 			if (!waiter.joinable())
 			{
 				return;
 			}
+			std::unique_lock guard(waiter_lock);
+			waiter_stop = true;
+			guard.unlock();
+			waiter_wake.notify_all();
+			guard.lock();
+			const bool returned = waiter_exit.wait_for(guard, waiter_stop_timeout, [this] { return waiter_done; });
+			guard.unlock();
+			if (returned)
 			{
-				const std::lock_guard guard(waiter_lock);
-				waiter_stop = true;
+				waiter.join();
 			}
-			waiter_wake.notify_one();
-			waiter.join();
+			else
+			{
+				log::write("theater: the runtime did not return xrWaitFrame within %lld s; leaving the frame waiter behind",
+					static_cast<long long>(waiter_stop_timeout.count()));
+				waiter.detach();
+			}
 		}
 
 		void request_next_wait()
@@ -2219,6 +2353,7 @@ namespace bfvr::xr
 			}
 
 			frame_errors = 0;
+			rebuilds = 0;
 			if (layer_count)
 			{
 				++frames_submitted;
@@ -2292,6 +2427,7 @@ namespace bfvr::xr
 				xrDestroyInstance(instance);
 				instance = XR_NULL_HANDLE;
 			}
+			connected_server = 0;
 			system = XR_NULL_SYSTEM_ID;
 		}
 	};
@@ -2365,6 +2501,7 @@ namespace bfvr::xr
 		const std::lock_guard xr(s.xr_calls);
 		s.enter("poll events");
 		s.poll_events();
+		s.rebuild_if_lost();
 		if (s.session_running)
 		{
 			s.enter("sync actions");

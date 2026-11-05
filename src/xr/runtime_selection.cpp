@@ -14,22 +14,30 @@ namespace bfvr::xr
 {
 	namespace
 	{
-		bool process_running(const wchar_t* name)
+		DWORD process_id(const wchar_t* name)
 		{
 			const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 			if (snapshot == INVALID_HANDLE_VALUE)
 			{
-				return false;
+				return 0;
 			}
 
 			PROCESSENTRY32W entry{ sizeof(entry) };
-			bool found = false;
+			DWORD found = 0;
 			for (BOOL more = Process32FirstW(snapshot, &entry); more && !found; more = Process32NextW(snapshot, &entry))
 			{
-				found = _wcsicmp(entry.szExeFile, name) == 0;
+				if (_wcsicmp(entry.szExeFile, name) == 0)
+				{
+					found = entry.th32ProcessID;
+				}
 			}
 			CloseHandle(snapshot);
 			return found;
+		}
+
+		bool process_running(const wchar_t* name)
+		{
+			return process_id(name) != 0;
 		}
 
 		// openvrpaths.vrpath lists the SteamVR install as the first "runtime" entry.
@@ -72,6 +80,11 @@ namespace bfvr::xr
 	bool steamvr_running()
 	{
 		return process_running(L"vrserver.exe");
+	}
+
+	unsigned long steamvr_server_id()
+	{
+		return process_id(L"vrserver.exe");
 	}
 
 	std::string select_runtime()

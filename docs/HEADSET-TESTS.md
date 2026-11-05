@@ -26,7 +26,7 @@ Before each session:
 
 ## Next session: a short list
 
-Build `fix/headset-2026-11-05` (or `main` once merged). Before starting, set these back to their
+Build `main`. Before starting, set these back to their
 defaults on the panel (your 2026-11-04 experiments, saved in `bfvr.ini`): `sight_ads` 1 (it was off: no
 ADS from the headset at all), `torso_follow` 1, `arm_reach` 1, `arm_length` 1.15, `shoulder_width` 0,
 `hide_legs` 1, `ads_trigger` 0. Tap both sticks whenever something looks off.
@@ -40,6 +40,8 @@ ADS from the headset at all), `torso_follow` 1, `arm_reach` 1, `arm_length` 1.15
 5. **Reloads:** SCAR tactical reload (B, new magazine, B again keeps it), AK charging handle from below.
 6. **Free hands (FREE-1, FREE-2):** `free_hands` on (Weapon page): let go of the gun, pick it up from the floor;
    pick up a weapon an enemy dropped by reaching down to it.
+7. **Reconnect (MP3):** at the end, take the headset off for ~10 minutes, then start SteamVR again from the
+   Quest. Does the game come back in the headset?
 
 ## Main problems (2026-11-04)
 
@@ -50,7 +52,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | --- | --- | --- | --- |
 | MP1 | Looking around is fine, the rings follow hands and head well and weapon swaps and the knife work. But the drawn arms and chest are wrong: the chest doesn't move up and down with the short arms; with a longer `arm_length` and more stretch it works better, but then the chest spins in front of the view (pulling the knife) instead of staying at the chest. The right arm and the gun sometimes don't go where the real arm is. The green dot is aligned within a ~30° cone ahead and drifts beyond it | VIEW-2, VIEW-4, GUN-1, HAND-8 | Screenshots 1-6 (`re/screenshots/headset/`, not in git): a wrist turn alone swings the whole shoulder (1-2); after stick turns the body and arms are seen from the wrong side, all mirrored (2); the knife at the left vs right shoulder turns the body so far it leaves the view (3-4); the arm twists with the wrist (5-6). **Cause:** under controller aim the game turns its whole first-person body (chest, clavicles, gun root: every branch off AITrajectory but the camera's) with the aimer, which follows the gun; only the clavicles were turned back. **Fix** (`fix/headset-2026-11-05`): the body's branches (Hips, SpineX) turn back to the rendered frame, then by the torso estimate. Monitor: the shoulders stay put while the gun turns 90°, 12 snap turns keep arms and gun in front. The gun pass is not the cause: it projects with the world's own tan scale, right at any angle. Your saved `arm_length` 1.4, `arm_reach` 0, `torso_follow` 0 were workarounds: back to defaults to judge it |
 | MP2 | Not sure ADS works, but the scopes don't: the AK-12's sight is black throughout, with or without the flip magnifier (nice flip animation); the SCAR's holo can be looked through but shows no red cross. No difference at either eye, close or far | AIM-1 … AIM-7, VIEW-4 | Both lenses only clear, and the holo's cross only shows, while the game itself aims down the sights. So ADS (`sight_ads`) rarely or never engaged: lining the drawn sight up with the eye fails, likely made worse by MP1. Screenshots 7-11: the magnifier is see-through folded, dark flipped in (its lens only shows a picture in the game's ADS); the green dot sits far from where the laser goes (7-8), and in the headset somewhere else again than in SteamVR's mirror view. Recheck after the MP1 fix: the dot, the sight check and the laser all come from the drawn gun. **Found 2026-11-05:** `bfvr.ini` had `sight_ads = 0` (saved from the panel), so the headset could never start ADS; and an eye closer than ~10 cm to the sight never counted (now up to 2 cm behind the optic). Monitor: with the left eye on the sight line the game aims, the red-dot lens clears and the dot sits in the left eye's centre (`eyeshot`) |
-| MP3 | After the headset was off a while and SteamVR was started again from the Quest, SteamVR kept showing "BF-VR, Waiting" although the game still ran on the desktop | — | The stuck run's log was deleted by the restart (`dev-run` removed it). It now keeps it as `bfvr.prev.log`: next time, leave BF4 running and tell me |
+| MP3 | After the headset was off a while and SteamVR was started again from the Quest, SteamVR kept showing "BF-VR, Waiting" although the game still ran on the desktop | — | The stuck run's log was deleted by the restart (`dev-run` removed it). It now keeps it as `bfvr.prev.log`: next time, leave BF4 running and tell me. **Likely cause (code, 2026-11-05):** the mod only reconnected after SteamVR sent "exiting" and its server was seen gone; a SteamVR restarted from the Quest left BF4 holding a dead connection, and 30 frame errors switched VR off for good. **Fix** (`fix/steamvr-restart`): a new SteamVR server process under a live connection, or a lost instance/session, rebuilds the connection; frame errors rebuild instead of giving up (5 tries); a dead runtime that never returns a frame can no longer freeze the game. Monitor: starts and waits for SteamVR as before. Retest: headset off ~10 min, restart SteamVR from the Quest; the view should come back within a few seconds |
 | MARK4 | Hits and ADS need a fight to judge | HUD-2, HUD-4 | Wait until MP1 and MP2 are fixed |
 
 ## View and performance
