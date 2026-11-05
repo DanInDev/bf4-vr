@@ -65,5 +65,10 @@ namespace bfvr::xr
 		XrSpace aim_spaces_[2]{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 		bool left_grip_held_{};
 		bool right_grip_held_{};
+		bool trigger_held_[2]{}; // 0 = left, 1 = right (input/trigger_latch)
 	};
+
+	// Live setting trigger_press: how far a trigger is pulled (0..1) before the game sees it pressed; it is
+	// released 0.1 below that (input/trigger_latch).
+	void set_trigger_press(float press);
 }

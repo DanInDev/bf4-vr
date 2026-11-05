@@ -4,6 +4,7 @@
 #include <Xinput.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -14,6 +15,7 @@
 #include "input/button_map.hpp"
 #include "input/fingers.hpp"
 #include "input/handedness.hpp"
+#include "input/trigger_latch.hpp"
 
 namespace bfvr::xr
 {
@@ -22,6 +24,7 @@ namespace bfvr::xr
 		// Grip is analog on Touch; hysteresis keeps LB/RB from chattering around one threshold.
 		constexpr float grip_press = 0.55f;
 		constexpr float grip_release = 0.45f;
+		std::atomic<float> trigger_press{ 0.55f };
 
 		bool ok(XrInstance instance, XrResult result, const char* what)
 		{
@@ -41,11 +44,6 @@ namespace bfvr::xr
 		std::int16_t to_axis(float value)
 		{
 			return static_cast<std::int16_t>(std::lround(std::clamp(value, -1.0f, 1.0f) * 32767.0f));
-		}
-
-		std::uint8_t to_trigger(float value)
-		{
-			return static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
 		}
 
 		bool held(float value, bool& latch)
@@ -326,8 +324,10 @@ namespace bfvr::xr
 		pad.right_y = to_axis(look.y);
 		const float triggers[2]{ read_float(left_trigger_), read_float(right_trigger_) };
 		const float squeezes[2]{ read_float(left_grip_), read_float(right_grip_) };
-		pad.left_trigger = to_trigger(triggers[0]);
-		pad.right_trigger = to_trigger(triggers[1]);
+		// All or nothing past a press point: a finger resting on the trigger reads 25-50 % (it fired the gun).
+		const float press = trigger_press.load(std::memory_order_relaxed);
+		pad.left_trigger = input::latch_trigger(triggers[0], trigger_held_[0], press);
+		pad.right_trigger = input::latch_trigger(triggers[1], trigger_held_[1], press);
 
 		// Rig arm 1 holds the gun: the right controller, or the left one when left-handed.
 		body::fingers::finger_input fingers[2];
@@ -392,5 +392,13 @@ namespace bfvr::xr
 			xrDestroyActionSet(action_set_);
 		}
 		*this = controller_actions{};
+	}
+
+	void set_trigger_press(float press)
+	{
+		if (std::isfinite(press) && press > 0.0f && press < 1.0f)
+		{
+			trigger_press = press;
+		}
 	}
 }

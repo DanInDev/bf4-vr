@@ -173,6 +173,9 @@ squad_signal = 1
 # The controller grips are the mod's (holding the gun, reload, grenades, holsters, signals); 1 also
 # sends them to the game as LB/RB (grenade throw, and fire in some layouts).
 grips_to_game = 0
+# How far a trigger is pulled (0..1) before the game sees it pressed; released 0.1 below. A finger resting
+# on the Quest trigger reads 0.25-0.5, which used to fire the gun.
+trigger_press = 0.55
 # Left trigger = the game's aim down sights (zooms the view, uncomfortable in VR).
 ads_trigger = 0
 # Single HUD elements on (1) or off (0), hidden by the game itself, so they disappear everywhere (issue

@@ -43,6 +43,7 @@
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
+#include "xr/controller_actions.hpp"
 #include "xr/theater.hpp"
 
 namespace bfvr::core
@@ -141,6 +142,7 @@ namespace bfvr::core
 			weapon::set_grab_debug(store.boolean("grab_debug", false));
 			weapon::set_sounds(store.boolean("reload_sounds", true));
 			hooks::set_physical_pad(store.boolean("physical_pad", true));
+			xr::set_trigger_press(store.real("trigger_press", 0.55f));
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));

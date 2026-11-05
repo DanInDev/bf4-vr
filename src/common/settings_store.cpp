@@ -51,6 +51,7 @@ namespace bfvr::settings
 			{ "reload", kind::choice, 0, 0, 0, "physical", "button|physical", "reload: the game's button, or by hand (AK: pull the magazine, AR: B releases it; chest pouch)" },
 			{ "grips_to_game", kind::boolean, 0, 0, 0, "0", "", "controller grips also reach the game as LB/RB (grenade, fire in some layouts); off: they are the mod's" },
 			{ "x_menu", kind::boolean, 0, 0, 0, "1", "", "left X opens the game's menu (Start); the right B reloads" },
+			{ "trigger_press", kind::real, 0.2f, 0.9f, 0.05f, "0.55", "", "how far a trigger is pulled before the game sees it (0..1); released 0.1 below; a finger resting on the trigger reads 0.25-0.5" },
 			{ "ads_trigger", kind::boolean, 0, 0, 0, "0", "", "left trigger = the game's aim down sights (zooms the view)" },
 			{ "hud_show_crosshair", kind::boolean, 0, 0, 0, "0", "", "HUD: the game's crosshair in the middle" },
 			{ "hud_show_hit_markers", kind::boolean, 0, 0, 0, "1", "", "HUD: the hit marker when your shots hit" },

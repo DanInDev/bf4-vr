@@ -101,6 +101,7 @@ add_library(bfvr_runtime STATIC
 	src/input/handedness.cpp
 	src/input/pointer.cpp
 	src/input/physical_stance.cpp
+	src/input/trigger_latch.cpp
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
@@ -202,6 +203,9 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_physical_stance_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
 	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
+	# Trigger press/release latch (a resting finger never fires).
+	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
+	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
 
 	# HUD gesture detectors and the laser-pointer hit on synthetic poses; exits non-zero on failure.
 	add_executable(bfvr_gestures_test tests/gestures_test.cpp src/input/gestures.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
@@ -281,6 +285,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
+	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)

@@ -78,6 +78,7 @@ namespace bfvr::settings
 			{ "aim_convergence", "Weapon", "Aiming", "Aim convergence", "Metres where shots meet the barrel line", "", true },
 			{ "knife_pitch", "Weapon", "Hands and melee", "Knife angle", "Degrees the blade is raised", "", true },
 			{ "grips_to_game", "Weapon", "Buttons", "Grips to the game", "Grips also press LB and RB", "", true },
+			{ "trigger_press", "Weapon", "Buttons", "Trigger pull to fire", "Higher: a resting finger never fires", "" },
 			{ "ads_trigger", "Weapon", "Buttons", "Left trigger aims", "The game's zoom on the left trigger", "", true },
 			{ "grab_debug", "Weapon", "Testing", "Show grab zones", "Rings around every grab spot", "", true },
 
