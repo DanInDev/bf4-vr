@@ -8,6 +8,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "input/button_map.hpp"
 
 namespace bfvr::settings
 {
@@ -112,6 +113,14 @@ namespace bfvr::settings
 			{ "neutral_pitch", kind::boolean, 0, 0, 0, "0", "", "hold the game's aim pitch at 0: only the head pitches the view (level horizon)" },
 			{ "stance_flicks", kind::boolean, 0, 0, 0, "1", "", "right stick up/down changes stance (right_stick = turn)" },
 			{ "physical_stance", kind::boolean, 0, 0, 0, "0", "", "crouch or lie down in the room and the soldier does too; off when playing seated" },
+			{ "controls_preset", kind::choice, 0, 0, 0, "default", "default|jump_on_b|fire_mode_on_y|custom", "controller mapping: a preset sets the buttons below; changing one of them makes it custom" },
+			{ "bind_a", kind::choice, 0, 0, 0, "a", std::string(input::pad_button_choices()), "what the right A button presses (pad button; a = jump)" },
+			{ "bind_b", kind::choice, 0, 0, 0, "b", std::string(input::pad_button_choices()), "what the right B button presses (b = reload, magazine release)" },
+			{ "bind_x", kind::choice, 0, 0, 0, "x", std::string(input::pad_button_choices()), "what the left X button presses (x = the game's menu)" },
+			{ "bind_y", kind::choice, 0, 0, 0, "y", std::string(input::pad_button_choices()), "what the left Y button presses (y = switch weapon)" },
+			{ "bind_left_stick", kind::choice, 0, 0, 0, "left_stick", std::string(input::pad_button_choices()), "what the left stick click presses (left_stick = sprint)" },
+			{ "bind_right_stick", kind::choice, 0, 0, 0, "right_stick", std::string(input::pad_button_choices()), "what the right stick click presses (right_stick = melee)" },
+			{ "bind_menu", kind::choice, 0, 0, 0, "start", std::string(input::pad_button_choices()), "what the left menu button presses (start = pause; held: this panel)" },
 		};
 
 		registry& instance()

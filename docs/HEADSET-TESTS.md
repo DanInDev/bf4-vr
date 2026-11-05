@@ -167,6 +167,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | CTRL-12 | open | Panel: switch each feature off and on live (`two_handed`, `arm_reach`, `vignette`, `melee_gesture`, `knife_grip`, `use_reach`, `c4_trigger`, `haptics`, `reticle`, `pause_flat`, …) | Each switches off at once and back on without a restart | #25 | |
 | CTRL-13 | done | Controllers without a physical pad | | #4 | 2026-10-25: the game reads the virtual pad continuously |
 | CTRL-14 | retest | Gadget stash (green crates at the start): open it, pick Gadget One/Two with the pointer, Done | The menu appears in front of you (not where tracking started), the beam reaches it, a trigger click selects. Monitor: the menu takes pointer clicks with BF4 in front or behind and with the pad's trigger held | #34 | 2026-11-04: the items could not be selected (the flat menu sat at a fixed spot in the room) |
+| CTRL-15 | open | Controls page: preset "Jump on B, reload on A", then set Left Y to `dpad_down` | A reloads and B jumps; Y switches the fire mode; the preset shows custom after the change | | |
 
 ## Haptics and sound
 

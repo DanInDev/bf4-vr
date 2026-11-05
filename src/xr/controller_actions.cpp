@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "common/log.hpp"
+#include "input/button_map.hpp"
 #include "input/fingers.hpp"
 #include "input/handedness.hpp"
 
@@ -341,13 +342,11 @@ namespace bfvr::xr
 		std::uint16_t buttons = 0;
 		if (held(squeezes[0], left_grip_held_)) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
 		if (held(squeezes[1], right_grip_held_)) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
-		if (read_bool(a_)) buttons |= XINPUT_GAMEPAD_A;
-		if (read_bool(b_)) buttons |= XINPUT_GAMEPAD_B;
-		if (read_bool(x_)) buttons |= XINPUT_GAMEPAD_X;
-		if (read_bool(y_)) buttons |= XINPUT_GAMEPAD_Y;
-		if (read_bool(left_stick_click_)) buttons |= XINPUT_GAMEPAD_LEFT_THUMB;
-		if (read_bool(right_stick_click_)) buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
-		if (read_bool(start_)) buttons |= XINPUT_GAMEPAD_START;
+		// The face buttons, stick clicks and menu go through the controller mapping (input/button_map),
+		// on the physical buttons: the left-handed mirror below still swaps the roles afterwards.
+		const bool held[input::quest_button_count]{ read_bool(a_), read_bool(b_), read_bool(x_), read_bool(y_),
+			read_bool(left_stick_click_), read_bool(right_stick_click_), read_bool(start_) };
+		buttons |= input::pad_buttons(input::current_button_map(), held);
 		pad.buttons = buttons;
 		return input::left_handed() ? input::mirrored(pad) : pad;
 	}

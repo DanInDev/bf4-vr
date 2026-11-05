@@ -20,6 +20,7 @@
 #include "hooks/rumble_hook.hpp"
 #include "hooks/swap_chain_size.hpp"
 #include "hooks/xinput_hook.hpp"
+#include "input/button_map.hpp"
 #include "input/gamepad.hpp"
 #include "input/handedness.hpp"
 #include "input/haptics.hpp"
@@ -53,6 +54,46 @@ namespace bfvr::core
 		xr::theater* theater{};
 		bool control_enabled{};
 		std::atomic<DWORD> present_thread{};
+
+		// Controller mapping (input/button_map): choosing a preset writes its buttons; changing a
+		// button by hand turns the preset to the one that now matches, or custom.
+		void apply_button_map(settings::registry& store, bool first)
+		{
+			static std::string preset_seen;
+			const std::string preset = store.text("controls_preset", "default");
+			const input::preset* chosen = input::find_preset(preset);
+			input::button_map map;
+			if (!first && preset != preset_seen && chosen)
+			{
+				map = chosen->map;
+				for (int i = 0; i < input::quest_button_count; ++i)
+				{
+					const auto button = static_cast<input::quest_button>(i);
+					store.set(input::setting_name(button), input::value_name(map.target[i]));
+				}
+			}
+			else
+			{
+				for (int i = 0; i < input::quest_button_count; ++i)
+				{
+					const auto button = static_cast<input::quest_button>(i);
+					input::pad_button target{};
+					if (input::parse_pad_button(store.text(input::setting_name(button)), target))
+					{
+						map.target[i] = target;
+					}
+				}
+				const input::preset* matching = input::matching_preset(map);
+				const std::string_view name = matching ? matching->name : std::string_view("custom");
+				// At start-up the ini is taken as it is: no unsaved change before the user made one.
+				if (!first && name != preset)
+				{
+					store.set("controls_preset", name);
+				}
+			}
+			preset_seen = store.text("controls_preset", "default");
+			input::set_button_map(map);
+		}
 
 		// Live settings (common/settings_store.hpp) pushed into the modules when they changed.
 		void apply_settings()
@@ -149,6 +190,7 @@ namespace bfvr::core
 				input::set_right_stick_mode(stick);
 			}
 			right_stick = stick;
+			apply_button_map(store, first);
 		}
 
 		void on_present(IDXGISwapChain* swap_chain)

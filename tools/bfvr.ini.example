@@ -115,6 +115,22 @@ physical_stance = 0
 # Gun hand (issue #9): left mirrors the controllers (sticks, triggers, grips, A/B <-> X/Y, stick
 # clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
 dominant_hand = right
+# Controller mapping: which pad button each Quest button presses (the game and the mod both follow it).
+# controls_preset = default | jump_on_b (A reloads, B jumps) | fire_mode_on_y (X switches weapon, Y
+# fire mode) | custom; choosing a preset writes the bind_ lines, changing one of them makes it custom.
+# bind_* values: a b x y lb rb left_stick right_stick start back dpad_up dpad_down dpad_left dpad_right
+# none. Pad meanings: a jump, b reload/magazine release, x the game's menu, y switch weapon, lb grenade,
+# left_stick sprint, right_stick melee, start pause (held: the bf-vr panel), dpad_up laser/light/
+# magnifier, dpad_down fire mode, dpad_right attachment. Grips, triggers and sticks keep their roles.
+# On the physical buttons: with dominant_hand = left the mirror swaps the roles afterwards.
+controls_preset = default
+bind_a = a
+bind_b = b
+bind_x = x
+bind_y = y
+bind_left_stick = left_stick
+bind_right_stick = right_stick
+bind_menu = start
 # Reload (issue #14): button = the game's reload; physical = by hand. AK-pattern rifles: grip the
 # magazine with the off hand to pull it, rack the slide when empty. Others (AR): X releases the magazine
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
