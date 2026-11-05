@@ -671,7 +671,7 @@ namespace bfvr::ui
 			items.push_back(text({ tab.x + 22, tab.y, tab.w - 30, tab.h }, active ? text_main : text_soft, pages_[static_cast<std::size_t>(index)].title, 0, 25, active));
 		}
 
-		std::string help = "Point at a setting and pull the trigger. Hold the menu button, or both stick clicks, to close.";
+		std::string help = hint_;
 		for (const slot& item : layout())
 		{
 			const row& line = *row_at(item.row);
@@ -802,7 +802,7 @@ namespace bfvr::ui
 		items.push_back(box(reset_button(), hovered({ target_kind::reset_page }) ? control_hover : control_back, 10));
 		items.push_back(text(reset_button(), text_main, "Reset page", 1, 24));
 		items.push_back(box(close_button(), hovered({ target_kind::close }) ? control_hover : control_back, 10));
-		items.push_back(text(close_button(), text_main, "Close", 1, 24));
+		items.push_back(text(close_button(), text_main, close_label_, 1, 24));
 		items.push_back(box(save_button(), hovered({ target_kind::save }) ? 0xF5A04B : accent, 10));
 		items.push_back(text(save_button(), on_accent, "Save", 1, 25, true));
 		return items;

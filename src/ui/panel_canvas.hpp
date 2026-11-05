@@ -18,8 +18,10 @@ namespace bfvr::ui
 		std::uint8_t alpha{ 255 };
 	};
 
+	// scale and offset_y draw the items smaller and shifted (the launcher shows the panel in a window):
+	// each item moves down by offset_y panel pixels, then everything is scaled.
 	bool rasterise(const std::vector<draw_item>& items, int width, int height, std::vector<std::uint32_t>& pixels,
-		const std::vector<see_through>& keys = {});
+		const std::vector<see_through>& keys = {}, float scale = 1.0f, int offset_y = 0);
 
 	// 32-bit BMP of rasterised pixels (pipe "panel shot", tests).
 	bool write_bmp(const std::string& path, const std::vector<std::uint32_t>& pixels, int width, int height);

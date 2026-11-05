@@ -68,8 +68,17 @@ namespace bfvr::ui
 		}
 	}
 
-	bool rasterise(const std::vector<draw_item>& items, int width, int height, std::vector<std::uint32_t>& pixels, const std::vector<see_through>& keys)
+	bool rasterise(const std::vector<draw_item>& items, int width, int height, std::vector<std::uint32_t>& pixels, const std::vector<see_through>& keys,
+		float scale, int offset_y)
 	{
+		const auto place = [&](const rect& from)
+		{
+			const int left = static_cast<int>(std::lround(from.x * scale));
+			const int top = static_cast<int>(std::lround((from.y + offset_y) * scale));
+			return rect{ left, top, static_cast<int>(std::lround((from.x + from.w) * scale)) - left,
+				static_cast<int>(std::lround((from.y + offset_y + from.h) * scale)) - top };
+		};
+		const auto sized = [&](int pixels_at_full) { return std::max(1, static_cast<int>(std::lround(pixels_at_full * scale))); };
 		BITMAPINFO info{};
 		info.bmiHeader.biSize = sizeof(info.bmiHeader);
 		info.bmiHeader.biWidth = width;
@@ -97,11 +106,12 @@ namespace bfvr::ui
 		std::map<int, HFONT> fonts;
 		for (const draw_item& item : items)
 		{
-			RECT area{ item.area.x, item.area.y, item.area.x + item.area.w, item.area.y + item.area.h };
+			const rect placed = place(item.area);
+			RECT area{ placed.x, placed.y, placed.x + placed.w, placed.y + placed.h };
 			if (item.kind == draw_item::type::box && item.radius > 0)
 			{
 				GdiFlush();
-				fill_rounded(static_cast<std::uint32_t*>(bits), width, height, item.area, item.radius, item.color & 0xFFFFFFu);
+				fill_rounded(static_cast<std::uint32_t*>(bits), width, height, placed, sized(item.radius), item.color & 0xFFFFFFu);
 				continue;
 			}
 			if (item.kind == draw_item::type::box)
@@ -111,10 +121,11 @@ namespace bfvr::ui
 				DeleteObject(brush);
 				continue;
 			}
-			HFONT& font = fonts[item.size * 2 + (item.bold ? 1 : 0)];
+			const int size = sized(item.size);
+			HFONT& font = fonts[size * 2 + (item.bold ? 1 : 0)];
 			if (!font)
 			{
-				font = CreateFontW(-item.size, 0, 0, 0, item.bold ? FW_SEMIBOLD : FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+				font = CreateFontW(-size, 0, 0, 0, item.bold ? FW_SEMIBOLD : FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
 					CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 			}
 			SelectObject(dc, font);
@@ -146,8 +157,8 @@ namespace bfvr::ui
 				pixel = rgb | 0xFF000000u;
 				continue;
 			}
-			const auto scale = [&](int shift) { return (((rgb >> shift) & 0xFFu) * alpha / 255u) << shift; };
-			pixel = (alpha << 24) | scale(16) | scale(8) | scale(0);
+			const auto premultiplied = [&](int shift) { return (((rgb >> shift) & 0xFFu) * alpha / 255u) << shift; };
+			pixel = (alpha << 24) | premultiplied(16) | premultiplied(8) | premultiplied(0);
 		}
 
 		SelectObject(dc, previous_font);

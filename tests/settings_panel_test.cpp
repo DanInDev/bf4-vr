@@ -1,6 +1,7 @@
 // Checks the in-VR settings panel (src/ui/settings_panel, src/ui/panel_canvas): pages, hit testing,
 // clicks on a registry, scrolling, the draw list and GDI rasterising. With a path argument it also
 // writes the panel for the real settings as a BMP, to look at without a headset.
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -405,11 +406,28 @@ int main(int argc, char** argv)
 	}
 	for (const settings::presentation& entry : settings::catalog())
 	{
-		if (!settings::global().definition_of(entry.name))
+		const auto startup = settings::startup_definitions();
+		const bool is_startup = std::any_of(startup.begin(), startup.end(), [&](const settings::definition& item) { return item.name == entry.name; });
+		if (entry.startup ? !is_startup : !settings::global().definition_of(entry.name))
 		{
-			std::printf("FAIL: catalog entry %s is no live setting\n", std::string(entry.name).c_str());
+			std::printf("FAIL: catalog entry %s is no %s setting\n", std::string(entry.name).c_str(), entry.startup ? "start-up" : "live");
 			++failures;
 		}
+	}
+	expect(default_pages(settings::global()).front().title == "View", "no start-up page in the game's own panel");
+	{
+		// The launcher's registry: live and start-up settings, the start-up page first.
+		settings::registry launcher;
+		for (const auto& item : settings::live_definitions())
+		{
+			launcher.add(item);
+		}
+		for (const auto& item : settings::startup_definitions())
+		{
+			launcher.add(item);
+		}
+		const auto pages = default_pages(launcher);
+		expect(pages.front().title == "Start-up" && pages.front().rows.size() == 7, "launcher: start-up page with its heading and six settings");
 	}
 	if (argc > 1)
 	{

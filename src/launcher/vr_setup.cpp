@@ -33,8 +33,8 @@ namespace bfvr::launcher
 			{ "stereo", "1", L"head-tracked 3D", "0" },
 			{ "stereo_render", "pair", L"both eyes from one frame (no judder)", "aer" },
 			{ "render_size", "2160x2160", L"render 2160x2160 (sharp)", "0" },
-			{ "view_crop_h", "0.78", L"view crop 0.78 x 0.72 (what the lenses show)", "1" },
-			{ "view_crop_v", "0.72", L"", "1" },
+			{ "view_crop_h", "0.78", L"rendered width 0.78 (what the lenses show)", "1" },
+			{ "view_crop_v", "0.72", L"rendered height 0.72", "1" },
 			{ "hud_layer", "1", L"HUD on its own sharp layer", "0" },
 		};
 

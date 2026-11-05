@@ -365,7 +365,8 @@ namespace bfvr::launcher::theme
 	void create(HWND window)
 	{
 		destroy();
-		dpi = GetDpiForWindow(window);
+		// The window is a third larger than 96 DPI pixels (the dialog font in launcher.rc is 12 pt, not 9).
+		dpi = GetDpiForWindow(window) * 4 / 3;
 		for (std::size_t i = 0; i < std::size(specs); ++i)
 		{
 			fonts[i] = CreateFontW(-MulDiv(specs[i].tenths, static_cast<int>(dpi), 720), 0, 0, 0, specs[i].weight, FALSE, FALSE, FALSE,

@@ -6,9 +6,16 @@ namespace bfvr::settings
 {
 	namespace
 	{
-		constexpr std::string_view pages[] = { "View", "Body", "Weapon", "HUD", "Controls", "Advanced" };
+		constexpr std::string_view pages[] = { "Start-up", "View", "Body", "Weapon", "HUD", "Controls", "Advanced" };
 
 		constexpr presentation entries[] = {
+			// Start-up: read when the game starts; the launcher shows them, the in-VR panel cannot change them.
+			{ "theater", "Start-up", "When the game starts", "VR", "Show the game in the headset", "", false, true },
+			{ "stereo", "Start-up", "When the game starts", "Head-tracked 3D", "Off: a flat screen in the headset", "", false, true },
+			{ "stereo_first_person", "Start-up", "When the game starts", "Gun stays on the aim", "While your head looks around", "", false, true },
+			{ "gamepad", "Start-up", "When the game starts", "Controllers as the pad", "The VR controllers play the game", "", false, true },
+			{ "hud_layer", "Start-up", "When the game starts", "Sharp HUD layer", "The HUD drawn on its own layer", "0=Off|1=On|2=Live", false, true },
+			{ "xr_runtime", "Start-up", "When the game starts", "VR runtime", "Auto: SteamVR when it is running", "auto=Auto|steamvr=SteamVR|system=Windows", false, true },
 			// View
 			{ "stereo_render", "View", "Rendering", "3D rendering", "How the two eyes are drawn", "pair=Both eyes per frame|aer=Alternate eyes" },
 			{ "foveation", "View", "Rendering", "Foveated rendering", "Softer edges for more frame rate", "off=Off|light=Light|medium=Medium|strong=Strong" },

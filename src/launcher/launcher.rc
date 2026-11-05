@@ -12,7 +12,7 @@ IDR_WALLPAPER RCDATA "wallpaper.jpg"
 IDD_MAIN DIALOGEX 0, 0, 420, 262
 STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN
 CAPTION "bf-vr launcher - Battlefield 4 VR (campaign only)"
-FONT 9, "Segoe UI", 400, 0, 1
+FONT 12, "Segoe UI", 400, 0, 1
 BEGIN
 	PUSHBUTTON "Play", IDC_TAB_PLAY, 112, 0, 50, 22, BS_OWNERDRAW
 	PUSHBUTTON "Setup", IDC_TAB_SETUP, 162, 0, 50, 22, BS_OWNERDRAW
@@ -55,19 +55,6 @@ BEGIN
 	LTEXT "", IDC_INI_STATUS, 230, 129, 172, 38, SS_NOPREFIX
 	PUSHBUTTON "Set up for VR", IDC_SETUP, 230, 172, 172, 22, BS_OWNERDRAW
 	PUSHBUTTON "Restore BF4 settings", IDC_RESTORE_PROFILE, 230, 198, 172, 14, BS_OWNERDRAW
-
-	// Settings
-	LTEXT "VR SETTINGS", IDC_SETTINGS_HEADING, 20, 38, 180, 11
-	RTEXT "bfvr.ini in the game folder; the game reads it when it starts", IDC_SETTINGS_FILE_HINT, 200, 40, 200, 8
-	CONTROL "Theater screen\nVR on: the game shows on a virtual screen in the headset", IDC_THEATER, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 54, 392, 24
-	CONTROL "Head-tracked stereo\nExperimental: both eyes with head tracking, replaces the virtual screen", IDC_STEREO, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 80, 392, 24
-	CONTROL "Weapon stays on the aim\nStereo: the gun points where the soldier aims while the head looks around", IDC_STEREO_FIRST_PERSON, "Button", BS_OWNERDRAW | WS_TABSTOP, 30, 106, 376, 24
-	CONTROL "Controllers as an Xbox pad\nVR controllers drive the game through XInput", IDC_GAMEPAD, "Button", BS_OWNERDRAW | WS_TABSTOP, 14, 132, 392, 24
-	LTEXT "OPENXR RUNTIME", IDC_SETTINGS_RUNTIME_LABEL, 20, 164, 180, 8
-	COMBOBOX IDC_RUNTIME, 20, 174, 180, 80, CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
-	LTEXT "auto: SteamVR if it is running, else the Windows default. A runtime manifest path also works.", IDC_SETTINGS_RUNTIME_HINT, 208, 174, 194, 18, SS_NOPREFIX
-	PUSHBUTTON "Save settings", IDC_SAVE, 20, 196, 80, 16, BS_OWNERDRAW
-	PUSHBUTTON "Reload", IDC_RELOAD, 104, 196, 60, 16, BS_OWNERDRAW
 
 	LTEXT "", IDC_MESSAGE, 12, 230, 396, 28, SS_NOPREFIX
 END

@@ -123,6 +123,17 @@ namespace bfvr::settings
 			{ "bind_menu", kind::choice, 0, 0, 0, "start", std::string(input::pad_button_choices()), "what the left menu button presses (start = pause; held: this panel)" },
 		};
 
+		// Read once by the game (common/config): theater.cpp, core.cpp, camera_hook.cpp, hud_capture.cpp,
+		// runtime_selection.cpp. Defaults as there.
+		const definition startup[] = {
+			{ "theater", kind::boolean, 0, 0, 0, "1", "", "VR on: the game is shown in the headset" },
+			{ "stereo", kind::boolean, 0, 0, 0, "0", "", "head-tracked 3D (off: the game on a flat virtual screen)" },
+			{ "stereo_first_person", kind::boolean, 0, 0, 0, "1", "", "3D: the gun stays on the soldier's aim while the head looks around" },
+			{ "gamepad", kind::boolean, 0, 0, 0, "1", "", "the VR controllers drive the game as an Xbox pad" },
+			{ "hud_layer", kind::choice, 0, 0, 0, "0", "0|1|2", "3D: the HUD on its own sharp layer (2: captured every frame)" },
+			{ "xr_runtime", kind::choice, 0, 0, 0, "auto", "auto|steamvr|system", "OpenXR runtime: auto = SteamVR if it is running, else the Windows default" },
+		};
+
 		registry& instance()
 		{
 			static registry store;
@@ -187,6 +198,16 @@ namespace bfvr::settings
 		}
 		instance().mark_saved();
 		return {};
+	}
+
+	std::span<const definition> live_definitions()
+	{
+		return definitions;
+	}
+
+	std::span<const definition> startup_definitions()
+	{
+		return startup;
 	}
 
 	std::string pipe_command(std::string_view line)

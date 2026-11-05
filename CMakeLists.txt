@@ -310,7 +310,10 @@ if(BFVR_GAME STREQUAL "bf4")
 
 	add_executable(bfvr_launcher WIN32
 		src/launcher/main.cpp
+		src/launcher/settings_view.cpp
 		src/launcher/theme.cpp
+		src/ui/panel_canvas.cpp
+		src/ui/settings_panel.cpp
 		src/launcher/launcher.rc
 		src/launcher/launcher.manifest
 	)

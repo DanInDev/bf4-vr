@@ -45,14 +45,5 @@
 #define IDC_RESTORE_PROFILE 1220
 #define IDC_CHECK_UPDATE 1221
 
-#define IDC_SETTINGS_HEADING 1340
-#define IDC_SETTINGS_RUNTIME_LABEL 1350
-#define IDC_SETTINGS_FILE_HINT 1370
-#define IDC_SETTINGS_RUNTIME_HINT 1371
-#define IDC_THEATER 1310
-#define IDC_STEREO 1311
-#define IDC_STEREO_FIRST_PERSON 1312
-#define IDC_GAMEPAD 1313
-#define IDC_RUNTIME 1314
-#define IDC_SAVE 1315
-#define IDC_RELOAD 1316
+// The Settings page is one child window (launcher/settings_view), created at start-up.
+#define IDC_SETTINGS_VIEW 1390

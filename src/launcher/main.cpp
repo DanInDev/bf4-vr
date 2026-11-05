@@ -18,6 +18,7 @@
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
 #include "launcher/resource.hpp"
+#include "launcher/settings_view.hpp"
 #include "launcher/theme.hpp"
 #include "launcher/update.hpp"
 #include "launcher/vr_setup.hpp"
@@ -26,21 +27,6 @@ namespace bfvr::launcher
 {
 	namespace
 	{
-		struct toggle
-		{
-			int control;
-			const char* key;
-			bool fallback;
-		};
-
-		// Defaults as in common/config.hpp.
-		constexpr toggle toggles[] = {
-			{ IDC_THEATER, "theater", true },
-			{ IDC_STEREO, "stereo", false },
-			{ IDC_STEREO_FIRST_PERSON, "stereo_first_person", true },
-			{ IDC_GAMEPAD, "gamepad", true },
-		};
-		constexpr const wchar_t* runtimes[] = { L"auto", L"system", L"steamvr" };
 
 		// The content IDs bf4.exe itself hands to the EA app (tools/game.ps1); the Play button's offer
 		// key is rejected over this link as "EntitlementNotFound".
@@ -65,8 +51,10 @@ namespace bfvr::launcher
 		constexpr RECT panels[page_count][3] = {
 			{ { 270, 32, 410, 160 } },
 			{ { 10, 32, 210, 122 }, { 10, 128, 210, 218 }, { 220, 32, 410, 218 } },
-			{ { 10, 32, 410, 218 } },
+			{ { 0, 0, 0, 0 } },
 		};
+		// The Settings page's view (launcher/settings_view): the in-VR panel, without its title bar.
+		constexpr RECT settings_area{ 10, 26, 410, 224 };
 
 		enum class tone
 		{
@@ -212,12 +200,7 @@ namespace bfvr::launcher
 			case IDC_MINIMIZE: return theme::button::minimize;
 			case IDCANCEL: return theme::button::close;
 			case IDC_START: return theme::button::launch;
-			case IDC_SETUP:
-			case IDC_SAVE: return theme::button::primary;
-			case IDC_THEATER:
-			case IDC_STEREO:
-			case IDC_STEREO_FIRST_PERSON:
-			case IDC_GAMEPAD: return theme::button::toggle;
+			case IDC_SETUP: return theme::button::primary;
 			default: return theme::button::normal;
 			}
 		}
@@ -332,7 +315,6 @@ namespace bfvr::launcher
 					}
 				}
 			});
-			SetWindowTheme(GetDlgItem(dialog, IDC_RUNTIME), L"DarkMode_CFD", nullptr);
 			const UINT dpi = GetDpiForWindow(dialog);
 			for (const auto [kind, metric] : { std::pair{ ICON_BIG, SM_CXICON }, std::pair{ ICON_SMALL, SM_CXSMICON } })
 			{
@@ -378,7 +360,15 @@ namespace bfvr::launcher
 			case proxy_state::absent:
 				return std::filesystem::exists(mod_dll(), error) ? L"not installed" : L"not installed; dinput8.dll is missing beside the launcher";
 			case proxy_state::ours:
-				return L"INSTALLED (" + widen(app.proxy.config) + L" build, " + widen(app.proxy.deployed) + L"): remove before multiplayer";
+			{
+				// "2026-11-05T10:25:35" reads as "2026-11-05 10:25".
+				std::wstring when = widen(app.proxy.deployed);
+				if (when.size() >= 16 && when[10] == L'T')
+				{
+					when = when.substr(0, 10) + L" " + when.substr(11, 5);
+				}
+				return L"Installed (" + widen(app.proxy.config) + L" build, " + when + L"). Remove it before multiplayer.";
+			}
 			case proxy_state::foreign:
 				return L"another mod's dinput8.dll is present; bf-vr leaves it untouched";
 			}
@@ -418,8 +408,6 @@ namespace bfvr::launcher
 				&& !app.running && app.proxy.state != proxy_state::foreign);
 			EnableWindow(GetDlgItem(dialog, IDC_REMOVE), app.proxy.state == proxy_state::ours && !app.running);
 			EnableWindow(GetDlgItem(dialog, IDC_START), have_dir && !app.running);
-			EnableWindow(GetDlgItem(dialog, IDC_SAVE), have_dir);
-			EnableWindow(GetDlgItem(dialog, IDC_RELOAD), have_dir);
 			refresh_setup(dialog);
 		}
 
@@ -495,21 +483,10 @@ namespace bfvr::launcher
 			EnableWindow(GetDlgItem(dialog, IDC_RESTORE_PROFILE), !app.running && std::filesystem::exists(profile_backup(app.profile), error));
 		}
 
-		void update_stereo_options(HWND dialog)
-		{
-			EnableWindow(GetDlgItem(dialog, IDC_STEREO_FIRST_PERSON), is_on(dialog, IDC_STEREO));
-		}
-
 		void load_settings(HWND dialog)
 		{
-			const ini::values values = app.game.dir.empty() ? ini::values{} : ini::read(ini_path());
-			for (const auto& item : toggles)
-			{
-				theme::set_checked(GetDlgItem(dialog, item.control), ini::get_bool(values, item.key, item.fallback));
-			}
-			const auto runtime = values.find("xr_runtime");
-			SetDlgItemTextW(dialog, IDC_RUNTIME, runtime == values.end() || runtime->second.empty() ? L"auto" : widen(runtime->second).c_str());
-			update_stereo_options(dialog);
+			settings_view::load(GetDlgItem(dialog, IDC_SETTINGS_VIEW), app.game.dir.empty() ? std::filesystem::path() : ini_path(),
+				app.launcher_dir / L"bfvr.ini.example");
 
 			// bfvr::config lets BFVR_<KEY> environment variables override the file.
 			std::wstring overridden;
@@ -526,30 +503,11 @@ namespace bfvr::launcher
 			}
 		}
 
-		void save_settings(HWND dialog)
+		// From the Settings page's view: saved, undone, or an error.
+		void settings_message(HWND dialog, const std::wstring& text, bool ok)
 		{
-			ini::changes edits;
-			for (const auto& item : toggles)
-			{
-				edits.emplace_back(item.key, is_on(dialog, item.control) ? "1" : "0");
-			}
-			const std::wstring runtime = window_text(dialog, IDC_RUNTIME);
-			if (runtime.find(L'#') != std::wstring::npos)
-			{
-				fail(dialog, L"The runtime path cannot contain '#': bfvr.ini treats it as the start of a comment.");
-				return;
-			}
-			edits.emplace_back("xr_runtime", runtime.empty() ? "auto" : narrow(runtime));
-
-			if (ini::write(ini_path(), edits, app.launcher_dir / L"bfvr.ini.example"))
-			{
-				say(dialog, L"Settings saved to bfvr.ini; the game reads them when it starts.");
-				refresh_setup(dialog);
-			}
-			else
-			{
-				fail(dialog, L"Could not write " + ini_path().wstring() + L".");
-			}
+			show(dialog, IDC_MESSAGE, text, ok ? tone::normal : tone::bad);
+			refresh_setup(dialog);
 		}
 
 		void report(HWND dialog, const result& outcome)
@@ -690,14 +648,15 @@ namespace bfvr::launcher
 			switch (message)
 			{
 			case WM_INITDIALOG:
-				for (const wchar_t* runtime : runtimes)
-				{
-					SendDlgItemMessageW(dialog, IDC_RUNTIME, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(runtime));
-				}
 				init_window(dialog);
+				settings_view::create(dialog, IDC_SETTINGS_VIEW, to_pixels(dialog, settings_area), settings_message);
 				refresh(dialog, true);
 				load_settings(dialog);
 				show_page(dialog, app.proxy.state == proxy_state::ours ? play : setup);
+				if (GetWindowTextLengthW(GetDlgItem(dialog, IDC_MESSAGE)) == 0)
+				{
+					say(dialog, L"bf-vr " + widen(std::string(mod_version())) + L"  \x00B7  Battlefield 4 single-player campaign in VR  \x00B7  Quest 3 through Steam Link");
+				}
 				SetTimer(dialog, refresh_timer, 2000, nullptr);
 				return TRUE;
 			case WM_TIMER:
@@ -745,6 +704,13 @@ namespace bfvr::launcher
 				SetDCBrushColor(dc, theme::color::raised);
 				return reinterpret_cast<INT_PTR>(GetStockObject(DC_BRUSH));
 			}
+			case WM_MOUSEWHEEL:
+				if (app.current == settings)
+				{
+					settings_view::scroll(GetDlgItem(dialog, IDC_SETTINGS_VIEW), GET_WHEEL_DELTA_WPARAM(wparam));
+					return TRUE;
+				}
+				return FALSE;
 			case WM_DPICHANGED:
 				theme::create(dialog);
 				apply_fonts(dialog);
@@ -767,28 +733,24 @@ namespace bfvr::launcher
 				case IDC_TAB_SETUP: show_page(dialog, setup); break;
 				case IDC_TAB_SETTINGS: show_page(dialog, settings); break;
 				case IDC_MINIMIZE: ShowWindow(dialog, SW_MINIMIZE); break;
-				case IDC_THEATER:
-				case IDC_STEREO:
-				case IDC_STEREO_FIRST_PERSON:
-				case IDC_GAMEPAD:
-				{
-					const HWND toggle = GetDlgItem(dialog, LOWORD(wparam));
-					theme::set_checked(toggle, !theme::checked(toggle));
-					update_stereo_options(dialog);
-					break;
-				}
 				case IDC_CHANGE_FOLDER: choose_folder(dialog); break;
 				case IDC_OPEN_FOLDER: open_path(dialog, app.game.dir); break;
 				case IDC_INSTALL: report(dialog, deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG)); break;
 				case IDC_REMOVE: report(dialog, remove(app.game)); break;
-				case IDC_SAVE: save_settings(dialog); break;
-				case IDC_RELOAD: load_settings(dialog); say(dialog, L"Settings reloaded from bfvr.ini."); break;
 				case IDC_START: start_game(dialog); break;
 				case IDC_SETUP: set_up(dialog); break;
 				case IDC_RESTORE_PROFILE: report(dialog, restore_profile(app.profile, game_running(app.game))); break;
 				case IDC_OPEN_LOG: open_log(dialog); break;
 				case IDC_CHECK_UPDATE: check_update(dialog); break;
-				case IDCANCEL: KillTimer(dialog, refresh_timer); EndDialog(dialog, 0); break;
+				case IDCANCEL:
+					if (settings_view::unsaved() && MessageBoxW(dialog, L"Your settings changes are not saved. Close anyway?", L"bf-vr launcher",
+							MB_YESNO | MB_ICONQUESTION) != IDYES)
+					{
+						break;
+					}
+					KillTimer(dialog, refresh_timer);
+					EndDialog(dialog, 0);
+					break;
 				default: return FALSE;
 				}
 				return TRUE;

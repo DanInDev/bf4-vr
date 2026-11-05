@@ -69,7 +69,7 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Action remove
 
 Or use the launcher, `build\bf4\Debug\bfvr_launcher.exe` (or `Release`): it finds BF4 through the
 registry, verifies build 179547, installs or removes the `dinput8.dll` beside it (same ownership marker
-as `deploy.ps1`, so both tools work together), edits the main `bfvr.ini` keys, starts BF4 through the
+as `deploy.ps1`, so both tools work together), edits every setting in `bfvr.ini` on its Settings page (the same pages as the in-VR panel, plus the ones read at start-up), starts BF4 through the
 EA app and opens `bfvr.log`. **Remove mod (required before multiplayer)** takes the DLL out again.
 `tools\package.ps1` builds the release zip for players (see docs/TOOLING.md).
 
@@ -81,6 +81,9 @@ Grab by putting a hand in a zone and squeezing its grip. Circles show the real r
 draws them in the headset too.
 
 ![Grab zones around the body: shoulders, chest, hips](docs/img/grab-zones.svg)
+
+Every button on the map can be remapped: Controls page of the panel (or the launcher), with presets such
+as "Jump on B, reload on A". Grips, triggers and stick directions keep their roles.
 
 Both maps come from `tools/body_maps.py`, which copies its zone offsets and bindings from the code.
 Run it again (`python -E -P tools\body_maps.py`) after changing either.
@@ -98,7 +101,7 @@ Run it again (`python -E -P tools\body_maps.py`) after changing either.
 | Left menu (≡) | Start | Pause menu (short press). **Hold it** for the bf-vr settings panel: point with either controller, trigger clicks, Save writes `bfvr.ini` |
 | Both stick clicks, held ~0.5 s | (none) | Opens or closes the bf-vr settings panel too (SteamVR can take the ≡ button for its dashboard). A single stick click reaches the game 0.1 s late |
 
-No D-pad or Back yet. BF4 reads the pad through its own XInput calls, merged with any real pad on slot 1.
+D-pad and Back have no button of their own: map one to them on the Controls page. BF4 reads the pad through its own XInput calls, merged with any real pad on slot 1.
 Keep the BF4 window focused on the desktop: unfocused, the game drops to 30 fps.
 
 Settings live in `bfvr.ini` beside the game exe (template: `tools/bfvr.ini.example`):

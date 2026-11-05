@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -19,4 +20,10 @@ namespace bfvr::settings
 
 	// Writes the changed values into bfvr.ini (comments and other keys kept); "" or an error text.
 	std::string save_global();
+
+	// Every live setting's definition, for a registry of its own (the launcher edits bfvr.ini with one).
+	std::span<const definition> live_definitions();
+	// Keys the game reads once when it starts (common/config), as definitions: only the launcher
+	// offers them; changing them in a running game does nothing.
+	std::span<const definition> startup_definitions();
 }

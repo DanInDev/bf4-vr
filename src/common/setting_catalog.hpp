@@ -18,12 +18,13 @@ namespace bfvr::settings
 		std::string_view summary; // one short line under the name
 		std::string_view choices; // "value=Label|value=Label" in display order; empty: the values as they are
 		bool advanced{};          // shown on the Advanced page, under its page's name
+		bool startup{};           // read when the game starts (settings::startup_definitions): launcher only
 	};
 
 	// In display order within each page and section.
 	std::span<const presentation> catalog();
 	const presentation* presentation_of(std::string_view name);
-	// The pages in order: View, Body, Weapon, HUD, Controls, Advanced.
+	// The pages in order: Start-up (launcher only), View, Body, Weapon, HUD, Controls, Advanced.
 	std::span<const std::string_view> catalog_pages();
 	// A choice value's readable name ("pair" -> "Both eyes per frame"); the value itself when unknown.
 	std::string choice_label(std::string_view name, std::string_view value);

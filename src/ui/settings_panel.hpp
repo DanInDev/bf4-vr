@@ -124,6 +124,11 @@ namespace bfvr::ui
 		// status: shown in the title bar (e.g. "saved"); the hovered row's help goes above the buttons.
 		std::vector<draw_item> draw(const settings::registry& store, std::string_view status) const;
 
+		// The Close button's caption (the launcher's panel discards changes with it).
+		void set_close_label(std::string label) { close_label_ = std::move(label); }
+		// The line above the buttons while nothing is hovered (the launcher's says to click, not point).
+		void set_hint(std::string hint) { hint_ = std::move(hint); }
+
 		int current_page() const { return page_; }
 		int first_row() const { return first_row_; }
 		const std::vector<page>& pages() const { return pages_; }
@@ -165,5 +170,7 @@ namespace bfvr::ui
 		int page_{};
 		int first_row_{};
 		target hover_;
+		std::string close_label_{ "Close" };
+		std::string hint_{ "Point at a setting and pull the trigger. Hold the menu button, or both stick clicks, to close." };
 	};
 }
