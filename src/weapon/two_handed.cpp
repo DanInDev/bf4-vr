@@ -75,6 +75,7 @@ namespace bfvr::weapon
 			body::set_gun_hand_rotation(false, identity);
 			body::set_support_hand(0.0f);
 			input::set_aim_direction(false, none);
+			input::set_shot_line(false, none, none);
 			sight_aiming = false;
 			input::set_sight_aim(false);
 		}
@@ -239,6 +240,8 @@ namespace bfvr::weapon
 		}
 		shot_valid = true;
 		input::set_aim_direction(true, last_shot);
+		// Where shots start (weapon/shot_origin): the sight line itself, along the barrel.
+		input::set_shot_line(true, start, barrel);
 
 		// sight_ads: an eye behind the sight holds the game's aim down sights (its lens clears, ADS
 		// accuracy); a wider band to leave than to enter, so a steady aim does not flicker.

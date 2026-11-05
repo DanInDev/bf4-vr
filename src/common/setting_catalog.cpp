@@ -74,6 +74,7 @@ namespace bfvr::settings
 			{ "squad_signal", "Weapon", "Hands and melee", "Squad order by hand", "Off hand up above your eyes + grip", "" },
 			{ "aim", "Weapon", "Aiming", "Aim with", "The gun hand, or the view", "controller=Controller|head=Head", true },
 			{ "gun_pose", "Weapon", "Aiming", "Gun pose", "On the controller ray, or the game's", "aim=On the ray|animated=Animated", true },
+			{ "shots_from_gun", "Weapon", "Aiming", "Bullets leave the gun", "Off: from your eyes towards the aim", "" },
 			{ "shot_line", "Weapon", "Aiming", "Shots follow", "The drawn gun's sight, or the controller", "gun=Gun|controller=Controller", true },
 			{ "aim_convergence", "Weapon", "Aiming", "Aim convergence", "Metres where shots meet the barrel line", "", true },
 			{ "knife_pitch", "Weapon", "Hands and melee", "Knife angle", "Degrees the blade is raised", "", true },

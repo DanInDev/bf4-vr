@@ -270,3 +270,23 @@ now ~450 px apart between the eyes (~17 cm, as expected).
   ever show (HUD) or leak (a full-auto burst faster than one frame).
 - Shotguns, bolt actions, belt-fed guns, pistols: variants and their bones (`Wep_Belt*`, `Wep_Slide`).
 - Underslung launchers (`Wep_Grenade1/2`) use a second firing function.
+
+## Where shots start (2026-11-05, monitor)
+
+- Every shot starts at the weapon's **shot frame**: ClientSoldierWeapon `+0x49A8` -> ClientWeapon, `+0x40`: 4x4
+  rows right, up, forward (`+0x60`), position (`+0x70`), world space. The game sets it every frame at the
+  camera joint (0.000 m) along the aim (fake controller 30/10 deg -> 29.2/9.6, the sway). Found by scanning
+  the weapon objects for a transform at the camera.
+- Its only writer is a generic 32-byte setter `0x1401473B0` (copies rdx to rcx +0x40..+0x7F; 10 callers),
+  called for the weapon from `0x141013119`. Read-watch while firing: `0x14092B0CB` reads it once per bullet
+  (10 reads in 0.9 s of AK fire), others every frame.
+- `weapon/shot_origin` hooks the setter; for the local player's current weapon (pointer cached 200 ms)
+  under controller aim it moves the frame to the drawn gun's sight line (`weapon/two_handed`'s start, the
+  sight eye point else the optic or Wep_Root) along the barrel, converted from OpenXR LOCAL with the body
+  yaw and the position the game passes in (plus the physical-stance lift); never more than 0.8 m from
+  the camera. Engine-free maths: `weapon/shot_frame`, `tests/shot_frame_test.cpp`.
+- Check: gun 25 cm below and 5 cm left of the eye, wall ~2 m: a burst with `shots_from_gun 0` hit near
+  the view centre (from the eyes towards the point 25 m along the barrel); with 1 the holes sat ~23 cm
+  lower: the bullets leave the gun. Live frame: 37 cm from the camera, forward exactly the barrel's 20 deg.
+- Still from the camera: the game's own aim (the aimer, so the body and dispersion) and the green dot's
+  depth (drawn at 25 m: from the hip, a close hit sits off the dot by parallax; on the sight line it is on it).

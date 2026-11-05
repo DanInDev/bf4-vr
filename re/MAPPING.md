@@ -59,7 +59,7 @@ Status: ✅ mapped and verified · 🟡 partly known · ⬜ not started. Issue n
 | Authoritative view angles (yaw/pitch) | Neutralise game pitch, snap turn, head-driven yaw (#5) | Done: aimer `[[weapon+0x4988]+0x10]` +0x14/+0x18, verified by writing ([aim.md](notes/aim.md)). Open: vehicles and scripted sections | ✅ |
 | **Input concepts** (Frostbite input actions such as move, fire, reload, jump) | Drive the game directly from VR controllers, no physical pad needed (#4), and gestures (M4) | Find the input-concept array the game reads each frame; `watch` it while pressing keys | ⬜ |
 | Device detection for gamepads | Why XInput is never polled without a pad (#4) | Wrap `IDirectInput8::EnumDevices` (we are the dinput8 proxy); log Raw Input/SetupAPI calls | 🟡 ([gamepad.md](notes/gamepad.md)) |
-| Weapon fire origin and direction | Aim with the controller (#12) | Find where a shot's ray/projectile transform is built (watch the camera-forward read during firing; Frosty `WeaponFiringData`) | ⬜ |
+| Weapon fire origin and direction | Aim with the controller (#12) | ClientWeapon +0x40 shot frame, setter `0x1401473B0` hooked (`weapon/shot_origin`, re/notes/weapon.md) | ✅ |
 | Weapon sway/recoil | Keep the controller authoritative, add recoil as an offset | Frosty `GunSwayData`; watch the sway transform. Data mapped and used for the drawn gun's kick (2026-11-03, re/notes/weapon.md "Recoil data"); the runtime sway object and its offset writer `0x140FA6640` not followed (the offset stays 0 under controller aim) | 🟡 |
 
 ### 4. Body and skeleton (top priority after the camera)

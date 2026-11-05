@@ -146,6 +146,8 @@ add_library(bfvr_runtime STATIC
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
+	src/weapon/shot_frame.cpp
+	src/weapon/shot_origin.cpp
 	src/weapon/game_reload_sounds.cpp
 	src/weapon/reload_sounds.cpp
 	src/ui/menu_button.cpp
@@ -203,6 +205,9 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_physical_stance_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
 	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
+	# Shot frame at the gun (where bullets start with controller aim).
+	add_executable(bfvr_shot_frame_test tests/shot_frame_test.cpp src/weapon/shot_frame.cpp)
+	target_link_libraries(bfvr_shot_frame_test PRIVATE bfvr_common)
 	# Trigger press/release latch (a resting finger never fires).
 	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
 	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
@@ -286,6 +291,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
+	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)

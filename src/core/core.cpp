@@ -35,6 +35,7 @@
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/shot_origin.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/hit_feedback.hpp"
 #include "weapon/reload_sounds.hpp"
@@ -168,6 +169,7 @@ namespace bfvr::core
 			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
 			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
+			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
@@ -287,6 +289,8 @@ namespace bfvr::core
 			{
 				body::install_arm_pose_hook();
 			}
+			// Shots start at the drawn gun (controller aim); the setting switches it live.
+			weapon::install_shot_origin_hook();
 
 			control_enabled = config::get_bool("control_pipe", true);
 			if (control_enabled)

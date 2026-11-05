@@ -110,6 +110,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | AIM-6 | retest | Shots through the magnifier at ~25 m | Hits at the lens's red dot |  2026-11-04: MP2; earlier | |
 | AIM-7 | retest | Move the eye closer to, further from and off the magnifier's centre | The picture stays on the lens; the magnification follows the lens size |  2026-11-04: MP2: no difference at either eye, close or far; earlier | |
 | AIM-8 | done | Bright lights or a window through the magnifier; pan across an edge | No dark or smeared ring inside the lens edge |  2026-11-04: works; earlier | |
+| AIM-10 | open | Shoot a wall 2-3 m away from the hip with the gun held low and to the side, then through the sight; `shots_from_gun` (Weapon > Bullets leave the gun) off to compare | On: tracers and holes come from the gun along its barrel; through the sight they land on the dot at any range. Off: they come from your eyes | #12 | 2026-11-05: monitor: gun 25 cm below the eye, wall 2 m: holes ~23 cm lower with it on (from the gun) than off (from the eyes) |
 | AIM-9 | open | Recoil (`recoil = 1`): single shots, a long burst one-handed, then two-handed; AK-12 then SCAR-H | The muzzle kicks up and back, settles in ~0.2 s, a burst climbs ~7°, two hands steady it; the SCAR kicks harder; the view never moves. Tune 0-3 | | |
 
 ## Gun handling

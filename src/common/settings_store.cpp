@@ -107,6 +107,7 @@ namespace bfvr::settings
 			{ "reticle_size", kind::real, 0.3f, 3.0f, 0.1f, "1", "", "aim reticle size, degrees" },
 			{ "two_handed", kind::boolean, 0, 0, 0, "1", "", "off hand + grip on the handguard holds the gun with both hands: the barrel points along the line between them" },
 			{ "two_hand_mode", kind::choice, 0, 0, 0, "lock", "lock|soft", "two-handed: the barrel lies on the line between your hands (lock), or the hand line only steers the gun from where it was at the grab (soft)" },
+			{ "shots_from_gun", kind::boolean, 0, 0, 0, "1", "", "aim = controller: bullets start at the drawn gun's sight line and fly along its barrel (off: from your eyes towards the point 25 m along it)" },
 			{ "shot_line", kind::choice, 0, 0, 0, "gun", "gun|controller", "aim = controller: shots and the dot follow the gun as drawn (its sight), or the controller's pointing ray" },
 			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy)" },
 			{ "scope", kind::boolean, 0, 0, 0, "1", "", "magnifying sights (the AK-12's flip magnifier): while aiming, the lens shows the world magnified (one more render)" },

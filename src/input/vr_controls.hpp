@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "input/gamepad.hpp"
@@ -43,6 +44,14 @@ namespace bfvr::input
 	// without one the camera hook uses the gun hand's aim ray.
 	void set_aim_direction(bool valid, const float (&direction)[3]);
 	bool aim_direction(float (&direction)[3]);
+	// The gun's sight line in OpenXR LOCAL (weapon/two_handed): where shots start with controller aim
+	// (weapon/shot_origin). shot_line is false when none was set in the last 250 ms.
+	void set_shot_line(bool valid, const float (&start)[3], const float (&direction)[3]);
+	bool shot_line(float (&start)[3], float (&direction)[3]);
+	// The rendered body's camera yaw under controller aim (atan2(look.x, look.z)); false when unknown.
+	bool body_yaw_now(float& yaw);
+	// The local soldier's current ClientWeapon (ClientSoldierWeapon +0x49A8), 0 when unreadable; BF4 only.
+	std::uintptr_t current_client_weapon();
 
 	// The game walks relative to its own camera (the body, before the head pose: measured on the
 	// monitor in both aim modes), so a player who turns in the room would walk the old way. The left

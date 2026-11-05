@@ -40,6 +40,32 @@ namespace bfvr::input
 		return direction_valid;
 	}
 
+	namespace
+	{
+		std::mutex line_lock;
+		bool line_valid{};
+		float line_start[3]{};
+		float line_direction[3]{};
+		ULONGLONG line_at{};
+	}
+
+	void set_shot_line(bool valid, const float (&start)[3], const float (&direction)[3])
+	{
+		const std::lock_guard guard(line_lock);
+		line_valid = valid;
+		std::copy(std::begin(start), std::end(start), line_start);
+		std::copy(std::begin(direction), std::end(direction), line_direction);
+		line_at = GetTickCount64();
+	}
+
+	bool shot_line(float (&start)[3], float (&direction)[3])
+	{
+		const std::lock_guard guard(line_lock);
+		std::copy(std::begin(line_start), std::end(line_start), start);
+		std::copy(std::begin(line_direction), std::end(line_direction), direction);
+		return line_valid && GetTickCount64() - line_at < 250;
+	}
+
 #if defined(_M_X64)
 	namespace
 	{
@@ -129,13 +155,14 @@ namespace bfvr::input
 			return read(local_soldier_global, soldier) ? soldier : 0;
 		}
 
-		// The aimer of the current weapon (or the fallback aiming), 0 when the chain is not readable.
-		std::uintptr_t current_aimer()
+		// The local soldier's weapons component and current ClientSoldierWeapon (0 when unreadable).
+		std::uintptr_t current_soldier_weapon(std::uintptr_t& weapons)
 		{
+			weapons = 0;
 			const std::uintptr_t soldier = local_soldier();
-			std::uintptr_t weapons{};
 			if (!read(soldier + soldier_weapons, weapons) || !weapons)
 			{
+				weapons = 0;
 				return 0;
 			}
 			std::uint32_t flags{};
@@ -143,15 +170,29 @@ namespace bfvr::input
 			std::uintptr_t index_holder{};
 			std::uint32_t index{};
 			std::uintptr_t begin{}, end{};
-			std::uintptr_t aiming{};
+			std::uintptr_t weapon{};
 			if (read(weapons + ((flags & 4) ? weapons_index_b : weapons_index_a), index_holder) && read(index_holder + 0x8, index)
-				&& read(weapons + weapons_begin, begin) && read(weapons + weapons_end, end) && begin && index < (end - begin) / 8)
+				&& read(weapons + weapons_begin, begin) && read(weapons + weapons_end, end) && begin && index < (end - begin) / 8
+				&& read(begin + index * 8, weapon))
 			{
-				std::uintptr_t weapon{};
-				if (read(begin + index * 8, weapon) && weapon)
-				{
-					read(weapon + weapon_aiming, aiming);
-				}
+				return weapon;
+			}
+			return 0;
+		}
+
+		// The aimer of the current weapon (or the fallback aiming), 0 when the chain is not readable.
+		std::uintptr_t current_aimer()
+		{
+			std::uintptr_t weapons{};
+			const std::uintptr_t weapon = current_soldier_weapon(weapons);
+			if (!weapons)
+			{
+				return 0;
+			}
+			std::uintptr_t aiming{};
+			if (weapon)
+			{
+				read(weapon + weapon_aiming, aiming);
 			}
 			if (!aiming)
 			{
@@ -372,6 +413,22 @@ namespace bfvr::input
 		return body_yaw;
 	}
 
+	bool body_yaw_now(float& yaw)
+	{
+		yaw = body_yaw;
+		return aim_by_controller.load(std::memory_order_relaxed) && body_yaw_known && std::isfinite(yaw);
+	}
+
+	std::uintptr_t current_client_weapon()
+	{
+		// ClientSoldierWeapon +0x49A8: its ClientWeapon (vtable checked live, re/notes/weapon.md).
+		constexpr std::size_t soldier_weapon_client = 0x49A8;
+		std::uintptr_t weapons{};
+		const std::uintptr_t weapon = current_soldier_weapon(weapons);
+		std::uintptr_t client{};
+		return weapon && read(weapon + soldier_weapon_client, client) ? client : 0;
+	}
+
 	void aim_along(const float (&direction)[3])
 	{
 		const float length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
@@ -486,6 +543,8 @@ namespace bfvr::input
 	void set_controller_aim(bool) {}
 	bool controller_aim_active() { return false; }
 	float body_camera_yaw(float game_yaw) { return game_yaw; }
+	bool body_yaw_now(float&) { return false; }
+	std::uintptr_t current_client_weapon() { return 0; }
 	void aim_along(const float (&)[3]) {}
 	bool aim_angles(float&, float&) { return false; }
 	void request_stance(int) {}

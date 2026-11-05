@@ -42,6 +42,7 @@
 #include "weapon/game_reload_sounds.hpp"
 #include "ui/hud_widgets.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/shot_origin.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 
@@ -844,7 +845,7 @@ namespace bfvr::control
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
 			if (command == "extramesh") return stereo::extra_mesh::report();
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
-			if (command == "twohand") return weapon::two_hand_report();
+			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
 			if (command == "motion")
 			{
 				float yaw_rate{}, speed{};
