@@ -26,13 +26,15 @@ Before each session:
 
 ## Next session: a short list
 
-Build `main`. Before starting, set these back to their
-defaults on the panel (your 2026-11-04 experiments, saved in `bfvr.ini`): `sight_ads` 1 (it was off: no
-ADS from the headset at all), `torso_follow` 1, `arm_reach` 1, `arm_length` 1.15, `shoulder_width` 0,
-`hide_legs` 1, `ads_trigger` 0. Tap both sticks whenever something looks off.
+Build `main` and **Update mod** in the launcher. Before starting, set these back on the launcher's
+Settings tab (your 2026-11-04 experiments, saved in `bfvr.ini`), then Save: Weapon > **Aim by raising the
+gun** on (`sight_ads`: it was off, no ADS from the headset at all); Body > **Body turns with you** on,
+**Reach for far hands** on, **Arm length** 1.15, **Shoulder width** 0, **Hide the legs** on; Advanced >
+**Left trigger aims** off. Tap both sticks whenever something looks off.
 
 1. **Body and arms (MP1):** look down at yourself, turn your wrist, point the gun far left and right, draw
-   the knife from the chest, snap-turn a few times. Does the chest stay with you?
+   the knife from the chest, snap-turn a few times. Does the chest stay with you? Then Controls > **Crouch
+   in the room** on and crouch (HAND-12): the gun and arms stay in front of you.
 2. **Sights (MP2):** bring the AK's red dot up to your eye, close and far. Does the lens clear and the dot
    sit where the green dot is? Then the flipped magnifier, then the SCAR's holo.
 3. **Gadget stash (CTRL-14):** open the crate, pick C4 and M320 with the pointer, press Done.
@@ -40,7 +42,9 @@ ADS from the headset at all), `torso_follow` 1, `arm_reach` 1, `arm_length` 1.15
 5. **Reloads:** SCAR tactical reload (B, new magazine, B again keeps it), AK charging handle from below.
 6. **Free hands (FREE-1, FREE-2):** `free_hands` on (Weapon page): let go of the gun, pick it up from the floor;
    pick up a weapon an enemy dropped by reaching down to it.
-7. **Reconnect (MP3):** at the end, take the headset off for ~10 minutes, then start SteamVR again from the
+7. **New panel and buttons (CTRL-15, CTRL-16):** hold ≡ for the new panel, go through its pages; on
+   Controls pick the preset "Jump on B", jump and reload, then set it back to Default.
+8. **Reconnect (MP3):** at the end, take the headset off for ~10 minutes, then start SteamVR again from the
    Quest. Does the game come back in the headset?
 
 ## Main problems (2026-11-04)
@@ -145,7 +149,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HAND-9 | open | Reach both arms straight out (pipe `arms`); try `shoulder_reach` 0 / 0.12 / 0.2, `arm_stretch` 0 / 0.25, `shoulder_width` 0 / 0.05 / 0.1 | Hands stay on the controllers; which values look natural | #31 | 2026-10-26: hands, torso and gun looked "eerily close" to the body |
 | HAND-10 | open | Hold the gun out, turn your whole body 60-90° in the room; then only look 30° and 70° aside (`torso_follow`) | The shoulders follow within ~¼ s; 30° head turn moves nothing, 70° drags them ~30° | #13 | |
 | HAND-11 | open | Look down | Legs hidden; arm length and gun size plausible (`arm_length` 1.15) | #13 | |
-| HAND-12 | open | `physical_stance = 1` (stand straight when switching it on): crouch, kneel, lie down, get up; then crouch with the stick | The soldier follows within ~½ s; the view follows only your head; the stick flick still crouches; hands, gun and chest stay where they were relative to your head | #33 | 2026-11-05 monitor: crouched, the gun and arms were drawn ~60 cm too low (out of view); fixed on `fix/physical-stance-hands`, now the same place standing and crouched |
+| HAND-12 | retest | `physical_stance = 1` (stand straight when switching it on): crouch, kneel, lie down, get up; then crouch with the stick | The soldier follows within ~½ s; the view follows only your head; the stick flick still crouches; hands, gun and chest stay where they were relative to your head | #33 | 2026-11-05 monitor: crouched, the gun and arms were drawn ~60 cm too low (out of view); fixed on `fix/physical-stance-hands`, now the same place standing and crouched |
 | HAND-13 | open | `dominant_hand = left` | Sticks, triggers and buttons swap; the gun follows the left controller; the minimap on the right forearm | #9 | |
 | HAND-14 | done | Hands follow the controllers, the gun stays in the right hand | | #11 | 2026-10-25: "flawless" for guns |
 
