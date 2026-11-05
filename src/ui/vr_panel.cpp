@@ -170,8 +170,8 @@ namespace bfvr::ui
 				status.clear();
 			}
 			char key[160];
-			std::snprintf(key, sizeof(key), "%d/%d/%d/%d/%llu/%d/", panel.current_page(), panel.first_row(), static_cast<int>(panel.hovered().kind),
-				panel.hovered().index, static_cast<unsigned long long>(store.revision()), store.changed() ? 1 : 0);
+			std::snprintf(key, sizeof(key), "%d/%d/%d/%d/%d/%llu/%d/", panel.current_page(), panel.first_row(), static_cast<int>(panel.hovered().kind),
+				panel.hovered().index, panel.hovered().option, static_cast<unsigned long long>(store.revision()), store.changed() ? 1 : 0);
 			const std::string current = key + status;
 			if (current == drawn_key && !image.empty())
 			{
@@ -330,7 +330,7 @@ namespace bfvr::ui
 			pointer_hit = hit;
 			if (hit.hit)
 			{
-				over = panel.hit(hit.u, hit.v);
+				over = panel.hit(hit.u, hit.v, settings::global());
 			}
 		}
 		panel.hover(over);
@@ -449,7 +449,7 @@ namespace bfvr::ui
 		else if ((command == "hover" || command == "click") && sscanf_s(argument.c_str(), "%*s %f %f", &u, &v) == 2)
 		{
 			ensure_pages();
-			const target over = panel.hit(u, v);
+			const target over = panel.hit(u, v, settings::global());
 			panel.hover(over);
 			if (command == "click")
 			{

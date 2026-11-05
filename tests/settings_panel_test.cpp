@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "common/setting_catalog.hpp"
 #include "common/settings_store.hpp"
 #include "ui/menu_button.hpp"
 #include "ui/panel_canvas.hpp"
@@ -33,21 +34,22 @@ namespace
 		store.add({ "gun_scale", kind::real, 0.25f, 2.0f, 0.05f, "1", "", "apparent gun size" });
 		store.add({ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "arms follow the controllers" });
 		store.add({ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders" });
-		for (const char* name : { "aim", "two_handed", "aim_convergence", "accessory_toggle", "reload", "drop_discards_ammo", "grenade",
-				 "grenade_throw_scale", "holsters", "squad_signal" })
+		store.add({ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload" });
+		for (const char* name : { "sight_ads", "two_handed", "reticle", "scope", "drop_discards_ammo", "reload_sounds", "game_sounds", "grenade_model",
+				 "c4_trigger", "holsters", "free_hands", "use_reach", "melee_gesture", "knife_grip", "squad_signal" })
 		{
 			store.add({ name, kind::boolean, 0, 0, 0, "0", "", "weapon setting" });
 		}
-		store.add({ "mystery", kind::integer, 0, 10, 1, "5", "", "not on a page" });
+		store.add({ "mystery", kind::integer, 0, 10, 1, "5", "", "not in the catalog" });
 	}
 
 	// Texture coordinates of a rect's centre.
 	float u_of(const rect& area) { return (static_cast<float>(area.x) + area.w * 0.5f) / settings_panel::width; }
 	float v_of(const rect& area) { return (static_cast<float>(area.y) + area.h * 0.5f) / settings_panel::height; }
 
-	target at(const settings_panel& panel, const rect& area)
+	target at(const settings_panel& panel, const rect& area, const settings::registry& store)
 	{
-		return panel.hit(u_of(area), v_of(area));
+		return area.empty() ? target{} : panel.hit(u_of(area), v_of(area), store);
 	}
 
 	int find_row(const settings_panel& panel, const char* name, int component = -1)
@@ -57,7 +59,19 @@ namespace
 		{
 			if (rows[static_cast<std::size_t>(i)].name == name && rows[static_cast<std::size_t>(i)].component == component)
 			{
-				return i - panel.first_row();
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	int find_page(const settings_panel& panel, const char* title)
+	{
+		for (int i = 0; i < static_cast<int>(panel.pages().size()); ++i)
+		{
+			if (panel.pages()[static_cast<std::size_t>(i)].title == title)
+			{
+				return i;
 			}
 		}
 		return -1;
@@ -68,12 +82,21 @@ namespace
 		settings::registry store;
 		sample(store);
 		const auto pages = default_pages(store);
-		expect(pages.size() == 4, "View, Body, Weapon and Other (empty pages left out)");
-		expect(pages[0].title == "View" && pages[0].rows.size() == 2 && pages[0].rows[0].name == "stereo_render", "View rows in table order");
-		expect(pages[1].title == "Body" && pages[1].rows.size() == 4 && pages[1].rows[1].component == 0 && pages[1].rows[3].component == 2,
-			"vec3 becomes three rows");
-		expect(pages[2].title == "Weapon" && pages[2].rows.size() == 10, "weapon page");
-		expect(pages[3].title == "Other" && pages[3].rows.size() == 1 && pages[3].rows[0].name == "mystery", "unlisted settings go to Other");
+		expect(pages.size() == 4, "View, Body, Weapon and Advanced (empty pages left out)");
+		expect(pages[0].title == "View" && pages[0].rows.size() == 4 && pages[0].rows[0].heading == "Rendering" && pages[0].rows[1].name == "stereo_render"
+			&& pages[0].rows[2].heading == "Scale" && pages[0].rows[3].name == "gun_scale", "View: sections with their settings");
+		expect(pages[1].title == "Body" && pages[1].rows.size() == 2 && pages[1].rows[1].name == "arm_ik", "Body: advanced settings left out");
+		expect(pages[2].title == "Weapon" && pages[2].rows.front().is_heading(), "Weapon page starts with a heading");
+		const page& advanced = pages[3];
+		expect(advanced.title == "Advanced" && advanced.rows.size() == 6 && advanced.rows[0].heading == "Body" && advanced.rows[1].component == 0
+			&& advanced.rows[3].component == 2 && advanced.rows[4].heading == "Other" && advanced.rows[5].name == "mystery",
+			"Advanced: by page, vec3 as three rows, unknown settings under Other");
+		expect(settings_panel::control_of(pages[0].rows[1], store) == row_control::stepper, "a choice with long names steps");
+		expect(settings_panel::control_of(pages[1].rows[1], store) == row_control::toggle, "a boolean toggles");
+		const auto options = settings_panel::options_of("reload", store);
+		expect(options.size() == 2 && options[0].first == "physical" && options[0].second == "By hand" && options[1].second == "Button",
+			"options in the catalog's order with their names");
+		expect(settings_panel::control_of({ "reload", -1, {} }, store) == row_control::options, "two short options are buttons");
 	}
 
 	void test_hits_and_clicks()
@@ -81,37 +104,54 @@ namespace
 		settings::registry store;
 		sample(store);
 		settings_panel panel(default_pages(store));
-		expect(at(panel, panel.page_tab(1)) == target{ target_kind::page, 1 }, "tab hit");
-		expect(at(panel, panel.save_button()) == target{ target_kind::save, -1 }, "save hit");
-		expect(at(panel, panel.close_button()) == target{ target_kind::close, -1 }, "close hit");
-		expect(panel.hit(0.001f, 0.999f).kind == target_kind::none, "corner is nothing");
-		expect(at(panel, panel.minus_button(5)).kind == target_kind::none, "no row there on a short page");
-		expect(at(panel, panel.rows_down_button()).kind == target_kind::none, "no scrolling on a short page");
+		expect(at(panel, panel.page_tab(1), store) == target{ target_kind::page, 1 }, "tab hit");
+		expect(at(panel, panel.save_button(), store) == target{ target_kind::save }, "save hit");
+		expect(at(panel, panel.close_button(), store) == target{ target_kind::close }, "close hit");
+		expect(at(panel, panel.reset_button(), store) == target{ target_kind::reset_page }, "reset hit");
+		expect(panel.hit(0.001f, 0.999f, store).kind == target_kind::none, "corner is nothing");
+		expect(panel.row_area(9).empty(), "no row there on a short page");
+		expect(at(panel, panel.rows_down_button(), store).kind == target_kind::none, "no scrolling on a short page");
+		expect(at(panel, panel.row_area(0), store).kind == target_kind::none, "a heading is not clickable");
 
-		// View page: gun_scale is row 1.
-		expect(panel.click(at(panel, panel.plus_button(1)), store) == settings_panel::action::changed && store.text("gun_scale") == "1.05", "plus steps a real");
-		expect(panel.click(at(panel, panel.value_box(1)), store) == settings_panel::action::none, "value box of a real does nothing");
-		expect(panel.click(at(panel, panel.value_box(0)), store) == settings_panel::action::changed && store.text("stereo_render") == "pair", "value box cycles a choice");
-		expect(panel.click(at(panel, panel.minus_button(0)), store) == settings_panel::action::changed && store.text("stereo_render") == "aer", "minus cycles back");
+		// View: stereo_render is row 1 (a stepper), gun_scale row 3.
+		expect(panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::changed && store.text("gun_scale") == "1.05", "plus steps a real");
+		expect(panel.click(at(panel, panel.value_box(3, store), store), store) == settings_panel::action::none, "value of a real does nothing");
+		expect(panel.click(at(panel, panel.value_box(1, store), store), store) == settings_panel::action::changed && store.text("stereo_render") == "pair", "value cycles a choice");
+		expect(panel.click(at(panel, panel.minus_button(1, store), store), store) == settings_panel::action::changed && store.text("stereo_render") == "aer", "minus cycles back");
 		for (int i = 0; i < 40; ++i)
 		{
-			panel.click(at(panel, panel.plus_button(1)), store);
+			panel.click(at(panel, panel.plus_button(3, store), store), store);
 		}
-		expect(store.real("gun_scale") == 2.0f && panel.click(at(panel, panel.plus_button(1)), store) == settings_panel::action::none, "clamped: no change reported");
+		expect(store.real("gun_scale") == 2.0f && panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::none, "clamped: no change reported");
+		expect(panel.click({ target_kind::reset_page }, store) == settings_panel::action::changed && store.text("gun_scale") == "1", "reset page");
+		expect(panel.click({ target_kind::reset_page }, store) == settings_panel::action::none, "nothing left to reset");
 
-		// Body page: booleans toggle, vec3 components step alone.
+		// Body: a click anywhere on a toggle row toggles.
 		panel.click({ target_kind::page, 1 }, store);
 		expect(panel.current_page() == 1, "page switched");
-		expect(panel.click(at(panel, panel.value_box(find_row(panel, "arm_ik"))), store) == settings_panel::action::changed && !store.boolean("arm_ik"), "toggle bool");
+		const rect arm = panel.row_area(find_row(panel, "arm_ik"));
+		expect(panel.click(panel.hit((arm.x + 30.0f) / settings_panel::width, v_of(arm), store), store) == settings_panel::action::changed && !store.boolean("arm_ik"),
+			"the row's label toggles too");
+
+		// Weapon: option buttons set their value.
+		panel.click({ target_kind::page, 2 }, store);
+		const int reload = find_row(panel, "reload");
+		const target physical = at(panel, panel.option_button(reload, 0, store), store);
+		expect(physical == target{ target_kind::option, reload, 0 }, "option hit");
+		expect(panel.click(physical, store) == settings_panel::action::changed && store.text("reload") == "physical", "option sets its value");
+		expect(panel.click(physical, store) == settings_panel::action::none, "the chosen option again changes nothing");
+
+		// Advanced: vec3 components step alone.
+		panel.click({ target_kind::page, 3 }, store);
 		const int y_row = find_row(panel, "shoulder_offset", 1);
-		panel.click(at(panel, panel.plus_button(y_row)), store);
-		panel.click(at(panel, panel.plus_button(y_row)), store);
+		panel.click(at(panel, panel.plus_button(y_row, store), store), store);
+		panel.click(at(panel, panel.plus_button(y_row, store), store), store);
 		expect(store.text("shoulder_offset") == "0 0.05 0", "vec3 y steps by a fortieth of the range");
-		panel.click(at(panel, panel.minus_button(find_row(panel, "shoulder_offset", 0))), store);
+		panel.click(at(panel, panel.minus_button(find_row(panel, "shoulder_offset", 0), store), store), store);
 		expect(store.text("shoulder_offset") == "-0.025 0.05 0", "vec3 x steps alone");
 
-		expect(panel.click(at(panel, panel.save_button()), store) == settings_panel::action::save, "save action");
-		expect(panel.click(at(panel, panel.close_button()), store) == settings_panel::action::close, "close action");
+		expect(panel.click(at(panel, panel.save_button(), store), store) == settings_panel::action::save, "save action");
+		expect(panel.click(at(panel, panel.close_button(), store), store) == settings_panel::action::close, "close action");
 	}
 
 	void test_scrolling()
@@ -119,16 +159,25 @@ namespace
 		settings::registry store;
 		sample(store);
 		settings_panel panel(default_pages(store));
-		panel.click({ target_kind::page, 2 }, store); // Weapon: 10 rows, 8 visible
-		expect(panel.visible_rows() == 8, "eight rows fit");
-		expect(at(panel, panel.rows_up_button()).kind == target_kind::none, "no up at the top");
-		expect(at(panel, panel.rows_down_button()).kind == target_kind::rows_down, "down offered");
-		panel.click({ target_kind::rows_down, -1 }, store);
-		expect(panel.first_row() == 2, "scrolls to show the last rows");
-		expect(at(panel, panel.rows_down_button()).kind == target_kind::none && at(panel, panel.rows_up_button()).kind == target_kind::rows_up, "at the end");
-		panel.click({ target_kind::rows_up, -1 }, store);
+		panel.click({ target_kind::page, 2 }, store); // Weapon: 16 settings in sections
+		const int count = static_cast<int>(panel.pages()[2].rows.size());
+		expect(!panel.can_scroll_up() && panel.can_scroll_down(), "a long page scrolls down");
+		expect(at(panel, panel.rows_up_button(), store).kind == target_kind::none, "no up at the top");
+		expect(at(panel, panel.rows_down_button(), store).kind == target_kind::rows_down, "down offered");
+		int guard = 0;
+		while (panel.can_scroll_down() && ++guard < 10)
+		{
+			panel.click({ target_kind::rows_down }, store);
+		}
+		expect(!panel.row_area(count - 1).empty() && panel.first_row() > 0, "scrolls until the last row shows");
+		expect(at(panel, panel.rows_up_button(), store).kind == target_kind::rows_up, "up offered at the end");
+		guard = 0;
+		while (panel.can_scroll_up() && ++guard < 10)
+		{
+			panel.click({ target_kind::rows_up }, store);
+		}
 		expect(panel.first_row() == 0, "back to the top");
-		panel.click({ target_kind::rows_down, -1 }, store);
+		panel.click({ target_kind::rows_down }, store);
 		panel.click({ target_kind::page, 0 }, store);
 		expect(panel.first_row() == 0, "a page switch starts at the top");
 	}
@@ -151,13 +200,14 @@ namespace
 		sample(store);
 		settings_panel panel(default_pages(store));
 		auto items = panel.draw(store, "");
-		expect(has_text(items, "stereo_render") && has_text(items, "aer") && has_text(items, "1") && has_text(items, "Save"), "rows and buttons drawn");
-		expect(!has_text(items, "unsaved changes"), "nothing unsaved yet");
-		panel.hover(at(panel, panel.plus_button(1)));
+		expect(has_text(items, "3D rendering") && has_text(items, "Alternate eyes") && has_text(items, "RENDERING") && has_text(items, "Save"),
+			"names, choice names, headings and buttons drawn");
+		expect(!has_text(items, "Unsaved changes"), "nothing unsaved yet");
+		panel.hover(at(panel, panel.plus_button(3, store), store));
 		store.step("gun_scale", 1);
 		items = panel.draw(store, "");
-		expect(has_text(items, "apparent gun size") && has_text(items, "unsaved changes"), "hovered row's help and the unsaved note");
-		expect(has_text(panel.draw(store, "saved"), "saved"), "status replaces the note");
+		expect(has_text(items, "Apparent gun size") && has_text(items, "Unsaved changes"), "hovered row's help (capitalised) and the unsaved chip");
+		expect(has_text(panel.draw(store, "Saved"), "Saved"), "status replaces the chip");
 
 		std::vector<std::uint32_t> pixels;
 		expect(rasterise(items, settings_panel::width, settings_panel::height, pixels), "rasterise");
@@ -165,19 +215,38 @@ namespace
 		const auto pixel = [&](int x, int y) { return pixels[static_cast<std::size_t>(y) * settings_panel::width + static_cast<std::size_t>(x)]; };
 		expect(pixel(settings_panel::width / 2, settings_panel::height - 5) == 0xFF1E2228, "background colour, opaque");
 		const rect save = panel.save_button();
-		expect(pixel(save.x + 3, save.y + 3) == 0xFF2F7D4F, "save button colour");
+		expect(pixel(save.x + 20, save.y + 20) == 0xFFF08A24, "save button colour");
+		expect(pixel(save.x, save.y) != 0xFFF08A24, "rounded corner");
 		int text_pixels = 0;
 		for (int x = save.x; x < save.x + save.w; ++x)
 		{
-			text_pixels += pixel(x, save.y + save.h / 2) != 0xFF2F7D4F ? 1 : 0;
+			text_pixels += pixel(x, save.y + save.h / 2) != 0xFFF08A24 ? 1 : 0;
 		}
 		expect(text_pixels > 5, "the Save label is drawn");
 
 		// See-through backdrop: the keyed colour gets its alpha, premultiplied; the rest stays opaque.
 		expect(rasterise(items, settings_panel::width, settings_panel::height, pixels, { { panel_background, 128 } }), "rasterise keyed");
 		expect(pixel(settings_panel::width / 2, settings_panel::height - 5) == 0x800F1114, "backdrop at half alpha, premultiplied");
-		expect(pixel(save.x + 3, save.y + 3) == 0xFF2F7D4F, "buttons stay opaque");
+		expect(pixel(save.x + 20, save.y + 20) == 0xFFF08A24, "buttons stay opaque");
 	}
+
+	// Writes every page of the real settings as BMPs (path_0.bmp ...), to look at without a headset.
+	void snapshot(const char* path)
+	{
+		settings_panel panel(default_pages(settings::global()));
+		for (int index = 0; index < static_cast<int>(panel.pages().size()); ++index)
+		{
+			panel.click({ target_kind::page, index }, settings::global());
+			const int row = index == 0 ? 1 : 2;
+			panel.hover({ target_kind::plus, row });
+			std::vector<std::uint32_t> pixels;
+			const std::string file = std::string(path) + "_" + std::to_string(index) + ".bmp";
+			const bool written = rasterise(panel.draw(settings::global(), ""), settings_panel::width, settings_panel::height, pixels)
+				&& write_bmp(file, pixels, settings_panel::width, settings_panel::height);
+			std::printf("snapshot %s: %s\n", file.c_str(), written ? "written" : "failed");
+		}
+	}
+
 	void test_menu_button()
 	{
 		constexpr float frame = 1.0f / 90.0f;
@@ -324,20 +393,29 @@ int main(int argc, char** argv)
 	test_scrolling();
 	test_draw_and_raster();
 
-	// Every live setting sits on a named page (nothing falls through to Other).
+	// Every live setting has a name in the catalog and sits on a named page (none under Other).
 	settings::load_global();
-	const auto pages = default_pages(settings::global());
-	expect(!pages.empty() && pages.back().title != "Other", "every live setting is on a named page");
+	for (const std::string& name : settings::global().names())
+	{
+		if (!settings::presentation_of(name))
+		{
+			std::printf("FAIL: %s is not in the setting catalog\n", name.c_str());
+			++failures;
+		}
+	}
+	for (const settings::presentation& entry : settings::catalog())
+	{
+		if (!settings::global().definition_of(entry.name))
+		{
+			std::printf("FAIL: catalog entry %s is no live setting\n", std::string(entry.name).c_str());
+			++failures;
+		}
+	}
 	if (argc > 1)
 	{
-		settings_panel panel(pages);
-		panel.click({ target_kind::page, argc > 2 ? std::atoi(argv[2]) : 0 }, settings::global());
-		panel.hover(at(panel, panel.plus_button(1)));
-		std::vector<std::uint32_t> pixels;
-		const bool written = rasterise(panel.draw(settings::global(), ""), settings_panel::width, settings_panel::height, pixels)
-			&& write_bmp(argv[1], pixels, settings_panel::width, settings_panel::height);
-		std::printf("snapshot %s: %s\n", argv[1], written ? "written" : "failed");
+		snapshot(argv[1]);
 	}
+
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

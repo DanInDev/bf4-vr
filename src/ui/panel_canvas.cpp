@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -25,6 +27,44 @@ namespace bfvr::ui
 			std::wstring wide(static_cast<std::size_t>(length), L'\0');
 			MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), wide.data(), length);
 			return wide;
+		}
+
+		// A rounded box blended straight into the DIB's pixels (GDI's own RoundRect has no
+		// antialiasing): coverage from the distance to the rounded outline.
+		void fill_rounded(std::uint32_t* pixels, int width, int height, const rect& area, int radius, std::uint32_t rgb)
+		{
+			const float r = static_cast<float>(std::min(radius, std::min(area.w, area.h) / 2));
+			const float half_w = area.w * 0.5f, half_h = area.h * 0.5f;
+			const float cx = area.x + half_w, cy = area.y + half_h;
+			const int x0 = std::max(0, area.x), x1 = std::min(width, area.x + area.w);
+			const int y0 = std::max(0, area.y), y1 = std::min(height, area.y + area.h);
+			for (int y = y0; y < y1; ++y)
+			{
+				for (int x = x0; x < x1; ++x)
+				{
+					const float qx = std::fabs(x + 0.5f - cx) - (half_w - r);
+					const float qy = std::fabs(y + 0.5f - cy) - (half_h - r);
+					const float outside = std::hypot(std::max(qx, 0.0f), std::max(qy, 0.0f)) + std::min(std::max(qx, qy), 0.0f) - r;
+					const float coverage = std::clamp(0.5f - outside, 0.0f, 1.0f);
+					if (coverage <= 0.0f)
+					{
+						continue;
+					}
+					std::uint32_t& pixel = pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)];
+					if (coverage >= 1.0f)
+					{
+						pixel = rgb;
+						continue;
+					}
+					const auto mix = [&](int shift)
+					{
+						const float under = static_cast<float>((pixel >> shift) & 0xFFu);
+						const float over = static_cast<float>((rgb >> shift) & 0xFFu);
+						return static_cast<std::uint32_t>(std::lround(under + (over - under) * coverage)) << shift;
+					};
+					pixel = mix(16) | mix(8) | mix(0);
+				}
+			}
 		}
 	}
 
@@ -58,6 +98,12 @@ namespace bfvr::ui
 		for (const draw_item& item : items)
 		{
 			RECT area{ item.area.x, item.area.y, item.area.x + item.area.w, item.area.y + item.area.h };
+			if (item.kind == draw_item::type::box && item.radius > 0)
+			{
+				GdiFlush();
+				fill_rounded(static_cast<std::uint32_t*>(bits), width, height, item.area, item.radius, item.color & 0xFFFFFFu);
+				continue;
+			}
 			if (item.kind == draw_item::type::box)
 			{
 				const HBRUSH brush = CreateSolidBrush(to_colorref(item.color));
@@ -65,11 +111,11 @@ namespace bfvr::ui
 				DeleteObject(brush);
 				continue;
 			}
-			HFONT& font = fonts[item.size];
+			HFONT& font = fonts[item.size * 2 + (item.bold ? 1 : 0)];
 			if (!font)
 			{
-				font = CreateFontW(-item.size, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-					ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+				font = CreateFontW(-item.size, 0, 0, 0, item.bold ? FW_SEMIBOLD : FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+					CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 			}
 			SelectObject(dc, font);
 			SetTextColor(dc, to_colorref(item.color));

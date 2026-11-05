@@ -16,7 +16,7 @@ namespace bfvr::input
 		constexpr pad_info pads[pad_button_count] = {
 			{ "none", 0x0000, "Nothing" },
 			{ "a", 0x1000, "Jump" },
-			{ "b", 0x2000, "Reload / magazine release" },
+			{ "b", 0x2000, "Reload" },
 			{ "x", 0x4000, "Game menu" },
 			{ "y", 0x8000, "Switch weapon" },
 			{ "lb", 0x0100, "Grenade (LB)" },
