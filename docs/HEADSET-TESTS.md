@@ -58,9 +58,9 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
 | VIEW-1 | done | Step `view_crop_bottom` (View page) up from 0: 8, 12, 16, looking ahead and at your feet | The highest value with no black band at the bottom of the lens. Is the picture sharper (wall text, world markers)? Monitor: 14 gives ~28 % more vertical sharpness | #1 |  2026-11-04: works (value not noted) |
-| VIEW-2 | problem | At the chosen crop: look around, aim, reload, look down at the chest rig | The gun sits in your hands, horizons stay level, no tilt or swimming when you turn your head | #1 |  2026-11-04: MP1 |
+| VIEW-2 | retest | At the chosen crop: look around, aim, reload, look down at the chest rig | The gun sits in your hands, horizons stay level, no tilt or swimming when you turn your head | #1 |  2026-11-04: MP1 |
 | VIEW-3 | done | Walk and sprint along a corridor with `steady_walk` on, off, on | On: the world glides with no side-to-side rocking, gun and hands stay put. Off: the old 12 cm sway |  2026-11-04: works; earlier | |
-| VIEW-4 | problem | Walk while aiming down the sights, and while looking sideways | No drift of the sight against the target beyond your own movement; nothing lags when you stop |  2026-11-04: MP1, MP2; earlier | |
+| VIEW-4 | retest | Walk while aiming down the sights, and while looking sideways | No drift of the sight against the target beyond your own movement; nothing lags when you stop |  2026-11-04: MP1, MP2; earlier | |
 | VIEW-5 | done | `foveation = light` (default), look around; switch it off and on | The edge looks the same; no shimmer or blocks where you look straight ahead; 90 fps holds |  2026-11-04: works; earlier | |
 | VIEW-6 | done | `foveation` medium, then strong | The strongest level whose blockier edge (shiny floors, highlights) you don't notice |  2026-11-04: works; earlier | |
 | VIEW-7 | open | Main menu, pause menu, loading screens | All on the flat theater screen, none glued to the view | | 2026-10-25: loading screens were head-tracked |
@@ -92,13 +92,13 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
-| AIM-1 | problem | Raise the gun until one eye looks through the optic | Within ~2.5 cm of the line the game aims down the sights (lens clears, walking slows), the dot sits in the optic, gun size unchanged; lowering returns to the hip. `sight_ads` off to compare | #12 |  2026-11-04: MP2 |
-| AIM-2 | problem | Auto-ADS while moving | ADS slows walking; note when it engages by accident (gun near the face) | #12 |  2026-11-04: MP2 |
-| AIM-3 | problem | Aim down the red dot (magnifier folded) | The gun has depth in ADS (it was flat before) | #24 |  2026-11-04: MP2 |
+| AIM-1 | retest | Raise the gun until one eye looks through the optic | Within ~2.5 cm of the line the game aims down the sights (lens clears, walking slows), the dot sits in the optic, gun size unchanged; lowering returns to the hip. `sight_ads` off to compare | #12 |  2026-11-04: MP2 |
+| AIM-2 | retest | Auto-ADS while moving | ADS slows walking; note when it engages by accident (gun near the face) | #12 |  2026-11-04: MP2 |
+| AIM-3 | retest | Aim down the red dot (magnifier folded) | The gun has depth in ADS (it was flat before) | #24 |  2026-11-04: MP2 |
 | AIM-4 | done | Single shots one-handed, then two-handed: through the sight at ~10 and ~25 m, and from the hip on the green reticle | Hits where the sight or reticle points; recoil moves the shots with the gun. `shot_line = controller` to compare; `aim_convergence` if close shots land off | #12, #29 |  2026-11-04: works; earlier 2026-11-03: shots hit the dot, but the dot followed the pointing ray, not the drawn barrel (now `shot_line = gun`); sights were "broken beyond belief" |
-| AIM-5 | problem | Flip the AK's magnifier in (accessory toggle), aim through it | The lens shows the world ~1.7x with a red dot; only the aiming eye; the picture sits inside the lens rim; no black scope overlay |  2026-11-04: MP2; earlier | |
-| AIM-6 | problem | Shots through the magnifier at ~25 m | Hits at the lens's red dot |  2026-11-04: MP2; earlier | |
-| AIM-7 | problem | Move the eye closer to, further from and off the magnifier's centre | The picture stays on the lens; the magnification follows the lens size |  2026-11-04: MP2: no difference at either eye, close or far; earlier | |
+| AIM-5 | retest | Flip the AK's magnifier in (accessory toggle), aim through it | The lens shows the world ~1.7x with a red dot; only the aiming eye; the picture sits inside the lens rim; no black scope overlay |  2026-11-04: MP2; earlier | |
+| AIM-6 | retest | Shots through the magnifier at ~25 m | Hits at the lens's red dot |  2026-11-04: MP2; earlier | |
+| AIM-7 | retest | Move the eye closer to, further from and off the magnifier's centre | The picture stays on the lens; the magnification follows the lens size |  2026-11-04: MP2: no difference at either eye, close or far; earlier | |
 | AIM-8 | done | Bright lights or a window through the magnifier; pan across an edge | No dark or smeared ring inside the lens edge |  2026-11-04: works; earlier | |
 | AIM-9 | open | Recoil (`recoil = 1`): single shots, a long burst one-handed, then two-handed; AK-12 then SCAR-H | The muzzle kicks up and back, settles in ~0.2 s, a burst climbs ~7°, two hands steady it; the SCAR kicks harder; the view never moves. Tune 0-3 | | |
 
@@ -106,7 +106,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
-| GUN-1 | problem | Hold the gun one-handed, look at it, move and turn the hand | Life size and in your hand, also held to the side or high. `gun_life_size` off to compare; fine-tune `gun_scale` | #24 |  2026-11-04: MP1; gun scaling in the settings worked fine, so size itself may be fine |
+| GUN-1 | retest | Hold the gun one-handed, look at it, move and turn the hand | Life size and in your hand, also held to the side or high. `gun_life_size` off to compare; fine-tune `gun_scale` | #24 |  2026-11-04: MP1; gun scaling in the settings worked fine, so size itself may be fine |
 | GUN-2 | done | AK-12 two-handed: off hand on the handguard + grip, move, aim, slide along the handguard | The barrel snaps onto the line between your hands, the hold stays until you open the grip (~0.1 s release); no grenade thrown | #29 |  2026-11-04: works; earlier 2026-11-03: fine on the SCAR, kept dropping on the AK |
 | GUN-3 | done | All grab rings (`grab_debug = 1`) on the gun and body | ~30 % smaller than before, still easy to find, sitting on the drawn gun | #14 |  2026-11-04: works, a nice size now; earlier 2026-11-03: liked, but asked for 30 % smaller |
 | GUN-4 | done | AK-12 reload: off hand to the magazine (tick), grip and pull, drop it; off hand to the magazine pouch, grip, bring it to the magwell (seats within ~14 cm); off hand to the handle, grip, pull back ~4 cm | Every step works without hunting for the spot; grabbing the magazine never racks; a hand on the handguard never takes the magazine | #14 |  2026-11-04: works |
@@ -139,7 +139,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HAND-5 | open | Off hand to the charging handle, grip, pull back slowly and let go (`rack_grip = pinch`) | The knob between thumb and index, the hand stays on it, the bolt comes back and snaps forward. AK: right side ahead of the magwell | #14 | |
 | HAND-6 | open | Two-handed hold, a grenade in the off hand, the knife | Support hand keeps the handguard grip; grenade in a closed fist; knife hand as the game draws it | #11 | |
 | HAND-7 | open | Off-hand wrist (`off_hand_pose = neutral`): empty, then with a magazine; compare `animated` | The drawn hand is held like your controller; a held magazine stands upright and follows the wrist | #11 | |
-| HAND-8 | problem | Left arm: off hand to the belt, hip, chest, across, behind | Elbow and shoulder move smoothly, no flip or twist; the shoulder beside the neck. `body_shoulders` off to compare | #11 |  2026-11-04: MP1; earlier 2026-11-03: the left shoulder side glitched and twisted |
+| HAND-8 | retest | Left arm: off hand to the belt, hip, chest, across, behind | Elbow and shoulder move smoothly, no flip or twist; the shoulder beside the neck. `body_shoulders` off to compare | #11 |  2026-11-04: MP1; earlier 2026-11-03: the left shoulder side glitched and twisted |
 | HAND-9 | open | Reach both arms straight out (pipe `arms`); try `shoulder_reach` 0 / 0.12 / 0.2, `arm_stretch` 0 / 0.25, `shoulder_width` 0 / 0.05 / 0.1 | Hands stay on the controllers; which values look natural | #31 | 2026-10-26: hands, torso and gun looked "eerily close" to the body |
 | HAND-10 | open | Hold the gun out, turn your whole body 60-90° in the room; then only look 30° and 70° aside (`torso_follow`) | The shoulders follow within ~¼ s; 30° head turn moves nothing, 70° drags them ~30° | #13 | |
 | HAND-11 | open | Look down | Legs hidden; arm length and gun size plausible (`arm_length` 1.15) | #13 | |
