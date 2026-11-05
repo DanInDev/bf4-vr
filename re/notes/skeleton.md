@@ -140,6 +140,32 @@ of `Wep_Root`) back along its local -z by the pull.
   50 deg: torso 47.7, unchanged arms (the gun had turned the shoulders already); gun 60 deg right
   one-handed, body ahead: torso 0, right reach 0.81 -> 0.76 (shoulders stay with the body).
 
+## The whole body turns with the aimer (2026-11-05, monitor)
+
+- Children of `AITrajectory` 1: `Trajectory` 2, `CameraBase` 4, `Hips` 7 (spine, chest, legs), `SpineX` 43
+  (spine, both clavicles, neck, `Wep_Root`, `Wep_Aim`), `Connect` 162, `TempFillJointRoot` 164. Under
+  controller aim the game turns all of them with the aimer, i.e. with the gun: turning only the clavicles
+  back (the torso section above) left the chest swinging with the wrist (headset 2026-11-04: a wrist turn
+  swung the whole shoulder; the knife at the left vs right shoulder spun the body out of view).
+- `arm_pose` now turns `Hips` and `SpineX` (found as the arms' branch off the bone where their chain meets the
+  camera's, plus `Hips` by name) back to the rendered frame about the camera joint (by `turn.yaw`, the
+  same angle `camera_frame` uses), then by the torso estimate about the spine, before the arm solve.
+  Turning `Trajectory`/`Connect`/`TempFillJointRoot` as well moved the drawn gun out of view: they are left.
+- Check: fake gun hand turned 0/45/90 deg right, the right shoulder stays at (-0.33, -0.22, -0.04) from the
+  camera joint while the joint turns 90 deg; with both hands IK'd the arms and gun look the same with and
+  without the turn (pipe `bodyturn 0|1`), only the body parts no longer swing. 12 snap turns (360 deg): the
+  arms and gun stay in front of the view throughout.
+- `AITrajectory` sits on the soldier's ground: 1.56 m below the camera joint standing (free hands drop the
+  gun onto it, `weapon_points.floor_y`).
+
+## Checking what each eye sees (2026-11-05)
+
+`pipe shot` is the game's back buffer, **not** the left eye's headset image in pair rendering: the second
+eye's gun ends up in it, so the gun there looks shifted the wrong way (a false lead on 2026-11-05). Use
+`eyeshot` / `eyeshot2` (the images sent to the headset). There both eyes are right: the gun moves the
+expected way with the eye distance, and with the left eye on the sight line the red dot sits in the left
+image's centre.
+
 ## Contact grips (2026-11-03, monitor)
 
 - Fingertips: `<Hand><Finger>4` for all five (Thumb4 included); used as the finger's end point.

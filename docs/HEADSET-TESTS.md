@@ -24,6 +24,23 @@ Before each session:
 - Maps of the controls and grab zones: [docs/img/quest3-controls.svg](img/quest3-controls.svg),
   [docs/img/grab-zones.svg](img/grab-zones.svg).
 
+## Next session: a short list
+
+Build `fix/headset-2026-11-05` (or `main` once merged). Before starting, set these back to their
+defaults on the panel (your 2026-11-04 experiments, saved in `bfvr.ini`): `sight_ads` 1 (it was off: no
+ADS from the headset at all), `torso_follow` 1, `arm_reach` 1, `arm_length` 1.15, `shoulder_width` 0,
+`hide_legs` 1, `ads_trigger` 0. Tap both sticks whenever something looks off.
+
+1. **Body and arms (MP1):** look down at yourself, turn your wrist, point the gun far left and right, draw
+   the knife from the chest, snap-turn a few times. Does the chest stay with you?
+2. **Sights (MP2):** bring the AK's red dot up to your eye, close and far. Does the lens clear and the dot
+   sit where the green dot is? Then the flipped magnifier, then the SCAR's holo.
+3. **Gadget stash (CTRL-14):** open the crate, pick C4 and M320 with the pointer, press Done.
+4. **Grenades:** find the pouch ring on the right of your chest, take one, throw it.
+5. **Reloads:** SCAR tactical reload (B, new magazine, B again keeps it), AK charging handle from below.
+6. **Free hands (FREE-1, FREE-2):** `free_hands` on (Weapon page): let go of the gun, pick it up from the floor;
+   pick up a weapon an enemy dropped by reaching down to it.
+
 ## Main problems (2026-11-04)
 
 From the first run of this backlog. Each groups the checks it explains; fixing these comes before more
@@ -31,8 +48,8 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Problem (user) | Checks | First findings |
 | --- | --- | --- | --- |
-| MP1 | Looking around is fine, the rings follow hands and head well and weapon swaps and the knife work. But the drawn arms and chest are wrong: the chest doesn't move up and down with the short arms; with a longer `arm_length` and more stretch it works better, but then the chest spins in front of the view (pulling the knife) instead of staying at the chest. The right arm and the gun sometimes don't go where the real arm is. The green dot is aligned within a ~30° cone ahead and drifts beyond it | VIEW-2, VIEW-4, GUN-1, HAND-8 | Screenshots 1-6 (`re/screenshots/headset/`, not in git): a wrist turn alone swings the whole shoulder (1-2); after stick turns the body and arms are seen from the wrong side, all mirrored (2); the knife at the left vs right shoulder turns the body so far it leaves the view (3-4); the arm twists with the wrist (5-6). **Cause:** under controller aim the game turns its whole first-person body (chest, clavicles, gun root: every branch off AITrajectory but the camera's) with the aimer, which follows the gun; only the clavicles were turned back. **Fix** (`fix/headset-2026-11-05`, monitor check pending): all of the body's branches turn back to the rendered frame, then by the torso estimate. The gun pass is not the cause: it projects with the world's own tan scale, right at any angle |
-| MP2 | Not sure ADS works, but the scopes don't: the AK-12's sight is black throughout, with or without the flip magnifier (nice flip animation); the SCAR's holo can be looked through but shows no red cross. No difference at either eye, close or far | AIM-1 … AIM-7, VIEW-4 | Both lenses only clear, and the holo's cross only shows, while the game itself aims down the sights. So ADS (`sight_ads`) rarely or never engaged: lining the drawn sight up with the eye fails, likely made worse by MP1. Screenshots 7-11: the magnifier is see-through folded, dark flipped in (its lens only shows a picture in the game's ADS); the green dot sits far from where the laser goes (7-8), and in the headset somewhere else again than in SteamVR's mirror view. Recheck after the MP1 fix: the dot, the sight check and the laser all come from the drawn gun |
+| MP1 | Looking around is fine, the rings follow hands and head well and weapon swaps and the knife work. But the drawn arms and chest are wrong: the chest doesn't move up and down with the short arms; with a longer `arm_length` and more stretch it works better, but then the chest spins in front of the view (pulling the knife) instead of staying at the chest. The right arm and the gun sometimes don't go where the real arm is. The green dot is aligned within a ~30° cone ahead and drifts beyond it | VIEW-2, VIEW-4, GUN-1, HAND-8 | Screenshots 1-6 (`re/screenshots/headset/`, not in git): a wrist turn alone swings the whole shoulder (1-2); after stick turns the body and arms are seen from the wrong side, all mirrored (2); the knife at the left vs right shoulder turns the body so far it leaves the view (3-4); the arm twists with the wrist (5-6). **Cause:** under controller aim the game turns its whole first-person body (chest, clavicles, gun root: every branch off AITrajectory but the camera's) with the aimer, which follows the gun; only the clavicles were turned back. **Fix** (`fix/headset-2026-11-05`): the body's branches (Hips, SpineX) turn back to the rendered frame, then by the torso estimate. Monitor: the shoulders stay put while the gun turns 90°, 12 snap turns keep arms and gun in front. The gun pass is not the cause: it projects with the world's own tan scale, right at any angle. Your saved `arm_length` 1.4, `arm_reach` 0, `torso_follow` 0 were workarounds: back to defaults to judge it |
+| MP2 | Not sure ADS works, but the scopes don't: the AK-12's sight is black throughout, with or without the flip magnifier (nice flip animation); the SCAR's holo can be looked through but shows no red cross. No difference at either eye, close or far | AIM-1 … AIM-7, VIEW-4 | Both lenses only clear, and the holo's cross only shows, while the game itself aims down the sights. So ADS (`sight_ads`) rarely or never engaged: lining the drawn sight up with the eye fails, likely made worse by MP1. Screenshots 7-11: the magnifier is see-through folded, dark flipped in (its lens only shows a picture in the game's ADS); the green dot sits far from where the laser goes (7-8), and in the headset somewhere else again than in SteamVR's mirror view. Recheck after the MP1 fix: the dot, the sight check and the laser all come from the drawn gun. **Found 2026-11-05:** `bfvr.ini` had `sight_ads = 0` (saved from the panel), so the headset could never start ADS; and an eye closer than ~10 cm to the sight never counted (now up to 2 cm behind the optic). Monitor: with the left eye on the sight line the game aims, the red-dot lens clears and the dot sits in the left eye's centre (`eyeshot`) |
 | MP3 | After the headset was off a while and SteamVR was started again from the Quest, SteamVR kept showing "BF-VR, Waiting" although the game still ran on the desktop | — | The stuck run's log was deleted by the restart (`dev-run` removed it). It now keeps it as `bfvr.prev.log`: next time, leave BF4 running and tell me |
 | MARK4 | Hits and ADS need a fight to judge | HUD-2, HUD-4 | Wait until MP1 and MP2 are fixed |
 
@@ -93,21 +110,23 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | GUN-2 | done | AK-12 two-handed: off hand on the handguard + grip, move, aim, slide along the handguard | The barrel snaps onto the line between your hands, the hold stays until you open the grip (~0.1 s release); no grenade thrown | #29 |  2026-11-04: works; earlier 2026-11-03: fine on the SCAR, kept dropping on the AK |
 | GUN-3 | done | All grab rings (`grab_debug = 1`) on the gun and body | ~30 % smaller than before, still easy to find, sitting on the drawn gun | #14 |  2026-11-04: works, a nice size now; earlier 2026-11-03: liked, but asked for 30 % smaller |
 | GUN-4 | done | AK-12 reload: off hand to the magazine (tick), grip and pull, drop it; off hand to the magazine pouch, grip, bring it to the magwell (seats within ~14 cm); off hand to the handle, grip, pull back ~4 cm | Every step works without hunting for the spot; grabbing the magazine never racks; a hand on the handguard never takes the magazine | #14 |  2026-11-04: works |
-| GUN-5 | problem | SCAR-H: empty it, new magazine in, press B; then look at the handle ring | It chambers (no magazine drop); B again drops the magazine; the front-left handle ring sits on the handle | #14 |  2026-11-04: B ejected the magazine, new one in, B again ejected it instead of letting the bolt go forward; earlier 2026-11-03: B dropped the new magazine instead of chambering |
+| GUN-5 | retest | SCAR-H: empty it, new magazine in, press B; then look at the handle ring | It chambers (no magazine drop); B again drops the magazine; the front-left handle ring sits on the handle | #14 |  2026-11-04: B ejected the magazine, new one in, B again ejected it instead of letting the bolt go forward; earlier 2026-11-03: B dropped the new magazine instead of chambering |
 | GUN-6 | done | Chest rig (grab-zones.svg): gun hand over the right shoulder (primary), right hip (secondary), high left chest (knife); either hand over the left shoulder / left hip (gadgets, after the stash) | Each drawn on the first try; looking down at a pouch doesn't move it | #14 |  2026-11-04: works (all but grenades: GRN-2) |
 | GUN-7 | open | While holding two-handed: grab a magazine, then a grenade | Each releases the two-handed hold cleanly | #29 | |
 | GUN-8 | open | Holding two-handed, pull the off-hand trigger (gun with a laser, light or magnifier) | Toggles once per press; no zoom from that trigger; grabbing the handguard never toggles | #29 | |
 | GUN-9 | retest | Knife out (chest holster): point, twist and tilt the gun hand | The blade points where the controller points and turns with the wrist; tune `knife_pitch` (30°) | #15 | 2026-10-25: the hand rotation was wrong on the knife (now `knife_grip`) |
 | GUN-10 | open | Gadget stash: reach and grip at the green crates, laser-click Gadget One/Two; draw the C4, off-hand trigger throws, gun-hand trigger detonates; draw the M320 | The stash opens, the menu takes clicks, C4 thrown and set off, detonator and M320 turn with your hand | #15 | |
 | GUN-11 | open | A vehicle with `aim = controller` | Report what happens (known risk: the stick may turn the body, not the turret) | | |
+| FREE-1 | open | `free_hands = 1` (Weapon page): hold the gun by gripping, let go, look down, reach down and grip near it | Let go: after ~⅓ s the gun lies on its side on the floor below your hand and the trigger does nothing; grip within 30 cm of it: back in your hand. Drawing from a holster gives you that weapon | #35 | |
+| FREE-2 | open | At a weapon on the ground (an enemy's): reach down to it ahead of you and grip (either hand that is free) | The game's pickup (E) runs and the weapon replaces the one in its slot | #35 | |
 
 ## Grenades
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
 | GRN-1 | open | Off hand to the high right chest + grip, gun hand pulls the pin, throw outdoors; then a slow release with the pin out; then let go with the pin in | Leaves the hand along the throw, no delay; slow release drops it at the hand; pin in puts it back. Tune `grenade_throw_scale` | #14 | |
-| GRN-2 | problem | Take a grenade, look at it, turn the hand | A green M67 in the fist, fuse out of the thumb side, following the hand's tilt. Note if it sits off the palm or the fuse points wrong | #14 |  2026-11-04: could not find the grenades on the chest rig (the grenade pouch draws no ring) |
-| GRN-3 | problem | Pull the pin, then throw; also put one back | The ring goes at the pull; the grenade vanishes as it leaves the hand (the game's takes over); no glow in dark rooms; put back: it disappears | #14 |  2026-11-04: as GRN-2 |
+| GRN-2 | retest | Take a grenade, look at it, turn the hand | A green M67 in the fist, fuse out of the thumb side, following the hand's tilt. Note if it sits off the palm or the fuse points wrong | #14 |  2026-11-04: could not find the grenades on the chest rig (the grenade pouch draws no ring) |
+| GRN-3 | retest | Pull the pin, then throw; also put one back | The ring goes at the pull; the grenade vanishes as it leaves the hand (the game's takes over); no glow in dark rooms; put back: it disappears | #14 |  2026-11-04: as GRN-2 |
 
 ## Hands, arms and body
 
@@ -145,6 +164,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | CTRL-11 | open | With enemies in view: raise the off hand ahead above your eyes and grip | The squad engages (ENGAGE READY goes into cooldown); never while aiming two-handed | #15 | |
 | CTRL-12 | open | Panel: switch each feature off and on live (`two_handed`, `arm_reach`, `vignette`, `melee_gesture`, `knife_grip`, `use_reach`, `c4_trigger`, `haptics`, `reticle`, `pause_flat`, …) | Each switches off at once and back on without a restart | #25 | |
 | CTRL-13 | done | Controllers without a physical pad | | #4 | 2026-10-25: the game reads the virtual pad continuously |
+| CTRL-14 | retest | Gadget stash (green crates at the start): open it, pick Gadget One/Two with the pointer, Done | The menu appears in front of you (not where tracking started), the beam reaches it, a trigger click selects. Monitor: the menu takes pointer clicks with BF4 in front or behind and with the pad's trigger held | #34 | 2026-11-04: the items could not be selected (the flat menu sat at a fixed spot in the room) |
 
 ## Haptics and sound
 
