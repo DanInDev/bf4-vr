@@ -258,6 +258,10 @@ knife_pitch = 30
 # Use (pick up, doors, prompts; the game's E): reach the off hand out ahead, away from the gun and
 # below the eyes, and squeeze its grip. With physical reload the pad's own use (X) is not reachable.
 use_reach = 1
+# Free hands (issue #35): the gun is held only while the gun-hand grip is squeezed. Let go for a third
+# of a second and it drops to the floor below the hand (no firing); reach down and grip near it to pick
+# it up. Drawing from a holster puts the new weapon in hand. Off by default.
+free_hands = 0
 # With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
 # ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
 c4_trigger = 1

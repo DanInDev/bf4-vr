@@ -92,8 +92,15 @@ namespace bfvr::body
 		bool has_held{};
 		float held_magazine[3]{};
 		float held_rotation[4]{ 0, 0, 0, 1 };
+		// The soldier's ground (the rig's AITrajectory bone) as a height in OpenXR LOCAL.
+		bool has_floor{};
+		float floor_y{};
 	};
 	weapon_points latest_weapon_points();
+
+	// Free hands (#35): the drawn gun lies at this OpenXR LOCAL point on its side, barrel along yaw
+	// (atan2(-forward.x, -forward.z)), instead of in the gun hand; active = false puts it back.
+	void set_dropped_gun(bool active, const float (&position)[3], float yaw);
 
 	// Where to draw the magazine: with the gun (detached = false), in the drawn off hand's fist
 	// (in_hand), or at a pose in OpenXR LOCAL.

@@ -36,6 +36,11 @@ namespace bfvr::weapon
 		float min_down{ -0.70f };       // not further below the eyes than this
 		float max_side{ 0.60f };
 		float min_gun_distance{ 0.30f }; // from the gun hand: not the handguard
+		// Picking up from the ground (#35): reaching down below the hips counts too, ahead of the body
+		// (the hip holsters sit beside it) and within arm's length.
+		float pickup_below{ -0.95f };       // this far below the eyes or lower
+		float pickup_min_forward{ 0.20f };
+		float pickup_max_distance{ 0.90f }; // horizontally from the head
 	};
 
 	class use_reach

@@ -43,7 +43,7 @@ namespace bfvr::ui
 				{ "View", { "stereo_render", "cutscene_view", "ipd_scale", "view_crop_h", "view_crop_v", "view_crop_bottom", "foveation", "gun_life_size", "gun_scale", "steady_walk", "vignette", "vignette_strength" } },
 				{ "Body", { "arm_ik", "arm_length", "shoulder_offset", "shoulder_width", "body_shoulders", "arm_reach", "shoulder_reach", "arm_stretch", "hide_legs", "torso_follow", "finger_poses", "off_hand_pose", "magazine_grip", "rack_grip" } },
 				{ "Weapon", { "aim", "gun_pose", "move_direction", "reticle", "reticle_size", "two_handed", "two_hand_mode", "shot_line", "sight_ads", "scope", "scope_zoom", "aim_convergence", "recoil", "accessory_toggle", "reload", "reload_sounds", "game_sounds", "drop_discards_ammo", "grenade",
-					"grenade_throw_scale", "grenade_model", "holsters", "grab_debug", "squad_signal", "melee_gesture", "knife_grip", "knife_pitch", "use_reach", "c4_trigger", "grips_to_game", "ads_trigger" } },
+					"grenade_throw_scale", "grenade_model", "holsters", "grab_debug", "squad_signal", "melee_gesture", "knife_grip", "knife_pitch", "use_reach", "free_hands", "c4_trigger", "grips_to_game", "ads_trigger" } },
 				{ "HUD", { "hud_mode", "hud_show_crosshair", "hud_show_hit_markers", "hud_show_damage", "hud_show_objectives", "hud_show_prompts",
 					"hud_show_score", "hud_show_markers", "hud_show_main", "hud_show_minimap", "hud_show_ammo", "hud_show_bottom", "hud_distance", "hud_width",
 					"hud_marker_distance", "hud_watch_width", "hud_ammo_width" } },

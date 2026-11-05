@@ -73,6 +73,7 @@ namespace bfvr::settings
 			{ "knife_grip", kind::boolean, 0, 0, 0, "1", "", "with the knife out, the blade points where the gun-hand controller points (off: the game's knife-hand pose turned by the controller)" },
 			{ "knife_pitch", kind::real, -90.0f, 90.0f, 5.0f, "30", "", "knife_grip: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
 			{ "use_reach", kind::boolean, 0, 0, 0, "1", "", "reach out ahead with the off hand (away from the gun) and squeeze its grip: the game's use (pick up, doors, prompts)" },
+			{ "free_hands", kind::boolean, 0, 0, 0, "0", "", "hold the gun with the gun-hand grip: let go and it drops to the floor below your hand (no firing); reach down and grip to pick it up" },
 			{ "c4_trigger", kind::boolean, 0, 0, 0, "1", "", "with the C4 out, the off-hand trigger throws a C4 (the game's aim button); the gun-hand trigger on the detonator sets them off" },
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand ahead above your eyes and squeeze the grip" },
 			{ "grenade", kind::choice, 0, 0, 0, "physical", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },

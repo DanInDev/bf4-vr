@@ -88,6 +88,7 @@ namespace bfvr::body
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
+			int ground{ -1 };      // AITrajectory: the soldier's ground point (free hands drop the gun onto it)
 			// The body's branches: the children of the bone where the arms' chain meets the camera's
 			// (SpineX and its siblings, not CameraBase). The game turns them with the aimer, i.e. the gun.
 			static constexpr int max_trunk = 8;
@@ -172,6 +173,10 @@ namespace bfvr::body
 		ik::quat gun_hand_rotation;
 		std::atomic<bool> rendered_frame{ true }; // research A/B (pipe armframe): false = the game's camera frame
 		std::atomic<bool> body_turn_on{ true };   // research A/B (pipe bodyturn): the body's branches turned back from the gun
+		std::mutex dropped_lock;                   // free hands: the drawn gun lies on the floor
+		bool gun_on_floor{};
+		ik::vec3 floor_gun_position;               // OpenXR LOCAL
+		float floor_gun_yaw{};
 		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
 		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
@@ -471,6 +476,7 @@ namespace bfvr::body
 			fresh.ik_hand[1] = find_bone(bone_names, fresh.bones, "IK_Joint_RightHand");
 			fresh.legs[0] = find_bone(bone_names, fresh.bones, "LeftUpLeg");
 			fresh.legs[1] = find_bone(bone_names, fresh.bones, "RightUpLeg");
+			fresh.ground = find_bone(bone_names, fresh.bones, "AITrajectory");
 			if (fresh.magazine >= 0 && fresh.parents[fresh.magazine] != fresh.weapon)
 			{
 				fresh.magazine = -1;
@@ -949,9 +955,33 @@ namespace bfvr::body
 					last_arms[hand].aim_xr = ik::normalize(aim);
 					if (carry_weapon)
 					{
-						ik::set_model_transform(local, rig.parents, rig.weapon,
-							ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
-						gun_placed = true;
+						bool on_floor = false;
+						ik::vec3 floor_position;
+						float floor_yaw{};
+						{
+							const std::lock_guard dropped(dropped_lock);
+							on_floor = gun_on_floor && gun_in_hand.load(std::memory_order_relaxed);
+							floor_position = floor_gun_position;
+							floor_yaw = floor_gun_yaw;
+						}
+						if (on_floor)
+						{
+							// Free hands: the gun lies on its side on the floor, barrel along the yaw it fell
+							// with ((0,1,0,0) points Wep_Root's +z barrel along -z, a quarter turn about the barrel
+							// lays it on its side); the empty hand stays on the controller.
+							const ik::quat yaw_turn{ 0, std::sin(0.5f * floor_yaw), 0, std::cos(0.5f * floor_yaw) };
+							const ik::quat on_side{ 0, 0, 0.70710678f, 0.70710678f };
+							ik::bone_transform lying = ik::model_of(local, rig.parents, rig.weapon);
+							lying.position = camera.position + ik::rotate(frame, floor_position);
+							lying.rotation = ik::normalize(frame * yaw_turn * ik::quat{ 0, 1, 0, 0 } * on_side);
+							ik::set_model_transform(local, rig.parents, rig.weapon, lying);
+						}
+						else
+						{
+							ik::set_model_transform(local, rig.parents, rig.weapon,
+								ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
+							gun_placed = true;
+						}
 					}
 				}
 			}
@@ -1023,6 +1053,11 @@ namespace bfvr::body
 			const ik::quat magazine_rotation_xr = to_xr * magazine.rotation;
 			points.valid = true;
 			points.at = GetTickCount64();
+			points.has_floor = rig.ground >= 0;
+			if (points.has_floor)
+			{
+				points.floor_y = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.ground).position - camera.position).y;
+			}
 			points.magazine[0] = magazine_xr.x;
 			points.magazine[1] = magazine_xr.y;
 			points.magazine[2] = magazine_xr.z;
@@ -1802,6 +1837,14 @@ namespace bfvr::body
 	void set_body_turn(bool on)
 	{
 		body_turn_on = on;
+	}
+
+	void set_dropped_gun(bool active, const float (&position)[3], float yaw)
+	{
+		const std::lock_guard dropped(dropped_lock);
+		gun_on_floor = active;
+		floor_gun_position = { position[0], position[1], position[2] };
+		floor_gun_yaw = yaw;
 	}
 
 	bool body_turn()

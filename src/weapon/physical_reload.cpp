@@ -492,7 +492,7 @@ namespace bfvr::weapon
 
 		hand_frame frame;
 		frame.seconds = seconds;
-		frame.hands_valid = hands_valid;
+		frame.hands_valid = hands_valid && !gun_dropped(); // free hands: nothing to reload on the floor
 		frame.off_hand = v(points.hand[0]);
 		frame.has_palm = true;
 		frame.off_palm = v(points.palm[0]);

@@ -112,6 +112,7 @@ namespace bfvr::core
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
 			weapon::set_use_reach(store.boolean("use_reach", true));
+			weapon::set_free_hands(store.boolean("free_hands", false));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });

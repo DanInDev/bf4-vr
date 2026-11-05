@@ -66,7 +66,12 @@ namespace
 		expect(!press(reach({ -0.1f, 1.75f, -0.55f }, true)), "raised above the eyes: the squad signal, not use");
 		expect(!press(reach({ -0.1f, 1.3f, -0.2f }, true)), "close to the body (pouch, belt): not use");
 		expect(!press(reach({ -0.1f, 1.35f, 0.5f }, true)), "behind the head: not use");
-		expect(!press(reach({ -0.1f, 0.7f, -0.5f }, true)), "far below (picking at the floor): not use");
+		expect(!press(reach({ -0.1f, 0.7f, -0.5f }, true)), "at the belt's height ahead (0.9 m below the eyes): not use");
+		// Picking up from the ground (#35): well below the hips, ahead of the body, within arm's length.
+		expect(press(reach({ -0.1f, 0.5f, -0.5f }, true)), "reaching down ahead (1.1 m below the eyes): use, the game's pickup");
+		expect(press(reach({ -0.1f, 0.2f, -0.35f }, true)), "crouched to the floor ahead: use");
+		expect(!press(reach({ -0.25f, 0.5f, 0.0f }, true)), "down beside the hip (the off-side hip holster): not use");
+		expect(!press(reach({ -0.1f, 0.5f, -1.2f }, true)), "beyond arm's length: not use");
 		use_frame busy = reach(out_ahead, true);
 		busy.busy = true;
 		expect(!press(busy), "a busy off hand (magazine, grenade, panel) does not use");

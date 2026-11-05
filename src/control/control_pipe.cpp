@@ -923,16 +923,20 @@ namespace bfvr::control
 				// A fixed head sample (eyes +-ipd/2, looking ahead, Quest-like FOVs) so stereo paths run
 				// without a headset; "fakehead off" clears it. The XR thread overwrites it when tracking.
 				// An optional second number turns the head left by that many degrees, a third moves it up
-				// (metres, negative: crouching; physical stance tests).
+				// (metres, negative: crouching; physical stance tests), a fourth pitches it (degrees, up positive).
 				stereo::head_sample head;
-				float ipd = 0.0f, yaw = 0.0f, height = 0.0f;
-				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f", &ipd, &yaw, &height) >= 1 && ipd > 0.0f && ipd < 0.1f;
+				float ipd = 0.0f, yaw = 0.0f, height = 0.0f, pitch = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f %f", &ipd, &yaw, &height, &pitch) >= 1 && ipd > 0.0f && ipd < 0.1f;
 				const float half = yaw * 3.14159265f / 360.0f;
+				const float tilt = pitch * 3.14159265f / 360.0f;
 				for (int eye = 0; eye < 2; ++eye)
 				{
 					const float side = eye == 0 ? -0.5f * ipd : 0.5f * ipd;
-					head.eyes[eye].orientation[1] = std::sin(half);
-					head.eyes[eye].orientation[3] = std::cos(half);
+					// yaw about +y, then pitch about the turned x axis: q = yaw * pitch.
+					head.eyes[eye].orientation[0] = std::cos(half) * std::sin(tilt);
+					head.eyes[eye].orientation[1] = std::sin(half) * std::cos(tilt);
+					head.eyes[eye].orientation[2] = -std::sin(half) * std::sin(tilt);
+					head.eyes[eye].orientation[3] = std::cos(half) * std::cos(tilt);
 					head.eyes[eye].position[0] = side * std::cos(2 * half);
 					head.eyes[eye].position[1] = height;
 					head.eyes[eye].position[2] = -side * std::sin(2 * half);

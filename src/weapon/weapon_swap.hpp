@@ -25,6 +25,11 @@ namespace bfvr::weapon
 	void set_use_reach(bool enabled);
 	// c4_trigger: with the C4 out, the off-hand (left) trigger reaches the game: it throws a C4.
 	void set_c4_trigger(bool enabled);
+	// free_hands (#35, weapon/free_hands): the gun is held only while the gun hand grips; let go and it
+	// lies on the floor (drawn there, no firing) until gripped again.
+	void set_free_hands(bool enabled);
+	// The gun lies on the floor (free hands): no shots, no two-handed hold, no reload on it.
+	bool gun_dropped();
 
 	// Present thread, once per frame.
 	void update_weapon_swap();

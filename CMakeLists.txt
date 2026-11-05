@@ -134,6 +134,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/holsters.cpp
 	src/weapon/melee_gesture.cpp
 	src/weapon/use_reach.cpp
+	src/weapon/free_hands.cpp
 	src/input/haptics.cpp
 	src/weapon/physical_grenade.cpp
 	src/weapon/physical_reload.cpp
@@ -234,6 +235,9 @@ if(BFVR_BUILD_TESTS)
 	# Use by reaching (the game's interact); exits non-zero on failure.
 	add_executable(bfvr_use_reach_test tests/use_reach_test.cpp src/weapon/use_reach.cpp)
 	target_link_libraries(bfvr_use_reach_test PRIVATE bfvr_common)
+	# Free hands (#35): drop on an open grip, pick up by gripping near the dropped gun.
+	add_executable(bfvr_free_hands_test tests/free_hands_test.cpp src/weapon/free_hands.cpp)
+	target_link_libraries(bfvr_free_hands_test PRIVATE bfvr_common)
 
 	# Finger poses (src/body/finger_pose); exits non-zero on failure.
 	add_executable(bfvr_finger_pose_test tests/finger_pose_test.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
@@ -276,6 +280,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME hud_widgets COMMAND bfvr_hud_widgets_test)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
+	add_test(NAME free_hands COMMAND bfvr_free_hands_test)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)

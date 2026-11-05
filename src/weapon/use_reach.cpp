@@ -15,7 +15,10 @@ namespace bfvr::weapon
 		const float dx = frame.off_hand.x - frame.head.x, dy = frame.off_hand.y - frame.head.y, dz = frame.off_hand.z - frame.head.z;
 		const float forward = -dx * s - dz * c;
 		const float side = dx * c - dz * s;
-		if (forward < config_.min_forward || dy > config_.max_up || dy < config_.min_down || std::fabs(side) > config_.max_side)
+		const bool ahead = forward >= config_.min_forward && dy <= config_.max_up && dy >= config_.min_down && std::fabs(side) <= config_.max_side;
+		const bool ground = dy <= config_.pickup_below && forward >= config_.pickup_min_forward && std::fabs(side) <= config_.max_side
+			&& std::sqrt(dx * dx + dz * dz) <= config_.pickup_max_distance;
+		if (!ahead && !ground)
 		{
 			return false;
 		}

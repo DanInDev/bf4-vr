@@ -22,6 +22,7 @@
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/body_rig.hpp"
+#include "weapon/free_hands.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
@@ -136,6 +137,14 @@ namespace bfvr::weapon
 		bool use_down{};
 		std::uint64_t uses{};
 		melee_gesture melee;
+		// Free hands (#35).
+		std::atomic<bool> free_hands_on{};
+		std::atomic<bool> dropped_now{};
+		free_hands dropper;
+		int last_slot{ -2 };
+		char last_name[48]{};
+		std::uint64_t drops{};
+		std::uint64_t pickups{};
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
 		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
@@ -381,6 +390,47 @@ namespace bfvr::weapon
 			use_reaching = false;
 			hold_use(false);
 		}
+		{
+			// Free hands (#35): the gun stays in hand only while the gun hand grips it.
+			const bool changed = held.current != last_slot || std::strncmp(held.name, last_name, sizeof(last_name)) != 0;
+			last_slot = held.current;
+			std::memcpy(last_name, held.name, sizeof(last_name));
+			free_hands_frame drop;
+			drop.seconds = seconds;
+			drop.enabled = free_hands_on.load(std::memory_order_relaxed);
+			drop.gun_in_hand = held.valid && held.current >= 0 && held.current <= 1 && std::strstr(held.name, "Knife") == nullptr;
+			drop.weapon_changed = changed;
+			drop.hand_valid = points.hand_valid[1] && now - points.at < points_max_age_ms && points.has_floor;
+			drop.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
+			drop.grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+			// The grip pulling a grenade pin, drawing from a holster or clicking the panel is not a release.
+			drop.busy = grenade_in_hand() || grip_claimed.load() || ui::vr_panel_view().open;
+			drop.floor_y = points.floor_y;
+			const float* q = points.hand_rotation[1];
+			drop.hand_yaw = std::atan2(2.0f * (q[0] * q[2] + q[1] * q[3]), 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]));
+			const free_hands_result dropped = dropper.update(drop);
+			if (dropped.event == free_hands_event::dropped)
+			{
+				++drops;
+				input::haptic(1, input::pulses::tick);
+			}
+			else if (dropped.event == free_hands_event::picked_up)
+			{
+				++pickups;
+				input::haptic(1, input::pulses::grab);
+			}
+			dropped_now = dropped.dropped;
+			const float lying[3]{ dropped.position.x, dropped.position.y, dropped.position.z };
+			body::set_dropped_gun(dropped.dropped, lying, dropped.yaw);
+			if (dropped.dropped)
+			{
+				publish_grab_zone(grab_slot::dropped_gun, lying, dropper.config().pickup_reach, dropped.in_reach);
+			}
+			else
+			{
+				clear_grab_zone(grab_slot::dropped_gun);
+			}
+		}
 		if (!enabled.load(std::memory_order_relaxed))
 		{
 			zones.reset();
@@ -481,7 +531,21 @@ namespace bfvr::weapon
 			out.buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
 			out.connected = true;
 		}
+		if (dropped_now.load(std::memory_order_relaxed))
+		{
+			out.right_trigger = 0; // the gun lies on the floor (free hands)
+		}
 		return out;
+	}
+
+	void set_free_hands(bool on)
+	{
+		free_hands_on = on;
+	}
+
+	bool gun_dropped()
+	{
+		return dropped_now.load(std::memory_order_relaxed);
 	}
 
 	std::string holster_pipe_command(const std::string& argument)
@@ -513,14 +577,16 @@ namespace bfvr::weapon
 			request(which, GetTickCount64());
 		}
 		const slot_state slot = read_slot();
-		char text[512];
+		char text[768];
 		std::snprintf(text, sizeof(text),
 			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
-			"use_reach=%d reaching=%d using=%d uses=%llu",
+			"use_reach=%d reaching=%d using=%d uses=%llu\nfree_hands=%d dropped=%d drops=%llu pickups=%llu floor_y=%.2f",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
 			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
-			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses));
+			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses),
+			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups),
+			body::latest_weapon_points().floor_y);
 		return text;
 	}
 }

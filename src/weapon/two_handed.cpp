@@ -19,6 +19,7 @@
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/two_hand.hpp"
+#include "weapon/weapon_swap.hpp"
 
 namespace bfvr::weapon
 {
@@ -126,7 +127,7 @@ namespace bfvr::weapon
 
 		two_hand_output out;
 		std::copy(std::begin(hands.aim[1].orientation), std::end(hands.aim[1].orientation), out.rotation);
-		if (enabled.load(std::memory_order_relaxed))
+		if (enabled.load(std::memory_order_relaxed) && !gun_dropped())
 		{
 			two_hand_input input;
 			input.tracked = hands.valid[0];
@@ -201,7 +202,8 @@ namespace bfvr::weapon
 		float start[3]{ hands.grip[1].position[0], hands.grip[1].position[1], hands.grip[1].position[2] };
 		float line[4]{ out.rotation[0], out.rotation[1], out.rotation[2], out.rotation[3] };
 		const body::weapon_points points = body::latest_weapon_points();
-		drawn_line = shot_from_gun.load(std::memory_order_relaxed) && points.valid && points.has_root && GetTickCount64() - points.at < 250;
+		// A gun on the floor (free hands) aims nowhere: the controller's ray keeps the aimer level.
+		drawn_line = shot_from_gun.load(std::memory_order_relaxed) && points.valid && points.has_root && GetTickCount64() - points.at < 250 && !gun_dropped();
 		if (drawn_line)
 		{
 			// The sight line where the game's animation shows it (the eye point behind the sight, along

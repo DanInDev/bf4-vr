@@ -18,6 +18,7 @@ namespace bfvr::weapon
 		knife,
 		gadget1,
 		gadget2,
+		dropped_gun, // free hands: the gun on the floor
 		count,
 	};
 
