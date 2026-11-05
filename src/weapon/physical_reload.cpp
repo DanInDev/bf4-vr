@@ -324,6 +324,7 @@ namespace bfvr::weapon
 
 		void attach_magazine()
 		{
+			body::set_extra_magazine({}); // a later step this update may ask for one again
 			if (magazine_detached)
 			{
 				body::set_magazine_pose({});
@@ -618,6 +619,31 @@ namespace bfvr::weapon
 			body::set_magazine_pose(pose);
 			magazine_detached = true;
 		}
+
+		// A second magazine (extra meshes, #36): drawn as a copy of the game's own magazine draw.
+		body::extra_magazine_pose extra;
+		switch (result.extra)
+		{
+		case hand_result::extra_magazine::seated:
+			extra.where = body::extra_magazine_pose::kind::seated;
+			break;
+		case hand_result::extra_magazine::in_fist:
+			extra.where = body::extra_magazine_pose::kind::in_fist;
+			break;
+		case hand_result::extra_magazine::falling:
+			extra.where = body::extra_magazine_pose::kind::at_pose;
+			extra.position[0] = result.extra_position.x;
+			extra.position[1] = result.extra_position.y;
+			extra.position[2] = result.extra_position.z;
+			extra.rotation[0] = result.extra_rotation.x;
+			extra.rotation[1] = result.extra_rotation.y;
+			extra.rotation[2] = result.extra_rotation.z;
+			extra.rotation[3] = result.extra_rotation.w;
+			break;
+		default:
+			break;
+		}
+		body::set_extra_magazine(extra);
 
 		const body::fingers::task off_task = gun.state().holding || result.draw == magazine_draw::in_hand ? body::fingers::task::magazine
 			: result.racking ? body::fingers::task::handle

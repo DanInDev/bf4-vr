@@ -24,6 +24,7 @@
 #include "safety/mp_guard.hpp"
 #include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/scope.hpp"
 #include "stereo/scope_compose.hpp"
 #include "stereo/scope_math.hpp"
@@ -574,6 +575,26 @@ namespace bfvr::stereo
 			}
 		}
 
+		// An arena block through its CPU mapping (slow memory: a few blocks per frame only), for extra_mesh.
+		bool read_arena_block(ID3D11Buffer* buffer, UINT first, UINT count, float* out)
+		{
+			const std::uint8_t* cpu{};
+			UINT size{};
+			{
+				const std::lock_guard guard(arena_lock);
+				for (int i = 0; i < arena_count; ++i)
+				{
+					if (arenas[i].buffer.Get() == buffer)
+					{
+						cpu = arenas[i].cpu;
+						size = arenas[i].size;
+					}
+				}
+			}
+			const std::size_t bytes = static_cast<std::size_t>(count) * 16;
+			return cpu && static_cast<std::size_t>(first) * 16 + bytes <= size && copy_guarded(out, cpu + first * 16, bytes);
+		}
+
 		UINT eye_block(ID3D11Buffer* buffer, UINT first, UINT count)
 		{
 			if (!buffer || count == 0 || count > 4096)
@@ -730,6 +751,7 @@ namespace bfvr::stereo
 		void STDMETHODCALLTYPE vs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
 		{
 			record('v', s, n, b, nullptr, nullptr);
+			extra_mesh::on_vs_bindings(s, n, b, nullptr, nullptr);
 			original_vs_set_constant_buffers(c, s, n, b);
 		}
 
@@ -766,6 +788,7 @@ namespace bfvr::stereo
 				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
 			}
 			original_draw_indexed(c, count, start, base);
+			extra_mesh::after_draw(c, count, start, base, 1);
 		}
 
 		void STDMETHODCALLTYPE draw_indexed_instanced_detour(ID3D11DeviceContext* c, UINT count, UINT instances, UINT start, INT base, UINT first)
@@ -779,11 +802,13 @@ namespace bfvr::stereo
 				probe_bindings.push_back({ 'D', count, nullptr, 0, instances });
 			}
 			original_draw_indexed_instanced(c, count, instances, start, base, first);
+			extra_mesh::after_draw(c, count, start, base, instances);
 		}
 
 		void STDMETHODCALLTYPE vs_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
 		{
 			record('V', s, n, b, f, k);
+			extra_mesh::on_vs_bindings(s, n, b, f, k);
 			set_redirected<&original_vs_set_constant_buffers1, 'V'>(c, s, n, b, f, k);
 		}
 
@@ -831,6 +856,7 @@ namespace bfvr::stereo
 				}
 				log::write("eye pass: binding hook slot %d: %s", entry.slot, MH_StatusToString(status));
 			}
+			extra_mesh::set_entry_points(original_draw_indexed, original_vs_set_constant_buffers1, &read_arena_block);
 			D3D11_BUFFER_DESC desc{};
 			desc.ByteWidth = eye_buffer_size;
 			desc.Usage = D3D11_USAGE_DYNAMIC;
@@ -1181,7 +1207,9 @@ namespace bfvr::stereo
 			}
 			scope_rendering = true;
 			patching = true;
+			extra_mesh::begin_render(2);
 			original_per_view_render(renderer, slot, context);
+			extra_mesh::end_render();
 			patching = false;
 			scope_rendering = false;
 			if (scissor)
@@ -1286,7 +1314,9 @@ namespace bfvr::stereo
 				gpu_stamp(0);
 				begin_eye_foveation();
 			}
+			extra_mesh::begin_render(0);
 			original_per_view_render(renderer, slot, context);
+			extra_mesh::end_render();
 			if (patch_constants)
 			{
 				end_foveation(eye_context.Get());
@@ -1380,7 +1410,9 @@ namespace bfvr::stereo
 			{
 				begin_eye_foveation();
 			}
+			extra_mesh::begin_render(1);
 			original_per_view_render(renderer, slot, context);
+			extra_mesh::end_render();
 			if (patch_constants)
 			{
 				end_foveation(eye_context.Get());

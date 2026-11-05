@@ -25,6 +25,7 @@
 #include "input/fingers.hpp"
 #include "safety/mp_guard.hpp"
 #include "stereo/camera_hook.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::body
@@ -286,6 +287,12 @@ namespace bfvr::body
 		weapon_points points;
 		magazine_pose magazine_request;
 		bone_memory magazine_memory;
+		// Extra meshes (#36): the second magazine (stereo/extra_mesh), and the held magazine's pose before
+		// the palming tilt (where a caught one sits).
+		extra_magazine_pose extra_request;
+		std::atomic<bool> extra_meshes_on{ true };
+		ik::bone_transform fist_untilted;
+		bool has_fist_untilted{};
 		// Racking (weapon/physical_reload): the off hand on the charging handle, the slide pulled back.
 		struct handle_hold
 		{
@@ -1576,6 +1583,7 @@ namespace bfvr::body
 		void attach_held_magazine(ik::bone_transform* local)
 		{
 			points.has_held = false;
+			has_fist_untilted = false;
 			if (!magazine_request.detached || !magazine_request.in_hand || rig.magazine < 0 || rig.weapon < 0)
 			{
 				return;
@@ -1618,6 +1626,8 @@ namespace bfvr::body
 			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
 			placed.rotation = nlerp(fist_rotation, palm_rotation, on_palm);
 			placed.position = fist_top + (palm_top - fist_top) * on_palm;
+			fist_untilted = placed;
+			has_fist_untilted = true;
 			// Palming: turned aside in the hand, leaving the magwell to the old magazine.
 			contact::tilt_magazine(placed.position, placed.rotation, seated, magazine_request.tilt, magazine_request.tilt_pivot);
 			ik::bone_transform& current = local[rig.magazine];
@@ -1638,6 +1648,111 @@ namespace bfvr::body
 			points.held_rotation[1] = rotation.y;
 			points.held_rotation[2] = rotation.z;
 			points.held_rotation[3] = rotation.w;
+		}
+
+		// The drawn off-hand fist's magazine pose (as seated in the gun, in the fist's grasp frame), for a
+		// caught magazine while the rig's one is back in the gun.
+		bool fist_magazine(const ik::bone_transform* local, ik::bone_transform& out)
+		{
+			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[0];
+			const int needed[] = { bones[fingers::index][0], bones[fingers::pinky][0], bones[fingers::middle][0], bones[fingers::middle][2], bones[fingers::thumb][1] };
+			for (const int bone : needed)
+			{
+				if (bone <= 0)
+				{
+					return false;
+				}
+			}
+			if (!last_arms[0].solved)
+			{
+				return false;
+			}
+			const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
+			const fingers::grasp fist = fingers::grasp_of(at(needed[0]), at(needed[1]), at(needed[2]), at(needed[3]), at(needed[4]));
+			if (!fist.valid)
+			{
+				return false;
+			}
+			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+			const ik::bone_transform seated = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
+			out = seated;
+			out.rotation = ik::normalize(fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
+			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f });
+			return true;
+		}
+
+		// Called with rig_lock held, last before the conversion (extra meshes, #36): the magazine bone gets
+		// its tag scale (set, never multiplied), and the second magazine's transform relative to the drawn
+		// one goes to stereo/extra_mesh, in the bone palette's space (the model pose: the root left out).
+		void publish_extra_magazine(ik::bone_transform* local)
+		{
+			const bool on = extra_meshes_on.load(std::memory_order_relaxed) && rig.magazine >= 0 && rig.weapon >= 0 && rig.parents[rig.magazine] >= 0;
+			if (!on)
+			{
+				stereo::extra_mesh::set_magazine_copy(false, nullptr);
+				return;
+			}
+			ik::bone_transform& magazine = local[rig.magazine];
+			const bool remembered = magazine_memory.has_written && std::memcmp(&magazine, &magazine_memory.written, sizeof(magazine)) == 0;
+			magazine.scale = stereo::extra_mesh::magazine_tag;
+			if (remembered)
+			{
+				magazine_memory.written = magazine;
+			}
+
+			ik::bone_transform extra;
+			bool placed = false;
+			switch (extra_request.where)
+			{
+			case extra_magazine_pose::kind::seated:
+				extra = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
+				placed = true;
+				break;
+			case extra_magazine_pose::kind::in_fist:
+				if (has_fist_untilted)
+				{
+					extra = fist_untilted;
+					placed = true;
+				}
+				else
+				{
+					placed = fist_magazine(local, extra);
+				}
+				break;
+			case extra_magazine_pose::kind::at_pose:
+			{
+				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+				const ik::quat frame = camera_frame(camera);
+				const float* p = extra_request.position;
+				const float* q = extra_request.rotation;
+				extra.position = tracking_origin(camera, frame) + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+				extra.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+				placed = true;
+				break;
+			}
+			default:
+				break;
+			}
+			if (!placed)
+			{
+				stereo::extra_mesh::set_magazine_copy(false, nullptr);
+				return;
+			}
+			// Palette space: the root (Reference, the soldier in the world) left out.
+			const ik::bone_transform to_soldier = ik::inverse(local[0]);
+			ik::bone_transform drawn = ik::compose(to_soldier, ik::model_of(local, rig.parents, rig.magazine));
+			extra = ik::compose(to_soldier, extra);
+			drawn.scale = 1.0f;
+			extra.scale = 1.0f;
+			const ik::bone_transform d = ik::compose(extra, ik::inverse(drawn));
+			// 3x4 rows (rotation | translation), as the palette stores them.
+			const ik::quat& q = d.rotation;
+			const float matrix[12] = {
+				1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w), d.position.x,
+				2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w), d.position.y,
+				2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y), d.position.z,
+			};
+			stereo::extra_mesh::set_magazine_copy(true, matrix);
 		}
 
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
@@ -1732,6 +1847,7 @@ namespace bfvr::body
 					edit_weapon(local);
 					edit_fingers(local);
 					attach_held_magazine(local);
+					publish_extra_magazine(local);
 				}
 			}
 			original_conversion(pose);
@@ -1910,6 +2026,17 @@ namespace bfvr::body
 	{
 		const std::lock_guard guard(rig_lock);
 		magazine_request = pose;
+	}
+
+	void set_extra_magazine(const extra_magazine_pose& pose)
+	{
+		const std::lock_guard guard(rig_lock);
+		extra_request = pose;
+	}
+
+	void set_extra_meshes(bool on)
+	{
+		extra_meshes_on = on;
 	}
 
 	arm_pose_stats stats()

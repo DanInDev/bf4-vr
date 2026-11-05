@@ -29,6 +29,7 @@
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/scope.hpp"
@@ -555,7 +556,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -581,6 +582,8 @@ namespace bfvr::control
 			if (command == "eyepoison") return stereo::set_eye_poison(argument);
 			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
 			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
+			if (command == "meshprobe") return stereo::extra_mesh::probe(argument);
+			if (command == "meshcopy") return stereo::extra_mesh::set_research_copy(argument);
 			if (command == "dump") return dump_image(argument);
 			if (command == "peek") return peek(argument);
 			if (command == "peekmany") return peek_many(argument);
@@ -839,6 +842,7 @@ namespace bfvr::control
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
+			if (command == "extramesh") return stereo::extra_mesh::report();
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report();
 			if (command == "motion")
@@ -1030,7 +1034,7 @@ namespace bfvr::control
 			char header[160];
 			std::snprintf(header, sizeof(header), "mark %d at %02u:%02u:%02u.%03u: ", number, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
 			std::string text = header + note + "\n";
-			static constexpr const char* reports[] = { "status", "twohand", "arms", "scope", "grenade", "fingers", "reload", "cutscene", "stance",
+			static constexpr const char* reports[] = { "status", "twohand", "arms", "scope", "grenade", "fingers", "reload", "extramesh", "cutscene", "stance",
 				"haptics", "hudwidgets", "setting list" };
 			for (const char* report : reports)
 			{

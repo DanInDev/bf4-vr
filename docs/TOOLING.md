@@ -121,6 +121,9 @@ offline mode is the legitimate way to play without a connection.
 | `entityevent <entity> <event id> [slot]` | Research: on the game thread, call the entity's event handler (vtable slot, default 5) with that event id (`re/notes/sound.md`) |
 | `motion` | The game camera's own yaw rate and speed (no head pose), the comfort vignette's input (#10) |
 | `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
+| `extramesh` | Extra meshes (#36): whether a second magazine is drawn now, its move, copies drawn, palettes read, meshes carrying the magazine tag (`re/notes/meshes.md`) |
+| `meshprobe <file.txt>` | Research: every indexed draw of the next first-eye render (buffers, shaders, target, VS constant bindings) and every 3072-byte VS slot-0 block as 64 3x4 matrices |
+| `meshcopy <index buffer hex> <dx dy dz> [entries] \| off` | Research: after each draw from that index buffer, the same draw again with palette entries 0..entries-1 moved (palette space, metres) |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide/off-hand positions and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms] [rw]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace; `rw` traps reads too ("what accesses this", e.g. the per-frame reader of a widget's `Visible`) |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |

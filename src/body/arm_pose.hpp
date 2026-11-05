@@ -119,6 +119,20 @@ namespace bfvr::body
 	};
 	void set_magazine_pose(const magazine_pose& pose);
 
+	// Extra meshes (#36): a second magazine, drawn by stereo::extra_mesh as a copy of the game's magazine
+	// draw: where the gun holds it (seated), in the drawn off-hand fist untilted (the caught one while
+	// palming), or at a pose in OpenXR LOCAL (falling).
+	struct extra_magazine_pose
+	{
+		enum class kind { none, seated, in_fist, at_pose } where{ kind::none };
+		float position[3]{};
+		float rotation[4]{ 0, 0, 0, 1 };
+	};
+	void set_extra_magazine(const extra_magazine_pose& pose);
+	// Live setting extra_meshes: the magazine bone is tagged (scale stereo::extra_mesh::magazine_tag) so
+	// its draw can be found.
+	void set_extra_meshes(bool on);
+
 	struct arm_pose_stats
 	{
 		unsigned long long conversions{}; // pose conversions seen (all animated objects)

@@ -57,6 +57,7 @@ namespace bfvr::settings
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "" },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
+			{ "extra_meshes", "Weapon", "Reloading", "Second magazine", "The gun keeps its own while you hold a new one", "" },
 			{ "palm_reload", "Weapon", "Reloading", "Palm magazines (AR)", "New one at the magwell, B, turn the hand", "" },
 			{ "reload_sounds", "Weapon", "Reloading", "Reload sounds", "Magazines, bolt, pouch and pin", "" },
 			{ "game_sounds", "Weapon", "Reloading", "The game's own reload sounds", "Where the gun's sounds are found", "" },

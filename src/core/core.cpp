@@ -132,6 +132,7 @@ namespace bfvr::core
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(store.boolean("palm_reload", true));
+			body::set_extra_meshes(store.boolean("extra_meshes", true));
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true) && store.boolean("game_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");

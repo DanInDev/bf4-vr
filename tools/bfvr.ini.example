@@ -141,8 +141,12 @@ drop_discards_ammo = 1
 # Physical reload, AR (SCAR-H): palm magazines. Bring a new magazine to the magwell while one is in the
 # gun: it turns aside in the hand (a tick). B drops the old one into the same hand; turn the hand back
 # until the new one lines up and it seats. The old one stays in the hand: let go at the pouch to keep its
-# rounds. The game has one magazine mesh, so the caught one is not drawn. Pipe `reload` shows the stage.
+# rounds. Pipe `reload` shows the stage.
 palm_reload = 1
+# A second magazine: the one in the gun while you hold a new one, the caught one while palming, one
+# falling. Drawn as a copy of the game's own magazine (the rig has only one); 0 = the gun's magazine
+# moves to the hand as before. Pipe `extramesh` shows it.
+extra_meshes = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
 #   trigger  hold the gun with both hands (off hand + grip on the handguard), press the off-hand trigger
 #   touch    off hand on the optic or the front rail + grip

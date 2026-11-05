@@ -492,9 +492,16 @@ namespace
 		reload gun(ak, { false });
 		gun.load(11, 60);
 		reload_hands hands(flat_hold());
-		hands.update(gun, at(chest, true));
-		hand_result r = hands.update(gun, at(magwell, true));
+		hand_result r = hands.update(gun, at(chest, true));
+		expect(r.draw == magazine_draw::in_hand && r.extra == hand_result::extra_magazine::seated, "extra meshes: a new one taken, the old one still drawn in the gun");
+		r = hands.update(gun, at(magwell, true));
 		expect(has(r, reload_event::flicked_in) && r.draw == magazine_draw::with_gun, "new magazine knocks the old one out");
+		expect(r.extra == hand_result::extra_magazine::falling && r.extra_position.y <= magwell.y + 1e-4f, "extra meshes: the knocked-out one falls from the magwell");
+		for (int i = 0; i < 200 && r.extra != hand_result::extra_magazine::none; ++i)
+		{
+			r = hands.update(gun, at(magwell, false));
+		}
+		expect(r.extra == hand_result::extra_magazine::none, "extra meshes: the fall ends");
 		expect(gun.rounds_in_gun() == 31 && gun.state().reserve == 40, "old rounds back (discard off)");
 		hand_frame lost = at(magwell, false);
 		lost.hands_valid = false;
@@ -919,8 +926,10 @@ namespace
 		}
 		expect(!r.palm_ready_now && close(r.magazine_tilt, 40.0f * 0.017453293f, 1e-3f), "it turns aside over a few frames");
 		expect(r.draw == magazine_draw::in_hand && r.in_fist && r.magazine_position.x < magwell.x - 0.03f, "the new one is drawn turned off the magwell, towards the gun's left");
+		expect(r.extra == hand_result::extra_magazine::seated, "extra meshes: while the new one is held, the old one is still drawn in the gun");
 		r = hands.update(gun, palm_frame(magwell, true, true));
 		expect(has(r, reload_event::magazine_palmed) && r.palm == hand_result::palm_stage::caught && gun.state().palmed, "B drops the old one into the hand");
+		expect(r.extra == hand_result::extra_magazine::in_fist, "extra meshes: the caught one is drawn in the fist");
 		r = hands.update(gun, palm_frame(magwell, true, false));
 		expect(r.count == 0 && !gun.state().magazine_in && r.palm_misalign_degrees > 30.0f, "held still, the turned new one does not seat");
 
@@ -944,6 +953,7 @@ namespace
 			r = hands.update(gun, turned);
 		}
 		expect(r.draw == magazine_draw::with_gun && !r.in_fist && r.palm == hand_result::palm_stage::none, "the one mesh shows the seated magazine");
+		expect(r.extra == hand_result::extra_magazine::in_fist, "extra meshes: the old one stays drawn in the hand");
 		hands.update(gun, palm_frame(chest, true, false));
 		r = hands.update(gun, palm_frame(chest, false, false));
 		expect(has(r, reload_event::magazine_stowed) && gun.state().reserve == 57, "the old one stowed at the pouch keeps its rounds");

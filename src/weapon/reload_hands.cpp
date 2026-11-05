@@ -385,11 +385,32 @@ namespace bfvr::weapon
 			}
 			else if (result.draw == magazine_draw::hidden)
 			{
-				// One magazine mesh: a flicked-out magazine is not drawn falling, the new one is seated.
+				// The rig's one magazine mesh, when nothing else needs it.
 				result.draw = magazine_draw::falling;
 				result.magazine_position = fall_start_ + v3{ 0, -4.905f * fall_time_ * fall_time_, 0 };
 				result.magazine_rotation = fall_rotation_;
 			}
+		}
+		// The second magazine (a copy of the game's draw where available): with one in the gun and one in the
+		// hand, whichever the rig's mesh does not show; the caught one while palming; one falling while the
+		// rig's mesh is busy elsewhere.
+		if (gun.state().holding && gun.state().magazine_in && result.draw == magazine_draw::in_hand)
+		{
+			result.extra = hand_result::extra_magazine::seated;
+		}
+		else if (gun.state().holding && gun.state().magazine_in && result.draw == magazine_draw::with_gun)
+		{
+			result.extra = hand_result::extra_magazine::in_fist;
+		}
+		else if (gun.state().palmed)
+		{
+			result.extra = hand_result::extra_magazine::in_fist;
+		}
+		else if (falling_ && result.draw != magazine_draw::falling)
+		{
+			result.extra = hand_result::extra_magazine::falling;
+			result.extra_position = fall_start_ + v3{ 0, -4.905f * fall_time_ * fall_time_, 0 };
+			result.extra_rotation = fall_rotation_;
 		}
 		return result;
 	}

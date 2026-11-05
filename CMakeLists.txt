@@ -115,6 +115,8 @@ add_library(bfvr_runtime STATIC
 	src/stereo/constant_patch.cpp
 	src/stereo/eye_math.cpp
 	src/stereo/eye_pass.cpp
+	src/stereo/extra_mesh.cpp
+	src/stereo/palette_copy.cpp
 	src/stereo/foveation.cpp
 	src/stereo/foveation_pattern.cpp
 	src/stereo/hud_capture.cpp
@@ -187,6 +189,9 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_scope_test PRIVATE bfvr_common)
 	add_executable(bfvr_foveation_test tests/foveation_test.cpp src/stereo/foveation_pattern.cpp)
 	target_link_libraries(bfvr_foveation_test PRIVATE bfvr_common)
+	# Extra meshes: bone palette copy (tagged entries moved, the rest collapsed).
+	add_executable(bfvr_palette_copy_test tests/palette_copy_test.cpp src/stereo/palette_copy.cpp)
+	target_link_libraries(bfvr_palette_copy_test PRIVATE bfvr_common)
 
 	# Settings registry: ini load, pipe text, write-back; exits non-zero on failure.
 	add_executable(bfvr_settings_test tests/settings_test.cpp)
@@ -272,6 +277,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME eye_math COMMAND bfvr_eye_math_test)
 	add_test(NAME scope COMMAND bfvr_scope_test)
 	add_test(NAME foveation COMMAND bfvr_foveation_test)
+	add_test(NAME palette_copy COMMAND bfvr_palette_copy_test)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)

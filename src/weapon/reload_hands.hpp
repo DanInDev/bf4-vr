@@ -82,6 +82,11 @@ namespace bfvr::weapon
 		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;
+		// A second magazine to draw (extra meshes, #36; the rig has one): the one still seated while the hand
+		// holds a new one, the caught one in the fist (palmed, drawn untilted), or one falling.
+		enum class extra_magazine { none, seated, in_fist, falling } extra{ extra_magazine::none };
+		v3 extra_position; // falling: its top
+		q4 extra_rotation;
 		// AR palming (frame.palming): a new magazine brought to the magwell of a loaded gun turns aside in
 		// the hand (ready); the button drops the old one into the same hand (caught); turning the hand so
 		// the new one lines up with the magwell seats it, and the old one stays in the hand. The game has one
