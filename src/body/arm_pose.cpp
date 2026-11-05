@@ -171,6 +171,7 @@ namespace bfvr::body
 		bool gun_hand_override{};
 		ik::quat gun_hand_rotation;
 		std::atomic<bool> rendered_frame{ true }; // research A/B (pipe armframe): false = the game's camera frame
+		std::atomic<bool> body_turn_on{ true };   // research A/B (pipe bodyturn): the body's branches turned back from the gun
 		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
 		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
@@ -534,9 +535,18 @@ namespace bfvr::body
 				{
 					meet = fresh.parents[meet];
 				}
-				for (int bone = 0; meet >= 0 && bone < fresh.bones && fresh.trunk_count < rig_info::max_trunk; ++bone)
+				// Only the body: the arms' branch (SpineX: spine, shoulders, gun root) and Hips (chest, legs).
+				// Trajectory, Connect and TempFillJointRoot are the game's own bookkeeping: turning them
+				// moved the drawn gun out of view (monitor, 2026-11-05).
+				int arms_branch = fresh.arms[0].upper;
+				while (arms_branch >= 0 && fresh.parents[arms_branch] != meet)
 				{
-					if (fresh.parents[bone] == meet && !camera_line[bone])
+					arms_branch = fresh.parents[arms_branch];
+				}
+				const int hips = find_bone(bone_names, fresh.bones, "Hips");
+				for (const int bone : { arms_branch, hips })
+				{
+					if (meet >= 0 && bone >= 0 && fresh.parents[bone] == meet && !camera_line[bone] && fresh.trunk_count < rig_info::max_trunk)
 					{
 						fresh.trunk[fresh.trunk_count++] = bone;
 					}
@@ -735,7 +745,7 @@ namespace bfvr::body
 				const ik::quat about_joint{ 0, std::sin(0.5f * back), 0, std::cos(0.5f * back) };
 				const ik::quat to_body = ik::normalize(camera.rotation * about_joint * ik::conjugate(camera.rotation));
 				const ik::quat whole = ik::normalize(torso_turn * to_body);
-				if (back != 0.0f || torso != 0.0f)
+				if ((back != 0.0f || torso != 0.0f) && body_turn_on.load(std::memory_order_relaxed))
 				{
 					for (int i = 0; i < rig.trunk_count; ++i)
 					{
@@ -1787,6 +1797,16 @@ namespace bfvr::body
 	void set_rendered_frame(bool rendered)
 	{
 		rendered_frame = rendered;
+	}
+
+	void set_body_turn(bool on)
+	{
+		body_turn_on = on;
+	}
+
+	bool body_turn()
+	{
+		return body_turn_on.load();
 	}
 
 	void set_gun_on_ray(bool on_ray)

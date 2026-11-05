@@ -320,6 +320,14 @@ namespace
 		expect(eye_behind_sight(beside, eye_point, ahead, 0.04f, 0.30f), "within the wider band to leave");
 		expect(!eye_behind_sight(far_back, eye_point, ahead, 0.025f, 0.30f), "too far behind the sight");
 		expect(!eye_behind_sight(past, eye_point, ahead, 0.025f, 0.30f), "the eye in front of the sight");
+		// Headset 2026-11-04: an eye held close to the optic (here 12 cm in front of the game's eye point,
+		// which sits ~15 cm behind the optic) never aimed. The caller now lets it come up to the optic.
+		const float close_up[3]{ 0.03f, -0.01f, -0.32f };
+		expect(!eye_behind_sight(close_up, eye_point, ahead, 0.025f, 0.30f), "close to the optic: not with the old 5 cm limit");
+		expect(eye_behind_sight(close_up, eye_point, ahead, 0.025f, 0.30f, 0.13f), "close to the optic: counts up to the optic");
+		float off = 0.0f, along_line = 0.0f;
+		sight_offset(beside, eye_point, ahead, off, along_line);
+		expect(near(off, 0.035f, 1e-4f) && near(along_line, -0.10f, 1e-4f), "sight_offset: 3.5 cm off the line, 10 cm behind the eye point");
 	}
 }
 

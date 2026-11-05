@@ -85,6 +85,11 @@ namespace bfvr::weapon
 	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4], const float* sight_direction = nullptr);
 
 	// An eye looks through the sight: within max_offset (metres) of the sight line, and from up to
-	// max_behind behind the game's eye point (eye relief) to 5 cm in front of it. direction: unit.
-	bool eye_behind_sight(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float max_offset, float max_behind);
+	// max_behind behind the game's eye point (eye relief) to max_ahead in front of it (towards the optic:
+	// in VR the eye can come closer than the game's camera sits). direction: unit.
+	bool eye_behind_sight(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float max_offset, float max_behind,
+		float max_ahead = 0.05f);
+	// The eye's distance from the sight line (off) and how far along it from the sight's eye point (along:
+	// + towards the muzzle, - behind), metres.
+	void sight_offset(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float& off, float& along);
 }

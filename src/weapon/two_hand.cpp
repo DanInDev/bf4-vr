@@ -142,22 +142,29 @@ namespace bfvr::weapon
 		rotation[3] = turned.w;
 	}
 
-	bool eye_behind_sight(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float max_offset, float max_behind)
+	void sight_offset(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float& off, float& along)
 	{
 		float v[3];
-		float along = 0.0f;
+		along = 0.0f;
 		for (int axis = 0; axis < 3; ++axis)
 		{
 			v[axis] = eye[axis] - sight_eye[axis];
 			along += v[axis] * direction[axis];
 		}
-		float off = 0.0f;
+		float squared = 0.0f;
 		for (int axis = 0; axis < 3; ++axis)
 		{
 			const float d = v[axis] - along * direction[axis];
-			off += d * d;
+			squared += d * d;
 		}
-		return along >= -max_behind && along <= 0.05f && off <= max_offset * max_offset;
+		off = std::sqrt(squared);
+	}
+
+	bool eye_behind_sight(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float max_offset, float max_behind, float max_ahead)
+	{
+		float off = 0.0f, along = 0.0f;
+		sight_offset(eye, sight_eye, direction, off, along);
+		return along >= -max_behind && along <= max_ahead && off <= max_offset;
 	}
 
 	void converged_aim(const float (&origin)[3], const float (&grip)[3], const float (&rotation)[4], float convergence, float (&direction)[3])

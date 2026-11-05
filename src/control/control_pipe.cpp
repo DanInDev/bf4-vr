@@ -738,6 +738,15 @@ namespace bfvr::control
 				}
 				return body::recoil_report();
 			}
+			if (command == "bodyturn")
+			{
+				// Research A/B: the first-person body turned back from the gun to where the player faces.
+				if (argument == "0" || argument == "1")
+				{
+					body::set_body_turn(argument == "1");
+				}
+				return std::string("bodyturn=") + (body::body_turn() ? "1" : "0");
+			}
 			if (command == "armframe")
 			{
 				if (argument == "rendered" || argument == "game")

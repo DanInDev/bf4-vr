@@ -33,11 +33,16 @@ namespace bfvr::weapon
 		bool sight_aiming{};
 		bool sight_from_ads{};
 		float eye_from_optic[3]{}; // report
+		float eye_off[2]{};        // report: each eye's distance from the sight line, metres
+		float eye_along[2]{};      // report: and along it from the game's eye point (+ towards the muzzle)
+		float sight_ahead_limit{}; // report: how far in front of the game's eye point an eye still counts
 		unsigned long long sight_changes{};
 		ULONGLONG last_trigger_at{};
 		constexpr float sight_enter_metres = 0.025f; // eye this close to the sight line: aiming
 		constexpr float sight_leave_metres = 0.04f;
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
+		constexpr float sight_min_ahead = 0.05f;      // and at least this far in front of it
+		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
 		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
 		std::atomic<bool> trigger_toggles{ true };
@@ -241,10 +246,24 @@ namespace bfvr::weapon
 			if (const stereo::head_sample head = stereo::latest_head_sample(); head.valid)
 			{
 				const float reach = sight_aiming ? sight_leave_metres : sight_enter_metres;
-				for (const stereo::pose& eye : head.eyes)
+				// The game's eye point sits ~15 cm behind the optic; in VR the eye may come up to the optic
+				// itself (headset 2026-11-04: close to the sight never aimed).
+				float ahead = sight_min_ahead;
+				if (points.has_optic)
 				{
-					const float at[3]{ eye.position[0], eye.position[1], eye.position[2] };
-					aiming = aiming || eye_behind_sight(at, start, barrel, reach, sight_eye_relief);
+					float to_optic = 0.0f;
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						to_optic += (points.optic[axis] - start[axis]) * barrel[axis];
+					}
+					ahead = std::fmax(ahead, to_optic - sight_optic_clearance);
+				}
+				sight_ahead_limit = ahead;
+				for (int e = 0; e < 2; ++e)
+				{
+					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+					sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
+					aiming = aiming || eye_behind_sight(at, start, barrel, reach, sight_eye_relief, ahead);
 				}
 			}
 		}
@@ -308,15 +327,18 @@ namespace bfvr::weapon
 		const float* q = last.rotation;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		const two_hand_input& in = last_input;
-		char text[768];
+		char text[1024];
 		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f aim_controller=%d",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
-				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)"
+				"\neyes off_line_cm=%.1f/%.1f along_cm=%.1f/%.1f (counts: off <= %.1f, along %.0f..%.0f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2],
+				100.0f * eye_off[0], 100.0f * eye_off[1], 100.0f * eye_along[0], 100.0f * eye_along[1], 100.0f * (sight_aiming ? sight_leave_metres : sight_enter_metres),
+				-100.0f * sight_eye_relief, 100.0f * sight_ahead_limit, in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
 		}
 		return text;

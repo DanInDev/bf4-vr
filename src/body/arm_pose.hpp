@@ -122,6 +122,10 @@ namespace bfvr::body
 	std::string gun_report();
 	// Pipe "armframe": the hands in the rendered first-person frame (true, default) or the game's.
 	void set_rendered_frame(bool rendered);
+	// Pipe "bodyturn": the body's branches turned back from the aimer (the gun) to the rendered frame
+	// and the torso (true, default), or left as the game turned them (research A/B).
+	void set_body_turn(bool on);
+	bool body_turn();
 	// gun_pose = aim (true): the gun's barrel lies exactly on the controller's aim ray; animated
 	// (false): the game's hip pose turned by the controller (its idle angle and sway stay).
 	void set_gun_on_ray(bool on_ray);
