@@ -337,10 +337,10 @@ namespace bfvr::weapon
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)"
-				"\neyes off_line_cm=%.1f/%.1f along_cm=%.1f/%.1f (counts: off <= %.1f, along %.0f..%.0f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
+				"\neyes off_line_cm=%.1f/%.1f along_cm=%.1f/%.1f (counts: off <= %.1f, along %.0f..%.0f) reticle=(%.3f %.3f %.3f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
 				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2],
 				100.0f * eye_off[0], 100.0f * eye_off[1], 100.0f * eye_along[0], 100.0f * eye_along[1], 100.0f * (sight_aiming ? sight_leave_metres : sight_enter_metres),
-				-100.0f * sight_eye_relief, 100.0f * sight_ahead_limit, in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
+				-100.0f * sight_eye_relief, 100.0f * sight_ahead_limit, last_point[0], last_point[1], last_point[2], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");
 		}
 		return text;

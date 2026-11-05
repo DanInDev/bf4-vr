@@ -751,12 +751,16 @@ namespace bfvr::body
 				const ik::quat about_joint{ 0, std::sin(0.5f * back), 0, std::cos(0.5f * back) };
 				const ik::quat to_body = ik::normalize(camera.rotation * about_joint * ik::conjugate(camera.rotation));
 				const ik::quat whole = ik::normalize(torso_turn * to_body);
-				if ((back != 0.0f || torso != 0.0f) && body_turn_on.load(std::memory_order_relaxed))
+				// The body also goes where the head is: the camera joint is the tracking origin, so a player
+				// leaning or crouching in the room moved only the shoulders (body_shoulders follow the head),
+				// and the chest stayed behind (headset 2026-11-04: "the chest does not move with the arms").
+				const ik::vec3 with_head = head_valid ? ik::rotate(frame, head_position) : ik::vec3{};
+				if ((back != 0.0f || torso != 0.0f || head_valid) && body_turn_on.load(std::memory_order_relaxed))
 				{
 					for (int i = 0; i < rig.trunk_count; ++i)
 					{
 						ik::bone_transform branch = ik::model_of(local, rig.parents, rig.trunk[i]);
-						const ik::vec3 at_body = camera.position + ik::rotate(to_body, branch.position - camera.position);
+						const ik::vec3 at_body = camera.position + ik::rotate(to_body, branch.position - camera.position) + with_head;
 						branch.position = spine + ik::rotate(torso_turn, at_body - spine);
 						branch.rotation = ik::normalize(whole * branch.rotation);
 						ik::set_model_transform(local, rig.parents, rig.trunk[i], branch);
