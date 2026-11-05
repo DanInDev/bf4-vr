@@ -26,4 +26,8 @@ namespace bfvr::input
 	// aim: the controller's aim pose (ray from its position along -z). Hits only the front face,
 	// within max_distance and inside the quad.
 	pointer_hit point_at(const stereo::pose& aim, const quad_target& quad, float max_distance = 100.0f);
+
+	// A screen distance metres ahead of the head, level and facing it (head yaw only), at head height:
+	// menus over a level appear where the player looks, not where tracking started (crates, 2026-11-05).
+	stereo::pose screen_in_front(const stereo::pose& head, float distance);
 }

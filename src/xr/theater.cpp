@@ -1680,6 +1680,10 @@ namespace bfvr::xr
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
 		bool menu_shown{};
+		// A menu over a level (pause, crates) is shown in front of where the head looked when it came
+		// up: at a crate the player faces the crate, not where tracking started (#34).
+		bool menu_screen_placed{};
+		stereo::pose menu_screen_pose;
 
 		// Menus over a running level (the pause menu) are not part of the eye images: the game draws
 		// them straight into its image, in the 16:9 band with exact black above and below, while the
@@ -1766,7 +1770,7 @@ namespace bfvr::xr
 			}
 			letterbox_pending = true;
 		}
-		void point_at_screen(float width, float height)
+		void point_at_screen(float width, float height, const stereo::pose& screen_pose)
 		{
 			pointer_beam_visible = pointer_dot_visible = false;
 			if (settings::global().text("menu_input", "pointer") != "pointer")
@@ -1785,7 +1789,7 @@ namespace bfvr::xr
 				return;
 			}
 			input::quad_target screen;
-			screen.pose.position[2] = -screen_distance;
+			screen.pose = screen_pose;
 			screen.width = width;
 			screen.height = height;
 			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
@@ -2107,7 +2111,13 @@ namespace bfvr::xr
 			if (ui_on_screen != menu_shown)
 			{
 				menu_shown = ui_on_screen;
-				log::write("theater: %s", ui_on_screen ? "menu over the level: flat screen" : "back to the level: stereo");
+				menu_screen_placed = false;
+				if (const stereo::head_sample head = stereo::latest_head_sample(); ui_on_screen && head.valid)
+				{
+					menu_screen_pose = input::screen_in_front(stereo::eye_math::centre_pose(head), screen_distance);
+					menu_screen_placed = true;
+				}
+				log::write("theater: %s", ui_on_screen ? "menu over the level: flat screen (in front of the head)" : "back to the level: stereo");
 			}
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1] && !ui_on_screen;
 			enter("copy to swap chain");
@@ -2161,13 +2171,19 @@ namespace bfvr::xr
 				quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
 				quad.subImage.swapchain = swapchain;
 				quad.subImage.imageRect.extent = { static_cast<std::int32_t>(swapchain_width), static_cast<std::int32_t>(swapchain_height) };
-				quad.pose.orientation.w = 1.0f;
-				quad.pose.position.z = -screen_distance;
+				stereo::pose screen_pose;
+				screen_pose.position[2] = -screen_distance;
+				if (menu_shown && menu_screen_placed)
+				{
+					screen_pose = menu_screen_pose;
+				}
+				quad.pose.position = { screen_pose.position[0], screen_pose.position[1], screen_pose.position[2] };
+				quad.pose.orientation = { screen_pose.orientation[0], screen_pose.orientation[1], screen_pose.orientation[2], screen_pose.orientation[3] };
 				quad.size = { screen_width, screen_width * static_cast<float>(swapchain_height) / static_cast<float>(swapchain_width) };
 				layers[0] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
 				if (!ui::vr_panel_view().open)
 				{
-					point_at_screen(quad.size.width, quad.size.height);
+					point_at_screen(quad.size.width, quad.size.height, screen_pose);
 				}
 				else
 				{

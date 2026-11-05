@@ -45,4 +45,33 @@ namespace bfvr::input
 		result = { true, distance, u, v, { point.x, point.y, point.z } };
 		return result;
 	}
+
+	stereo::pose screen_in_front(const stereo::pose& head, float distance)
+	{
+		const float qx = head.orientation[0], qy = head.orientation[1], qz = head.orientation[2], qw = head.orientation[3];
+		// The head's forward (-z) flattened onto the floor; looking straight up or down keeps -z.
+		float fx = -2.0f * (qx * qz + qw * qy);
+		float fz = -(1.0f - 2.0f * (qx * qx + qy * qy));
+		const float length = std::sqrt(fx * fx + fz * fz);
+		if (length < 1e-4f)
+		{
+			fx = 0.0f;
+			fz = -1.0f;
+		}
+		else
+		{
+			fx /= length;
+			fz /= length;
+		}
+		const float yaw = std::atan2(-fx, -fz);
+		stereo::pose screen;
+		screen.position[0] = head.position[0] + fx * distance;
+		screen.position[1] = head.position[1];
+		screen.position[2] = head.position[2] + fz * distance;
+		screen.orientation[0] = 0.0f;
+		screen.orientation[1] = std::sin(0.5f * yaw);
+		screen.orientation[2] = 0.0f;
+		screen.orientation[3] = std::cos(0.5f * yaw);
+		return screen;
+	}
 }

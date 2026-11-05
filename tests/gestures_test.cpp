@@ -328,6 +328,18 @@ namespace
 
 		quad_target empty;
 		expect(!point_at(make_pose({}, {}), empty).hit, "zero-size quad misses");
+
+		// Menus over a level (crates, 2026-11-05): the screen goes where the head looks, level.
+		const quat turned = about_y(1.5707963f); // 90 deg left: looks along -x
+		const quat down{ std::sin(-0.2f), 0.0f, 0.0f, std::cos(-0.2f) }; // and 23 deg down
+		const pose head = make_pose({ 0.3f, 1.6f, -0.2f }, turned * down);
+		quad_target ahead = screen;
+		ahead.pose = screen_in_front(head, 2.5f);
+		expect(near(ahead.pose.position[0], 0.3f - 2.5f) && near(ahead.pose.position[1], 1.6f) && near(ahead.pose.position[2], -0.2f),
+			"screen 2.5 m along the head's yaw, at head height (pitch ignored)");
+		hit = point_at(make_pose({ 0.3f, 1.6f, -0.2f }, turned), ahead);
+		expect(hit.hit && near(hit.u, 0.5f) && near(hit.v, 0.5f) && near(hit.distance, 2.5f), "a ray along the head's yaw hits its centre");
+		expect(!point_at(make_pose({ 0.3f, 1.6f, -0.2f }, {}), ahead).hit, "the old fixed direction (-z) misses it");
 	}
 }
 
