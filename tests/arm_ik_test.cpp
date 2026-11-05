@@ -272,6 +272,49 @@ int main()
 		expect(worst < 0.01f, "sweep: the elbow jumps as the hand passes the pole's direction", -1);
 	}
 
+	// The forearm roll bone takes half the hand's twist the short way round, whatever sign the goal
+	// quaternion comes with (the game's often have w < 0): a small wrist turn never wraps the forearm.
+	for (int round = 0; round < 300; ++round)
+	{
+		bone_transform start[7];
+		start[0].rotation = random_rotation(random, 3.0f);
+		start[1].position = { 0.2f, 1.5f, 0.0f };
+		start[2].position = { 0.14f, 0.01f, 0.0f };
+		start[3].position = { 0.15f, 0.0f, 0.02f };
+		start[4].position = { 0.10f, 0.0f, 0.0f };
+		start[5].position = { 0.16f, 0.0f, 0.0f };
+		for (int bone = 1; bone < 7; ++bone)
+		{
+			start[bone].rotation = random_rotation(random, 2.0f);
+		}
+		const vec3 shoulder = model_of(start, parents, 1).position;
+		const float a = length(model_of(start, parents, 3).position - shoulder);
+		const float b = length(model_of(start, parents, 5).position - model_of(start, parents, 3).position);
+		arm_goal goal;
+		goal.wrist = shoulder + normalize(vec3{ unit(random), unit(random), unit(random) }) * ((a + b) * 0.7f);
+		goal.pole = shoulder + vec3{ 0.0f, -0.5f, 0.3f };
+		// The hand's current rotation turned a little: as the controller moves the authored grip.
+		goal.hand = normalize(random_rotation(random, 0.6f) * model_of(start, parents, 5).rotation);
+		bone_transform plus[7], minus[7];
+		for (int bone = 0; bone < 7; ++bone)
+		{
+			plus[bone] = minus[bone] = start[bone];
+		}
+		arm_goal negated = goal;
+		negated.hand = { -goal.hand.x, -goal.hand.y, -goal.hand.z, -goal.hand.w };
+		expect(solve_arm(plus, parents, bones, goal) && solve_arm(minus, parents, bones, negated), "roll: solver refused", round);
+		const auto roll_turn = [&](const bone_transform* local)
+		{
+			const quat q = normalize(conjugate(model_of(local, parents, 3).rotation) * model_of(local, parents, 4).rotation);
+			const quat r = normalize(conjugate(model_of(start, parents, 3).rotation) * model_of(start, parents, 4).rotation);
+			const quat d = q * conjugate(r);
+			return 2.0f * std::acos(std::fmin(1.0f, std::fabs(d.w)));
+		};
+		expect(std::fabs(roll_turn(plus) - roll_turn(minus)) < 1e-3f, "roll: the goal's sign changes the forearm twist", round);
+		// Half of a twist taken the short way round (at most pi) is at most a quarter turn.
+		expect(roll_turn(minus) < 0.5f * 3.14159265f + 1e-3f, "roll: the forearm roll bone turned the long way round", round);
+	}
+
 	std::printf(failures ? "arm_ik_test: %d failures\n" : "arm_ik_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

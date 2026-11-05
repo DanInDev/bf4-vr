@@ -93,6 +93,7 @@ namespace bfvr::body
 			// (SpineX and its siblings, not CameraBase). The game turns them with the aimer, i.e. the gun.
 			static constexpr int max_trunk = 8;
 			int trunk[max_trunk]{};
+			bool trunk_pitches[max_trunk]{}; // SpineX: also pitched with the aim, about the camera joint
 			int trunk_count{};
 			// The bent finger joints per hand (body/finger_pose): index..pinky 1-3, Thumb2-3; <= 0 = none (0 is the root).
 			int finger_bones[2][fingers::count][fingers::joints]{};
@@ -562,6 +563,7 @@ namespace bfvr::body
 				{
 					if (meet >= 0 && bone >= 0 && fresh.parents[bone] == meet && !camera_line[bone] && fresh.trunk_count < rig_info::max_trunk)
 					{
+						fresh.trunk_pitches[fresh.trunk_count] = bone == arms_branch;
 						fresh.trunk[fresh.trunk_count++] = bone;
 					}
 				}
@@ -747,12 +749,25 @@ namespace bfvr::body
 				head_rotation = { q[0], q[1], q[2], q[3] };
 				head_valid = true;
 			}
+			// The neck sits behind the eyes along the way the head faces, not along tracking's back: the
+			// body is laid out from a head looking ahead with the neck there (body_head), and the torso
+			// turns about the neck. About a fixed point behind the starting direction instead, a player
+			// turned 180 degrees in the room had the neck and shoulders 20 cm in front of the face, and
+			// the body swung round them like a turret while turning (headset 2026-11-05).
+			ik::vec3 neck = head_position;
+			if (head_valid)
+			{
+				float behind[3];
+				neck_offset(yaw_of(head_rotation.x, head_rotation.y, head_rotation.z, head_rotation.w), torso_spine_back, behind);
+				neck = head_position + ik::vec3{ behind[0], behind[1], behind[2] };
+			}
+			const ik::vec3 body_head = neck - ik::vec3{ 0.0f, 0.0f, torso_spine_back };
 			// Torso (#13): the body turns about the spine (behind the head) to face where the tracked
 			// head and hands say it faces; the game body only turns with the stick.
-			const float torso_yaw_now = update_torso(head_valid, head_position, head_rotation, hands);
+			const float torso_yaw_now = update_torso(head_valid, neck, head_rotation, hands);
 			const float torso = torso_follow.load(std::memory_order_relaxed) && head_valid ? angle_between(torso_yaw_now, 0.0f) : 0.0f;
 			const ik::vec3 torso_axis = ik::rotate(frame, ik::vec3{ 0.0f, 1.0f, 0.0f });
-			const ik::vec3 spine = origin + ik::rotate(frame, head_position + ik::vec3{ 0.0f, 0.0f, torso_spine_back });
+			const ik::vec3 spine = origin + ik::rotate(frame, neck);
 			const float torso_sin = std::sin(0.5f * torso);
 			const ik::quat torso_turn{ torso_axis.x * torso_sin, torso_axis.y * torso_sin, torso_axis.z * torso_sin, std::cos(0.5f * torso) };
 			bool any = false;
@@ -764,23 +779,35 @@ namespace bfvr::body
 				// the joint by turn.yaw), so the body's branches turn by the same angle about the camera
 				// joint first, then by the torso about the spine. The camera's own branch stays.
 				const stereo::first_person_turn view_turn = stereo::first_person_view_turn();
-				const float back = view_turn.active && rendered_frame.load(std::memory_order_relaxed) ? view_turn.yaw : 0.0f;
+				const bool level_view = view_turn.active && rendered_frame.load(std::memory_order_relaxed);
+				const float back = level_view ? view_turn.yaw : 0.0f;
 				const ik::quat about_joint{ 0, std::sin(0.5f * back), 0, std::cos(0.5f * back) };
 				const ik::quat to_body = ik::normalize(camera.rotation * about_joint * ik::conjugate(camera.rotation));
-				const ik::quat whole = ik::normalize(torso_turn * to_body);
+				// SpineX (neck, clavicles, gun root) also pitches with the aim about the camera joint's x:
+				// a gun pointed 40 degrees up swung the neck 13 cm forward and down, 40 down lifted it 11 cm
+				// (monitor 2026-11-05), so a wrist tilt still rocked the upper body. The rendered view is
+				// level, so that pitch is taken out too (the joint itself carries none, see camera_frame).
+				float pitch = 0.0f;
+				if (!level_view || !read(rig.soldier + 0x4dc, pitch) || !std::isfinite(pitch))
+				{
+					pitch = 0.0f;
+				}
+				const ik::quat unpitch = ik::normalize(camera.rotation * ik::quat{ std::sin(0.5f * pitch), 0, 0, std::cos(0.5f * pitch) } * ik::conjugate(camera.rotation));
+				const ik::quat to_level_body = ik::normalize(to_body * unpitch);
 				// The body also goes where the head is: the camera joint is the tracking origin, so a player
 				// leaning or crouching in the room moved only the shoulders (body_shoulders follow the head),
 				// and the chest stayed behind (headset 2026-11-04: "the chest does not move with the arms").
 				const ik::vec3 lift = origin - camera.position;
-				const ik::vec3 with_head = lift + (head_valid ? ik::rotate(frame, head_position) : ik::vec3{});
-				if ((back != 0.0f || torso != 0.0f || head_valid || ik::length(lift) > 0.0f) && body_turn_on.load(std::memory_order_relaxed))
+				const ik::vec3 with_head = lift + (head_valid ? ik::rotate(frame, body_head) : ik::vec3{});
+				if ((back != 0.0f || pitch != 0.0f || torso != 0.0f || head_valid || ik::length(lift) > 0.0f) && body_turn_on.load(std::memory_order_relaxed))
 				{
 					for (int i = 0; i < rig.trunk_count; ++i)
 					{
+						const ik::quat undo = rig.trunk_pitches[i] ? to_level_body : to_body;
 						ik::bone_transform branch = ik::model_of(local, rig.parents, rig.trunk[i]);
-						const ik::vec3 at_body = camera.position + ik::rotate(to_body, branch.position - camera.position) + with_head;
+						const ik::vec3 at_body = camera.position + ik::rotate(undo, branch.position - camera.position) + with_head;
 						branch.position = spine + ik::rotate(torso_turn, at_body - spine);
-						branch.rotation = ik::normalize(whole * branch.rotation);
+						branch.rotation = ik::normalize(torso_turn * undo * branch.rotation);
 						ik::set_model_transform(local, rig.parents, rig.trunk[i], branch);
 						shaped = true;
 					}
@@ -845,7 +872,7 @@ namespace bfvr::body
 					const int clavicle = rig.parents[bones.upper];
 					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
 					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y, shoulder_anchor.z };
-					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, head_position + anchor) - spine);
+					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, body_head + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
 					ik::set_model_transform(local, rig.parents, clavicle, moved);

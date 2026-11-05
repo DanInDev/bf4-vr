@@ -102,11 +102,15 @@ namespace bfvr::body::ik
 			local[bone].rotation = normalize(conjugate(parent) * rotation);
 		}
 
-		// Twist part of q about the unit axis (swing-twist decomposition), raised to the power t.
+		// Twist part of q about the unit axis (swing-twist decomposition), raised to the power t, the
+		// short way round: q and -q are the same rotation, and the game's hand quaternions often come
+		// with w < 0, which read a 4 degree twist as 356 and turned the forearm roll bone 178 degrees
+		// (monitor 2026-11-05: the gun arm's forearm wrapped on itself at the neutral hold).
 		quat twist_fraction(quat q, vec3 axis, float t)
 		{
-			const float along = dot(vec3{ q.x, q.y, q.z }, axis);
-			const float angle = 2.0f * std::atan2(along, q.w) * t;
+			const float sign = q.w < 0.0f ? -1.0f : 1.0f;
+			const float along = sign * dot(vec3{ q.x, q.y, q.z }, axis);
+			const float angle = 2.0f * std::atan2(along, sign * q.w) * t;
 			const vec3 v = axis * std::sin(0.5f * angle);
 			return { v.x, v.y, v.z, std::cos(0.5f * angle) };
 		}

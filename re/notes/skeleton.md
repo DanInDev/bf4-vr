@@ -158,6 +158,61 @@ of `Wep_Root`) back along its local -z by the pull.
 - `AITrajectory` sits on the soldier's ground: 1.56 m below the camera joint standing (free hands drop the
   gun onto it, `weapon_points.floor_y`).
 
+## SpineX also pitches with the aim (2026-11-05, monitor)
+
+- The yaw fix above held (fake gun hand 60/100 degrees left and right: hips, neck and clavicles in place),
+  but pitching the gun moved the upper body: 40 degrees up swung the neck from (0, -15.5, +12.1) cm to
+  (0, -19.6, -0.6) cm from the camera joint (x right, y up, z back, rendered frame), 40 down to
+  (0, -4.3, +19.2); both are a pure rotation of `SpineX` about the camera joint by the aim pitch (to 2 mm).
+  `Hips` and the spine below it do not pitch. Looking down with the gun pointed up, the shoulder and vest
+  swung into view (the headset's "a wrist turn changes the whole shoulder").
+- The joint carries no pitch (camera = joint * 180 deg about y * pitch about x), so `SpineX` sits at
+  joint * Rx(-pitch) * level. `arm_pose` now also undoes that for `SpineX` only (rotation about the joint's
+  x by soldier `+0x4DC`, under controller aim), before the yaw turn back. Check (a probe reading the
+  model pose, Animatable +0x50): neck within 1 mm and clavicles within 2 mm for gun pitch +40/-40 and
+  yaw/pitch 60/30 and -60/-45.
+- 7 snap turns (210 degrees) kept hips, neck and gun in front: no mirrored body on the monitor.
+
+## Torso turned about the wrong point (2026-11-05 evening, monitor)
+
+- Headset: "the torso spins like a turret" when turning in the room, and after snap turns it seemed
+  turned only about half. The torso turned by the right angle (torso_deg = room turn) but about a point
+  10 cm behind the head along tracking's +z, i.e. behind where the player faced at the start. Turned in
+  the room, the drawn body was laid out from the eyes as if facing ahead, then turned there: at 90 degrees
+  the shoulders sat ~10 cm sideways and forward, at 180 the neck and shoulders 20 cm in front of the face.
+- Now the neck is 10 cm behind the eyes along the head's own yaw (`body::neck_offset`), the body is laid
+  out from a head looking ahead with its neck there, and the torso turns about the neck. Room turns 0, 90,
+  135, 180, -45, -90: neck and both shoulder joints exactly at the turned layout (0.1 cm); 6 snap turns
+  while turned 90 in the room moved nothing.
+- Fast sampling (model pose every few ms) after a snap turn: Hips, Spine2 and Neck follow within one
+  frame, no turn-in-place lag in the game's first-person body. One frame shows the body 30 degrees off (the
+  turn angle comes from the previous view copy); not visible as more than a flicker.
+
+## The torso followed one hand (2026-11-05 late, monitor)
+
+- Headset: "the body turns faster than the head", and swinging the gun hand round the face (a lasso) spun
+  the body. Monitor: the game's own turn was fully undone at every hand angle, but the torso estimate
+  leaned to the midpoint of both hands: one hand circling the head swung the chest 40 degrees to it, then
+  flipped it to the other side (+40 to -21) as the hand passed behind.
+- Now (`body/torso`): a base from the head alone (dragged past the 40 degree twist limit, settling onto
+  the head over 1.2 s, so a glance barely moves it) plus a lean towards the hands only while both are
+  in front of the face (within 45 degrees, fading out by 70) and together (within 30 cm, fading out by 45
+  cm: a two-handed gun); the lean eases back to none when they stop counting. Monitor: lasso 0 degrees
+  beside and behind the head, up to 22 while the gun hand passes in front; two hands together 30 degrees
+  left lean it ~20; a 90 degree room turn one-handed: 83 after 0.2 s, 90 after 1 s.
+
+## Forearm twist wrapped (2026-11-05, monitor)
+
+- `ik::solve_arm` gives the forearm roll bone half the hand's twist change. The change quaternion was not
+  sign-normalised, and the game's hand quaternions often come with w < 0: a twist of a few degrees read
+  as ~356 and the roll bone turned ~178. Measured on the gun arm at the neutral hold (twist about the
+  forearm axis, model pose): animated ForeArm>Roll +15, Roll>Hand -81; with IK -167 / +96 (the forearm
+  wrapped on itself); fixed +13 / -84. Wrist rolls of -150..150 now split about half and half.
+  `tests/arm_ik_test.cpp` checks that q and -q give the same roll.
+- With `body_shoulders = 0` the knife animation holds the right shoulder joint 3 cm below the eyes and
+  5 cm in front (the arm comes out of the face, the sleeve stretches across the view when the knife points
+  across); with it on (default) the joint stays at (+18, -22, +4) cm.
+
 ## Checking what each eye sees (2026-11-05)
 
 `pipe shot` is the game's back buffer, **not** the left eye's headset image in pair rendering: the second
