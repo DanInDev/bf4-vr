@@ -85,4 +85,16 @@ namespace bfvr::body::contact
 	// Cup or wrap: cup once the palm faces up past `enter` (palm normal . up), back to the wrap below
 	// `leave`, so a hand near the switch does not flicker.
 	bool cup_grip(bool cupped, float palm_up, float enter = 0.5f, float leave = 0.15f);
+
+	// rack_grip = auto: how the hand takes the charging handle, decided as it closes on it and kept for
+	// the stroke. Underhand (palm up under the handle, the knob hooked in the curled index and middle)
+	// once the palm faces up past `enter` (palm normal . the gun's up), overhand (palm down on it, the
+	// thumb-and-index pinch) below `leave`; a hand in between keeps the last stroke's hold.
+	bool underhand_rack(bool underhand, float palm_up, float enter = 0.2f, float leave = -0.2f);
+
+	// Palming (weapon/reload_hands, same formula as weapon::tilt_magazine): a magazine held at top and
+	// rotation, turned by angle radians about the barrel axis of the gun frame it would sit in, through
+	// its body pivot_drop below the top. seated: its rotation relative to that frame (Wep_Root, +z along
+	// the barrel, +y up). Positive turns the top towards the gun's left (+x).
+	void tilt_magazine(ik::vec3& top, ik::quat& rotation, ik::quat seated, float angle, float pivot_drop);
 }

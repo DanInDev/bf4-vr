@@ -138,6 +138,11 @@ bind_menu = start
 reload = physical
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
+# Physical reload, AR (SCAR-H): palm magazines. Bring a new magazine to the magwell while one is in the
+# gun: it turns aside in the hand (a tick). B drops the old one into the same hand; turn the hand back
+# until the new one lines up and it seats. The old one stays in the hand: let go at the pouch to keep its
+# rounds. The game has one magazine mesh, so the caught one is not drawn. Pipe `reload` shows the stage.
+palm_reload = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
 #   trigger  hold the gun with both hands (off hand + grip on the handguard), press the off-hand trigger
 #   touch    off hand on the optic or the front rail + grip
@@ -209,8 +214,10 @@ off_hand_pose = neutral
 # and each fingertip's gap to the magazine.
 magazine_grip = auto
 # Racking: pinch = the charging handle's knob between the thumb and the side of the index (a key pinch;
-# the thumb closes until it touches the knob); hook = the knob inside the curled index.
-rack_grip = pinch
+# the thumb closes until it touches the knob); hook = the knob inside the curled index; auto = by how
+# the hand takes the handle: palm down on it (overhand) pinches, palm up under it (underhand) hooks the
+# knob in the index and middle. Kept for the stroke. Pipe `fingers` shows the hold and the palm reading.
+rack_grip = auto
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one

@@ -20,6 +20,7 @@ namespace bfvr::weapon
 		switch (event)
 		{
 		case reload_event::magazine_out:
+		case reload_event::magazine_palmed:
 			cues[0] = { reload_sound::magazine_out, 0 };
 			return 1;
 		case reload_event::magazine_in:

@@ -63,6 +63,30 @@ namespace
 		expect(cup_grip(true, 0.3f), "turning back a little keeps the cup");
 		expect(!cup_grip(true, 0.1f), "turning well back wraps again");
 		expect(cup_grip(true, std::nanf("")) && !cup_grip(false, std::nanf("")), "no reading keeps the grip");
+
+		// Racking hold: palm up under the handle hooks, palm down on it pinches, sideways keeps the last.
+		expect(underhand_rack(false, 0.8f), "palm up takes the handle underhand");
+		expect(!underhand_rack(true, -0.8f), "palm down takes it overhand");
+		expect(underhand_rack(true, 0.0f) && !underhand_rack(false, 0.0f), "a sideways palm keeps the last stroke's hold");
+		expect(underhand_rack(true, std::nanf("")) && !underhand_rack(false, std::nanf("")), "no reading keeps the hold");
+	}
+
+	// Palming: the held magazine turns aside about the barrel axis through its body.
+	void test_tilt()
+	{
+		ik::vec3 top{ 0, 0, 0 };
+		ik::quat rotation{};
+		const float angle = 40.0f * 0.017453293f;
+		tilt_magazine(top, rotation, {}, angle, 0.07f);
+		expect(near(top, { 0.07f * std::sin(angle), 0.07f * (std::cos(angle) - 1.0f), 0.0f }), "its top swings towards the gun's left (+x) about the pivot 7 cm down");
+		expect(near(ik::rotate(rotation, { 0, 1, 0 }), { std::sin(angle), std::cos(angle), 0.0f }), "it leans the same way");
+		expect(near(ik::rotate(rotation, { 0, 0, 1 }), { 0, 0, 1 }), "the barrel axis stays");
+		tilt_magazine(top, rotation, {}, -angle, 0.07f);
+		expect(near(top, { 0, 0, 0 }) && near(ik::rotate(rotation, { 0, 1, 0 }), { 0, 1, 0 }), "turning back undoes it");
+		ik::vec3 still{ 1, 2, 3 };
+		ik::quat same{};
+		tilt_magazine(still, same, {}, 0.0f, 0.07f);
+		expect(near(still, { 1, 2, 3 }), "no angle, no turn");
 	}
 
 	void test_closing()
@@ -133,6 +157,7 @@ int main()
 	test_distance();
 	test_cup();
 	test_switch();
+	test_tilt();
 	test_closing();
 	if (failures == 0)
 	{

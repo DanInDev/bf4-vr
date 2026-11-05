@@ -82,6 +82,9 @@ namespace bfvr::body::fingers
 		case task::pinch:
 			// Index half bent (its side takes the knob), the others tucked; arm_pose closes the thumb by contact.
 			return curled(0.5f, 0.5f, 0.8f, 0.85f, 0.9f);
+		case task::underhand:
+			// Index and middle hooked over the knob from below, ring and pinky tucked, thumb out of the way along the side.
+			return curled(0.15f, 0.7f, 0.72f, 0.9f, 0.95f);
 		case task::reach:
 			return curled(0.0f, 0.05f, 0.05f, 0.05f, 0.08f);
 		case task::free:

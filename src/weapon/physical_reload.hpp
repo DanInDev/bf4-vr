@@ -15,6 +15,9 @@ namespace bfvr::weapon
 {
 	void set_physical_reload(bool enabled);
 	void set_drop_discards_ammo(bool discard);
+	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
+	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.
+	void set_palm_reload(bool enabled);
 	// Off hand on the optic or forward rail + grip = the game's accessory toggle (D-pad up), in
 	// either reload mode (weapon/accessory_touch).
 	void set_accessory_touch(bool enabled);

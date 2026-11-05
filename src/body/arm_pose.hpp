@@ -92,6 +92,7 @@ namespace bfvr::body
 		bool has_held{};
 		float held_magazine[3]{};
 		float held_rotation[4]{ 0, 0, 0, 1 };
+		float held_tilt{}; // radians it is drawn turned aside (magazine_pose::tilt)
 		// The soldier's ground (the rig's AITrajectory bone) as a height in OpenXR LOCAL.
 		bool has_floor{};
 		float floor_y{};
@@ -111,6 +112,10 @@ namespace bfvr::body
 		bool ak{}; // an AK-pattern magazine (held the AK way), else AR (weapon/profiles)
 		float position[3]{};
 		float rotation[4]{ 0, 0, 0, 1 };
+		// in_hand, palming: the fist's magazine turned aside by tilt radians (contact::tilt_magazine,
+		// about its body tilt_pivot metres below its top).
+		float tilt{};
+		float tilt_pivot{ 0.07f };
 	};
 	void set_magazine_pose(const magazine_pose& pose);
 
@@ -158,7 +163,9 @@ namespace bfvr::body
 	// "wrap" / "cup" = always that grip.
 	void set_magazine_grip(const std::string& grip);
 	// Live setting rack_grip: "pinch" = the charging handle between the thumb and the side of the index
-	// (the thumb closes on it by contact); "hook" = inside the curled index.
+	// (the thumb closes on it by contact); "hook" = inside the curled index; "auto" = the pinch with the
+	// palm down on the handle (overhand), the knob hooked in the index and middle with the palm up under
+	// it (underhand), chosen as the hand takes the handle.
 	void set_rack_grip(const std::string& grip);
 	// What the off hand holds (magazine, charging handle, reaching for a grab); refresh every frame,
 	// a request older than 250 ms counts as free. The two-handed hold and the gun hand are decided here.

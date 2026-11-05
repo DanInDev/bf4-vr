@@ -40,6 +40,8 @@ namespace bfvr::weapon
 		bool has_held{};
 		v3 held_top;
 		q4 held_rotation;
+		float held_tilt{};    // radians the drawn magazine was turned aside (hand_result::magazine_tilt applied)
+		bool palming{};       // AR palming allowed (setting palm_reload)
 		// The charging handle's knob in the gun frame (Wep_Root axes) when known for this gun
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
@@ -77,8 +79,19 @@ namespace bfvr::weapon
 		// The rear-stop cue (sound and tick); the release plays the bolt going home.
 		bool rack_at_rear{};
 		magazine_draw draw{ magazine_draw::with_gun };
+		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden
 		q4 magazine_rotation;
+		// AR palming (frame.palming): a new magazine brought to the magwell of a loaded gun turns aside in
+		// the hand (ready); the button drops the old one into the same hand (caught); turning the hand so
+		// the new one lines up with the magwell seats it, and the old one stays in the hand. The game has one
+		// magazine mesh: the new magazine is drawn, the caught one is not.
+		enum class palm_stage { none, ready, caught } palm{ palm_stage::none };
+		bool palm_ready_now{}; // this update the hand became ready (a tick)
+		float magazine_tilt{}; // radians the held magazine is turned aside (tilt_magazine)
+		float palm_misalign_degrees{}; // caught: the new magazine's lean about the barrel from the catch pose
+		float palm_off_degrees{};      // caught: its whole angle from the catch pose
+		v3 palm_gap;                   // caught: its top less the magwell
 	};
 
 	struct hand_config
@@ -112,7 +125,30 @@ namespace bfvr::weapon
 		float slide_travel{ 0.08f };
 		// A magazine pushed in slides from the hand into the magwell over this long.
 		float seat_seconds{ 0.1f };
+		// Palming: the new magazine turns aside this far (top towards the gun's left, about the barrel axis
+		// through its body palm_pivot_drop below the top), easing over palm_tilt_seconds, leaving the
+		// magwell to the old one. Ready ends once the hand takes the catch point (the untilted magazine's
+		// top) farther than palm_leave from the magwell. Caught, the new one seats once its top is within
+		// palm_seat_reach and it lines up within palm_align_degrees.
+		float palm_tilt_degrees{ 40.0f };
+		float palm_pivot_drop{ 0.07f };
+		float palm_tilt_seconds{ 0.12f };
+		float palm_leave{ 0.16f };
+		float palm_seat_reach{ 0.08f };
+		float palm_align_degrees{ 15.0f };
+		float palm_max_degrees{ 45.0f }; // and its whole angle from the catch pose stays within this
 	};
+
+	// A held magazine (its top, the Wep_Mag origin, and rotation) turned by angle radians about the barrel
+	// axis of the gun frame it would sit in, through its body pivot_drop below the top. seated: the
+	// magazine's rotation relative to that frame (Wep_Root). Positive turns the top towards the gun's
+	// left (+x), the off hand's outside.
+	void tilt_magazine(v3& top, q4& rotation, q4 seated, float angle, float pivot_drop);
+	// Angle between two rotations, degrees.
+	float angle_between(q4 a, q4 b);
+	// Palming: how far a magazine held at in_gun (rotation relative to Wep_Root) still leans about the
+	// barrel axis (+z) from target_in_gun, degrees; turns about other axes do not count.
+	float palm_lean_degrees(q4 in_gun, q4 target_in_gun);
 
 	class reload_hands
 	{
@@ -141,5 +177,9 @@ namespace bfvr::weapon
 		float seat_time_{};
 		v3 seat_from_;
 		q4 seat_rotation_;
+		hand_result::palm_stage palm_{ hand_result::palm_stage::none };
+		float tilt_{};          // radians, eased
+		q4 catch_in_gun_;       // the hand's magazine (untilted) relative to the gun at the catch
+		bool kept_old_{};       // palmed in: the hand holds the old magazine (not drawn: the mesh is in the gun)
 	};
 }

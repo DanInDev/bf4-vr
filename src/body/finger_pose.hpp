@@ -56,6 +56,7 @@ namespace bfvr::body::fingers
 		cup,        // a held magazine stands on the upturned palm; the fingers close on it by contact
 		handle,     // hooked on the charging handle
 		pinch,      // the charging handle's knob between the thumb and the side of the index (thumb by contact)
+		underhand,  // palm up under the charging handle: the knob hooked in the curled index and middle
 		reach,      // open, about to grab something (inside a grab zone)
 	};
 

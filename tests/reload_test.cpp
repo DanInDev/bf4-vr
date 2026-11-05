@@ -39,7 +39,7 @@ namespace
 	// Every round the player still owns: in the gun, in the hand, in the reserve.
 	int owned(const reload& gun)
 	{
-		return gun.rounds_in_gun() + gun.state().held_rounds + gun.state().reserve;
+		return gun.rounds_in_gun() + gun.state().held_rounds + gun.state().palmed_rounds + gun.state().reserve;
 	}
 
 	void empty(reload& gun)
@@ -183,6 +183,57 @@ namespace
 		expect(!lose.state().holding, "nothing to take from an empty reserve");
 	}
 
+	// AR palming: B with a new magazine in the hand drops the old one into the same hand.
+	void test_ar_palming()
+	{
+		reload gun(ar);
+		gun.load(31, 60);
+		gun.fire();
+		gun.fire();
+		gun.fire();
+		expect(gun.take_from_chest() == reload_event::magazine_taken && gun.state().reserve == 30, "a new magazine from the pouch");
+		expect(gun.press_button(true, true) == reload_event::magazine_palmed, "B palms the old one into the hand");
+		expect(gun.state().palmed && gun.state().palmed_rounds == 27 && !gun.state().magazine_in && gun.state().holding && gun.state().chamber,
+			"both magazines in the hand, the round stays chambered");
+		expect(gun.press_button(true, true) == reload_event::none, "a third magazine does not fit");
+		expect(gun.insert() == reload_event::magazine_in, "the new one goes in");
+		expect(gun.state().magazine_rounds == 30 && gun.state().holding && gun.state().held_rounds == 27 && !gun.state().palmed,
+			"the old one stays in the hand");
+		expect(gun.insert() == reload_event::none, "the old one cannot go into a loaded AR");
+		expect(gun.let_go(true) == reload_event::magazine_stowed && gun.state().reserve == 57 && !gun.state().holding, "stowed at the pouch");
+
+		// Right after an insert the first press is the bolt catch, but with the bolt forward on a round a
+		// hand placed to palm means the release.
+		gun.take_from_chest();
+		expect(gun.press_button(true, true) == reload_event::magazine_palmed, "palming right after an insert releases");
+
+		// Run dry: the bolt locks on the empty magazine, palming takes it, B chambers after the new one.
+		reload dry(ar);
+		dry.load(1, 60);
+		expect(dry.fire() == reload_event::bolt_locked, "the last round locks the bolt");
+		dry.take_from_chest();
+		expect(dry.press_button(true, true) == reload_event::magazine_palmed && dry.state().palmed_rounds == 0, "the empty one palmed");
+		dry.insert();
+		expect(dry.press_button(false) == reload_event::chambered && dry.state().chamber, "then B is the bolt catch");
+
+		// Letting go with both: both drop (or both stow).
+		reload both(ar, { false });
+		both.load(31, 60);
+		both.take_from_chest();
+		both.press_button(true, true);
+		expect(both.let_go(false) == reload_event::magazine_dropped && both.state().reserve == 90 && !both.state().palmed,
+			"both dropped, rounds back to the reserve without discard");
+
+		// Without a magazine in the hand the flag changes nothing; an AK has no release.
+		reload plain(ar);
+		plain.load(31, 60);
+		expect(plain.press_button(false, true) == reload_event::magazine_dropped, "no new magazine held: an ordinary release");
+		reload k(ak);
+		k.load(31, 60);
+		k.take_from_chest();
+		expect(k.press_button(true, true) == reload_event::none, "AK: no palming by button");
+	}
+
 	void test_hand_rules()
 	{
 		reload gun(ak);
@@ -217,7 +268,7 @@ namespace
 				switch (action)
 				{
 				case 0: result = gun.fire(); break;
-				case 1: result = gun.press_button((seed >> 8) & 1); break;
+				case 1: result = gun.press_button((seed >> 8) & 1, (seed >> 10) & 1); break;
 				case 2: result = gun.grab_magazine(); break;
 				case 3: result = gun.take_from_chest(); break;
 				case 4: result = gun.let_go((seed >> 9) & 1); break;
@@ -235,7 +286,8 @@ namespace
 				}
 				total -= lost;
 				const gun_state& s = gun.state();
-				if (s.magazine_rounds < 0 || s.magazine_rounds > profile.capacity || s.held_rounds < 0 || s.reserve < 0 || (!s.magazine_in && s.magazine_rounds != 0) || (!s.holding && s.held_rounds != 0))
+				if (s.magazine_rounds < 0 || s.magazine_rounds > profile.capacity || s.held_rounds < 0 || s.reserve < 0 || (!s.magazine_in && s.magazine_rounds != 0) || (!s.holding && s.held_rounds != 0)
+					|| (!s.palmed && s.palmed_rounds != 0) || (s.palmed && (!s.holding || s.magazine_in)))
 				{
 					expect(false, "state stays consistent");
 					break;
@@ -837,6 +889,87 @@ namespace
 		expect(r.rack_at_rear, "a new full stroke reaches the rear again");
 	}
 
+	// AR palming by hand: the new magazine at the magwell turns aside, B catches the old one, turning
+	// the hand back seats the new one; the old one stays in the hand for the pouch.
+	void test_hands_palming()
+	{
+		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f }; // Wep_Root +z = world -z, +x (the gun's left) = world -x
+		const auto palm_frame = [&](v3 hand, bool grip, bool button) {
+			hand_frame f = at(hand, grip, button);
+			f.has_root = true;
+			f.root = { 0.0f, -0.2f, -0.2f };
+			f.root_rotation = gun_frame;
+			f.magazine_rotation = gun_frame; // seated square in the gun
+			f.palming = true;
+			return f;
+		};
+		reload gun(ar);
+		gun.load(31, 60);
+		gun.fire();
+		gun.fire();
+		gun.fire();
+		reload_hands hands(flat_hold());
+		hand_result r = hands.update(gun, palm_frame(chest, true, false));
+		expect(has(r, reload_event::magazine_taken), "palming: a new magazine from the pouch");
+		r = hands.update(gun, palm_frame(magwell, true, false));
+		expect(r.palm == hand_result::palm_stage::ready && r.palm_ready_now && r.count == 0, "at the magwell of a loaded gun it gets ready, nothing goes in");
+		for (int i = 0; i < 120; ++i)
+		{
+			r = hands.update(gun, palm_frame(magwell, true, false));
+		}
+		expect(!r.palm_ready_now && close(r.magazine_tilt, 40.0f * 0.017453293f, 1e-3f), "it turns aside over a few frames");
+		expect(r.draw == magazine_draw::in_hand && r.in_fist && r.magazine_position.x < magwell.x - 0.03f, "the new one is drawn turned off the magwell, towards the gun's left");
+		r = hands.update(gun, palm_frame(magwell, true, true));
+		expect(has(r, reload_event::magazine_palmed) && r.palm == hand_result::palm_stage::caught && gun.state().palmed, "B drops the old one into the hand");
+		r = hands.update(gun, palm_frame(magwell, true, false));
+		expect(r.count == 0 && !gun.state().magazine_in && r.palm_misalign_degrees > 30.0f, "held still, the turned new one does not seat");
+
+		// Turn the hand back as a wrist rolls, about the forearm, here 30 degrees off the barrel (world -z
+		// = the gun's +z, tipped towards +y): 46 degrees of roll lean it back about 40 about the barrel.
+		const float half = 0.5f * 46.0f * 0.017453293f;
+		const v3 forearm{ 0.0f, 0.5f, -0.8660254f };
+		hand_frame part = palm_frame(magwell, true, false);
+		const float quarter = 0.5f * 20.0f * 0.017453293f;
+		part.off_rotation = { forearm.x * std::sin(quarter), forearm.y * std::sin(quarter), forearm.z * std::sin(quarter), std::cos(quarter) };
+		r = hands.update(gun, part);
+		expect(r.count == 0 && r.palm_misalign_degrees > 20.0f && r.palm_misalign_degrees < 30.0f, "half way round it still leans, nothing seats");
+		hand_frame turned = palm_frame(magwell, true, false);
+		turned.off_rotation = { forearm.x * std::sin(half), forearm.y * std::sin(half), forearm.z * std::sin(half), std::cos(half) };
+		r = hands.update(gun, turned);
+		expect(has(r, reload_event::magazine_in), "rolled back about the forearm, the new one seats");
+		expect(gun.state().magazine_in && gun.state().magazine_rounds == 30 && gun.state().holding && gun.state().held_rounds == 27,
+			"the gun has the new one, the hand the old one");
+		for (int i = 0; i < 20; ++i)
+		{
+			r = hands.update(gun, turned);
+		}
+		expect(r.draw == magazine_draw::with_gun && !r.in_fist && r.palm == hand_result::palm_stage::none, "the one mesh shows the seated magazine");
+		hands.update(gun, palm_frame(chest, true, false));
+		r = hands.update(gun, palm_frame(chest, false, false));
+		expect(has(r, reload_event::magazine_stowed) && gun.state().reserve == 57, "the old one stowed at the pouch keeps its rounds");
+
+		// Ready ends when the hand leaves the magwell; palming off, or no gun frame, never starts.
+		reload g2(ar);
+		g2.load(31, 60);
+		reload_hands h2(flat_hold());
+		h2.update(g2, palm_frame(chest, true, false));
+		h2.update(g2, palm_frame(magwell, true, false));
+		r = h2.update(g2, palm_frame(away, true, false));
+		expect(r.palm == hand_result::palm_stage::none, "leaving the magwell ends ready");
+		reload g3(ar);
+		g3.load(31, 60);
+		reload_hands h3(flat_hold());
+		hand_frame off = palm_frame(chest, true, false);
+		off.palming = false;
+		h3.update(g3, off);
+		off.off_hand = magwell;
+		r = h3.update(g3, off);
+		expect(r.palm == hand_result::palm_stage::none, "palm_reload off: no palming");
+		off.button = true;
+		r = h3.update(g3, off);
+		expect(has(r, reload_event::magazine_dropped) && !g3.state().palmed, "palm_reload off: B drops the old one as before");
+	}
+
 	// A magazine pushed in slides from the hand into the magwell (no pop), then rides with the gun.
 	void test_seating()
 	{
@@ -890,6 +1023,7 @@ int main()
 	test_ar_empty_reload();
 	test_ar_tactical_catch_and_stow();
 	test_ar_dry_without_magazine();
+	test_ar_palming();
 	test_ak();
 	test_ak_flick();
 	test_drop_option();
@@ -907,6 +1041,7 @@ int main()
 	test_hand_signal();
 	test_hold_and_handle();
 	test_seating();
+	test_hands_palming();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

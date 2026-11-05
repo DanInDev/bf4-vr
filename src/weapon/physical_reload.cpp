@@ -158,6 +158,7 @@ namespace bfvr::weapon
 
 		std::atomic<bool> physical{};
 		std::atomic<bool> discard{ true };
+		std::atomic<bool> palming{ true };
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -213,6 +214,7 @@ namespace bfvr::weapon
 			case reload_event::chambered: return "chambered";
 			case reload_event::racked_empty: return "racked_empty";
 			case reload_event::round_ejected: return "round_ejected";
+			case reload_event::magazine_palmed: return "magazine_palmed";
 			}
 			return "?";
 		}
@@ -231,7 +233,8 @@ namespace bfvr::weapon
 			case reload_event::magazine_stowed: play(cue::cloth); break;
 			case reload_event::magazine_in:
 			case reload_event::flicked_in: play(cue::magazine_in); break;
-			case reload_event::magazine_out: play(cue::magazine_out); break;
+			case reload_event::magazine_out:
+			case reload_event::magazine_palmed: play(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
 			case reload_event::racked_empty: play(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
@@ -247,6 +250,7 @@ namespace bfvr::weapon
 			case reload_event::dry_fire: input::haptic(1, input::pulses::click); break;
 			case reload_event::bolt_locked: input::haptic(1, input::pulses::grab); break;
 			case reload_event::magazine_out:
+			case reload_event::magazine_palmed:
 			case reload_event::magazine_taken: input::haptic(0, input::pulses::grab); break;
 			case reload_event::magazine_stowed: input::haptic(0, input::pulses::tick); break;
 			case reload_event::magazine_in:
@@ -368,6 +372,11 @@ namespace bfvr::weapon
 	void set_drop_discards_ammo(bool value)
 	{
 		discard = value;
+	}
+
+	void set_palm_reload(bool enabled)
+	{
+		palming = enabled;
 	}
 
 	void set_accessory_touch(bool enabled)
@@ -524,6 +533,8 @@ namespace bfvr::weapon
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
 		frame.held_rotation = q(points.held_rotation);
+		frame.held_tilt = points.held_tilt;
+		frame.palming = palming.load(std::memory_order_relaxed);
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = grip && !accessory_busy.load(std::memory_order_relaxed);
 		frame.button = (pad.buttons & XINPUT_GAMEPAD_B) != 0; // right B: release / bolt catch
@@ -535,6 +546,10 @@ namespace bfvr::weapon
 		}
 		last_zone = result.in_zone;
 		last_result = result;
+		if (result.palm_ready_now)
+		{
+			input::haptic(0, input::pulses::tick);
+		}
 		if (result.rack_at_rear)
 		{
 			// The stroke is long enough: the rear stop is felt and heard before the release (Overlord
@@ -588,8 +603,10 @@ namespace bfvr::weapon
 		{
 			body::magazine_pose pose;
 			pose.detached = true;
-			// Held (not sliding home or falling): the drawn fist holds it.
-			pose.in_hand = gun.state().holding && result.draw == magazine_draw::in_hand;
+			// Held (not sliding home or falling): the drawn fist holds it, turned aside while palming.
+			pose.in_hand = result.in_fist;
+			pose.tilt = result.magazine_tilt;
+			pose.tilt_pivot = hand_config{}.palm_pivot_drop;
 			pose.ak = gun.profile().kind == variant::ak;
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
@@ -694,25 +711,29 @@ namespace bfvr::weapon
 			if (argument == "fire") event = gun.fire();
 			else if (argument == "button") event = gun.press_button(false);
 			else if (argument == "catch") event = gun.press_button(true);
+			else if (argument == "palm") event = gun.press_button(true, true);
 			else if (argument == "grab") event = gun.grab_magazine();
 			else if (argument == "take") event = gun.take_from_chest();
 			else if (argument == "letgo") event = gun.let_go(false);
 			else if (argument == "stow") event = gun.let_go(true);
 			else if (argument == "insert") event = gun.insert();
 			else if (argument == "rack") event = gun.rack();
-			else return "error: usage: reload [fire|button|catch|grab|take|letgo|stow|insert|rack|handle x y z|handle off]";
+			else return "error: usage: reload [fire|button|catch|palm|grab|take|letgo|stow|insert|rack|handle x y z|handle off]";
 			remember(event);
 			sound_if_magazine_left(magazine_was_in, gun);
 		}
 		const body::weapon_points points = body::latest_weapon_points();
 		const hand_result& r = last_result;
 		const char* const zone_names[]{ "none", "magazine", "handle", "chest" };
-		char zones[320];
+		const char* const palm_names[]{ "none", "ready", "caught" };
+		char zones[448];
 		std::snprintf(zones, sizeof(zones),
-			"\nzone=%s busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f)",
+			"\nzone=%s busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f)"
+			"\npalm_reload=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f)",
 			zone_names[static_cast<int>(r.in_zone)], r.off_hand_busy ? 1 : 0, r.racking ? 1 : 0, r.rack_pull, r.zone_centre[0].x, r.zone_centre[0].y,
 			r.zone_centre[0].z, r.zone_reach[0], r.zone_centre[1].x, r.zone_centre[1].y, r.zone_centre[1].z, r.zone_reach[1], r.zone_centre[2].x,
-			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[0][0], points.palm[0][1], points.palm[0][2]);
+			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[0][0], points.palm[0][1], points.palm[0][2], palming ? 1 : 0,
+			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
@@ -727,11 +748,11 @@ namespace bfvr::weapon
 		const gun_state& s = gun.state();
 		int length = std::snprintf(text, sizeof(text),
 			"reload=%s active=%d weapon=%s slot=%d variant=%s capacity=%d\n"
-			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d reserve=%d game_written=%d shots=%llu\n"
+			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu\n"
 			"magwell=(%.3f,%.3f,%.3f) slide=(%.3f,%.3f,%.3f) off_hand=(%.3f,%.3f,%.3f) points_valid=%d\nrecent:",
 			physical ? "physical" : "button", active ? 1 : 0, found->second.name.c_str(), current_slot, gun.profile().kind == variant::ak ? "AK" : "AR",
 			gun.profile().capacity, s.magazine_in ? 1 : 0, s.magazine_rounds, s.chamber ? 1 : 0, s.bolt_locked ? 1 : 0, s.holding ? 1 : 0,
-			s.held_rounds, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
+			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
 			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[0][0], points.hand[0][1], points.hand[0][2],
 			points.valid ? 1 : 0);
 		for (int i = 0; i < recent_count && length > 0 && length < static_cast<int>(sizeof(text)); ++i)

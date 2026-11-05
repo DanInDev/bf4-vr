@@ -110,6 +110,10 @@ namespace
 		expect(magazine.curl[middle] > 0.4f && magazine.curl[middle] < 0.8f, "magazine grip is half closed");
 		expect(handle.curl[index] > magazine.curl[index], "the handle hook is tighter than the magazine grip");
 		expect(reach.curl[middle] < 0.1f, "reaching opens the hand");
+		const hand_shape underhand = shape_for(task::underhand, none);
+		expect(underhand.curl[index] > 0.5f && underhand.curl[middle] > 0.5f && underhand.curl[thumb] < 0.3f,
+			"underhand rack: index and middle hooked, the thumb out of the way");
+		expect(underhand.curl[ring] > underhand.curl[middle] && underhand.animated[index] == 0.0f, "the outer fingers tucked, nothing animated");
 
 		// Bend range: open is nearly straight, a fist past the game's handguard grip (62 deg).
 		expect(bend_at(middle, 0, 0.0f) < 10 * degrees && bend_at(middle, 0, 1.0f) > 80 * degrees, "knuckle range");

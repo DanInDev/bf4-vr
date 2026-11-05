@@ -81,4 +81,29 @@ namespace bfvr::body::contact
 		}
 		return cupped ? palm_up > leave : palm_up >= enter;
 	}
+
+	bool underhand_rack(bool underhand, float palm_up, float enter, float leave)
+	{
+		if (!std::isfinite(palm_up))
+		{
+			return underhand;
+		}
+		return palm_up >= enter ? true : palm_up <= leave ? false : underhand;
+	}
+
+	void tilt_magazine(ik::vec3& top, ik::quat& rotation, ik::quat seated, float angle, float pivot_drop)
+	{
+		if (angle == 0.0f)
+		{
+			return;
+		}
+		const ik::quat gun = ik::normalize(rotation * ik::conjugate(seated));
+		const ik::vec3 pivot = top + ik::rotate(gun, ik::vec3{ 0.0f, -pivot_drop, 0.0f });
+		const ik::vec3 axis = ik::rotate(gun, ik::vec3{ 0.0f, 0.0f, 1.0f });
+		// About +z a positive angle takes +y towards -x: the top goes left (+x) for a negative one.
+		const float s = std::sin(-0.5f * angle);
+		const ik::quat turn{ axis.x * s, axis.y * s, axis.z * s, std::cos(-0.5f * angle) };
+		top = pivot + ik::rotate(turn, top - pivot);
+		rotation = ik::normalize(turn * rotation);
+	}
 }

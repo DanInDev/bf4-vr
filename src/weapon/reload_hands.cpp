@@ -33,6 +33,54 @@ namespace bfvr::weapon
 			const float length = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 			return length > 1e-6f ? q4{ q.x / length, q.y / length, q.z / length, q.w / length } : b;
 		}
+
+		q4 normalize(q4 q)
+		{
+			const float length = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+			return length > 1e-6f ? q4{ q.x / length, q.y / length, q.z / length, q.w / length } : q4{};
+		}
+
+		q4 axis_angle(v3 axis, float angle)
+		{
+			const float length = std::sqrt(dot(axis, axis));
+			if (length < 1e-6f)
+			{
+				return {};
+			}
+			const float s = std::sin(0.5f * angle) / length;
+			return { axis.x * s, axis.y * s, axis.z * s, std::cos(0.5f * angle) };
+		}
+	}
+
+	void tilt_magazine(v3& top, q4& rotation, q4 seated, float angle, float pivot_drop)
+	{
+		if (angle == 0.0f)
+		{
+			return;
+		}
+		const q4 gun = normalize(multiply(rotation, conjugate(seated)));
+		const v3 pivot = top + rotate(gun, { 0.0f, -pivot_drop, 0.0f });
+		// About +z a positive angle takes +y towards -x: the top goes left (+x) for a negative one.
+		const q4 turn = axis_angle(rotate(gun, { 0.0f, 0.0f, 1.0f }), -angle);
+		top = pivot + rotate(turn, top - pivot);
+		rotation = normalize(multiply(turn, rotation));
+	}
+
+	float angle_between(q4 a, q4 b)
+	{
+		const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
+		return 2.0f * std::acos(std::fmin(1.0f, d)) * 57.2957795f;
+	}
+
+	float palm_lean_degrees(q4 in_gun, q4 target_in_gun)
+	{
+		// The turn from target to now, in gun axes; its twist about the barrel (+z).
+		q4 turn = multiply(in_gun, conjugate(target_in_gun));
+		if (turn.w < 0.0f)
+		{
+			turn = { -turn.x, -turn.y, -turn.z, -turn.w };
+		}
+		return std::fabs(2.0f * std::atan2(turn.z, turn.w)) * 57.2957795f;
 	}
 
 	void reload_hands::reset()
@@ -93,8 +141,21 @@ namespace bfvr::weapon
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
 		const bool near_chest = to_chest < config_.reach_chest;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
-		const q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
-		const v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
+		q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
+		v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
+		// Palming turns the held magazine aside: the drawn hand drew it turned (held_tilt), else it is
+		// turned here. fist_*: as the fist holds it without the turn, where the caught one sits.
+		const q4 seated = frame.has_root ? multiply(conjugate(frame.root_rotation), frame.magazine_rotation) : q4{};
+		if (frame.has_root && !frame.has_held)
+		{
+			tilt_magazine(held_top, held_rotation, seated, tilt_, config_.palm_pivot_drop);
+		}
+		v3 fist_top = held_top;
+		q4 fist_rotation = held_rotation;
+		if (frame.has_root)
+		{
+			tilt_magazine(fist_top, fist_rotation, seated, -(frame.has_held ? frame.held_tilt : tilt_), config_.palm_pivot_drop);
+		}
 		const bool held_at_magwell = valid && distance(held_top, frame.magwell) < config_.reach_magazine;
 		const auto start_holding = [&](bool armed)
 		{
@@ -102,10 +163,38 @@ namespace bfvr::weapon
 			insert_armed_ = armed;
 		};
 
+		// Palming (AR): a new magazine at the magwell of a loaded gun gets ready; the hand leaving ends it.
+		using palm_stage = hand_result::palm_stage;
+		if (!gun.state().holding)
+		{
+			kept_old_ = false;
+		}
+		if (palm_ == palm_stage::caught && !gun.state().palmed)
+		{
+			palm_ = palm_stage::none;
+		}
+		const bool can_palm = frame.palming && !ak && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
+			&& !kept_old_ && gun.state().magazine_in;
+		const float fist_to_magwell = valid ? distance(fist_top, frame.magwell) : 1e9f;
+		if (palm_ == palm_stage::ready && (!can_palm || fist_to_magwell > config_.palm_leave))
+		{
+			palm_ = palm_stage::none;
+		}
+		if (palm_ == palm_stage::none && can_palm && insert_armed_ && fist_to_magwell < config_.reach_magazine)
+		{
+			palm_ = palm_stage::ready;
+			result.palm_ready_now = true;
+		}
+
 		if (button_pressed)
 		{
-			const reload_event event = gun.press_button(frame.grip && near_magwell);
-			if (event == reload_event::magazine_out)
+			const reload_event event = gun.press_button(frame.grip && near_magwell, palm_ == palm_stage::ready);
+			if (event == reload_event::magazine_palmed)
+			{
+				palm_ = palm_stage::caught;
+				catch_in_gun_ = multiply(conjugate(frame.root_rotation), fist_rotation);
+			}
+			else if (event == reload_event::magazine_out)
 			{
 				start_holding(false);
 			}
@@ -145,7 +234,33 @@ namespace bfvr::weapon
 			}
 		}
 
-		if (gun.state().holding && valid)
+		if (gun.state().holding && valid && palm_ == palm_stage::caught)
+		{
+			// Turned back as it was held at the catch (relative to the gun), the new one seats; the old one
+			// stays in the hand. Only the lean about the barrel counts: a wrist rolls about the forearm, which
+			// lies off the barrel (monitor 2026-11-05: 40 degrees of roll left 26 of the full angle).
+			const float lean = palm_lean_degrees(multiply(conjugate(frame.root_rotation), held_rotation), catch_in_gun_);
+			result.palm_misalign_degrees = lean;
+			result.palm_off_degrees = angle_between(multiply(conjugate(frame.root_rotation), held_rotation), catch_in_gun_);
+			result.palm_gap = held_top - frame.magwell;
+			const bool lined_up = lean < config_.palm_align_degrees && result.palm_off_degrees < config_.palm_max_degrees;
+			if (frame.grip && distance(held_top, frame.magwell) < config_.palm_seat_reach && lined_up)
+			{
+				const reload_event event = gun.insert();
+				if (event == reload_event::magazine_in)
+				{
+					seating_ = true;
+					seat_time_ = 0.0f;
+					seat_from_ = held_top;
+					seat_rotation_ = held_rotation;
+					palm_ = palm_stage::none;
+					kept_old_ = true;
+					insert_armed_ = false;
+				}
+				emit(result, event);
+			}
+		}
+		else if (gun.state().holding && valid)
 		{
 			if (distance(held_top, frame.magwell) > config_.rearm_distance)
 			{
@@ -217,9 +332,19 @@ namespace bfvr::weapon
 				: near_chest ? hand_result::zone::chest : hand_result::zone::none;
 		}
 
-		if (gun.state().holding && valid)
+		const float tilt_target = palm_ == palm_stage::none ? 0.0f : config_.palm_tilt_degrees * 0.017453293f;
+		tilt_ += (tilt_target - tilt_) * (config_.palm_tilt_seconds > 0.0f ? 1.0f - std::exp(-frame.seconds / config_.palm_tilt_seconds) : 1.0f);
+		if (std::fabs(tilt_ - tilt_target) < 1e-3f)
+		{
+			tilt_ = tilt_target;
+		}
+		result.palm = palm_;
+		result.magazine_tilt = tilt_;
+
+		if (gun.state().holding && valid && !kept_old_)
 		{
 			result.draw = magazine_draw::in_hand;
+			result.in_fist = true;
 			result.magazine_position = held_top;
 			result.magazine_rotation = held_rotation;
 		}

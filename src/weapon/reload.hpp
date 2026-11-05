@@ -14,6 +14,9 @@
 //               Firing the last round with a magazine in locks the bolt back; with a magazine in,
 //               the button then works as the bolt catch and chambers a round. Running dry with the
 //               magazine out leaves the bolt closed on an empty chamber: rack by hand.
+//               Palming: with a new magazine held at the magwell, the button releases the seated one
+//               into the same hand (both held); the new one then goes in and the old one stays in the
+//               hand for the pouch.
 //
 // Magazines come from and go back to the chest: taking one fills it from the reserve, stowing one
 // returns its rounds. A dropped magazine falls through the floor; drop_discards_ammo says whether
@@ -54,6 +57,7 @@ namespace bfvr::weapon
 		chambered,        // bolt catch or rack fed a round
 		racked_empty,     // rack without a round to feed
 		round_ejected,    // rack with a round in the chamber: that round is lost (state() shows what was fed)
+		magazine_palmed,  // AR palming: the seated magazine released into the hand that holds the new one
 	};
 
 	struct gun_state
@@ -66,6 +70,8 @@ namespace bfvr::weapon
 		bool holding{}; // the off hand holds a magazine
 		int held_rounds{};
 		bool inserted_since_lock{}; // AR: the button chambers instead of releasing
+		bool palmed{};   // AR palming: the off hand also holds the old magazine it caught
+		int palmed_rounds{};
 	};
 
 	class reload
@@ -86,14 +92,17 @@ namespace bfvr::weapon
 		reload_event fire();
 		// AR: magazine release; once the bolt is locked back and a new magazine went in, the bolt catch.
 		// hand_on_magazine: the off hand is gripping at the magwell and catches the magazine.
-		reload_event press_button(bool hand_on_magazine);
+		// palming: the off hand holds a new magazine beside the magwell and catches the old one with it
+		// (a round in the chamber: the press releases even right after an insert, the bolt is forward).
+		reload_event press_button(bool hand_on_magazine, bool palming = false);
 		// Off-hand grip closed at the magwell (AK: pulls the magazine out).
 		reload_event grab_magazine();
 		// Off-hand grip closed at the chest.
 		reload_event take_from_chest();
-		// Off-hand grip opened while holding a magazine; at_chest stows it, anywhere else drops it.
+		// Off-hand grip opened while holding a magazine (both, when palmed); at_chest stows it, anywhere
+		// else drops it.
 		reload_event let_go(bool at_chest);
-		// The held magazine reaches the magwell.
+		// The held magazine reaches the magwell. Palmed: the new one goes in, the old one stays held.
 		reload_event insert();
 		// Charging handle pulled back and released.
 		reload_event rack();

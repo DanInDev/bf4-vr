@@ -58,24 +58,29 @@ namespace bfvr::weapon
 		return feed() == reload_event::bolt_locked ? reload_event::bolt_locked : reload_event::shot;
 	}
 
-	reload_event reload::press_button(bool hand_on_magazine)
+	reload_event reload::press_button(bool hand_on_magazine, bool palming)
 	{
 		if (profile_.kind != variant::ar)
 		{
 			return reload_event::none;
 		}
+		palming = palming && state_.holding && !state_.palmed;
 		// The first press after a new magazine is the bolt catch: it chambers from the locked bolt or an
 		// empty chamber, and with a round already chambered (a tactical reload) the bolt is forward and
 		// nothing happens. Only the next press releases the magazine (headset 2026-11-04: it ejected).
+		// A hand placed to palm means the release.
 		if (state_.magazine_in && state_.inserted_since_lock)
 		{
 			state_.inserted_since_lock = false;
-			if (state_.chamber)
+			if (!state_.chamber)
+			{
+				state_.bolt_locked = false;
+				return feed();
+			}
+			if (!palming)
 			{
 				return reload_event::none;
 			}
-			state_.bolt_locked = false;
-			return feed();
 		}
 		if (!state_.magazine_in)
 		{
@@ -84,6 +89,12 @@ namespace bfvr::weapon
 		const int rounds = state_.magazine_rounds;
 		state_.magazine_in = false;
 		state_.magazine_rounds = 0;
+		if (palming)
+		{
+			state_.palmed = true;
+			state_.palmed_rounds = rounds;
+			return reload_event::magazine_palmed;
+		}
 		if (hand_on_magazine && !state_.holding)
 		{
 			state_.holding = true;
@@ -126,8 +137,10 @@ namespace bfvr::weapon
 			return reload_event::none;
 		}
 		state_.holding = false;
-		const int rounds = state_.held_rounds;
+		const int rounds = state_.held_rounds + state_.palmed_rounds;
 		state_.held_rounds = 0;
+		state_.palmed = false;
+		state_.palmed_rounds = 0;
 		if (at_chest)
 		{
 			state_.reserve += rounds;
@@ -141,6 +154,16 @@ namespace bfvr::weapon
 		if (!state_.holding)
 		{
 			return reload_event::none;
+		}
+		if (state_.palmed && !state_.magazine_in)
+		{
+			state_.magazine_in = true;
+			state_.magazine_rounds = state_.held_rounds;
+			state_.held_rounds = state_.palmed_rounds;
+			state_.palmed = false;
+			state_.palmed_rounds = 0;
+			state_.inserted_since_lock = true;
+			return reload_event::magazine_in;
 		}
 		reload_event result = reload_event::magazine_in;
 		if (state_.magazine_in)
