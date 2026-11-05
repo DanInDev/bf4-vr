@@ -82,6 +82,9 @@ namespace bfvr::stereo
 	// stance (input/physical_stance), and the view follows the real head only (the game's own eye
 	// drop for its stance is added back). Switching it on measures standing afresh.
 	void set_physical_stance(bool enabled);
+	// How far physical stance raised the eye above the game's camera (metres, world up; 0 when off).
+	// Everything placed from tracking space (hands, gun, body) is raised by the same amount.
+	float physical_stance_lift();
 	// Pipe "stance".
 	std::string stance_report();
 

@@ -145,7 +145,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HAND-9 | open | Reach both arms straight out (pipe `arms`); try `shoulder_reach` 0 / 0.12 / 0.2, `arm_stretch` 0 / 0.25, `shoulder_width` 0 / 0.05 / 0.1 | Hands stay on the controllers; which values look natural | #31 | 2026-10-26: hands, torso and gun looked "eerily close" to the body |
 | HAND-10 | open | Hold the gun out, turn your whole body 60-90° in the room; then only look 30° and 70° aside (`torso_follow`) | The shoulders follow within ~¼ s; 30° head turn moves nothing, 70° drags them ~30° | #13 | |
 | HAND-11 | open | Look down | Legs hidden; arm length and gun size plausible (`arm_length` 1.15) | #13 | |
-| HAND-12 | open | `physical_stance = 1` (stand straight when switching it on): crouch, kneel, lie down, get up; then crouch with the stick | The soldier follows within ~½ s; the view follows only your head; the stick flick still crouches | #33 | |
+| HAND-12 | open | `physical_stance = 1` (stand straight when switching it on): crouch, kneel, lie down, get up; then crouch with the stick | The soldier follows within ~½ s; the view follows only your head; the stick flick still crouches; hands, gun and chest stay where they were relative to your head | #33 | 2026-11-05 monitor: crouched, the gun and arms were drawn ~60 cm too low (out of view); fixed on `fix/physical-stance-hands`, now the same place standing and crouched |
 | HAND-13 | open | `dominant_hand = left` | Sticks, triggers and buttons swap; the gun follows the left controller; the minimap on the right forearm | #9 | |
 | HAND-14 | done | Hands follow the controllers, the gun stays in the right hand | | #11 | 2026-10-25: "flawless" for guns |
 

@@ -836,6 +836,11 @@ namespace bfvr::stereo
 		physical_stance_on = enabled;
 	}
 
+	float physical_stance_lift()
+	{
+		return physical_stance_on.load(std::memory_order_relaxed) ? stance_lift.load(std::memory_order_relaxed) : 0.0f;
+	}
+
 	std::string stance_report()
 	{
 		char text[192];

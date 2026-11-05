@@ -634,6 +634,14 @@ namespace bfvr::body
 			return camera_joint.rotation * camera_axes * ik::quat{ std::sin(0.5f * pitch), 0, 0, std::cos(0.5f * pitch) };
 		}
 
+		// The tracking origin (OpenXR LOCAL) in rig space: the camera joint, raised by what physical
+		// stance adds back to the eye (the game's own crouch drop). Without it a real crouch drew the
+		// hands, gun and body that drop too low again (monitor 2026-11-05: the gun left the view).
+		ik::vec3 tracking_origin(const ik::bone_transform& camera, const ik::quat& frame)
+		{
+			return camera.position + ik::rotate(frame, ik::vec3{ 0.0f, stereo::physical_stance_lift(), 0.0f });
+		}
+
 		// Called with rig_lock held, before the conversion: the arms reach for the controllers.
 		void edit_arms(ik::bone_transform* local)
 		{
@@ -716,6 +724,7 @@ namespace bfvr::body
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 			const ik::quat frame = camera_frame(camera);
+			const ik::vec3 origin = tracking_origin(camera, frame);
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
 			// Synthetic targets are placed relative to the view: the head (between the eyes) when tracked.
 			ik::vec3 head_position;
@@ -735,7 +744,7 @@ namespace bfvr::body
 			const float torso_yaw_now = update_torso(head_valid, head_position, head_rotation, hands);
 			const float torso = torso_follow.load(std::memory_order_relaxed) && head_valid ? angle_between(torso_yaw_now, 0.0f) : 0.0f;
 			const ik::vec3 torso_axis = ik::rotate(frame, ik::vec3{ 0.0f, 1.0f, 0.0f });
-			const ik::vec3 spine = camera.position + ik::rotate(frame, head_position + ik::vec3{ 0.0f, 0.0f, torso_spine_back });
+			const ik::vec3 spine = origin + ik::rotate(frame, head_position + ik::vec3{ 0.0f, 0.0f, torso_spine_back });
 			const float torso_sin = std::sin(0.5f * torso);
 			const ik::quat torso_turn{ torso_axis.x * torso_sin, torso_axis.y * torso_sin, torso_axis.z * torso_sin, std::cos(0.5f * torso) };
 			bool any = false;
@@ -754,8 +763,9 @@ namespace bfvr::body
 				// The body also goes where the head is: the camera joint is the tracking origin, so a player
 				// leaning or crouching in the room moved only the shoulders (body_shoulders follow the head),
 				// and the chest stayed behind (headset 2026-11-04: "the chest does not move with the arms").
-				const ik::vec3 with_head = head_valid ? ik::rotate(frame, head_position) : ik::vec3{};
-				if ((back != 0.0f || torso != 0.0f || head_valid) && body_turn_on.load(std::memory_order_relaxed))
+				const ik::vec3 lift = origin - camera.position;
+				const ik::vec3 with_head = lift + (head_valid ? ik::rotate(frame, head_position) : ik::vec3{});
+				if ((back != 0.0f || torso != 0.0f || head_valid || ik::length(lift) > 0.0f) && body_turn_on.load(std::memory_order_relaxed))
 				{
 					for (int i = 0; i < rig.trunk_count; ++i)
 					{
@@ -827,7 +837,7 @@ namespace bfvr::body
 					const int clavicle = rig.parents[bones.upper];
 					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
 					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y, shoulder_anchor.z };
-					const ik::vec3 wanted = spine + ik::rotate(torso_turn, camera.position + ik::rotate(frame, head_position + anchor) - spine);
+					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, head_position + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
 					ik::set_model_transform(local, rig.parents, clavicle, moved);
@@ -854,7 +864,7 @@ namespace bfvr::body
 					shaped = true;
 				}
 				ik::arm_goal goal;
-				goal.wrist = camera.position + ik::rotate(frame, wrist);
+				goal.wrist = origin + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
 				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
@@ -935,7 +945,7 @@ namespace bfvr::body
 					const bool pinch = pinching && has_pinch;
 					const ik::vec3 hooked = pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
 						: has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
-						: goal.wrist + (on_handle - (camera.position + ik::rotate(frame, palm)));
+						: goal.wrist + (on_handle - (origin + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
 				}
 				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
@@ -976,7 +986,7 @@ namespace bfvr::body
 							const ik::quat yaw_turn{ 0, std::sin(0.5f * floor_yaw), 0, std::cos(0.5f * floor_yaw) };
 							const ik::quat on_side{ 0, 0, 0.70710678f, 0.70710678f };
 							ik::bone_transform lying = ik::model_of(local, rig.parents, rig.weapon);
-							lying.position = camera.position + ik::rotate(frame, floor_position);
+							lying.position = origin + ik::rotate(frame, floor_position);
 							lying.rotation = ik::normalize(frame * yaw_turn * ik::quat{ 0, 1, 0, 0 } * on_side);
 							ik::set_model_transform(local, rig.parents, rig.weapon, lying);
 						}
@@ -1009,7 +1019,7 @@ namespace bfvr::body
 			const float* p = magazine_request.position;
 			const float* q = magazine_request.rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
-			placed.position = camera.position + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+			placed.position = tracking_origin(camera, frame) + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
 			placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = local[rig.magazine];
@@ -1052,15 +1062,16 @@ namespace bfvr::body
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 			const ik::quat frame = camera_frame(camera);
 			const ik::quat to_xr = ik::conjugate(frame);
+			const ik::vec3 origin = tracking_origin(camera, frame);
 			const ik::bone_transform magazine = ik::model_of(local, rig.parents, rig.magazine);
-			const ik::vec3 magazine_xr = ik::rotate(to_xr, magazine.position - camera.position);
+			const ik::vec3 magazine_xr = ik::rotate(to_xr, magazine.position - origin);
 			const ik::quat magazine_rotation_xr = to_xr * magazine.rotation;
 			points.valid = true;
 			points.at = GetTickCount64();
 			points.has_floor = rig.ground >= 0;
 			if (points.has_floor)
 			{
-				points.floor_y = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.ground).position - camera.position).y;
+				points.floor_y = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.ground).position - origin).y;
 			}
 			points.magazine[0] = magazine_xr.x;
 			points.magazine[1] = magazine_xr.y;
@@ -1072,7 +1083,7 @@ namespace bfvr::body
 			points.has_slide = rig.slide >= 0;
 			if (points.has_slide)
 			{
-				const ik::vec3 slide = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.slide).position - camera.position);
+				const ik::vec3 slide = ik::rotate(to_xr, ik::model_of(local, rig.parents, rig.slide).position - origin);
 				points.slide[0] = slide.x;
 				points.slide[1] = slide.y;
 				points.slide[2] = slide.z;
@@ -1082,7 +1093,7 @@ namespace bfvr::body
 				has = bone >= 0;
 				if (has)
 				{
-					const ik::vec3 p = ik::rotate(to_xr, ik::model_of(local, rig.parents, bone).position - camera.position);
+					const ik::vec3 p = ik::rotate(to_xr, ik::model_of(local, rig.parents, bone).position - origin);
 					out[0] = p.x;
 					out[1] = p.y;
 					out[2] = p.z;
@@ -1115,7 +1126,7 @@ namespace bfvr::body
 							: geometry.sight_eye;
 					}
 					const ik::vec3 sight_direction = geometry.has_ads_sight ? geometry.ads_direction : ik::vec3{ 0, 0, 1 };
-					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, sight_eye) - camera.position);
+					const ik::vec3 eye = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, sight_eye) - origin);
 					points.sight_eye[0] = eye.x;
 					points.sight_eye[1] = eye.y;
 					points.sight_eye[2] = eye.z;
@@ -1130,7 +1141,7 @@ namespace bfvr::body
 			if (points.has_support)
 			{
 				const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
-				const ik::vec3 support = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.hand[0].position) - camera.position);
+				const ik::vec3 support = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.hand[0].position) - origin);
 				points.support[0] = support.x;
 				points.support[1] = support.y;
 				points.support[2] = support.z;
@@ -1535,7 +1546,7 @@ namespace bfvr::body
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 			const ik::quat to_xr = ik::conjugate(camera_frame(camera));
-			const ik::vec3 top = ik::rotate(to_xr, placed.position - camera.position);
+			const ik::vec3 top = ik::rotate(to_xr, placed.position - tracking_origin(camera, camera_frame(camera)));
 			const ik::quat rotation = to_xr * placed.rotation;
 			points.has_held = true;
 			points.held_magazine[0] = top.x;
