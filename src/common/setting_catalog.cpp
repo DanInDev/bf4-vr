@@ -24,6 +24,7 @@ namespace bfvr::settings
 			{ "view_crop_bottom", "View", "Rendering", "Trim the bottom edge", "Degrees cut off for a sharper picture", "" },
 			{ "ipd_scale", "View", "Scale", "World scale", "1 = your own eye distance", "" },
 			{ "gun_life_size", "View", "Scale", "Life-size gun and arms", "Drawn on the controllers at real size", "" },
+			{ "gun_fov_life_size", "View", "Scale", "Life size that keeps sights", "Red dots and lenses work when aiming", "" },
 			{ "gun_scale", "View", "Scale", "Gun size", "On top of life size", "" },
 			{ "steady_walk", "View", "Comfort", "Steady walking view", "No sway from the soldier's steps", "" },
 			{ "vignette", "View", "Comfort", "Comfort vignette", "Darkens the edges when the game moves you", "off=Off|turning=Turning|moving=Moving|both=Both" },

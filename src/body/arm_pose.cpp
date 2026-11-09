@@ -1862,7 +1862,9 @@ namespace bfvr::body
 			}
 			ik::bone_transform& magazine = local[rig.magazine];
 			const bool remembered = magazine_memory.has_written && std::memcmp(&magazine, &magazine_memory.written, sizeof(magazine)) == 0;
-			magazine.scale = stereo::extra_mesh::magazine_tag;
+			// While the held grenade is captured (publish_extra_grenade), the gun's magazine marks the gun instead.
+			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && grenade_weapon_now.load(std::memory_order_relaxed);
+			magazine.scale = capturing ? stereo::extra_mesh::capture_magazine_scale : stereo::extra_mesh::magazine_tag;
 			if (remembered)
 			{
 				magazine_memory.written = magazine;

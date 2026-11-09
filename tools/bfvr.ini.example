@@ -28,6 +28,10 @@ stereo_aspect = headset
 # the headset's wide view and off the controllers. gun_life_size = 1 corrects that every frame
 # (tan(22.5 deg) / tan(half the rendered FOV)), so they are life size and on your hands.
 gun_life_size = 1
+# How life size is made (#39): 1 = the game's own gun-pass FOV (hip, and every zoom level of the weapon in
+# hand) is set to the life-size value, so the first-person camera stays unscaled and the sights' red dots
+# and lenses draw as the game means them; 0 = the first-person camera is squeezed instead (no red dot).
+gun_fov_life_size = 1
 # Apparent size of the gun and arms on top of that (1 = life size; without gun_life_size, 1 = the
 # game's own); other values scale them around the view centre and move the hands off the controllers.
 gun_scale = 1.0
@@ -312,8 +316,8 @@ use_reach = 1
 # of a second and it drops to the floor below the hand (no firing); reach down and grip near it to pick
 # it up. Drawing from a holster puts the new weapon in hand. Empty hands (#38): let go while the off hand
 # holds the handguard and the off hand keeps the gun (no firing); the free gun hand can rack the charging
-# handle; grip at the pistol grip to take it back. Off by default.
-free_hands = 0
+# handle; grip at the pistol grip to take it back. On by default (headset feedback 2026-11-09).
+free_hands = 1
 # With free hands: a gun let go by both hands hangs on its sling at your belly (it follows you; grip it
 # there). 0 = it drops to the floor as before.
 sling = 1

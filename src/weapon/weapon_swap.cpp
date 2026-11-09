@@ -134,6 +134,7 @@ namespace bfvr::weapon
 		constexpr unsigned short use_key = 'E';
 		std::atomic<bool> use_enabled{ true };
 		std::atomic<bool> use_reaching{};
+		float use_offset[3]{}; // the off palm from the head (forward, side, up), for the pipe
 		use_reach user;
 		bool use_down{};
 		std::uint64_t uses{};
@@ -503,13 +504,27 @@ namespace bfvr::weapon
 			reach.head_yaw = head_yaw;
 			const bool fresh = now - points.at < points_max_age_ms;
 			reach.hand_valid = points.hand_valid[0] && fresh;
-			reach.off_hand = { points.hand[0][0], points.hand[0][1], points.hand[0][2] };
-			reach.gun_hand_valid = points.hand_valid[1] && fresh;
-			reach.gun_hand = { points.hand[1][0], points.hand[1][1], points.hand[1][2] };
+			// Measured at the palms (the controllers' grip points), as every grab zone is: the drawn wrist sits
+			// ~8 cm behind, so a natural reach of the controller fell short (headset 2026-11-09, #34).
+			reach.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
+			// A dropped or slung gun (free hands) leaves no handguard near the gun hand to keep clear of.
+			reach.gun_hand_valid = points.hand_valid[1] && fresh && !gun_dropped();
+			reach.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
+			reach.gun_line_valid = points.has_support && fresh && !gun_dropped();
+			reach.gun_grip = { points.grip[0], points.grip[1], points.grip[2] };
+			reach.gun_support = { points.support[0], points.support[1], points.support[2] };
 			reach.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 			reach.busy = grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ui::vr_panel_view().open;
 			const use_result used = user.update(reach);
 			use_reaching = used.reaching;
+			if (reach.head_valid && reach.hand_valid)
+			{
+				const float s = std::sin(head_yaw), c = std::cos(head_yaw);
+				const v3 d{ reach.off_hand.x - head.x, reach.off_hand.y - head.y, reach.off_hand.z - head.z };
+				use_offset[0] = -d.x * s - d.z * c; // forward
+				use_offset[1] = d.x * c - d.z * s;  // side
+				use_offset[2] = d.y;               // up
+			}
 			hold_use(used.use);
 		}
 		else
@@ -801,11 +816,11 @@ namespace bfvr::weapon
 		char text[1024];
 		std::snprintf(text, sizeof(text),
 			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
-			"use_reach=%d reaching=%d using=%d uses=%llu\nfree_hands=%d dropped=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
+			"use_reach=%d reaching=%d using=%d uses=%llu palm_forward=%.2f side=%.2f up=%.2f\nfree_hands=%d dropped=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
 			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
-			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses),
+			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses), use_offset[0], use_offset[1], use_offset[2],
 			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
 			body::latest_weapon_points().floor_y, last_grip_point[0], last_grip_point[1], last_grip_point[2], last_grip_in_reach ? 1 : 0, last_slung ? 1 : 0, last_dropped_at[0], last_dropped_at[1], last_dropped_at[2]);
 		return std::string(text) + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;

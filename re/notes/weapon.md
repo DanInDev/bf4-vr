@@ -398,3 +398,20 @@ now ~450 px apart between the eyes (~17 cm, as expected).
 - **Monitor** (AK-12, prologue): by the grip: pouch -> magazine taken (30), seated, racked (round ejected),
   the left kept the gun; by the handguard: magazine out and dropped with the gun still in the left hand,
   then a grip at the pistol grip took it back.
+
+### Use by reaching: why the stash would not open in the headset (2026-11-09, monitor, #34)
+
+Headset: the gadget stash did not open with the left hand. The use pose (`weapon/use_reach`) was too narrow
+for a natural reach; pipe `holster` now prints the off palm's `palm_forward`, `side`, `up` from the head.
+
+| Rule (before) | Effect | Now |
+| --- | --- | --- |
+| Measured at the drawn wrist | ~8 cm behind the controller: a 33 cm reach read 25 | At the palm (controller grip point), like every grab zone |
+| At least 40 cm ahead of the eyes | Needed a stretched arm | 28 cm (every body zone sits within 15 cm ahead) |
+| Down to 70 cm below the eyes; ground pickup from 95 cm | A crate at hip height fell between the two | Down to 95 cm, meeting the pickup |
+| Not within 30 cm of the gun hand | Reaching ahead-right for the crates with the gun held low was refused | Not within 18 cm of the gun itself (grip through handguard, 20 cm past it; the two-handed grab takes 12.5 cm); a dropped or slung gun refuses nothing |
+
+Monitor (head level, gun held): a bent-arm reach 33 cm ahead, 30 cm right of centre, and one 40 cm ahead on
+the off side count; the chest pouch (12 cm ahead) does not. Head pitched 30 degrees down, hand 40 cm ahead
+toward the crates: the stash opened. Its menu closes with the pointer when it hovers before the click
+(Done at 0.648, 0.736).

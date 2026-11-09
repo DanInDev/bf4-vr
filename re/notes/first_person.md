@@ -219,3 +219,45 @@ Candidate for the ADS world zoom (`ZoomLevelData.FieldOfViewSP` reaching the cam
 0, `+0xF0` 0 and `+0x100` -1 at the hip, in red-dot and magnifier ADS. The zoom itself is readable where
 the mod overrides it: view params `+0xB4` before the camera hook (45 / 40 / 27 deg; re/notes/weapon.md
 "Magnified sights"). The mod's `copy_detour` sets the headset FOV there, which is why the world never zooms.
+
+## Live checks for the structural life size (2026-11-09, monitor, #39)
+
+- **Candidate 1 confirmed: per-player view +0x13D0 drives the gun pass at the hip.** View 0 =
+  `[[[0x142673D80]+8]]` (+0x13D0 = 45.0). Poking 60 gave a gun pass of 60 deg (projection y scale in the
+  foreground per-view block, pipe `gunscale` gun_fov_deg); 70 gave 70; from 80 the frame's narrowest
+  projection is the world's (78.35 here), so the gun pass is wider still. The gun and arms are drawn
+  smaller with an orthonormal first-person camera (with `gun_life_size 0`).
+- **ADS overrides it:** while the game aims, the gun pass is 17 deg on the AK-12 whatever +0x13D0 holds.
+  Not from the weapon data: SoldierWeaponData +0x138 ZoomLevels (2: RenderFov 55, 18) poked to 70 changed
+  nothing; none of the 42 WeaponModifierData (+0x140, 24 bytes: Guid, Modifiers array) modifiers holds 17
+  at +0x18 (WeaponZoomModifier.ZoomRenderFov). Memory diff scans for 17.0 and 0.2967 (radians) while
+  aiming vs at the hip found no runtime field (only world positions and the scan's own buffer). The ADS
+  value is likely built into the projection from a transition (FOVTransitionData) on the fly.
+- **Why it matters:** `gun_life_size` scales the first-person rows instead; the lens and reticle shader
+  uses those rows, so the red dot vanishes and the lens samples the wrong place (#39). With
+  `gun_life_size 0` the game's ADS draws both correctly.
+- **Next:** REA on the foreground per-view block writer (the code that fills the gun pass's projection,
+  y scale cot(fov/2)): find where it reads the zoom FOV in ADS, then either set that input or override the
+  projection there, so the gun pass gets the life-size FOV in both hip and ADS with an orthonormal camera.
+
+## The gun pass FOV, found (2026-11-10, monitor, #39)
+
+- **Readers of view 0 +0x13D0** (pipe `watch <addr> 4 1500 rw`): `0x1408A938D` (view params +0x100C, the
+  shadow minimum FOV), `0x1408AB18F` (the FOV ratio to Ant, ~once per frame) and the getter `0x1408AB0E0`
+  called ~3 times a frame from **`0x140FB8290`**, the gun pass FOV:
+  - `this` = the client soldier weapon; its runtime zoom levels are an array of `WeaponZoomLevelData*` at
+    **weapon +0x47D0 .. +0x47D8** (not SoldierWeaponData +0x138: the optic's copy, 55 / 17 / 18 on the AK-12
+    red dot).
+  - Fewer than two levels: the hip value (+0x13D0). Else the zoom state `[weapon+0x4988]` gives the current
+    and previous level (+0x1E8 / +0x1F0) and a transition factor (`0x140F94280`, shaped by the level's
+    `RenderFovTransition` at +0x18 via `0x14093CA00`); level 0 means the hip value, others their
+    **RenderFov (+0x10)**; result = lerp(previous, current, t).
+- **Proof:** +0x13D0 = 70 and the runtime levels 1.. = 70: the gun pass stayed 70 deg at the hip and in ADS,
+  the red dot and its ring drew in a clear lens (the game's own), with an orthonormal first-person camera.
+- **Implementation** (`stereo/gun_pass_fov`, setting `gun_fov_life_size`, default on): the camera hook writes
+  the life-size FOV, 2 atan(tan(world half) / gun_scale), into both every frame (the game's values kept and
+  put back when it is turned off) and no longer scales the first-person rows. `eye_pass::foreground_block`
+  also recognises the gun pass by its soldier-space camera (|position| < 4 m), since at gun_scale 1 its
+  projection now equals the world's. Monitor: hip 73.06 deg (gun_scale 1.1), applied row scale 1.000; gun
+  and hands at the same size and place as with the squeeze; ADS red dot visible (with the squeeze: none);
+  off restores 45 / 17.

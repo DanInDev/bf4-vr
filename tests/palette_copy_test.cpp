@@ -111,6 +111,10 @@ int main()
 		palette::multiply(hidden_root, local, entry);
 		expect(palette::tagged(entry, grenade_tag), "a grenade entry carries the grenade tag");
 		expect(!palette::tagged(entry, tag), "the grenade tag is not the magazine's");
+		// The gun's magazine during a capture: 0.01 * 1.5, told apart from the grenade's 0.01.
+		float marked[12];
+		make(marked, 0.1f, 0.2f, 0.3f, 0.9f, grenade_tag * 1.5f, root[0], root[1], root[2]);
+		expect(!palette::tagged(marked, grenade_tag) && palette::tagged(marked, grenade_tag * 1.5f), "the marked magazine is not a grenade entry");
 		palette::relative_to_root(entry, grenade_tag, root);
 		float d[12];
 		make(d, unit(random), unit(random), unit(random), unit(random), 1.0f, unit(random), 1.5f + unit(random), unit(random));

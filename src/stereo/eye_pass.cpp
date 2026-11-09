@@ -349,7 +349,12 @@ namespace bfvr::stereo
 			const float right = std::sqrt(view[0] * view[0] + view[1] * view[1] + view[2] * view[2]);
 			const float sy = block[0x70 / 4 + 5];
 			const auto same_scale = [sy](float expected) { return expected > 0.0f && std::fabs(sy - expected) <= 0.01f * expected; };
-			return std::fabs(right - 1.0f) > 1e-3f || !(same_scale(scope_y_scale) || same_scale(projection_sy));
+			// #39: with life size through the gun pass's own FOV its rows are unit and, at gun_scale 1, its
+			// projection is the world's; its camera is still the first-person one, in soldier space (the eye
+			// ~1.6 m above the feet), where the world cameras sit at the level's coordinates.
+			const float* camera = block + 0x140 / 4;
+			const bool soldier_space = camera[0] * camera[0] + camera[1] * camera[1] + camera[2] * camera[2] < 4.0f * 4.0f;
+			return std::fabs(right - 1.0f) > 1e-3f || !(same_scale(scope_y_scale) || same_scale(projection_sy)) || soldier_space;
 		}
 
 		// GPU time of each render (timestamp queries, read a few frames later without waiting):

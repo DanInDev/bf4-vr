@@ -50,6 +50,9 @@ namespace bfvr::stereo::extra_mesh
 	// draws the gun's magazine (tagged, magazine_tag) draws the captured grenade after it, with its per-view
 	// and per-object state from the magazine's draw and Wep_Root at the hand.
 	constexpr float grenade_tag = 0.01f;
+	// Meanwhile Wep_Mag gets this scale instead of magazine_tag (0.015 under the hidden root): a draw carrying
+	// it is the gun, still drawn while the game switches, and that capture is thrown away.
+	constexpr float capture_magazine_scale = 1.5f;
 	constexpr float grenade_capture_position[3] = { 0.0f, 1.0f, 0.0f };
 	// Pose thread: the game's grenade is out and tagged (a capture is wanted).
 	void set_grenade_capture(bool wanted);

@@ -46,10 +46,11 @@ namespace bfvr::ui
 				const float dy = (static_cast<float>(y) + 0.5f - half) / half;
 				const float r = std::sqrt(dx * dx + dy * dy);
 				const float edge = 1.5f / half;
-				// A ring at the reach (0.9..1.0) and a faint fill, so the zone reads as a disc.
+				// A ring at the reach (0.9..1.0) and a faint fill, so the zone reads as a disc; the ring at 30 %
+				// opacity (headset 2026-11-09: the full-strength rings got in the way).
 				const float ring = std::clamp((r - 0.88f) / edge + 0.5f, 0.0f, 1.0f) * std::clamp((0.98f - r) / edge + 0.5f, 0.0f, 1.0f);
-				const float fill = r < 0.9f ? 0.12f : 0.0f;
-				const float alpha = std::max(ring * 0.9f, fill);
+				const float fill = r < 0.9f ? 0.04f : 0.0f;
+				const float alpha = std::max(ring * 0.3f, fill);
 				const auto a = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
 				const auto red = static_cast<std::uint32_t>(std::lround(colour[0] * alpha * 255.0f));
 				const auto green = static_cast<std::uint32_t>(std::lround(colour[1] * alpha * 255.0f));

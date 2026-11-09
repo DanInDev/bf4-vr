@@ -115,6 +115,7 @@ namespace bfvr::core
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
 			stereo::set_physical_stance(store.boolean("physical_stance", false));
 			stereo::set_gun_life_size(store.boolean("gun_life_size", true));
+			stereo::set_gun_fov_life_size(store.boolean("gun_fov_life_size", true));
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_view_crop_bottom(store.real("view_crop_bottom", 0.0f));
 			stereo::set_steady_walk(store.boolean("steady_walk", true));
@@ -161,7 +162,7 @@ namespace bfvr::core
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
 			weapon::set_use_reach(store.boolean("use_reach", true));
-			weapon::set_free_hands(store.boolean("free_hands", false));
+			weapon::set_free_hands(store.boolean("free_hands", true));
 			weapon::set_sling(store.boolean("sling", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),

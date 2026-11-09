@@ -48,6 +48,10 @@ namespace bfvr::stereo
 	// gun_life_size: in head-tracked frames the gun and arms are scaled by tan(22.5 deg)/tan(fovY/2) on top
 	// of gun_scale, so the foreground's fixed 45 degree FOV draws them at life size, on the controllers.
 	void set_gun_life_size(bool on);
+	// gun_fov_life_size (#39): life size through the gun pass's own FOV (stereo/gun_pass_fov: the per-player
+	// view and the weapon's zoom levels) instead of scaling the first-person camera's rows; the sights' lens
+	// and reticle need the unscaled camera. Off: the row scaling (the red dot is lost).
+	void set_gun_fov_life_size(bool on);
 	// The row scale applied in the last frame (gun_scale times the life-size factor).
 	float applied_gun_size();
 	// Half the vertical FOV of the gun pass the life-size scale was last computed with (radians).

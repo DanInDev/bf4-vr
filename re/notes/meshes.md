@@ -79,8 +79,12 @@ first grenade taken with `grenade_mesh` on, again for another kind of grenade).
 - Tag: while the capture has slot 6 selected, `arm_pose` puts `Wep_Root` at a fixed point of the palette
   space (0, 1, 0), unrotated, with scale **0.01**: the game's grenade is invisible and its entries are the
   ones whose rows are 0.01 long **and** that sit within 2 cm of that point (the scale alone also matched
-  far-away instance matrices). Captures that contain a mesh seen with the magazine tag (the gun still
-  drawn during the switch) are rejected (2 of the first 4 tries).
+  far-away instance matrices). Meanwhile `Wep_Mag` gets scale 1.5 instead of the magazine tag (0.015
+  under the root): a capturing render that draws an entry with that mark still has the gun on screen
+  and is thrown away (2 rejections before each good capture on the monitor). Headset 2026-11-09 showed
+  why: the older check (meshes seen with the magazine tag) knew no magazine in a fresh session, and the
+  capture kept 16 rifle and gear draws. Only meshes drawn in more than one pass are kept (the grenade
+  is in three; the gear and a stray 36-index draw were in one).
 - Capture (render thread, first eye): each tagged draw outside the shadow passes: index and vertex
   buffers, layout, topology, VS/PS, rasterizer state, VS/PS views, PS blocks 0-5 (contents read through
   the arena mapping), and the palette relative to the hidden root ([R / 0.01 | (t - root) / 0.01]). At

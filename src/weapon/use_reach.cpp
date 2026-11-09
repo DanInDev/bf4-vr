@@ -22,6 +22,25 @@ namespace bfvr::weapon
 		{
 			return false;
 		}
+		if (frame.gun_line_valid)
+		{
+			// Distance to the segment from the grip through the handguard, extended past it.
+			const v3 a = frame.gun_grip;
+			const float lx = frame.gun_support.x - a.x, ly = frame.gun_support.y - a.y, lz = frame.gun_support.z - a.z;
+			const float length = std::sqrt(lx * lx + ly * ly + lz * lz);
+			if (length > 1e-4f)
+			{
+				const float ux = lx / length, uy = ly / length, uz = lz / length;
+				const float px = frame.off_hand.x - a.x, py = frame.off_hand.y - a.y, pz = frame.off_hand.z - a.z;
+				const float along = std::fmax(0.0f, std::fmin(length + config_.gun_line_beyond, px * ux + py * uy + pz * uz));
+				const float qx = px - ux * along, qy = py - uy * along, qz = pz - uz * along;
+				if (std::sqrt(qx * qx + qy * qy + qz * qz) < config_.min_gun_line_distance)
+				{
+					return false;
+				}
+				return true;
+			}
+		}
 		if (frame.gun_hand_valid)
 		{
 			const float gx = frame.off_hand.x - frame.gun_hand.x, gy = frame.off_hand.y - frame.gun_hand.y, gz = frame.off_hand.z - frame.gun_hand.z;

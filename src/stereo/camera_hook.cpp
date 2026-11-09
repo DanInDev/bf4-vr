@@ -22,6 +22,8 @@
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/gun_pass_fov.hpp"
+#include "stereo/gun_pass_fov_math.hpp"
 #include "stereo/scope.hpp"
 #include "input/physical_stance.hpp"
 #include "stereo/scripted_view.hpp"
@@ -88,6 +90,9 @@ namespace bfvr::stereo
 		// gun_life_size: the foreground pass draws at a fixed 45 degree vertical FOV with the world's aspect
 		// (re/notes/first_person.md); scaling its rows by tan(22.5)/tan(fovY/2) draws it as the world would.
 		std::atomic<bool> gun_life_size{ true };
+		// gun_fov_life_size (#39): life size through the gun pass's own FOV (stereo/gun_pass_fov) instead of
+		// scaling the first-person rows, which broke the sights' lens and reticle.
+		std::atomic<bool> gun_fov_life_size{ true };
 		constexpr float hip_foreground_half_fov = 0.39269908f; // the gun pass at the hip (45 degrees)
 		std::atomic<float> applied_foreground_half_fov{ 0.39269908f }; // report
 
@@ -394,7 +399,15 @@ namespace bfvr::stereo
 			level_rows(world, body);
 			if (stereo_first_person)
 			{
-				level_rows(reinterpret_cast<float*>(params + first_person_transform), body - game_yaw);
+				// The first-person rows are in soldier space; the world camera is the soldier's yaw on top of
+				// them. Their own yaw (the camera joint's, from the soldier) is ~0 while the soldier faces where
+				// it aims, but after a snap turn the soldier's body lags the aimer (60 degrees after two snaps,
+				// monitor 2026-11-09): rendered at body - game_yaw alone, the gun pass turned by that lag
+				// against the world and the arms (headset: only the starting orientation lined up, #37).
+				auto* first_person = reinterpret_cast<float*>(params + first_person_transform);
+				const float soldier_look = std::atan2(-first_person[8], -first_person[10]);
+				level_rows(first_person, body - game_yaw + soldier_look);
+				// arm_pose turns the camera joint (which carries soldier_look) by this.
 				fp_turn_yaw = body - game_yaw;
 				fp_turn_until = GetTickCount64() + fp_turn_hold_ms;
 			}
@@ -611,12 +624,26 @@ namespace bfvr::stereo
 			}
 
 			float scale = gun_scale.load(std::memory_order_relaxed);
-			if (gun_life_size.load(std::memory_order_relaxed) && world_half_vertical > 0.01f && world_half_vertical < 1.5f)
+			const bool life_size = gun_life_size.load(std::memory_order_relaxed) && world_half_vertical > 0.01f && world_half_vertical < 1.5f;
+			const float wanted_gun_fov = gun_pass_fov_math::life_size_half_fov(world_half_vertical, scale);
+			if (life_size && gun_fov_life_size.load(std::memory_order_relaxed) && !is_menu_camera(params) && gun_pass_fov::apply(wanted_gun_fov))
 			{
-				// The gun pass's FOV as last drawn (it narrows while the game aims down the sights).
-				const float drawn = stereo::foreground_half_fov(hip_foreground_half_fov);
-				applied_foreground_half_fov = drawn;
-				scale *= std::tan(drawn) / std::tan(world_half_vertical);
+				// #39: the gun pass itself draws at the life-size FOV (hip and every zoom level), so the
+				// first-person camera stays orthonormal and the sights' lens and reticle work.
+				applied_foreground_half_fov = wanted_gun_fov;
+				scale = 1.0f;
+			}
+			else
+			{
+				gun_pass_fov::restore();
+				if (life_size)
+				{
+					// The camera squeeze: the gun pass's FOV as last drawn (it narrows while the game aims down
+					// the sights), its rows scaled to the world's.
+					const float drawn = stereo::foreground_half_fov(hip_foreground_half_fov);
+					applied_foreground_half_fov = drawn;
+					scale *= std::tan(drawn) / std::tan(world_half_vertical);
+				}
 			}
 			applied_gun_scale = scale;
 			if (scale > 0.0f && scale != 1.0f && !is_menu_camera(params))
@@ -796,6 +823,11 @@ namespace bfvr::stereo
 	void set_gun_life_size(bool on)
 	{
 		gun_life_size = on;
+	}
+
+	void set_gun_fov_life_size(bool on)
+	{
+		gun_fov_life_size = on;
 	}
 
 	float applied_gun_size()

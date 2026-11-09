@@ -66,7 +66,10 @@ namespace
 		expect(!press(reach({ -0.1f, 1.75f, -0.55f }, true)), "raised above the eyes: the squad signal, not use");
 		expect(!press(reach({ -0.1f, 1.3f, -0.2f }, true)), "close to the body (pouch, belt): not use");
 		expect(!press(reach({ -0.1f, 1.35f, 0.5f }, true)), "behind the head: not use");
-		expect(!press(reach({ -0.1f, 0.7f, -0.5f }, true)), "at the belt's height ahead (0.9 m below the eyes): not use");
+		expect(press(reach({ -0.1f, 0.7f, -0.5f }, true)), "a crate at hip height ahead (0.9 m below the eyes): use");
+		expect(press(reach({ -0.1f, 1.1f, -0.32f }, true)), "a natural, bent-arm reach (32 cm ahead): use");
+		expect(!press(reach({ -0.22f, 0.85f, -0.14f }, true)), "the off-side hip holster's front edge: not use");
+		expect(!press(reach({ -0.04f, 1.13f, -0.24f }, true)), "just past the magazine pouch's reach: not use");
 		// Picking up from the ground (#35): well below the hips, ahead of the body, within arm's length.
 		expect(press(reach({ -0.1f, 0.5f, -0.5f }, true)), "reaching down ahead (1.1 m below the eyes): use, the game's pickup");
 		expect(press(reach({ -0.1f, 0.2f, -0.35f }, true)), "crouched to the floor ahead: use");
@@ -81,6 +84,20 @@ namespace
 		use_frame no_gun = reach({ 0.15f, 1.3f, -0.5f }, true);
 		no_gun.gun_hand_valid = false;
 		expect(press(no_gun), "without a tracked gun hand only the reach counts");
+
+		// The gun's line known: grip at the gun hand, handguard 35 cm ahead of it.
+		const auto with_gun = [](v3 off_hand)
+		{
+			use_frame frame = reach(off_hand, true);
+			frame.gun_line_valid = true;
+			frame.gun_grip = { 0.2f, 1.3f, -0.3f };
+			frame.gun_support = { 0.15f, 1.33f, -0.64f };
+			return frame;
+		};
+		expect(!press(with_gun({ 0.12f, 1.36f, -0.62f })), "gun known: at the handguard is the two-handed grab, not use");
+		expect(!press(with_gun({ 0.10f, 1.30f, -0.85f })), "gun known: past the handguard towards the muzzle, not use");
+		expect(press(with_gun({ 0.30f, 1.15f, -0.33f })), "gun known: ahead-right below the gun (the crates), 25 cm from the gun hand: use");
+		expect(press(with_gun({ -0.15f, 1.20f, -0.40f })), "gun known: ahead on the off side: use");
 	}
 
 	void test_follows_the_head()

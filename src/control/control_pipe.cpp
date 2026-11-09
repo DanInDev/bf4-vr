@@ -31,6 +31,7 @@
 #include "stereo/eye_pass.hpp"
 #include "stereo/aim_depth.hpp"
 #include "stereo/extra_mesh.hpp"
+#include "stereo/gun_pass_fov.hpp"
 #include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/scope.hpp"
@@ -701,7 +702,7 @@ namespace bfvr::control
 				{
 					stereo::set_gun_scale(scale);
 				}
-				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size()) + " gun_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::foreground_half_fov(0.39269908f)) + " applied_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::applied_gun_half_fov());
+				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size()) + " gun_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::foreground_half_fov(0.39269908f)) + " applied_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::applied_gun_half_fov()) + "\n" + stereo::gun_pass_fov::report();
 			}
 			if (command == "arms") return body::report();
 			if (command == "fingers")

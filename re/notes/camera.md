@@ -126,3 +126,19 @@ rows, before the eye pose and controller aim turn them).
 - Result: camera sideways of the feet along its own right axis 11.8 cm → **1.0 cm** (range over 2 s
   of walking). The gun is steady in view, fps unchanged. A step above 15 cm (cut, vehicle) is followed
   at once. Cutscenes, menus and frames without head tracking reset the filter.
+
+## Snap turn and the first-person rows (2026-11-09, monitor, #37)
+
+- The first-person rows (`+0xED0`) are in **soldier space**; the world camera is the soldier's yaw on top
+  of them. Under controller aim the hook draws the world at the body yaw and the first-person rows level.
+  It used `body - game_yaw` (game_yaw = the game's camera = the aimer), which is right only while the
+  soldier's body faces where the aimer points.
+- Turning in the room keeps them together. **A snap turn does not:** the aimer jumps 30 degrees, the
+  soldier's body stays. After two snaps the camera joint was 60 degrees off the soldier (pipe `arms`:
+  camera_joint rot (0, -0.5, 0, 0.866)), and the gun pass was drawn turned by that lag against the world
+  and the hands (headset: only the starting orientation lined up).
+- Fix (`camera_hook.cpp` `aim_with_controller`): the rows are drawn at `body - game_yaw + soldier_look`,
+  where soldier_look is the yaw of the game's own first-person rows. `arm_pose`'s camera frame is
+  unchanged (camera joint, which carries soldier_look, times `body - game_yaw`). Monitor, fake head and
+  hands fixed: gun and hands stay put in the image through two snaps each way, and the chest looking down
+  too. Before the fix they swung left with each snap.

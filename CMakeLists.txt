@@ -118,6 +118,8 @@ add_library(bfvr_runtime STATIC
 	src/stereo/eye_pass.cpp
 	src/stereo/aim_depth.cpp
 	src/stereo/aim_depth_math.cpp
+	src/stereo/gun_pass_fov.cpp
+	src/stereo/gun_pass_fov_math.cpp
 	src/stereo/extra_mesh.cpp
 	src/stereo/palette_copy.cpp
 	src/stereo/foveation.cpp
@@ -210,6 +212,8 @@ if(BFVR_BUILD_TESTS)
 	# Where the shot line meets the scene, from the depth (the green dot's distance).
 	add_executable(bfvr_aim_depth_test tests/aim_depth_test.cpp src/stereo/aim_depth_math.cpp)
 	target_link_libraries(bfvr_aim_depth_test PRIVATE bfvr_common)
+	add_executable(bfvr_gun_pass_fov_test tests/gun_pass_fov_test.cpp src/stereo/gun_pass_fov_math.cpp)
+	target_link_libraries(bfvr_gun_pass_fov_test PRIVATE bfvr_common)
 	# Shot frame at the gun (where bullets start with controller aim).
 	add_executable(bfvr_shot_frame_test tests/shot_frame_test.cpp src/weapon/shot_frame.cpp)
 	target_link_libraries(bfvr_shot_frame_test PRIVATE bfvr_common)
@@ -298,6 +302,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME aim_depth COMMAND bfvr_aim_depth_test)
+	add_test(NAME gun_pass_fov COMMAND bfvr_gun_pass_fov_test)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)

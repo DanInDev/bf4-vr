@@ -435,9 +435,9 @@ namespace bfvr::stereo::extra_mesh
 
 		// A bone under the hidden Wep_Root: scale grenade_tag, and (being at most a few metres below it, scaled
 		// down) within 2 cm of the capture point. The scale alone also matches far-away instance matrices.
-		bool grenade_entry(const float* entry)
+		bool under_hidden_root(const float* entry, float scale)
 		{
-			if (!palette::tagged(entry, grenade_tag))
+			if (!palette::tagged(entry, scale))
 			{
 				return false;
 			}
@@ -445,6 +445,17 @@ namespace bfvr::stereo::extra_mesh
 			const float dy = entry[7] - grenade_capture_position[1];
 			const float dz = entry[11] - grenade_capture_position[2];
 			return dx * dx + dy * dy + dz * dz < 0.02f * 0.02f;
+		}
+
+		bool grenade_entry(const float* entry)
+		{
+			return under_hidden_root(entry, grenade_tag);
+		}
+
+		// The gun's magazine under the hidden root (capture_magazine_scale): the gun is still drawn.
+		bool gun_entry(const float* entry)
+		{
+			return under_hidden_root(entry, grenade_tag * capture_magazine_scale);
 		}
 
 		bool same_binding(const cb_binding& a, const cb_binding& b)
@@ -524,6 +535,7 @@ namespace bfvr::stereo::extra_mesh
 		// The M67's palette: entry 0 the pin and ring, entry 1 body and spoon (monitor 2026-11-09).
 		std::atomic<std::uint64_t> pin_entries{ 1 };
 		std::atomic<std::uint64_t> captures_rejected{};
+		bool capture_saw_gun{}; // render thread: a draw of this capturing render carried the gun's mark
 		std::vector<known_mesh> magazine_meshes; // render thread: the gun magazine draws seen (compared by value only)
 		std::mutex summary_lock;
 		std::string capture_summary; // the last capture's draws, for the pipe
@@ -683,7 +695,9 @@ namespace bfvr::stereo::extra_mesh
 				}
 			}
 			// The gun still drawn under the hidden root (the switch to the grenade not finished): not a grenade.
-			bool gun = false;
+			// Its magazine is marked (capture_magazine_scale); the list of magazine meshes seen before covers a gun
+			// whose magazine draw came after the mark was lifted.
+			bool gun = capture_saw_gun;
 			for (const grenade_draw& d : grenade_capturing)
 			{
 				for (const known_mesh& magazine : magazine_meshes)
@@ -691,20 +705,44 @@ namespace bfvr::stereo::extra_mesh
 					gun = gun || (d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count);
 				}
 			}
+			// The grenade is drawn in several passes (pre-pass, G-buffer, the R16G16 one) from one index buffer;
+			// a tagged draw whose mesh shows up in one pass only is something else (headset 2026-11-09: gear
+			// in the G-buffer only).
+			std::vector<bool> keep(grenade_capturing.size(), false);
+			for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
+			{
+				for (std::size_t j = 0; j < grenade_capturing.size(); ++j)
+				{
+					keep[i] = keep[i] || (grenade_capturing[i].index_buffer.Get() == grenade_capturing[j].index_buffer.Get() && !(grenade_capturing[i].pass == grenade_capturing[j].pass));
+				}
+			}
 			if (!grenade_capturing.empty())
 			{
-				std::string summary = gun ? "\n  rejected (a magazine mesh among them):" : "";
-				for (const grenade_draw& d : grenade_capturing)
+				std::string summary = gun ? "\n  rejected (the gun among them):" : "";
+				for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
 				{
-					char line[200];
-					std::snprintf(line, sizeof(line), "\n  draw ib=%p count=%u start=%u targets=%u format=%d blend=%p entries=%llx ps_cb_owned=%x ps_views_owned=%x vs_views_owned=%x",
+					const grenade_draw& d = grenade_capturing[i];
+					char line[220];
+					std::snprintf(line, sizeof(line), "\n  draw ib=%p count=%u start=%u targets=%u format=%d blend=%p entries=%llx ps_cb_owned=%x ps_views_owned=%x vs_views_owned=%x%s",
 						static_cast<void*>(d.index_buffer.Get()), d.index_count, d.start_index, d.pass.targets, static_cast<int>(d.pass.format), d.pass.blend,
-						static_cast<unsigned long long>(d.entries), d.ps_cb_owned, d.ps_owned, d.vs_owned);
+						static_cast<unsigned long long>(d.entries), d.ps_cb_owned, d.ps_owned, d.vs_owned, keep[i] ? "" : " (one pass only: left out)");
 					summary += line;
 				}
 				const std::lock_guard guard(summary_lock);
 				capture_summary = summary;
 			}
+			{
+				std::vector<grenade_draw> kept;
+				for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
+				{
+					if (keep[i])
+					{
+						kept.push_back(std::move(grenade_capturing[i]));
+					}
+				}
+				grenade_capturing = std::move(kept);
+			}
+			capture_saw_gun = false;
 			last_capture = GetTickCount64(); // also after a rejected or empty one: not every render
 			if (gun)
 			{
@@ -1027,6 +1065,7 @@ namespace bfvr::stereo::extra_mesh
 			{
 				const float* entry = palette_data + e * palette::floats_per_entry;
 				tags |= palette::tagged(entry, magazine_tag) ? magazine_bit : grenade_entry(entry) ? grenade_bit : 0u;
+				capture_saw_gun = capture_saw_gun || (capturing_render && gun_entry(entry));
 			}
 			if (!known && known_meshes.size() < 512)
 			{
