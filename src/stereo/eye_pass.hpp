@@ -53,4 +53,7 @@ namespace bfvr::stereo
 	// The first eye's image of the latest frame (back-buffer format and size), or null.
 	// eye 1: the second eye's image copied at the same point of the frame (before the post/UI modules).
 	ID3D11Texture2D* eye_pass_image(int eye = 0);
+	// The world view's projection this frame (RenderView +0x320, 4x4 row-major, as the game built it); false
+	// before the first pair frame. Both eyes use it (they differ by the camera's sideways move only).
+	bool world_projection(float (&matrix)[16]);
 }

@@ -17,6 +17,9 @@ namespace bfvr::weapon
 		bool off_grip{};
 		bool gun_grip{};
 		bool have_grenade{ true }; // the game still has one to throw
+		// Empty hands (#38): the gun hand is free (the gun dropped or slung), so it may take the grenade too;
+		// then it holds and throws, and the off hand pulls the pin.
+		bool either_hand{};
 	};
 
 	enum class grenade_event
@@ -38,6 +41,7 @@ namespace bfvr::weapon
 		bool armed{};
 		bool off_busy{};  // keep the off-hand grip from the game
 		bool gun_busy{};  // keep the gun-hand grip from the game
+		int hand{};       // which hand holds the grenade: 0 = off hand, 1 = gun hand (either_hand)
 	};
 
 	struct grenade_config
@@ -72,6 +76,7 @@ namespace bfvr::weapon
 		bool last_off_grip_{};
 		bool last_gun_grip_{};
 		bool holding_{};
+		int holder_{}; // 0 = the off hand holds the grenade, 1 = the gun hand
 		bool armed_{};
 		bool pin_held_{};
 		v3 pin_start_;

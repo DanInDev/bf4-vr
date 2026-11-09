@@ -18,6 +18,8 @@ namespace bfvr::weapon
 
 	// A grenade is in the off hand: the reload and accessory gestures leave the grip alone.
 	bool grenade_in_hand();
+	// Which hand holds it (#38): 0 = the off hand, 1 = the gun hand (only while the gun is dropped or slung).
+	int grenade_hand();
 	// Its pin is pulled (the held grenade is drawn without the ring).
 	bool grenade_armed();
 	// The open off hand is at the grenade belt with a grenade to take (the drawn hand opens).

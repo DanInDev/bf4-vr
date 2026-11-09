@@ -159,11 +159,186 @@ namespace
 	}
 }
 
+// Empty hands (#38): the off hand on the handguard keeps the gun when the gun hand lets go; the gun
+// hand takes it back at the pistol grip; the off hand letting go drops it.
+void test_hand_over()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.off_valid = true;
+	f.off_holds = true;
+	f.off_grip = true;
+	f.off_hand = { -0.1f, -0.25f, -0.6f };
+	f.off_yaw = 0.2f;
+	f.has_grip_point = true;
+	f.grip_point = { 0.2f, -0.3f, -0.3f };
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r;
+	int steps = 0;
+	for (; steps < 40 && r.event != free_hands_event::handed_to_off; ++steps)
+	{
+		r = hands.update(f);
+	}
+	expect(r.event == free_hands_event::handed_to_off && r.in_off_hand && r.block_fire && !r.dropped, "the gun hand lets go: the off hand keeps the gun");
+	expect(steps * 0.05f + 1e-3f >= hands.config().release_seconds, "only after the release time (a quick regrip is free)");
+	// The free gun hand goes off to rack, grips there: no take-back away from the pistol grip.
+	f.gun_hand = { 0.25f, -0.15f, -0.55f };
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.in_off_hand && r.event == free_hands_event::none && !r.grip_in_reach, "gripping away from the pistol grip (racking) keeps it in the off hand");
+	f.grip = false;
+	hands.update(f);
+	// Back to the pistol grip and grip: taken back.
+	f.gun_hand = { 0.22f, -0.3f, -0.3f };
+	r = hands.update(f);
+	expect(r.grip_in_reach && r.in_off_hand, "at the pistol grip it is in reach");
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::taken_back && !r.in_off_hand && !r.block_fire, "gripping at the pistol grip takes it back");
+	// Handed over again, then the off hand lets go: it drops below the off hand.
+	f.grip = false;
+	for (int i = 0; i < 40 && !r.in_off_hand; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.in_off_hand, "handed over again");
+	f.off_grip = false;
+	f.off_holds = false;
+	for (int i = 0; i < 40 && r.event != free_hands_event::dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.event == free_hands_event::dropped && r.dropped && near(r.position.x, -0.1f) && near(r.position.z, -0.6f) && near(r.yaw, 0.2f),
+		"the off hand letting go drops it below the off hand");
+	// Without the off hand on the handguard, letting go drops it as before.
+	free_hands plain;
+	free_hands_frame g = holding();
+	g.off_valid = true;
+	g.off_grip = true; // gripping, but not on the handguard
+	expect(steps_to_drop(plain, g) > 0, "an off hand gripping elsewhere does not take the gun");
+	// Lost off-hand tracking never drops it.
+	free_hands lost;
+	free_hands_frame h = f;
+	h.off_holds = true;
+	h.off_grip = true;
+	lost.update(h);
+	h.grip = false;
+	for (int i = 0; i < 40; ++i)
+	{
+		r = lost.update(h);
+	}
+	h.off_valid = false;
+	h.off_grip = false;
+	for (int i = 0; i < 40; ++i)
+	{
+		r = lost.update(h);
+	}
+	expect(r.in_off_hand && !r.dropped, "lost off-hand tracking keeps it in the off hand");
+}
+
+// The sling (#38): a gun let go with no other hand on it hangs at the sling point, follows the body,
+// and is grabbed back there.
+void test_sling()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.sling = true;
+	f.sling_valid = true;
+	f.sling_at = { 0.1f, -0.5f, -0.12f };
+	f.sling_yaw = 0.0f;
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r;
+	for (int i = 0; i < 40 && r.event != free_hands_event::dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.dropped && r.slung && near(r.position.y, -0.5f) && near(r.position.x, 0.1f), "let go: it hangs on the sling, not on the floor");
+	f.sling_at = { 0.6f, -0.4f, 0.3f }; // the player walked and turned
+	f.sling_yaw = 1.0f;
+	r = hands.update(f);
+	expect(r.slung && near(r.position.x, 0.6f) && near(r.position.z, 0.3f) && near(r.yaw, 1.0f), "the slung gun follows the body");
+	f.gun_hand = { 0.6f, -0.18f, 0.3f }; // 22 cm above it (where the grenade pouch sits): not in reach
+	r = hands.update(f);
+	expect(!r.in_reach, "the grenade pouch above the sling is not the sling");
+	f.gun_hand = { 0.62f, -0.38f, 0.28f };
+	r = hands.update(f);
+	expect(r.in_reach, "the hand at the sling is in reach");
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.slung, "gripping at the sling takes it");
+	// Sling off: the floor as before.
+	free_hands floor;
+	free_hands_frame g = holding();
+	g.sling = false;
+	g.sling_valid = true;
+	g.sling_at = { 0.1f, -0.5f, -0.12f };
+	floor.update(g);
+	g.grip = false;
+	for (int i = 0; i < 40 && !r.dropped; ++i)
+	{
+		r = floor.update(g);
+	}
+	r = floor.update(g);
+	expect(r.dropped && !r.slung && near(r.position.y, g.floor_y + floor.config().lie_height), "sling off: on the floor");
+}
+
+// The off hand picks the dropped gun up by its pistol grip (#38): it holds and fires it; letting go drops
+// it again, and the gun hand can pick it up from there.
+void test_off_hand_pickup()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.off_valid = true;
+	f.off_hand = { -0.3f, -0.4f, -0.2f };
+	f.sling = true;
+	f.sling_valid = true;
+	f.sling_at = { 0.1f, -0.5f, -0.12f };
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r;
+	for (int i = 0; i < 40 && !r.dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.dropped && r.slung, "let go: on the sling");
+	f.off_hand = { 0.12f, -0.48f, -0.1f };
+	r = hands.update(f);
+	expect(r.off_in_reach, "the off hand at the sling is in reach");
+	f.off_busy = true;
+	f.off_grip = true;
+	r = hands.update(f);
+	expect(r.dropped && !r.in_off_grip, "a busy off-hand grip (a grenade) does not take it");
+	f.off_grip = false;
+	f.off_busy = false;
+	hands.update(f);
+	f.off_grip = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::picked_up_off && r.in_off_grip && !r.dropped && !r.block_fire, "the off hand picks it up by the grip, free to fire");
+	f.off_hand = { -0.2f, -0.3f, -0.35f };
+	r = hands.update(f);
+	expect(r.in_off_grip && r.event == free_hands_event::none, "held in the off hand while it moves");
+	f.off_grip = false;
+	for (int i = 0; i < 40 && r.event != free_hands_event::dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.event == free_hands_event::dropped && r.slung && !r.in_off_grip, "the off hand lets go: back on the sling");
+	f.gun_hand = { 0.11f, -0.49f, -0.12f };
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::picked_up && !r.dropped, "the gun hand picks it up from the sling");
+}
+
 int main()
 {
+	test_sling();
+	test_off_hand_pickup();
 	test_drop_and_pick_up();
 	test_regrip_and_busy();
 	test_reset_cases();
+	test_hand_over();
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

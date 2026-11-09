@@ -618,6 +618,52 @@ namespace
 		expect(!r.holding && !r.off_busy, "hand empty after the throw");
 	}
 
+	// Empty hands (#38): with the gun dropped or slung the gun hand takes the grenade, the off hand pulls the
+	// pin, the gun hand throws. Without either_hand the gun hand at the belt takes nothing.
+	void test_grenade_either_hand()
+	{
+		grenade_rig plain;
+		plain.step();
+		plain.frame.gun_hand = plain.frame.belt;
+		plain.frame.gun_grip = true;
+		grenade_result r = plain.step();
+		expect(!r.holding, "with the gun in hand the gun hand never takes a grenade");
+
+		grenade_rig g;
+		g.frame.either_hand = true;
+		g.step();
+		g.frame.gun_hand = g.frame.belt;
+		r = g.step();
+		expect(r.gun_busy && !r.holding, "the free gun hand at the belt claims its grip");
+		g.frame.gun_grip = true;
+		r = g.step();
+		expect(r.event == grenade_event::taken && r.holding && r.hand == 1, "the free gun hand takes the grenade");
+		g.frame.gun_hand = { 0.1f, -0.3f, -0.3f };
+		g.step();
+		g.frame.off_hand = { 0.05f, -0.28f, -0.3f };
+		r = g.step();
+		expect(r.off_busy, "the off hand at the grenade claims its grip");
+		g.frame.off_grip = true;
+		g.step();
+		g.frame.off_hand = { -0.03f, -0.25f, -0.3f };
+		r = g.step();
+		expect(r.event == grenade_event::pin_pulled && r.armed, "the off hand pulls the pin");
+		g.frame.off_grip = false;
+		g.step();
+		// Throw with the gun hand: 0.5 m forward-up in 0.1 s.
+		const v3 start = g.frame.gun_hand;
+		const v3 end{ 0.1f, -0.1f, -0.75f };
+		for (int i = 1; i <= 9; ++i)
+		{
+			const float f = static_cast<float>(i) / 9.0f;
+			g.frame.gun_hand = { start.x + (end.x - start.x) * f, start.y + (end.y - start.y) * f, start.z + (end.z - start.z) * f };
+			g.step();
+		}
+		g.frame.gun_grip = false;
+		r = g.step();
+		expect(r.event == grenade_event::thrown && r.velocity.z < -3.0f && close(r.position.x, 0.1f, 1e-3f), "the gun hand throws it, from where it is");
+	}
+
 	void test_grenade_drop_and_put_back()
 	{
 		grenade_rig g;
@@ -896,6 +942,55 @@ namespace
 		expect(r.rack_at_rear, "a new full stroke reaches the rear again");
 	}
 
+	// Empty hands (#38): the off hand holds the gun by the handguard, the free gun hand (passed as the
+	// reloading hand, handle_only) racks; it never takes the magazine or one from the pouch.
+	void test_handle_only()
+	{
+		reload gun(ak);
+		gun.load(31, 60);
+		reload_hands hands(flat_hold());
+		hand_frame f = at(magwell, true);
+		f.handle_only = true;
+		hands.update(gun, at(away, false));
+		hand_result r = hands.update(gun, f);
+		expect(r.count == 0 && !gun.state().holding && gun.state().magazine_in, "handle only: a grip at the magwell takes nothing");
+		hands.update(gun, at(away, false));
+		hand_frame pouch = at(chest, true);
+		pouch.handle_only = true;
+		r = hands.update(gun, pouch);
+		expect(r.count == 0 && !gun.state().holding, "handle only: a grip at the pouch takes nothing");
+		hand_frame rack = at(away, false);
+		rack.handle_only = true;
+		rack.has_root = true;
+		rack.root = { 0.0f, -0.2f, 0.0f };
+		rack.root_rotation = { 0.0f, 1.0f, 0.0f, 0.0f };
+		hands.update(gun, rack);
+		rack.off_hand = { 0.0f, -0.17f, -0.40f };
+		rack.grip = true;
+		r = hands.update(gun, rack);
+		expect(r.racking, "handle only: the handle still racks");
+	}
+
+	// #38: the gun in the off hand, the free gun hand's grip near the gun: the pistol grip takes the gun back
+	// only when it is the nearer target; a hand nearer the magazine reloads.
+	void test_grip_before_reload()
+	{
+		hand_result last;
+		last.zone_centre[0] = { 0.0f, -0.08f, 0.0f }; // magazine body
+		last.zone_reach[0] = 0.10f;
+		last.zone_centre[1] = { 0.0f, 0.03f, 0.0f }; // handle (unknown this time)
+		last.zone_reach[1] = 0.085f;
+		last.zone_centre[2] = { 0.0f, -0.35f, 0.4f }; // pouch
+		last.zone_reach[2] = 0.13f;
+		const v3 grip{ 0.0f, -0.07f, 0.13f };
+		expect(grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, last), "at the pistol grip: take the gun back");
+		expect(!grip_before_reload({ 0.0f, -0.09f, 0.02f }, grip, 0.12f, last), "at the magazine: reload");
+		expect(!grip_before_reload({ 0.0f, 0.2f, 0.13f }, grip, 0.12f, last), "out of the grip's reach: no take-back");
+		last.has_handle = true;
+		expect(!grip_before_reload({ 0.0f, 0.03f, 0.05f }, { 0.0f, 0.0f, 0.12f }, 0.12f, last), "nearer the handle than the grip: rack");
+		expect(grip_before_reload({ 0.0f, -0.07f, 0.10f }, grip, 0.12f, hand_result{}), "no zones placed yet: the grip");
+	}
+
 	// AR palming by hand: the new magazine at the magwell turns aside, B catches the old one, turning
 	// the hand back seats the new one; the old one stays in the hand for the pouch.
 	void test_hands_palming()
@@ -1046,10 +1141,13 @@ int main()
 	test_hands_flick();
 	test_accessory_touch();
 	test_grenade_throw();
+	test_grenade_either_hand();
 	test_grenade_drop_and_put_back();
 	test_holsters();
 	test_hand_signal();
 	test_hold_and_handle();
+	test_handle_only();
+	test_grip_before_reload();
 	test_seating();
 	test_hands_palming();
 	if (failures == 0)

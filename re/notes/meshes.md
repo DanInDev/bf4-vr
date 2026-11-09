@@ -1,8 +1,8 @@
 # Extra meshes: copies of the game's own draws (#36), BF4 build 179547
 
 Status: **second magazine works on the monitor (2026-11-05, Release, AK-12).** A held magazine and the
-one in the gun are both the game's own mesh, lit and depth-tested with the scene. The held grenade is
-not done yet (see the end). Work order: `docs/tasks/extra-meshes.md`.
+one in the gun are both the game's own mesh, lit and depth-tested with the scene. **The held grenade works
+on the monitor too (2026-11-09, M67, see the end).** Work order: `docs/tasks/extra-meshes.md`.
 
 ## The rig has one magazine
 
@@ -44,11 +44,55 @@ and vertex buffers, shaders, render target, VS constant bindings, and for VS slo
 - Cost: ~3 tagged meshes x 3 KB read per render; fps 127.5 without vs 128 with the copy (Release,
   2160², fake head).
 
-## The held grenade (not done)
+## The held grenade (2026-11-09, monitor, Release, M67)
 
-The game draws no grenade while the rifle is out, so there is nothing to re-issue then. A copy needs the
-grenade's draws captured whole while it is drawn (the throw is the first moment): index and vertex
-buffers, input layout, VS/PS, every constant block (per-draw ones copied out of the arenas, which are
-reused each frame; per-view ones taken from the current draw at replay), shader resources and samplers,
-states, for each pass (pre-pass, G-buffer, the later pass), then replayed after a first-person draw of
-the same pass with the palette moved to the hand.
+Status: **works on the monitor**: the game's own M67 drawn in either fist, lit and depth-tested, its pin
+ring gone once pulled; no measurable cost (124 fps with and without). Headset row GRN-4.
+
+### When the game draws its grenade
+
+| Situation | Slot | Grenade drawn |
+| --- | --- | --- |
+| Physical throw (pad LB quick throw, our launch rewrite) | 6 for ~0.3 s | **no**: the rifle stays drawn the whole time |
+| Grenade key (5) | 6 | yes, in the right hand (the game's idle hold) |
+
+So the capture selects the grenade itself: `weapon/weapon_swap` presses 5, waits for slot 6, waits for an
+accepted capture, presses the gun's key (1 / 2). Round trip 0.6 s (pipe `grenade capture`; automatic on the
+first grenade taken with `grenade_mesh` on, again for another kind of grenade).
+
+### Its draws (pipe meshprobe with the grenade out, 2026-11-09)
+
+- One mesh, one index buffer, 7065 indices, a two-entry palette: **entry 0 the pin and ring, entry 1 the
+  body and spoon** (`extramesh pin 1` / `2` hid each). Moving `Wep_Root` (`bone 126`) moves both: they hang
+  from it.
+- Three palette draws per view, **the same shaders as the AK-12's magazine** in each: pre-pass (4 targets,
+  stride 16, blend A), G-buffer (4 targets, stride 40, blend B), a later R16G16 pass (1 target). A fourth
+  draw of the same indices in the R16G16 pass uses a 368-constant VS block (not a palette; not copied).
+- Constant blocks: VS 0 palette; VS 1 (16 constants) per pass, shared by every draw; VS 2 (32) per object
+  (the grenade's holds its world transform, like the gun's), **bound to PS 2 too**; PS 0 / PS 1 in the
+  G-buffer: 16 constants each, per draw (material values and matrices: they differ even between parts of
+  the same gun); in the other passes PS 0 is a big per-view block (800 constants, in another buffer).
+- Textures: G-buffer PS slots 1-5 are the grenade's (the material); the rest equal the other draws'.
+
+### How it is drawn
+
+- Tag: while the capture has slot 6 selected, `arm_pose` puts `Wep_Root` at a fixed point of the palette
+  space (0, 1, 0), unrotated, with scale **0.01**: the game's grenade is invisible and its entries are the
+  ones whose rows are 0.01 long **and** that sit within 2 cm of that point (the scale alone also matched
+  far-away instance matrices). Captures that contain a mesh seen with the magazine tag (the gun still
+  drawn during the switch) are rejected (2 of the first 4 tries).
+- Capture (render thread, first eye): each tagged draw outside the shadow passes: index and vertex
+  buffers, layout, topology, VS/PS, rasterizer state, VS/PS views, PS blocks 0-5 (contents read through
+  the arena mapping), and the palette relative to the hidden root ([R / 0.01 | (t - root) / 0.01]). At
+  the end of the render, a block or view the grenade shares with another skinned draw of the same pass,
+  or (blocks) with its own VS bindings, is left to the draw it will follow; the rest is its own (G-buffer:
+  PS 0 and 1, views 1-5).
+- Replay: while `physical_grenade` holds one, `arm_pose` publishes `Wep_Root` = holding fist (fingers::grasp)
+  times the game's hold measured in the right fist (pipe `extramesh` game_hold_in_fist: 1.5 cm from the
+  fist centre, 44 degrees about its y axis), palette space. After each magazine draw (tagged, `magazine_tag`)
+  the captured draw of the same pass (targets, first target's format, blend state) is issued once per
+  view with its own state and the magazine draw's per-view and per-object state (the second eye's
+  redirected blocks with it); the game's state is restored after.
+- Needs a gun drawn (its magazine is the anchor); with none (knife) the theater's flat quad stands in, as
+  it does until the first capture. Both eyes checked on the monitor (eye-2 screenshots are sometimes a
+  frame behind: a hand or the grenade a few hundred pixels off in a single shot, not in the next).

@@ -96,6 +96,36 @@ int main()
 			expect(palette::tagged(m, tag), "the moved entry keeps its scale (d is a rotation)");
 		}
 	}
+	// The held grenade: captured while its root sat at root, unrotated, scale 0.01; relative_to_root then
+	// d * entry draws each vertex where it would be with the root at d.
+	for (int round = 0; round < 100; ++round)
+	{
+		constexpr float grenade_tag = 0.01f;
+		const float root[3] = { 0.0f, 1.0f, 0.0f };
+		// The bone below the root (its local offset and bind combined): any rigid transform.
+		float local[12];
+		make(local, unit(random), unit(random), unit(random), unit(random), 1.0f, unit(random) * 0.1f, unit(random) * 0.1f, unit(random) * 0.1f);
+		float hidden_root[12];
+		make(hidden_root, 0, 0, 0, 1, grenade_tag, root[0], root[1], root[2]);
+		float entry[12];
+		palette::multiply(hidden_root, local, entry);
+		expect(palette::tagged(entry, grenade_tag), "a grenade entry carries the grenade tag");
+		expect(!palette::tagged(entry, tag), "the grenade tag is not the magazine's");
+		palette::relative_to_root(entry, grenade_tag, root);
+		float d[12];
+		make(d, unit(random), unit(random), unit(random), unit(random), 1.0f, unit(random), 1.5f + unit(random), unit(random));
+		float placed[12];
+		palette::multiply(d, entry, placed);
+		const float point[3] = { unit(random) * 0.05f, unit(random) * 0.05f, unit(random) * 0.05f };
+		float at_local[3], expected[3], copied[3];
+		apply(local, point, at_local);
+		apply(d, at_local, expected);
+		apply(placed, point, copied);
+		const float error = std::sqrt((copied[0] - expected[0]) * (copied[0] - expected[0]) + (copied[1] - expected[1]) * (copied[1] - expected[1])
+			+ (copied[2] - expected[2]) * (copied[2] - expected[2]));
+		expect(error < 1e-4f, "a captured grenade vertex lands where its root at d puts it");
+		expect(palette::tagged(placed, 1.0f), "the placed grenade has scale 1");
+	}
 	float plain[12];
 	make(plain, 0.1f, 0.2f, 0.3f, 0.9f, 1.0f, 0, 2, 0);
 	expect(!palette::tagged(plain, tag), "scale 1 is not the tag");

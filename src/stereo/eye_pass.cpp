@@ -319,6 +319,9 @@ namespace bfvr::stereo
 		std::atomic<std::uint64_t> foreground_y_at{};
 		std::atomic<float> eye_shift_metres{};
 		float projection_sx{};
+		std::mutex projection_lock;
+		float world_projection_copy[16]{}; // the world view's projection (RenderView +0x320), for stereo/aim_depth
+		bool world_projection_valid{};
 		float projection_sy{};
 		// Research (pipe eyezoom): the second eye renders the same camera with this vertical FOV
 		// (radians, 0 = off) instead of moving sideways: does the constant patch follow a zoom?
@@ -758,6 +761,7 @@ namespace bfvr::stereo
 		void STDMETHODCALLTYPE ps_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
 		{
 			record('p', s, n, b, nullptr, nullptr);
+			extra_mesh::on_ps_bindings(s, n, b, nullptr, nullptr);
 			original_ps_set_constant_buffers(c, s, n, b);
 		}
 
@@ -815,6 +819,7 @@ namespace bfvr::stereo
 		void STDMETHODCALLTYPE ps_set_constant_buffers1_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b, const UINT* f, const UINT* k)
 		{
 			record('P', s, n, b, f, k);
+			extra_mesh::on_ps_bindings(s, n, b, f, k);
 			set_redirected<&original_ps_set_constant_buffers1, 'P'>(c, s, n, b, f, k);
 		}
 
@@ -856,7 +861,7 @@ namespace bfvr::stereo
 				}
 				log::write("eye pass: binding hook slot %d: %s", entry.slot, MH_StatusToString(status));
 			}
-			extra_mesh::set_entry_points(original_draw_indexed, original_vs_set_constant_buffers1, &read_arena_block);
+			extra_mesh::set_entry_points(original_draw_indexed, original_vs_set_constant_buffers1, original_ps_set_constant_buffers1, &read_arena_block);
 			D3D11_BUFFER_DESC desc{};
 			desc.ByteWidth = eye_buffer_size;
 			desc.Usage = D3D11_USAGE_DYNAMIC;
@@ -1377,6 +1382,11 @@ namespace bfvr::stereo
 				}
 				patch_windows = static_cast<unsigned>(patch.matrices() + patch.positions());
 				projection_sx = centre_views[0][0x320 / 4];
+				{
+					const std::lock_guard guard(projection_lock);
+					std::memcpy(world_projection_copy, centre_views[0] + 0x320 / 4, sizeof(world_projection_copy));
+					world_projection_valid = true;
+				}
 				projection_sy = centre_views[0][0x320 / 4 + 5];
 				patched_blocks.clear();
 				frame_foreground_y = 0.0f;
@@ -1654,5 +1664,12 @@ namespace bfvr::stereo
 	{
 		const std::lock_guard guard(image_lock);
 		return eye == 0 ? image.Get() : image_second.Get();
+	}
+
+	bool world_projection(float (&matrix)[16])
+	{
+		const std::lock_guard guard(projection_lock);
+		std::memcpy(matrix, world_projection_copy, sizeof(matrix));
+		return world_projection_valid;
 	}
 }

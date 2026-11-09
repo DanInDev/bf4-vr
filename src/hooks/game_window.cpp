@@ -37,6 +37,10 @@ namespace bfvr::hooks
 			USHORT make{};
 			USHORT flags{};
 			USHORT vkey{};
+			// #34: a mouse button instead (RI_MOUSE_LEFT_BUTTON_DOWN/UP): menu clicks while the window is
+			// not in front, where posted WM_LBUTTON* reach the window but the game reads buttons as Raw Input.
+			bool mouse{};
+			USHORT buttons{};
 		};
 		key_event key_events[key_ring];
 		std::atomic<unsigned> next_key{};
@@ -61,14 +65,23 @@ namespace bfvr::hooks
 				return original_get_raw_input_data(handle, command, data, size, header_size);
 			}
 			RAWINPUT input{};
-			input.header.dwType = RIM_TYPEKEYBOARD;
 			input.header.dwSize = sizeof(RAWINPUT);
 			input.header.wParam = RIM_INPUT;
 			const key_event& key = key_events[index];
-			input.data.keyboard.MakeCode = key.make;
-			input.data.keyboard.Flags = key.flags;
-			input.data.keyboard.VKey = key.vkey;
-			input.data.keyboard.Message = (key.flags & RI_KEY_BREAK) ? WM_KEYUP : WM_KEYDOWN;
+			if (key.mouse)
+			{
+				input.header.dwType = RIM_TYPEMOUSE;
+				input.data.mouse.usFlags = MOUSE_MOVE_RELATIVE;
+				input.data.mouse.usButtonFlags = key.buttons;
+			}
+			else
+			{
+				input.header.dwType = RIM_TYPEKEYBOARD;
+				input.data.keyboard.MakeCode = key.make;
+				input.data.keyboard.Flags = key.flags;
+				input.data.keyboard.VKey = key.vkey;
+				input.data.keyboard.Message = (key.flags & RI_KEY_BREAK) ? WM_KEYUP : WM_KEYDOWN;
+			}
 			const UINT needed = command == RID_HEADER ? sizeof(RAWINPUTHEADER) : sizeof(RAWINPUT);
 			if (!data)
 			{
@@ -321,6 +334,7 @@ namespace bfvr::hooks
 		}
 		const unsigned index = next_key++ % key_ring;
 		key_event& key = key_events[index];
+		key.mouse = false;
 		key.vkey = virtual_key;
 		key.make = static_cast<USHORT>(MapVirtualKeyW(virtual_key, MAPVK_VK_TO_VSC));
 		key.flags = down ? RI_KEY_MAKE : RI_KEY_BREAK;
@@ -372,6 +386,16 @@ namespace bfvr::hooks
 			if (pressed != was_pressed)
 			{
 				PostMessageW(hwnd, pressed ? WM_LBUTTONDOWN : WM_LBUTTONUP, pressed ? MK_LBUTTON : 0, position);
+				// The game reads the buttons as Raw Input (monitor 2026-11-09: posted clicks only hovered the
+				// crate menu's items, Done never closed it): the same synthetic WM_INPUT as the keys.
+				if (original_get_raw_input_data)
+				{
+					const unsigned index = next_key++ % key_ring;
+					key_event& button = key_events[index];
+					button.mouse = true;
+					button.buttons = static_cast<USHORT>(pressed ? RI_MOUSE_LEFT_BUTTON_DOWN : RI_MOUSE_LEFT_BUTTON_UP);
+					PostMessageW(hwnd, WM_INPUT, RIM_INPUT, static_cast<LPARAM>(key_handle_base + index));
+				}
 			}
 		}
 		was_pressed = pressed;

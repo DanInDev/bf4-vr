@@ -19,6 +19,7 @@
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/body_rig.hpp"
@@ -139,12 +140,20 @@ namespace bfvr::weapon
 		melee_gesture melee;
 		// Free hands (#35).
 		std::atomic<bool> free_hands_on{};
+		std::atomic<bool> sling_on{ true }; // #38: a let-go gun hangs on the sling, not on the floor
 		std::atomic<bool> dropped_now{};
+		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
+		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
 		free_hands dropper;
 		int last_slot{ -2 };
 		char last_name[48]{};
 		std::uint64_t drops{};
 		std::uint64_t pickups{};
+		std::uint64_t hand_overs{};
+		float last_grip_point[3]{}; // for the report (#38)
+		bool last_grip_in_reach{};
+		float last_dropped_at[3]{};
+		bool last_slung{};
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
 		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
@@ -261,6 +270,118 @@ namespace bfvr::weapon
 			}
 		}
 
+		// Held grenade (#36): the game draws its grenade only while it is the weapon in hand (the quick throw
+		// keeps the gun drawn), so the first time a grenade is taken the game's grenade is selected (key 5) for a
+		// moment, captured hidden (stereo/extra_mesh via body::set_grenade_weapon), and the gun selected again.
+		enum class capture_stage
+		{
+			idle,
+			to_grenade,
+			capturing,
+			back,
+		};
+		capture_stage grenade_capture{ capture_stage::idle };
+		std::atomic<bool> grenade_capture_requested{};
+		int capture_from{ -1 };
+		int capture_attempts{};
+		ULONGLONG capture_deadline{};
+		unsigned short capture_key{};
+		ULONGLONG capture_key_up{};
+		std::uint64_t capture_count_at{};
+		const char* capture_result{ "none" };
+		constexpr unsigned short grenade_key = '5'; // slot 6, the hand grenade
+
+		void press_capture_key(unsigned short key, ULONGLONG now)
+		{
+			if (capture_key)
+			{
+				hooks::press_game_key(capture_key, false);
+			}
+			capture_key = hooks::press_game_key(key, true) ? key : 0;
+			capture_key_up = now + key_hold_ms;
+		}
+
+		unsigned short gun_key(int slot)
+		{
+			return slot == 0 ? '1' : '2';
+		}
+
+		// Called with lock held, every update.
+		void advance_grenade_capture(const slot_state& held, ULONGLONG now)
+		{
+			if (capture_key && now >= capture_key_up)
+			{
+				hooks::press_game_key(capture_key, false);
+				capture_key = 0;
+			}
+			switch (grenade_capture)
+			{
+			case capture_stage::idle:
+				if (!grenade_capture_requested.exchange(false))
+				{
+					break;
+				}
+				if (!held.valid || held.current < 0 || held.current > 1 || pending != holster::none || key_down)
+				{
+					capture_result = "not now (no gun in hand, or a switch running)";
+					break;
+				}
+				capture_from = held.current;
+				capture_count_at = stereo::extra_mesh::grenade_captures();
+				capture_attempts = 0;
+				press_capture_key(grenade_key, now);
+				grenade_capture = capture_stage::to_grenade;
+				capture_deadline = now + 2000;
+				log::write("grenade capture: selecting the game's grenade (from slot %d)", capture_from);
+				break;
+			case capture_stage::to_grenade:
+				if (held.valid && held.current == 6)
+				{
+					grenade_capture = capture_stage::capturing;
+					capture_deadline = now + 2000;
+				}
+				else if (now > capture_deadline)
+				{
+					capture_result = "the game did not select its grenade";
+					grenade_capture = capture_stage::idle;
+					log::write("grenade capture: %s", capture_result);
+				}
+				break;
+			case capture_stage::capturing:
+			{
+				const bool done = stereo::extra_mesh::grenade_captures() > capture_count_at;
+				if (done || now > capture_deadline)
+				{
+					capture_result = done ? "captured" : "no grenade draw seen";
+					log::write("grenade capture: %s; back to slot %d", capture_result, capture_from);
+					press_capture_key(gun_key(capture_from), now);
+					grenade_capture = capture_stage::back;
+					capture_deadline = now + 1200;
+				}
+				break;
+			}
+			case capture_stage::back:
+				if (held.valid && held.current == capture_from)
+				{
+					grenade_capture = capture_stage::idle;
+				}
+				else if (now > capture_deadline)
+				{
+					if (++capture_attempts < 2)
+					{
+						press_capture_key(gun_key(capture_from), now); // the game may still have been busy
+						capture_deadline = now + 1200;
+					}
+					else
+					{
+						grenade_capture = capture_stage::idle;
+						log::write("grenade capture: the gun did not come back (slot %d)", held.current);
+					}
+				}
+				break;
+			}
+		}
+
 		// Head position and yaw (atan2(-forward.x, -forward.z)) in OpenXR LOCAL.
 		bool head_pose(v3& position, float& yaw)
 		{
@@ -320,6 +441,9 @@ namespace bfvr::weapon
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "Knife") != nullptr);
 		// Slots 0 and 1 hold the primary and secondary guns; gadgets, grenades and the knife keep their own hold.
 		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
+		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
+		advance_grenade_capture(held, now);
+		body::set_grenade_weapon(held.valid && held.current == 6 && grenade_capture != capture_stage::idle);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
 		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
@@ -338,7 +462,10 @@ namespace bfvr::weapon
 		{
 			const stereo::head_sample head_sample = stereo::latest_head_sample();
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
-			const bool busy = grenade_in_hand() || reload_owns_off_hand() || ui::vr_panel_view().open || now - last_in_holster < after_holster_ms;
+			// #38: with the gun in the off hand (or dropped) the gun hand's swing is no strike: the knife the game
+			// draws for it would end the hold (a reach for the handguard counted as a swing on the monitor).
+			const bool busy = grenade_in_hand() || reload_owns_off_hand() || ui::vr_panel_view().open || now - last_in_holster < after_holster_ms
+				|| off_hand_now.load() || dropped_now.load();
 			if (melee_enabled.load(std::memory_order_relaxed) && head_sample.valid
 				&& melee.update(stereo::eye_math::centre_pose(head_sample), hands.grip[1].position, hands.valid[1], busy, seconds))
 			{
@@ -404,27 +531,67 @@ namespace bfvr::weapon
 			drop.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 			drop.grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 			// The grip pulling a grenade pin, drawing from a holster or clicking the panel is not a release.
-			drop.busy = grenade_in_hand() || grip_claimed.load() || ui::vr_panel_view().open;
+			drop.busy = grenade_in_hand() || grip_claimed.load() || ui::vr_panel_view().open || reload_claims_free_hand();
 			drop.floor_y = points.floor_y;
+			// #38: the off hand on the handguard keeps the gun when the gun hand lets go.
+			drop.off_holds = off_hand_holds_gun();
+			drop.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
+			drop.off_valid = points.hand_valid[0] && now - points.at < points_max_age_ms;
+			drop.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
+			const float* o = points.hand_rotation[0];
+			drop.off_yaw = std::atan2(2.0f * (o[0] * o[2] + o[1] * o[3]), 1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
+			drop.has_grip_point = points.has_support;
+			drop.grip_point = { points.grip[0], points.grip[1], points.grip[2] };
+			drop.sling = sling_on.load(std::memory_order_relaxed);
+			drop.off_busy = grenade_in_hand() || reload_owns_off_hand() || off_grip_claimed.load() || ui::vr_panel_view().open;
+			drop.sling_valid = body_rig_point(sling_point, drop.sling_at) && body_yaw(drop.sling_yaw);
 			const float* q = points.hand_rotation[1];
 			drop.hand_yaw = std::atan2(2.0f * (q[0] * q[2] + q[1] * q[3]), 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]));
 			const free_hands_result dropped = dropper.update(drop);
+			last_grip_point[0] = drop.grip_point.x;
+			last_grip_point[1] = drop.grip_point.y;
+			last_grip_point[2] = drop.grip_point.z;
+			last_grip_in_reach = dropped.grip_in_reach;
+			last_dropped_at[0] = dropped.position.x;
+			last_dropped_at[1] = dropped.position.y;
+			last_dropped_at[2] = dropped.position.z;
+			last_slung = dropped.slung;
 			if (dropped.event == free_hands_event::dropped)
 			{
 				++drops;
 				input::haptic(1, input::pulses::tick);
 			}
-			else if (dropped.event == free_hands_event::picked_up)
+			else if (dropped.event == free_hands_event::picked_up || dropped.event == free_hands_event::taken_back)
 			{
 				++pickups;
 				input::haptic(1, input::pulses::grab);
 			}
+			else if (dropped.event == free_hands_event::picked_up_off)
+			{
+				++pickups;
+				input::haptic(0, input::pulses::grab);
+			}
+			else if (dropped.event == free_hands_event::handed_to_off)
+			{
+				++hand_overs;
+				input::haptic(0, input::pulses::grab);
+				input::haptic(1, input::pulses::tick);
+			}
 			dropped_now = dropped.dropped;
+			off_hand_now = dropped.in_off_hand || dropped.in_off_grip;
+			off_grip_now = dropped.in_off_grip;
+			body::set_gun_in_off_hand(dropped.in_off_hand || dropped.in_off_grip, dropped.in_off_grip);
 			const float lying[3]{ dropped.position.x, dropped.position.y, dropped.position.z };
-			body::set_dropped_gun(dropped.dropped, lying, dropped.yaw);
+			body::set_dropped_gun(dropped.dropped, lying, dropped.yaw, dropped.slung);
 			if (dropped.dropped)
 			{
-				publish_grab_zone(grab_slot::dropped_gun, lying, dropper.config().pickup_reach, dropped.in_reach);
+				publish_grab_zone(grab_slot::dropped_gun, lying, dropped.slung ? dropper.config().sling_reach : dropper.config().pickup_reach, dropped.in_reach || dropped.off_in_reach);
+			}
+			else if (dropped.in_off_hand && drop.has_grip_point)
+			{
+				// The pistol grip, where the free gun hand takes the gun back.
+				const float grip_at[3]{ drop.grip_point.x, drop.grip_point.y, drop.grip_point.z };
+				publish_grab_zone(grab_slot::dropped_gun, grip_at, dropper.config().regrip_reach, dropped.grip_in_reach);
 			}
 			else
 			{
@@ -531,9 +698,15 @@ namespace bfvr::weapon
 			out.buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
 			out.connected = true;
 		}
-		if (dropped_now.load(std::memory_order_relaxed))
+		if (off_grip_now.load(std::memory_order_relaxed))
 		{
-			out.right_trigger = 0; // the gun lies on the floor (free hands)
+			// #38: the off hand holds the pistol grip: its trigger fires (the latched controller value, not the
+			// game's left trigger, which sight_aim may hold for ADS).
+			out.right_trigger = input::latest().left_trigger;
+		}
+		else if (dropped_now.load(std::memory_order_relaxed) || off_hand_now.load(std::memory_order_relaxed))
+		{
+			out.right_trigger = 0; // the gun lies on the floor or hangs from the off hand (free hands, #38)
 		}
 		return out;
 	}
@@ -543,9 +716,57 @@ namespace bfvr::weapon
 		free_hands_on = on;
 	}
 
+	void set_sling(bool on)
+	{
+		sling_on = on;
+	}
+
 	bool gun_dropped()
 	{
 		return dropped_now.load(std::memory_order_relaxed);
+	}
+
+	bool gun_in_off_hand()
+	{
+		return off_hand_now.load(std::memory_order_relaxed);
+	}
+
+	bool gun_in_off_grip()
+	{
+		return off_grip_now.load(std::memory_order_relaxed);
+	}
+
+	bool use_reach_direction(float (&direction)[3])
+	{
+		if (!use_reaching.load(std::memory_order_relaxed))
+		{
+			return false;
+		}
+		const stereo::head_sample head = stereo::latest_head_sample();
+		const body::weapon_points points = body::latest_weapon_points();
+		if (!head.valid || !points.hand_valid[0])
+		{
+			return false;
+		}
+		const float* l = head.eyes[0].position;
+		const float* r = head.eyes[1].position;
+		float d[3];
+		float length = 0.0f;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			d[axis] = points.palm[0][axis] - 0.5f * (l[axis] + r[axis]);
+			length += d[axis] * d[axis];
+		}
+		length = std::sqrt(length);
+		if (length < 0.1f)
+		{
+			return false;
+		}
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			direction[axis] = d[axis] / length;
+		}
+		return true;
 	}
 
 	std::string holster_pipe_command(const std::string& argument)
@@ -577,16 +798,21 @@ namespace bfvr::weapon
 			request(which, GetTickCount64());
 		}
 		const slot_state slot = read_slot();
-		char text[768];
+		char text[1024];
 		std::snprintf(text, sizeof(text),
 			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
-			"use_reach=%d reaching=%d using=%d uses=%llu\nfree_hands=%d dropped=%d drops=%llu pickups=%llu floor_y=%.2f",
+			"use_reach=%d reaching=%d using=%d uses=%llu\nfree_hands=%d dropped=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
 			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
 			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
 			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses),
-			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups),
-			body::latest_weapon_points().floor_y);
-		return text;
+			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
+			body::latest_weapon_points().floor_y, last_grip_point[0], last_grip_point[1], last_grip_point[2], last_grip_in_reach ? 1 : 0, last_slung ? 1 : 0, last_dropped_at[0], last_dropped_at[1], last_dropped_at[2]);
+		return std::string(text) + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;
+	}
+
+	void request_grenade_capture()
+	{
+		grenade_capture_requested = true;
 	}
 }

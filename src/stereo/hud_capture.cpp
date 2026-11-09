@@ -9,6 +9,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "stereo/aim_depth.hpp"
 #include "stereo/scope_scissor.hpp"
 #include "stereo/tracking.hpp"
 
@@ -63,6 +64,7 @@ namespace bfvr::stereo
 				views[0]->GetResource(&resource);
 				if (resource.Get() == back_buffer.load())
 				{
+					aim_depth_on_hud_targets(context, depth);
 					ID3D11RenderTargetView* replaced[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
 					for (UINT i = 0; i < count && i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
 					{

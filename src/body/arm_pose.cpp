@@ -179,6 +179,7 @@ namespace bfvr::body
 		bool gun_on_floor{};
 		ik::vec3 floor_gun_position;               // OpenXR LOCAL
 		float floor_gun_yaw{};
+		bool floor_gun_hanging{}; // #38: on the sling (barrel down at the body), not lying on the floor
 		std::atomic<bool> gun_on_ray{ true };     // live setting gun_pose (aim / animated)
 		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
@@ -194,7 +195,16 @@ namespace bfvr::body
 		}
 
 		std::atomic<bool> torso_follow{ true }; // live setting torso_follow
-		torso_yaw torso_estimate;               // pose-hook thread only
+		std::atomic<bool> lean_to_hands{ false }; // live setting torso_hands: lean towards two hands held together
+		// Like a native VR game (#37): the torso turns only when the head passes the twist limit (or with the
+		// stick turn); no slow settle onto the head, and no hand lean unless torso_hands.
+		torso_config head_only_torso()
+		{
+			torso_config config;
+			config.settle_seconds = 0.0f;
+			return config;
+		}
+		torso_yaw torso_estimate{ head_only_torso() }; // pose-hook thread only
 		double torso_time{};
 		std::atomic<float> torso_report{};       // radians, for the pipe
 		constexpr float torso_spine_back = 0.10f; // the turning axis, behind the eyes (tracking z is back)
@@ -210,7 +220,7 @@ namespace bfvr::body
 				return 0.0f;
 			}
 			torso_hands input;
-			for (int hand = 0; hand < 2; ++hand)
+			for (int hand = 0; hand < 2 && lean_to_hands.load(std::memory_order_relaxed); ++hand)
 			{
 				ik::vec3 offset;
 				if (targets[hand].active)
@@ -290,7 +300,28 @@ namespace bfvr::body
 		// Extra meshes (#36): the second magazine (stereo/extra_mesh), and the held magazine's pose before
 		// the palming tilt (where a caught one sits).
 		extra_magazine_pose extra_request;
+		// Empty hands (#38): the off hand holds the gun by the handguard (weapon/free_hands); the gun hangs
+		// from the drawn off hand, turning with its controller as it did at the hand-over.
+		std::atomic<bool> gun_in_off_hand{};
+		std::atomic<bool> off_by_grip{}; // #38: the off hand holds the pistol grip (mirrored gun-hand hold)
+		std::atomic<bool> gun_hand_fist{}; // #38: the free gun hand holds a grenade
+		std::atomic<bool> gun_on_floor_now{}; // mirror of gun_on_floor for the finger task (no lock)
+		bool carried_by_off{};                 // pose-hook thread: last evaluation's carrier was the off hand
+		ik::quat off_carry_in_aim{ 0, 0, 0, 1 }; // the drawn off hand relative to frame * its aim, at the hand-over
+		ik::quat last_drawn_hand[2];           // pose-hook thread: each hand's drawn rotation last evaluation
 		std::atomic<bool> extra_meshes_on{ true };
+		// Held grenade (#36): the game's grenade is captured while it is the weapon, and drawn in the fist.
+		std::atomic<bool> grenade_mesh_on{};
+		std::atomic<bool> grenade_weapon_now{};
+		std::atomic<bool> held_grenade_now{};
+		std::atomic<int> held_grenade_hand{};
+		std::atomic<bool> held_grenade_armed{};
+		// Wep_Root of a hand grenade in the fist's grasp frame (fingers::grasp: +y out past the index, +z out
+		// through the curled fingers), from the game's own hold of the M67 (pipe extramesh game_hold_in_fist,
+		// 2026-11-09: the right hand drawn by its controller, the game's fingers round the grenade).
+		ik::bone_transform grenade_in_fist{ { 0.0061f, -0.0131f, -0.0020f }, 1.0f, { 0.0007f, 0.3770f, 0.0049f, 0.9262f } };
+		ik::bone_transform game_grenade_in_fist; // rig_lock: last seen while the game's grenade was out
+		bool has_game_grenade_in_fist{};
 		ik::bone_transform fist_untilted;
 		bool has_fist_untilted{};
 		// Racking (weapon/physical_reload): the off hand on the charging handle, the slide pulled back.
@@ -356,9 +387,11 @@ namespace bfvr::body
 			{ { 0.0088f, -0.1836f, 0.0891f, 0.9789f }, { 0.0f, 0.0f, 0.7955f, 0.6060f }, { 0.0f, 0.0f, 0.7965f, 0.6046f } },
 		}, { 0.1558f, 0.0372f, -0.1136f }, { -0.0958f, 0.4847f, -0.7140f, 0.4961f } };
 		const authored_grip* authored{};      // the grip the off hand takes this frame, if any
+		int authored_hand{};                  // the hand it is applied to (1: the free gun hand racking, mirrored, #38)
+		int authored_hand_shown{};
 		const authored_grip* authored_shown{}; // the one being eased (kept while easing out)
 		float authored_weight{};
-		bone_memory thumb_base_memory;       // the off hand's Thumb1 while an authored grip sets it
+		bone_memory thumb_base_memory[2];    // each hand's Thumb1 while an authored grip sets it
 		ik::vec3 pinch_in_hand;             // where the knob belongs, hand-bone axes, from the last shaping
 		bool has_pinch{};
 		constexpr float knob_half = 0.008f; // a charging handle's knob, half its size
@@ -371,6 +404,7 @@ namespace bfvr::body
 		// Racking: the inside of the hooked index (centroid of Index1-3), hand-bone axes, from the last shaping.
 		ik::vec3 hook_in_hand;
 		bool has_hook{};
+		int hook_hand{}; // the hand the hook points were measured on (the racking hand, #38)
 		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
 		constexpr float held_magazine_drop = 0.07f;
 		bone_memory slide_memory;
@@ -821,8 +855,16 @@ namespace bfvr::body
 				}
 			}
 			bool gun_placed = false;
-			// The gun hand first: a two-handed off hand is drawn on the gun where it now is.
-			for (const int hand : { 1, 0 })
+			// The hand carrying the gun first: the other is drawn on the gun (handguard, handle) where it now is.
+			const int carrier = gun_in_off_hand.load(std::memory_order_relaxed) ? 0 : 1;
+			if (carrier == 0 && !carried_by_off)
+			{
+				// The hand-over: keep the off hand's hold on the handguard as drawn, relative to its controller.
+				const float* q0 = hands.aim[0].orientation;
+				off_carry_in_aim = ik::normalize(ik::conjugate(frame * ik::normalize(ik::quat{ q0[0], q0[1], q0[2], q0[3] })) * last_drawn_hand[0]);
+			}
+			carried_by_off = carrier == 0;
+			for (const int hand : { carrier, 1 - carrier })
 			{
 				ik::vec3 wrist;
 				ik::vec3 palm;
@@ -845,7 +887,7 @@ namespace bfvr::body
 					palm = ik::vec3{ grip.position[0], grip.position[1], grip.position[2] } - ik::rotate(head_rotation, shoulders);
 					const float* q = hands.aim[hand].orientation;
 					aim = { q[0], q[1], q[2], q[3] };
-					if (hand == 1)
+					if (hand == (off_by_grip.load(std::memory_order_relaxed) ? 0 : 1)) // the hand on the pistol grip (#38)
 					{
 						const std::lock_guard held(gun_hand_lock);
 						if (gun_hand_override)
@@ -864,7 +906,8 @@ namespace bfvr::body
 				const ik::bone_transform hand_model = ik::model_of(local, rig.parents, bones.hand);
 				const ik::quat hand_animated = hand_model.rotation;
 				// The gun keeps its animated placement relative to the right hand.
-				const bool carry_weapon = hand == 1 && weapon_follows && rig.weapon >= 0;
+				const bool carry_weapon = hand == carrier && weapon_follows && rig.weapon >= 0;
+				const bool gun_hand_carries = carry_weapon && hand == 1; // the gun-hand-only holds below (aim ray, knife, recoil)
 				const ik::bone_transform weapon_in_hand = carry_weapon
 					? ik::compose(ik::inverse(hand_model), ik::model_of(local, rig.parents, rig.weapon)) : ik::bone_transform{};
 				// Arm shape (live settings): wider shoulders and longer arms, set before the solve, which
@@ -908,18 +951,26 @@ namespace bfvr::body
 				ik::arm_goal goal;
 				goal.wrist = origin + ik::rotate(frame, wrist);
 				goal.hand = frame * ik::normalize(aim) * ik::conjugate(frame) * hand_animated;
-				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				if (gun_hand_carries && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// The gun hand's authored grip with the barrel along the aim ray: how a hand holds a
 					// pistol grip, i.e. the controller. Mirrored, it is the free off hand's wrist (off_hand_pose).
 					gun_hand_in_aim = ik::normalize(ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation));
 					has_gun_hand_in_aim = true;
 				}
-				if (hand == 0 && off_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim)
+				if (hand == 0 && carrier == 1 && off_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim)
 				{
 					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim);
 				}
-				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				const bool off_grip_carries = carry_weapon && hand == 0 && off_by_grip.load(std::memory_order_relaxed);
+				if (carry_weapon && hand == 0)
+				{
+					// #38: the off hand carries the gun by the handguard, held as it was at the hand-over; by the
+					// pistol grip it holds it as the gun hand does, mirrored, barrel along its pointing ray.
+					goal.hand = off_grip_carries && has_gun_hand_in_aim ? ik::normalize(frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim))
+						: ik::normalize(frame * ik::normalize(aim) * off_carry_in_aim);
+				}
+				if (gun_hand_carries && gun_in_hand.load(std::memory_order_relaxed) && gun_on_ray.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
 					// its +z barrel along -z), instead of the hip animation (its own angle, sway and bob)
@@ -927,7 +978,7 @@ namespace bfvr::body
 					// grenade or the C4 detonator keeps its own hold.
 					goal.hand = frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
-				if (carry_weapon && knife_in_hand.load(std::memory_order_relaxed))
+				if (gun_hand_carries && knife_in_hand.load(std::memory_order_relaxed))
 				{
 					// The knife's Wep_Root points its blade about 30 degrees off -z towards +y, edge on +y
 					// (monitor, 2026-10-27): 180 degrees about z from the camera axes, then knife_pitch up,
@@ -936,7 +987,7 @@ namespace bfvr::body
 					const ik::quat level{ std::sin(half), 0, 0, std::cos(half) };
 					goal.hand = frame * ik::normalize(aim) * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
-				if (carry_weapon && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
+				if (gun_hand_carries && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
 					recoil_offset kick;
 					{
@@ -964,12 +1015,18 @@ namespace bfvr::body
 					}
 				}
 				const float support = support_weight.load(std::memory_order_relaxed);
-				if (hand == 0 && gun_placed && geometry.valid && support > 0.0f)
+				if (hand != carrier && (carrier == 1 || off_by_grip.load(std::memory_order_relaxed)) && gun_placed && geometry.valid && support > 0.0f)
 				{
 					// Two-handed: the off hand is drawn where the gun's own animation holds it, slid along
-					// the barrel to where the controller is (within the handguard), blended by the hold.
+					// the barrel to where the controller is (within the handguard), blended by the hold. The gun
+					// hand on the handguard (#38: the left hand on the grip) holds that spot mirrored across the gun.
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
-					const ik::bone_transform& held_at = geometry.hand[0];
+					ik::bone_transform held_at = geometry.hand[0];
+					if (hand == 1)
+					{
+						held_at.position.x = -held_at.position.x;
+						held_at.rotation = fingers::mirrored_hand(held_at.rotation);
+					}
 					const float along = ik::rotate(ik::conjugate(gun.rotation), goal.wrist - gun.position).z;
 					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y,
 						std::fmax(held_at.position.z - support_slide_back, std::fmin(held_at.position.z + support_slide_forward, along)) };
@@ -977,17 +1034,19 @@ namespace bfvr::body
 					goal.wrist = goal.wrist + (snapped - goal.wrist) * support;
 					goal.hand = nlerp(goal.hand, gun.rotation * held_at.rotation, support);
 				}
-				if (hand == 0 && gun_placed && handle_request.weight > 0.0f)
+				if (hand != carrier && gun_placed && handle_request.weight > 0.0f)
 				{
 					// Racking: the handle stays between the thumb and the index's side (pinch), or inside the
 					// hooked index (hook), else under the palm, moved back by the pull, wherever the gun goes;
-					// the hand keeps the controller's rotation.
+					// the hand keeps the controller's rotation; either hand (the gun hand racks while the off hand
+					// carries, #38).
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
-					const bool pinch = pinching && has_pinch;
+					const bool own = hand == hook_hand; // the hook and pinch points were measured on this hand
+					const bool pinch = own && pinching && has_pinch;
 					const ik::vec3 hooked = pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
-						: hooking_under && has_under_hook ? on_handle - ik::rotate(goal.hand, under_hook_in_hand)
-						: has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
+						: own && hooking_under && has_under_hook ? on_handle - ik::rotate(goal.hand, under_hook_in_hand)
+						: own && has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
 						: goal.wrist + (on_handle - (origin + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
 				}
@@ -1005,6 +1064,7 @@ namespace bfvr::body
 				{
 					any = true;
 					last_arms[hand].solved = true;
+					last_drawn_hand[hand] = ik::model_of(local, rig.parents, bones.hand).rotation;
 					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
 					last_arms[hand].goal_xr = wrist;
@@ -1015,11 +1075,13 @@ namespace bfvr::body
 						bool on_floor = false;
 						ik::vec3 floor_position;
 						float floor_yaw{};
+						bool hanging{};
 						{
 							const std::lock_guard dropped(dropped_lock);
 							on_floor = gun_on_floor && gun_in_hand.load(std::memory_order_relaxed);
 							floor_position = floor_gun_position;
 							floor_yaw = floor_gun_yaw;
+							hanging = floor_gun_hanging;
 						}
 						if (on_floor)
 						{
@@ -1031,12 +1093,31 @@ namespace bfvr::body
 							ik::bone_transform lying = ik::model_of(local, rig.parents, rig.weapon);
 							lying.position = origin + ik::rotate(frame, floor_position);
 							lying.rotation = ik::normalize(frame * yaw_turn * ik::quat{ 0, 1, 0, 0 } * on_side);
+							if (hanging)
+							{
+								// On the sling: upright, barrel 75 degrees down, facing where the body faces.
+								const ik::quat down{ -0.60876143f, 0.0f, 0.0f, 0.79335334f };
+								lying.rotation = ik::normalize(frame * yaw_turn * down * ik::quat{ 0, 1, 0, 0 });
+							}
 							ik::set_model_transform(local, rig.parents, rig.weapon, lying);
 						}
 						else
 						{
-							ik::set_model_transform(local, rig.parents, rig.weapon,
-								ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
+							if (off_grip_carries && geometry.valid)
+							{
+								// The pistol grip in the left hand: the gun upright along the left aim ray, placed so
+								// that the right hand's spot on the grip, mirrored across the gun, is the left hand.
+								ik::bone_transform held = ik::model_of(local, rig.parents, rig.weapon);
+								held.rotation = ik::normalize(frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 });
+								const ik::vec3 grip = geometry.hand[1].position;
+								held.position = ik::model_of(local, rig.parents, bones.hand).position - ik::rotate(held.rotation, ik::vec3{ -grip.x, grip.y, grip.z });
+								ik::set_model_transform(local, rig.parents, rig.weapon, held);
+							}
+							else
+							{
+								ik::set_model_transform(local, rig.parents, rig.weapon,
+									ik::compose(ik::model_of(local, rig.parents, bones.hand), weapon_in_hand));
+							}
 							gun_placed = true;
 						}
 					}
@@ -1188,6 +1269,11 @@ namespace bfvr::body
 				points.support[0] = support.x;
 				points.support[1] = support.y;
 				points.support[2] = support.z;
+				// Where the gun's animation holds the gun hand (the pistol grip): the gun hand takes it back there.
+				const ik::vec3 grip = ik::rotate(to_xr, gun.position + ik::rotate(gun.rotation, geometry.hand[1].position) - origin);
+				points.grip[0] = grip.x;
+				points.grip[1] = grip.y;
+				points.grip[2] = grip.z;
 			}
 			for (int hand = 0; hand < 2; ++hand)
 			{
@@ -1228,10 +1314,37 @@ namespace bfvr::body
 			{
 				return fingers::task::item;
 			}
+			const bool off_carries = gun_in_off_hand.load(std::memory_order_relaxed);
+			if (hand == 1 && off_carries && support_weight.load(std::memory_order_relaxed) >= 0.5f)
+			{
+				return fingers::task::support; // #38: on the handguard while the left hand holds the grip
+			}
+			if (hand == 1 && off_carries)
+			{
+				// #38: the free gun hand reloads: racking (choose_rack_grip picks pinch, hook or underhand), a
+				// magazine in its fist, reaching, otherwise open.
+				const auto task = static_cast<fingers::task>(off_task.load(std::memory_order_relaxed));
+				const bool fresh = now - off_task_at.load(std::memory_order_relaxed) < task_max_age_ms;
+				return fresh && (task == fingers::task::handle || task == fingers::task::pinch || task == fingers::task::underhand) ? fingers::task::handle
+					: fresh && (task == fingers::task::magazine || task == fingers::task::cup) ? fingers::task::magazine
+					: fresh && task == fingers::task::reach ? fingers::task::reach : fingers::task::free;
+			}
+			if (hand == 1 && gun_hand_fist.load(std::memory_order_relaxed))
+			{
+				return fingers::task::magazine; // a grenade in the free gun hand (#38): the fist
+			}
+			if (hand == 1 && gun_on_floor_now.load(std::memory_order_relaxed))
+			{
+				return fingers::task::free; // the gun on the floor or the sling: the hand is empty
+			}
 			if (hand == 1)
 			{
 				return gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed) ? fingers::task::gun_grip
 					: fingers::task::item;
+			}
+			if (off_carries)
+			{
+				return off_by_grip.load(std::memory_order_relaxed) ? fingers::task::gun_grip : fingers::task::support;
 			}
 			if (support_weight.load(std::memory_order_relaxed) >= 0.5f)
 			{
@@ -1336,6 +1449,7 @@ namespace bfvr::body
 				if (holding && rig.thumb_base[0] > 0)
 				{
 					authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+					authored_hand = 0;
 				}
 				return;
 			}
@@ -1358,14 +1472,20 @@ namespace bfvr::body
 			return { on_handle, gun.rotation, { knob_half, knob_half, knob_half } };
 		}
 
-		// The off hand's palm normal (hand bone +y) against the gun's up (Wep_Root +y): 1 = palm up.
-		float palm_up_on_gun(const ik::bone_transform* local)
+		// The hand that racks: the off hand, or the free gun hand while the off hand carries the gun (#38).
+		int racking_hand()
 		{
-			if (rig.arms[0].hand < 0 || rig.weapon < 0)
+			return gun_in_off_hand.load(std::memory_order_relaxed) ? 1 : 0;
+		}
+
+		// The racking hand's palm normal (hand bone +y, both hands) against the gun's up (Wep_Root +y): 1 = palm up.
+		float palm_up_on_gun(const ik::bone_transform* local, int hand)
+		{
+			if (rig.arms[hand].hand < 0 || rig.weapon < 0)
 			{
 				return std::nanf("");
 			}
-			const ik::vec3 palm = ik::rotate(ik::model_of(local, rig.parents, rig.arms[0].hand).rotation, ik::vec3{ 0.0f, 1.0f, 0.0f });
+			const ik::vec3 palm = ik::rotate(ik::model_of(local, rig.parents, rig.arms[hand].hand).rotation, ik::vec3{ 0.0f, 1.0f, 0.0f });
 			const ik::vec3 up = ik::rotate(ik::model_of(local, rig.parents, rig.weapon).rotation, ik::vec3{ 0.0f, 1.0f, 0.0f });
 			return ik::dot(palm, up);
 		}
@@ -1374,7 +1494,7 @@ namespace bfvr::body
 		// for rack_grip = pinch and auto overhand; the curled thumb alone cannot reach the knob, the pinch
 		// needs Thumb1's swing across the palm, which only the authored pose has. Auto underhand: the knob
 		// hooked in the index and middle. Auto decides as the stroke starts and keeps it to the release.
-		void choose_rack_grip(const ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
+		void choose_rack_grip(const ik::bone_transform* local, int hand, fingers::task& task, fingers::hand_shape& target)
 		{
 			const int mode = rack_grip.load(std::memory_order_relaxed);
 			const bool on_handle = task == fingers::task::handle && rig.weapon >= 0 && handle_request.weight > 0.0f;
@@ -1385,11 +1505,12 @@ namespace bfvr::body
 			else if (!rack_stroke)
 			{
 				rack_stroke = true;
-				rack_palm_up = palm_up_on_gun(local);
+				rack_palm_up = palm_up_on_gun(local, hand);
 				rack_underhand = contact::underhand_rack(rack_underhand, rack_palm_up);
 			}
 			hooking_under = on_handle && mode == 2 && rack_underhand;
-			pinching = on_handle && (mode == 0 || (mode == 2 && !rack_underhand)) && rig.thumb_base[0] > 0;
+			// The pinch is the left hand's authored pose, mirrored onto the right hand when it racks (#38).
+			pinching = on_handle && (mode == 0 || (mode == 2 && !rack_underhand)) && rig.thumb_base[hand] > 0;
 			if (hooking_under)
 			{
 				task = fingers::task::underhand;
@@ -1400,45 +1521,53 @@ namespace bfvr::body
 				task = fingers::task::pinch;
 				target = fingers::shape_for(task, {});
 				authored = &pinch_grip;
+				authored_hand = hand;
 			}
 		}
 
-		// The off hand's joint for authored_grip::joints[finger][joint]: Thumb1-3, else <Finger>1-3.
-		int authored_bone(int finger, int joint)
+		// A hand's joint for authored_grip::joints[finger][joint]: Thumb1-3, else <Finger>1-3.
+		int authored_bone(int hand, int finger, int joint)
 		{
 			if (finger == fingers::thumb)
 			{
-				return joint == 0 ? rig.thumb_base[0] : rig.finger_bones[0][fingers::thumb][joint - 1];
+				return joint == 0 ? rig.thumb_base[hand] : rig.finger_bones[hand][fingers::thumb][joint - 1];
 			}
-			return rig.finger_bones[0][finger][joint];
+			return rig.finger_bones[hand][finger][joint];
 		}
 
-		// Eases the off hand's fingers into this frame's authored grip (over ~50 ms) and out of it.
+		// Eases a hand's fingers into this frame's authored grip (over ~50 ms) and out of it. The grips are the
+		// left hand's; on the right hand each local rotation is mirrored (the bone axes mirror in z,
+		// fingers::mirrored_hand).
 		void apply_authored(ik::bone_transform* local, float seconds)
 		{
-			if (authored && authored != authored_shown)
+			if (authored && (authored != authored_shown || authored_hand != authored_hand_shown))
 			{
 				authored_weight = authored_shown ? 0.0f : authored_weight; // a different grip starts from the shaped fingers
 				authored_shown = authored;
+				authored_hand_shown = authored_hand;
 			}
 			authored_weight += ((authored ? 1.0f : 0.0f) - authored_weight) * (1.0f - std::exp(-seconds / 0.05f));
 			if (!authored_shown || authored_weight < 0.001f)
 			{
 				authored_shown = authored;
+				authored_hand_shown = authored_hand;
 				return;
 			}
+			const int hand = authored_hand_shown;
 			for (int finger = 0; finger < fingers::count; ++finger)
 			{
 				for (int joint = 0; joint < 3; ++joint)
 				{
-					const int bone = authored_bone(finger, joint);
+					const int bone = authored_bone(hand, finger, joint);
 					if (bone <= 0)
 					{
 						continue;
 					}
-					local[bone].rotation = nlerp(local[bone].rotation, authored_shown->joints[finger][joint], authored_weight);
-					bone_memory& remembered = finger == fingers::thumb && joint == 0 ? thumb_base_memory
-						: finger_memory[0][finger][finger == fingers::thumb ? joint - 1 : joint];
+					const ik::quat& grip = authored_shown->joints[finger][joint];
+					const ik::quat target = hand == 0 ? grip : ik::quat{ -grip.x, -grip.y, grip.z, grip.w };
+					local[bone].rotation = nlerp(local[bone].rotation, target, authored_weight);
+					bone_memory& remembered = finger == fingers::thumb && joint == 0 ? thumb_base_memory[hand]
+						: finger_memory[hand][finger][finger == fingers::thumb ? joint - 1 : joint];
 					remembered.written = local[bone];
 					remembered.has_written = true;
 				}
@@ -1473,17 +1602,23 @@ namespace bfvr::body
 					}
 				}
 			}
-			if (const int base = rig.thumb_base[0]; base > 0)
+			for (int hand = 0; hand < 2; ++hand)
 			{
-				if (thumb_base_memory.has_written && std::memcmp(&local[base], &thumb_base_memory.written, sizeof(local[base])) == 0)
+				const int base = rig.thumb_base[hand];
+				if (base <= 0)
 				{
-					local[base] = thumb_base_memory.animated;
+					continue;
+				}
+				bone_memory& remembered = thumb_base_memory[hand];
+				if (remembered.has_written && std::memcmp(&local[base], &remembered.written, sizeof(local[base])) == 0)
+				{
+					local[base] = remembered.animated;
 				}
 				else
 				{
-					thumb_base_memory.animated = local[base];
+					remembered.animated = local[base];
 				}
-				thumb_base_memory.has_written = false;
+				remembered.has_written = false;
 			}
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
@@ -1511,11 +1646,23 @@ namespace bfvr::body
 			{
 				fingers::task task = task_of(hand, now);
 				fingers::hand_shape target = fingers::shape_for(task, last_input[hand]);
+				const int rack = racking_hand();
 				if (hand == 0)
 				{
 					authored = nullptr;
-					choose_magazine_grip(local, task, target);
-					choose_rack_grip(local, task, target);
+					if (rack == 0)
+					{
+						choose_magazine_grip(local, task, target);
+					}
+					else
+					{
+						cup = {}; // the free gun hand holds a magazine in its fist (#38), never cupped
+						cupped = false;
+					}
+				}
+				if (hand == rack)
+				{
+					choose_rack_grip(local, hand, task, target);
 				}
 				last_task[hand] = task;
 				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
@@ -1539,17 +1686,19 @@ namespace bfvr::body
 				}
 			}
 			apply_authored(local, seconds);
-			// The inside of the off hand's index curl, for the next racking hold.
-			const int (&index_joints)[fingers::joints] = rig.finger_bones[0][fingers::index];
-			has_hook = rig.arms[0].hand >= 0 && index_joints[0] > 0 && index_joints[1] > 0 && index_joints[2] > 0;
+			// The inside of the racking hand's index curl, for the next racking hold.
+			const int rack = racking_hand();
+			hook_hand = rack;
+			const int (&index_joints)[fingers::joints] = rig.finger_bones[rack][fingers::index];
+			has_hook = rig.arms[rack].hand >= 0 && index_joints[0] > 0 && index_joints[1] > 0 && index_joints[2] > 0;
 			if (has_hook)
 			{
-				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
+				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[rack].hand);
 				const ik::vec3 curl = (ik::model_of(local, rig.parents, index_joints[0]).position + ik::model_of(local, rig.parents, index_joints[1]).position
 					+ ik::model_of(local, rig.parents, index_joints[2]).position) * (1.0f / 3.0f);
 				hook_in_hand = ik::rotate(ik::conjugate(hand.rotation), curl - hand.position);
 				// Underhand: inside both hooked fingers (Index1-3 and Middle1-3).
-				const int (&middle_joints)[fingers::joints] = rig.finger_bones[0][fingers::middle];
+				const int (&middle_joints)[fingers::joints] = rig.finger_bones[rack][fingers::middle];
 				has_under_hook = middle_joints[0] > 0 && middle_joints[1] > 0 && middle_joints[2] > 0;
 				if (has_under_hook)
 				{
@@ -1558,7 +1707,7 @@ namespace bfvr::body
 					under_hook_in_hand = ik::rotate(ik::conjugate(hand.rotation), (curl + middle) * 0.5f - hand.position);
 				}
 				// The pinch: the knob against the side of the index's middle segment, towards the thumb tip.
-				const int thumb_tip = rig.finger_tips[0][fingers::thumb];
+				const int thumb_tip = rig.finger_tips[rack][fingers::thumb];
 				has_pinch = thumb_tip > 0;
 				if (has_pinch)
 				{
@@ -1588,15 +1737,18 @@ namespace bfvr::body
 			{
 				return;
 			}
-			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[0];
+			// The hand that reloads: the off hand, or the free gun hand while the off hand carries the gun (#38;
+			// the grasp frame comes out mirrored there, and a magazine is symmetric across the gun).
+			const int holder = racking_hand();
+			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[holder];
 			const int needed[] = { bones[fingers::index][0], bones[fingers::pinky][0], bones[fingers::middle][0], bones[fingers::middle][2], bones[fingers::thumb][1] };
-			bool complete = last_arms[0].solved;
+			bool complete = last_arms[holder].solved;
 			for (const int bone : needed)
 			{
 				complete = complete && bone > 0;
 			}
 			const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
-			const bool palm_valid = cup.valid && last_arms[0].solved;
+			const bool palm_valid = holder == 0 && cup.valid && last_arms[0].solved;
 			const fingers::grasp fist = complete ? fingers::grasp_of(at(needed[0]), at(needed[1]), at(needed[2]), at(needed[3]), at(needed[4])) : fingers::grasp{};
 			if (!fist.valid && !palm_valid)
 			{
@@ -1614,7 +1766,8 @@ namespace bfvr::body
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
 			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
 			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
-			if ((authored_shown == &magazine_grip_ak || authored_shown == &magazine_grip_ar) && authored_weight > 0.0f && rig.arms[0].hand >= 0)
+			if ((authored_shown == &magazine_grip_ak || authored_shown == &magazine_grip_ar) && authored_weight > 0.0f && authored_hand_shown == 0 && holder == 0
+				&& rig.arms[0].hand >= 0)
 			{
 				// Where the game's own reload holds it, relative to the hand, eased in with the fingers.
 				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
@@ -1654,7 +1807,8 @@ namespace bfvr::body
 		// caught magazine while the rig's one is back in the gun.
 		bool fist_magazine(const ik::bone_transform* local, ik::bone_transform& out)
 		{
-			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[0];
+			const int holder = racking_hand();
+			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[holder];
 			const int needed[] = { bones[fingers::index][0], bones[fingers::pinky][0], bones[fingers::middle][0], bones[fingers::middle][2], bones[fingers::thumb][1] };
 			for (const int bone : needed)
 			{
@@ -1663,7 +1817,7 @@ namespace bfvr::body
 					return false;
 				}
 			}
-			if (!last_arms[0].solved)
+			if (!last_arms[holder].solved)
 			{
 				return false;
 			}
@@ -1681,13 +1835,27 @@ namespace bfvr::body
 			return true;
 		}
 
+		// 3x4 rows (rotation | translation), as the bone palette stores them; the scale is left out.
+		void palette_rows(const ik::bone_transform& t, float (&rows)[12])
+		{
+			const ik::quat& q = t.rotation;
+			const float m[12] = {
+				1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w), t.position.x,
+				2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w), t.position.y,
+				2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y), t.position.z,
+			};
+			std::memcpy(rows, m, sizeof(rows));
+		}
+
 		// Called with rig_lock held, last before the conversion (extra meshes, #36): the magazine bone gets
 		// its tag scale (set, never multiplied), and the second magazine's transform relative to the drawn
 		// one goes to stereo/extra_mesh, in the bone palette's space (the model pose: the root left out).
 		void publish_extra_magazine(ik::bone_transform* local)
 		{
-			const bool on = extra_meshes_on.load(std::memory_order_relaxed) && rig.magazine >= 0 && rig.weapon >= 0 && rig.parents[rig.magazine] >= 0;
-			if (!on)
+			// The held grenade is drawn after the magazine's draws, so the tag stays on for it too.
+			const bool tag = (extra_meshes_on.load(std::memory_order_relaxed) || grenade_mesh_on.load(std::memory_order_relaxed)) && rig.magazine >= 0 && rig.weapon >= 0
+				&& rig.parents[rig.magazine] >= 0;
+			if (!tag)
 			{
 				stereo::extra_mesh::set_magazine_copy(false, nullptr);
 				return;
@@ -1698,6 +1866,11 @@ namespace bfvr::body
 			if (remembered)
 			{
 				magazine_memory.written = magazine;
+			}
+			if (!extra_meshes_on.load(std::memory_order_relaxed))
+			{
+				stereo::extra_mesh::set_magazine_copy(false, nullptr);
+				return;
 			}
 
 			ik::bone_transform extra;
@@ -1745,14 +1918,65 @@ namespace bfvr::body
 			drawn.scale = 1.0f;
 			extra.scale = 1.0f;
 			const ik::bone_transform d = ik::compose(extra, ik::inverse(drawn));
-			// 3x4 rows (rotation | translation), as the palette stores them.
-			const ik::quat& q = d.rotation;
-			const float matrix[12] = {
-				1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y - q.z * q.w), 2 * (q.x * q.z + q.y * q.w), d.position.x,
-				2 * (q.x * q.y + q.z * q.w), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z - q.x * q.w), d.position.y,
-				2 * (q.x * q.z - q.y * q.w), 2 * (q.y * q.z + q.x * q.w), 1 - 2 * (q.x * q.x + q.y * q.y), d.position.z,
-			};
+			float matrix[12];
+			palette_rows(d, matrix);
 			stereo::extra_mesh::set_magazine_copy(true, matrix);
+		}
+
+		// The drawn fist of one hand (0 = left, 1 = right) as a transform: fingers::grasp's centre and frame.
+		bool fist_transform(const ik::bone_transform* local, int hand, ik::bone_transform& out)
+		{
+			const auto (&bones)[fingers::count][fingers::joints] = rig.finger_bones[hand];
+			const int needed[] = { bones[fingers::index][0], bones[fingers::pinky][0], bones[fingers::middle][0], bones[fingers::middle][2], bones[fingers::thumb][1] };
+			for (const int bone : needed)
+			{
+				if (bone <= 0)
+				{
+					return false;
+				}
+			}
+			const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
+			const fingers::grasp fist = fingers::grasp_of(at(needed[0]), at(needed[1]), at(needed[2]), at(needed[3]), at(needed[4]));
+			out = {};
+			out.position = fist.centre;
+			out.rotation = fist.frame;
+			return fist.valid;
+		}
+
+		// Called with rig_lock held, after publish_extra_magazine (held grenade, #36): while the game's
+		// grenade is its weapon, Wep_Root goes to the capture pose (hidden, tagged); while physical_grenade
+		// holds one, its Wep_Root in the holding fist goes to stereo/extra_mesh, palette space.
+		void publish_extra_grenade(ik::bone_transform* local)
+		{
+			namespace em = stereo::extra_mesh;
+			const bool on = grenade_mesh_on.load(std::memory_order_relaxed) && rig.weapon >= 0 && rig.parents[rig.weapon] >= 0 && rig.bones > 0;
+			const bool game_grenade = on && grenade_weapon_now.load(std::memory_order_relaxed);
+			if (game_grenade)
+			{
+				ik::bone_transform fist;
+				if (last_arms[1].solved && fist_transform(local, 1, fist))
+				{
+					game_grenade_in_fist = ik::compose(ik::inverse(fist), ik::model_of(local, rig.parents, rig.weapon));
+					has_game_grenade_in_fist = true;
+				}
+				ik::bone_transform hidden;
+				hidden.position = { em::grenade_capture_position[0], em::grenade_capture_position[1], em::grenade_capture_position[2] };
+				hidden.scale = em::grenade_tag;
+				ik::set_model_transform(local, rig.parents, rig.weapon, ik::compose(local[0], hidden));
+				em::set_grenade_capture(true);
+			}
+			const int hand = held_grenade_hand.load(std::memory_order_relaxed) == 1 ? 1 : 0;
+			ik::bone_transform fist;
+			if (on && !game_grenade && held_grenade_now.load(std::memory_order_relaxed) && last_arms[hand].solved && fist_transform(local, hand, fist))
+			{
+				ik::bone_transform root = ik::compose(ik::inverse(local[0]), ik::compose(fist, grenade_in_fist));
+				root.scale = 1.0f;
+				float matrix[12];
+				palette_rows(root, matrix);
+				em::set_grenade_copy(true, matrix, held_grenade_armed.load(std::memory_order_relaxed));
+				return;
+			}
+			em::set_grenade_copy(false, nullptr, false);
 		}
 
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
@@ -1848,6 +2072,7 @@ namespace bfvr::body
 					edit_fingers(local);
 					attach_held_magazine(local);
 					publish_extra_magazine(local);
+					publish_extra_grenade(local);
 				}
 			}
 			original_conversion(pose);
@@ -1977,6 +2202,11 @@ namespace bfvr::body
 		torso_follow = follow;
 	}
 
+	void set_torso_hands(bool lean)
+	{
+		lean_to_hands = lean;
+	}
+
 	void set_body_shoulders(bool on)
 	{
 		body_shoulders = on;
@@ -2039,6 +2269,53 @@ namespace bfvr::body
 		extra_meshes_on = on;
 	}
 
+	void set_gun_in_off_hand(bool held, bool by_grip)
+	{
+		gun_in_off_hand = held;
+		off_by_grip = held && by_grip;
+	}
+
+	void set_gun_hand_fist(bool fist)
+	{
+		gun_hand_fist = fist;
+	}
+
+	void set_grenade_mesh(bool on)
+	{
+		grenade_mesh_on = on;
+	}
+
+	void set_grenade_weapon(bool current)
+	{
+		grenade_weapon_now = current;
+	}
+
+	void set_held_grenade(bool holding, int hand, bool armed)
+	{
+		held_grenade_hand = hand;
+		held_grenade_armed = armed;
+		held_grenade_now = holding;
+	}
+
+	std::string grenade_hold_report()
+	{
+		const std::lock_guard guard(rig_lock);
+		const auto line = [](const char* name, const ik::bone_transform& t) {
+			char text[192];
+			std::snprintf(text, sizeof(text), "%s pos=(%.4f %.4f %.4f) rot=(%.4f %.4f %.4f %.4f)", name, t.position.x, t.position.y, t.position.z, t.rotation.x, t.rotation.y,
+				t.rotation.z, t.rotation.w);
+			return std::string(text);
+		};
+		std::string text = "grenade_mesh=" + std::to_string(grenade_mesh_on.load() ? 1 : 0) + " game_grenade=" + std::to_string(grenade_weapon_now.load() ? 1 : 0)
+			+ " held=" + std::to_string(held_grenade_now.load() ? 1 : 0) + " hand=" + std::to_string(held_grenade_hand.load()) + " armed="
+			+ std::to_string(held_grenade_armed.load() ? 1 : 0) + "\n" + line("hold_in_fist", grenade_in_fist);
+		if (has_game_grenade_in_fist)
+		{
+			text += "\n" + line("game_hold_in_fist", game_grenade_in_fist);
+		}
+		return text;
+	}
+
 	arm_pose_stats stats()
 	{
 		return { conversions.load(), matched.load(), solved.load() };
@@ -2063,10 +2340,12 @@ namespace bfvr::body
 		body_turn_on = on;
 	}
 
-	void set_dropped_gun(bool active, const float (&position)[3], float yaw)
+	void set_dropped_gun(bool active, const float (&position)[3], float yaw, bool hanging)
 	{
 		const std::lock_guard dropped(dropped_lock);
 		gun_on_floor = active;
+		gun_on_floor_now = active;
+		floor_gun_hanging = hanging;
 		floor_gun_position = { position[0], position[1], position[2] };
 		floor_gun_yaw = yaw;
 	}

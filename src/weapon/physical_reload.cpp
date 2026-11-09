@@ -27,6 +27,7 @@
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/body_rig.hpp"
+#include "weapon/free_hands.hpp"
 #include "weapon/reload_sounds.hpp"
 #include "weapon/weapon_swap.hpp"
 
@@ -159,6 +160,8 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
+		std::atomic<bool> free_hand_reload{ true }; // live setting free_hand_reload (#38)
+		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -242,24 +245,26 @@ namespace bfvr::weapon
 			}
 		}
 
-		// Hand 0 is the off hand (magazines, the bolt), 1 the gun hand.
+		// The reloading hand (the off hand, or the free gun hand while the off hand carries the gun, #38) and
+		// the hand holding the gun.
+		int reloading_hand{};
 		void feel(reload_event event)
 		{
 			switch (event)
 			{
-			case reload_event::dry_fire: input::haptic(1, input::pulses::click); break;
-			case reload_event::bolt_locked: input::haptic(1, input::pulses::grab); break;
+			case reload_event::dry_fire: input::haptic(1 - reloading_hand, input::pulses::click); break;
+			case reload_event::bolt_locked: input::haptic(1 - reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_out:
 			case reload_event::magazine_palmed:
-			case reload_event::magazine_taken: input::haptic(0, input::pulses::grab); break;
-			case reload_event::magazine_stowed: input::haptic(0, input::pulses::tick); break;
+			case reload_event::magazine_taken: input::haptic(reloading_hand, input::pulses::grab); break;
+			case reload_event::magazine_stowed: input::haptic(reloading_hand, input::pulses::tick); break;
 			case reload_event::magazine_in:
 			case reload_event::flicked_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
 			case reload_event::round_ejected:
-				input::haptic(0, input::pulses::seat);
-				input::haptic(1, input::pulses::grab);
+				input::haptic(reloading_hand, input::pulses::seat);
+				input::haptic(1 - reloading_hand, input::pulses::grab);
 				break;
 			default: break;
 			}
@@ -305,7 +310,7 @@ namespace bfvr::weapon
 
 		void draw_off_hand(body::fingers::task task, const hand_result* result, bool has_root, float seconds)
 		{
-			body::set_off_hand_task(grenade_in_hand() ? body::fingers::task::magazine
+			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
 			const bool racking = result && result->racking && has_root;
 			if (racking)
@@ -380,6 +385,16 @@ namespace bfvr::weapon
 		palming = enabled;
 	}
 
+	void set_free_hand_reload(bool enabled)
+	{
+		free_hand_reload = enabled;
+	}
+
+	bool reload_claims_free_hand()
+	{
+		return active.load(std::memory_order_relaxed) && claims_free_hand.load(std::memory_order_relaxed);
+	}
+
 	void set_accessory_touch(bool enabled)
 	{
 		touch_enabled = enabled;
@@ -451,6 +466,7 @@ namespace bfvr::weapon
 			block_trigger = false;
 			block_grip = false;
 			hand_engaged = false;
+			claims_free_hand = false;
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -503,15 +519,21 @@ namespace bfvr::weapon
 		hand_frame frame;
 		frame.seconds = seconds;
 		frame.hands_valid = hands_valid && !gun_dropped(); // free hands: nothing to reload on the floor
-		frame.off_hand = v(points.hand[0]);
+		// #38: while the off hand carries the gun, the free gun hand reloads (free_hand_reload; else it may
+		// only rack). Palming turns the magazine to the left hand's outside, so it stays the left hand's.
+		const bool swapped = gun_in_off_hand();
+		const int reloading = swapped ? 1 : 0;
+		reloading_hand = reloading;
+		frame.handle_only = swapped && !free_hand_reload.load(std::memory_order_relaxed);
+		frame.off_hand = v(points.hand[reloading]);
 		frame.has_palm = true;
-		frame.off_palm = v(points.palm[0]);
-		frame.off_rotation = q(points.hand_rotation[0]);
+		frame.off_palm = v(points.palm[reloading]);
+		frame.off_rotation = q(points.hand_rotation[reloading]);
 		frame.has_root = points.has_root;
 		frame.root = v(points.root);
 		frame.root_rotation = q(points.root_rotation);
-		frame.gun_hand = v(points.hand[1]);
-		frame.gun_rotation = q(points.hand_rotation[1]);
+		frame.gun_hand = v(points.hand[1 - reloading]);
+		frame.gun_rotation = q(points.hand_rotation[1 - reloading]);
 		frame.magwell = v(points.magazine);
 		frame.magazine_rotation = q(points.magazine_rotation);
 		frame.has_slide = points.has_slide;
@@ -535,28 +557,36 @@ namespace bfvr::weapon
 		frame.held_top = v(points.held_magazine);
 		frame.held_rotation = q(points.held_rotation);
 		frame.held_tilt = points.held_tilt;
-		frame.palming = palming.load(std::memory_order_relaxed);
+		frame.palming = palming.load(std::memory_order_relaxed) && !swapped;
 		// A grip on an accessory toggles it; the reload does not see it.
-		frame.grip = grip && !accessory_busy.load(std::memory_order_relaxed);
+		frame.grip = swapped ? (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 : grip && !accessory_busy.load(std::memory_order_relaxed);
+		// The free gun hand's grip near the pistol grip takes the gun back (free hands): when the hand is
+		// nearer the pistol grip than any reload zone (as last placed) and holds nothing, the reload leaves it.
+		const bool grip_first = swapped && points.has_support && !gun.state().holding && !last_result.racking
+			&& grip_before_reload(frame.off_palm, v(points.grip), free_hands_config{}.regrip_reach, last_result);
+		if (grip_first)
+		{
+			frame.grip = false;
+		}
 		frame.button = (pad.buttons & XINPUT_GAMEPAD_B) != 0; // right B: release / bolt catch
 		const bool magazine_was_in = gun.state().magazine_in;
 		const hand_result result = hands.update(gun, frame);
 		if (result.in_zone != hand_result::zone::none && result.in_zone != last_zone)
 		{
-			input::haptic(0, input::pulses::tick);
+			input::haptic(reloading, input::pulses::tick);
 		}
 		last_zone = result.in_zone;
 		last_result = result;
 		if (result.palm_ready_now)
 		{
-			input::haptic(0, input::pulses::tick);
+			input::haptic(reloading, input::pulses::tick);
 		}
 		if (result.rack_at_rear)
 		{
 			// The stroke is long enough: the rear stop is felt and heard before the release (Overlord
 			// plays its chamber recordings in two parts the same way).
 			play(cue::bolt_back);
-			input::haptic(0, input::pulses::click);
+			input::haptic(reloading, input::pulses::click);
 			bolt_at_rear = true;
 		}
 		if (grab_debug_enabled() && hands_valid)
@@ -654,6 +684,7 @@ namespace bfvr::weapon
 		block_trigger = !gun.state().chamber;
 		block_grip = result.off_hand_busy;
 		hand_engaged = gun.state().holding || result.racking;
+		claims_free_hand = swapped && (gun.state().holding || result.racking || (result.off_hand_busy && !grip_first));
 #endif
 	}
 
@@ -750,16 +781,18 @@ namespace bfvr::weapon
 		}
 		const body::weapon_points points = body::latest_weapon_points();
 		const hand_result& r = last_result;
+		const int hand = reloading_hand; // the reloading hand
 		const char* const zone_names[]{ "none", "magazine", "handle", "chest" };
 		const char* const palm_names[]{ "none", "ready", "caught" };
-		char zones[448];
+		char zones[512];
 		std::snprintf(zones, sizeof(zones),
-			"\nzone=%s busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f)"
-			"\npalm_reload=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f)",
+			"\nzone=%s busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) hand=%d"
+			"\npalm_reload=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f) held_top=(%.3f,%.3f,%.3f)%s",
 			zone_names[static_cast<int>(r.in_zone)], r.off_hand_busy ? 1 : 0, r.racking ? 1 : 0, r.rack_pull, r.zone_centre[0].x, r.zone_centre[0].y,
 			r.zone_centre[0].z, r.zone_reach[0], r.zone_centre[1].x, r.zone_centre[1].y, r.zone_centre[1].z, r.zone_reach[1], r.zone_centre[2].x,
-			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[0][0], points.palm[0][1], points.palm[0][2], palming ? 1 : 0,
-			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z);
+			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
+			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
+			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
@@ -779,7 +812,7 @@ namespace bfvr::weapon
 			physical ? "physical" : "button", active ? 1 : 0, found->second.name.c_str(), current_slot, gun.profile().kind == variant::ak ? "AK" : "AR",
 			gun.profile().capacity, s.magazine_in ? 1 : 0, s.magazine_rounds, s.chamber ? 1 : 0, s.bolt_locked ? 1 : 0, s.holding ? 1 : 0,
 			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
-			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[0][0], points.hand[0][1], points.hand[0][2],
+			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[hand][0], points.hand[hand][1], points.hand[hand][2],
 			points.valid ? 1 : 0);
 		for (int i = 0; i < recent_count && length > 0 && length < static_cast<int>(sizeof(text)); ++i)
 		{

@@ -109,6 +109,25 @@ namespace
 		expect(std::fabs(edge.yaw()) < 0.05f * std::fabs(full.yaw()), "hands just past the reach threshold barely turn it");
 	}
 
+	// The configuration the game uses (#37, like a native VR game): no settle, no hands.
+	void test_head_only_native()
+	{
+		torso_config config;
+		config.settle_seconds = 0.0f;
+		torso_yaw torso(config);
+		const torso_hands none;
+		for (int i = 0; i < 1000; ++i) // looking 30 degrees aside for 11 s
+		{
+			torso.update(30.0f * degree, none, 0.011f);
+		}
+		expect(near(torso.yaw(), 0.0f), "native: looking aside within the limit never turns the torso");
+		for (int i = 0; i < 1000; ++i)
+		{
+			torso.update(90.0f * degree, none, 0.011f);
+		}
+		expect(near(torso.yaw(), 90.0f * degree - config.max_twist), "native: past the limit it is dragged along, staying at the limit");
+	}
+
 	// One hand swung round the head (headset 2026-11-05: a "lasso" with the gun hand spun the body),
 	// the other low in front: the torso stays with the head all the way round.
 	void test_lasso()
@@ -205,6 +224,7 @@ int main()
 	test_head_only();
 	test_hands();
 	test_lasso();
+	test_head_only_native();
 	test_easing();
 	if (failures == 0)
 	{

@@ -48,6 +48,9 @@ namespace bfvr::weapon
 		v3 handle_point;
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
+		// Empty hands (#38): the off hand holds the gun by the handguard and the free gun hand is passed as
+		// off_hand: it may only rack (no magazine or pouch grabs; the magazine stays drawn with the gun).
+		bool handle_only{};
 	};
 
 	enum class magazine_draw
@@ -149,6 +152,10 @@ namespace bfvr::weapon
 	// magazine's rotation relative to that frame (Wep_Root). Positive turns the top towards the gun's
 	// left (+x), the off hand's outside.
 	void tilt_magazine(v3& top, q4& rotation, q4 seated, float angle, float pivot_drop);
+	// #38, the gun in the off hand: the free gun hand's grip at palm takes the gun back by its pistol grip
+	// (true) rather than starting a reload step, when the palm is within regrip_reach of the grip and nearer
+	// it than every reload zone of last (the previous update's zones).
+	bool grip_before_reload(v3 palm, v3 grip, float regrip_reach, const hand_result& last);
 	// Angle between two rotations, degrees.
 	float angle_between(q4 a, q4 b);
 	// Palming: how far a magazine held at in_gun (rotation relative to Wep_Root) still leans about the

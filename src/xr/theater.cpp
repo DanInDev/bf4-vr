@@ -35,6 +35,7 @@
 #include "stereo/hud_layout.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/scope_compose.hpp"
 #include "stereo/tracking.hpp"
@@ -1242,12 +1243,15 @@ namespace bfvr::xr
 		void add_held_grenade_layer(XrCompositionLayerQuad& grenade_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
 			const stereo::head_sample head = stereo::latest_head_sample();
-			if (!settings::global().boolean("grenade_model", true) || !weapon::grenade_in_hand() || !head.valid || layer_count >= max_layers)
+			// The game's own grenade drawn in the fist (stereo/extra_mesh) replaces this stand-in.
+			if (!settings::global().boolean("grenade_model", true) || !weapon::grenade_in_hand() || !head.valid || layer_count >= max_layers
+				|| stereo::extra_mesh::grenade_drawn())
 			{
 				return;
 			}
 			const body::weapon_points points = body::latest_weapon_points();
-			if (!points.hand_valid[0] || GetTickCount64() - points.at > 250)
+			const int hand = weapon::grenade_hand(); // #38: the gun hand may hold it too
+			if (!points.hand_valid[hand] || GetTickCount64() - points.at > 250)
 			{
 				return;
 			}
@@ -1269,12 +1273,12 @@ namespace bfvr::xr
 			}
 			// The aim pose's axes (x right, y up, -z along the pointing ray): held in a fist, the fuse
 			// points up and a little forward.
-			const float* q = points.hand_rotation[0];
+			const float* q = points.hand_rotation[hand];
 			const body::ik::vec3 fuse_axis = body::ik::rotate({ q[0], q[1], q[2], q[3] }, { 0.0f, 1.0f, -0.4f });
 			const float fuse[3]{ fuse_axis.x, fuse_axis.y, fuse_axis.z };
 			const stereo::pose centre = stereo::eye_math::centre_pose(head);
 			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
-			const ui::reticle_quad placed = ui::place_held_grenade(points.palm[0], fuse, eye);
+			const ui::reticle_quad placed = ui::place_held_grenade(points.palm[hand], fuse, eye);
 			grenade_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
 			grenade_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 			grenade_quad.space = space;

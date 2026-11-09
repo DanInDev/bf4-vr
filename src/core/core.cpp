@@ -27,6 +27,7 @@
 #include "input/virtual_pad.hpp"
 #include "input/vr_controls.hpp"
 #include "safety/mp_guard.hpp"
+#include "stereo/aim_depth.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/foveation.hpp"
@@ -134,6 +135,7 @@ namespace bfvr::core
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(store.boolean("palm_reload", true));
+			weapon::set_free_hand_reload(store.boolean("free_hand_reload", true));
 			body::set_extra_meshes(store.boolean("extra_meshes", true));
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true) && store.boolean("game_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
@@ -148,6 +150,7 @@ namespace bfvr::core
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_torso_follow(store.boolean("torso_follow", true));
+			body::set_torso_hands(store.boolean("torso_hands", false));
 			body::set_body_shoulders(store.boolean("body_shoulders", true));
 			body::set_finger_poses(store.boolean("finger_poses", true));
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
@@ -159,17 +162,21 @@ namespace bfvr::core
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
 			weapon::set_use_reach(store.boolean("use_reach", true));
 			weapon::set_free_hands(store.boolean("free_hands", false));
+			weapon::set_sling(store.boolean("sling", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
 			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
+			body::set_grenade_mesh(store.boolean("grenade_mesh", true) && store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
 			weapon::set_two_handed(store.boolean("two_handed", true));
 			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
+			stereo::set_aim_depth(store.boolean("reticle_depth", true));
 			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
 			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
+			weapon::set_aim_with_body(store.boolean("aim_with_body", true));
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{

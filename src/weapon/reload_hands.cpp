@@ -66,6 +66,28 @@ namespace bfvr::weapon
 		rotation = normalize(multiply(turn, rotation));
 	}
 
+	bool grip_before_reload(v3 palm, v3 grip, float regrip_reach, const hand_result& last)
+	{
+		const auto gap = [&](v3 p) { return std::sqrt((palm.x - p.x) * (palm.x - p.x) + (palm.y - p.y) * (palm.y - p.y) + (palm.z - p.z) * (palm.z - p.z)); };
+		const float to_grip = gap(grip);
+		if (!(to_grip < regrip_reach))
+		{
+			return false;
+		}
+		for (int i = 0; i < 3; ++i)
+		{
+			if (i == 1 && !last.has_handle)
+			{
+				continue;
+			}
+			if (last.zone_reach[i] > 0.0f && gap(last.zone_centre[i]) <= to_grip)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	float angle_between(q4 a, q4 b)
 	{
 		const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
@@ -137,9 +159,9 @@ namespace bfvr::weapon
 		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle_grab) : 1e9f;
 		// Zones overlap on small guns: the nearest one wins.
-		const bool near_magwell = to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
+		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
-		const bool near_chest = to_chest < config_.reach_chest;
+		const bool near_chest = !frame.handle_only && to_chest < config_.reach_chest;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
 		q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
 		v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);

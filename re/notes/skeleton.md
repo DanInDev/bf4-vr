@@ -201,6 +201,20 @@ of `Wep_Root`) back along its local -z by the pull.
   beside and behind the head, up to 22 while the gun hand passes in front; two hands together 30 degrees
   left lean it ~20; a 90 degree room turn one-handed: 83 after 0.2 s, 90 after 1 s.
 
+## The game no longer turns its body with the gun (#37, 2026-11-05 night, monitor)
+
+- Headset after the torso fix: still "spinning". Like a native VR game, the body should turn only with the
+  head (past ~40 degrees) or the stick.
+- With shots taking their frame from the gun (`weapon/shot_origin`, re/notes/weapon.md), the game's aimer
+  no longer has to follow the controller: `aim_with_body` keeps it level along the body (the stick turn),
+  so the game never turns its first-person body with the gun and the turn-back has nothing to undo. The
+  torso estimate in the game is head-only (no settle, no hand lean unless `torso_hands`).
+- Lasso on the monitor (gun hand round the head at 0..360 degrees, 20 up): game turn 0.0, torso 0.0, hips
+  and neck fixed to 0.1 cm at every angle (before: the game turned with the hand and was turned back, the
+  torso leaned up to 40).
+- Shots still follow the gun with the aimer fixed: gun 15 degrees left and right of the view, two hole
+  groups left and right of the centre: the game takes the bullet direction from the shot frame.
+
 ## Forearm twist wrapped (2026-11-05, monitor)
 
 - `ik::solve_arm` gives the forearm roll bone half the hand's twist change. The change quaternion was not

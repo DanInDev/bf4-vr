@@ -15,6 +15,8 @@
 #include "common/config.hpp"
 #include "control/control_pipe.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "weapon/shot_origin.hpp"
+#include "weapon/weapon_swap.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/vr_controls.hpp"
@@ -406,7 +408,20 @@ namespace bfvr::stereo
 			// The shot direction in LOCAL space (the two-handed, converged barrel line, else the aim ray
 			// -z), then in world axes (camera local axes = OpenXR axes).
 			float local[3];
-			if (!input::aim_direction(local))
+			if (weapon::use_reach_direction(local))
+			{
+				// Reaching to use something: the game's use target is where the hand reaches.
+			}
+			else if (weapon::aim_stays_with_body())
+			{
+				// #37: shots take their frame from the gun (weapon/shot_origin), so the game's aim stays with
+				// the body, level: the game no longer turns its first-person body with the gun (a gun hand swung
+				// round the head spun the drawn body).
+				local[0] = 0.0f;
+				local[1] = 0.0f;
+				local[2] = -1.0f;
+			}
+			else if (!input::aim_direction(local))
 			{
 				local[0] = -2 * (q[0] * q[2] + q[1] * q[3]);
 				local[1] = -2 * (q[1] * q[2] - q[0] * q[3]);

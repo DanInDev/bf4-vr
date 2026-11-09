@@ -14,7 +14,9 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
 #include "input/haptics.hpp"
+#include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/body_rig.hpp"
 #include "weapon/grab_debug.hpp"
@@ -91,6 +93,8 @@ namespace bfvr::weapon
 			int count{};               // ready + spare
 		};
 
+		char captured_for[48]{}; // the grenade whose draws stereo/extra_mesh holds (update thread)
+
 		grenade_weapon find_grenade_weapon()
 		{
 			grenade_weapon found;
@@ -144,6 +148,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<float> throw_scale{ 1.5f };
 		std::atomic<bool> holding{};
+		std::atomic<int> holder{}; // #38: 0 = off hand, 1 = gun hand
 		std::atomic<bool> armed{};
 		std::atomic<bool> active{};
 		std::atomic<bool> gun_busy{};
@@ -264,6 +269,11 @@ namespace bfvr::weapon
 		return holding.load(std::memory_order_relaxed);
 	}
 
+	int grenade_hand()
+	{
+		return holder.load(std::memory_order_relaxed);
+	}
+
 	bool grenade_armed()
 	{
 		return armed.load(std::memory_order_relaxed);
@@ -315,6 +325,7 @@ namespace bfvr::weapon
 		frame.off_grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 		frame.gun_grip = (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 		frame.have_grenade = weapon.valid && weapon.count > 0;
+		frame.either_hand = gun_dropped(); // #38: the gun on the floor or the sling frees the gun hand
 		const grenade_result result = hands.update(frame);
 		// grab_debug: the grenade pouch had no ring and could not be found in the headset (2026-11-04).
 		if (frame.hands_valid && frame.have_grenade && !result.holding)
@@ -330,21 +341,30 @@ namespace bfvr::weapon
 		{
 			last_event = event_name(result.event);
 		}
-		// The grenade is in the off hand (0); the gun hand (1) pulls the pin.
+		// The grenade is in result.hand (the off hand, or the free gun hand, #38); the other pulls the pin.
+		const int held_by = result.hand;
+		const int pin_hand = 1 - held_by;
+		if (result.event == grenade_event::taken && settings::global().boolean("grenade_mesh", true) && weapon.valid
+			&& (!stereo::extra_mesh::grenade_captured() || std::strcmp(captured_for, weapon.name) != 0))
+		{
+			// The game's own grenade for the hand (#36): once, and again for another kind of grenade.
+			std::memcpy(captured_for, weapon.name, sizeof(captured_for));
+			request_grenade_capture();
+		}
 		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
 		{
 			play(cue::cloth);
-			input::haptic(0, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
+			input::haptic(held_by, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
 		}
 		else if (result.event == grenade_event::pin_pulled)
 		{
 			play(cue::pin);
-			input::haptic(1, input::pulses::grab);
-			input::haptic(0, input::pulses::tick);
+			input::haptic(pin_hand, input::pulses::grab);
+			input::haptic(held_by, input::pulses::tick);
 		}
 		else if (result.event == grenade_event::thrown)
 		{
-			input::haptic(0, input::pulses::strike);
+			input::haptic(held_by, input::pulses::strike);
 		}
 		if (result.event == grenade_event::thrown || result.event == grenade_event::dropped)
 		{
@@ -359,6 +379,9 @@ namespace bfvr::weapon
 			}
 		}
 		holding = result.holding;
+		holder = result.hand;
+		body::set_gun_hand_fist(result.holding && result.hand == 1);
+		body::set_held_grenade(result.holding, result.hand, result.armed);
 		armed = result.armed;
 		gun_busy = result.gun_busy;
 		// off_busy without a grenade in hand: the hand is at the belt.
@@ -391,6 +414,11 @@ namespace bfvr::weapon
 	{
 		const std::lock_guard guard(lock);
 		const grenade_weapon weapon = find_grenade_weapon();
+		if (argument == "capture")
+		{
+			request_grenade_capture();
+			return "grenade capture requested (pipe holster shows its stage, extramesh the result)";
+		}
 		if (argument.rfind("throw", 0) == 0)
 		{
 			if (!config::research_enabled())
@@ -420,9 +448,16 @@ namespace bfvr::weapon
 		}
 		char text[512];
 		std::snprintf(text, sizeof(text),
-			"grenade=%s weapon=%s count=%d holding=%d pending=%d throws=%llu last_event=%s last_velocity=(%.2f,%.2f,%.2f) scale=%.2f",
-			physical ? "physical" : "button", weapon.valid ? weapon.name : "-", weapon.count, holding ? 1 : 0, pending ? 1 : 0,
+			"grenade=%s weapon=%s count=%d holding=%d hand=%s pending=%d throws=%llu last_event=%s last_velocity=(%.2f,%.2f,%.2f) scale=%.2f",
+			physical ? "physical" : "button", weapon.valid ? weapon.name : "-", weapon.count, holding ? 1 : 0, holder.load() == 1 ? "gun" : "off", pending ? 1 : 0,
 			static_cast<unsigned long long>(throws), last_event, last_velocity[0], last_velocity[1], last_velocity[2], throw_scale.load());
-		return text;
+		std::string out = text;
+		if (weapon::v3 belt; belt_point(belt))
+		{
+			char line[96];
+			std::snprintf(line, sizeof(line), " belt=(%.3f,%.3f,%.3f) armed=%d", belt.x, belt.y, belt.z, armed ? 1 : 0);
+			out += line;
+		}
+		return out;
 	}
 }

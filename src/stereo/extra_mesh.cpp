@@ -4,6 +4,7 @@
 
 #include "stereo/palette_copy.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -19,6 +20,7 @@ namespace bfvr::stereo::extra_mesh
 	{
 		draw_indexed_fn draw_original{};
 		set_constant_buffers1_fn vs_bind_original{};
+		set_constant_buffers1_fn ps_bind_original{};
 		read_block_fn read_block{};
 
 		struct cb_binding
@@ -29,6 +31,8 @@ namespace bfvr::stereo::extra_mesh
 		};
 		constexpr UINT tracked_slots = 4;
 		cb_binding vs_bound[tracked_slots]; // render thread: the game's VS bindings, slots 0..3
+		constexpr UINT tracked_ps_slots = 6;
+		cb_binding ps_bound[tracked_ps_slots]; // render thread: the game's PS bindings, slots 0..5
 		int render_eye = -1;                // render thread
 
 		constexpr UINT palette_constants = 192; // 3072 bytes: 64 bone matrices of 3x4
@@ -53,8 +57,24 @@ namespace bfvr::stereo::extra_mesh
 			UINT target_width{};
 			DXGI_FORMAT target_format{};
 			cb_binding cb[tracked_slots];
+			cb_binding ps_cb[tracked_ps_slots];
+			UINT targets{};
+			void* depth{};
+			void* layout{};
+			int topology{};
+			UINT vs_views{};
+			UINT ps_views{};
+			UINT ps_samplers{};
+			void* blend{};
+			void* depth_state{};
+			UINT stencil_ref{};
+			void* raster{};
 			int palette{ -1 }; // index into probe_palettes
+			int blocks{ -1 };  // skinned draws: index into probe_blocks (VS 1..3, PS 0..5, 64 constants each)
 		};
+		constexpr UINT probe_block_constants = 64;
+		constexpr UINT probe_block_slots = (tracked_slots - 1) + tracked_ps_slots;
+		std::vector<float> probe_blocks;
 		std::atomic<bool> probe_requested{};
 		bool probing{}; // render thread
 		UINT probe_index{};
@@ -106,6 +126,70 @@ namespace bfvr::stereo::extra_mesh
 			{
 				d.cb[slot] = vs_bound[slot];
 			}
+			for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+			{
+				d.ps_cb[slot] = ps_bound[slot];
+			}
+			{
+				ID3D11RenderTargetView* rtvs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				ComPtr<ID3D11DepthStencilView> dsv;
+				context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, rtvs, &dsv);
+				for (ID3D11RenderTargetView* view : rtvs)
+				{
+					d.targets += view ? 1 : 0;
+					if (view)
+					{
+						view->Release();
+					}
+				}
+				d.depth = dsv.Get();
+				ComPtr<ID3D11InputLayout> layout;
+				context->IAGetInputLayout(&layout);
+				d.layout = layout.Get();
+				D3D11_PRIMITIVE_TOPOLOGY topology{};
+				context->IAGetPrimitiveTopology(&topology);
+				d.topology = static_cast<int>(topology);
+				ID3D11ShaderResourceView* views[16]{};
+				context->VSGetShaderResources(0, 16, views);
+				for (ID3D11ShaderResourceView*& view : views)
+				{
+					d.vs_views |= view ? 1u << (&view - views) : 0u;
+					if (view)
+					{
+						view->Release();
+					}
+				}
+				context->PSGetShaderResources(0, 16, views);
+				for (ID3D11ShaderResourceView*& view : views)
+				{
+					d.ps_views |= view ? 1u << (&view - views) : 0u;
+					if (view)
+					{
+						view->Release();
+					}
+				}
+				ID3D11SamplerState* samplers[16]{};
+				context->PSGetSamplers(0, 16, samplers);
+				for (ID3D11SamplerState*& sampler : samplers)
+				{
+					d.ps_samplers |= sampler ? 1u << (&sampler - samplers) : 0u;
+					if (sampler)
+					{
+						sampler->Release();
+					}
+				}
+				ComPtr<ID3D11BlendState> blend;
+				FLOAT factor[4]{};
+				UINT mask{};
+				context->OMGetBlendState(&blend, factor, &mask);
+				d.blend = blend.Get();
+				ComPtr<ID3D11DepthStencilState> depth_state;
+				context->OMGetDepthStencilState(&depth_state, &d.stencil_ref);
+				d.depth_state = depth_state.Get();
+				ComPtr<ID3D11RasterizerState> raster;
+				context->RSGetState(&raster);
+				d.raster = raster.Get();
+			}
 			if (vs_bound[0].buffer && vs_bound[0].count == palette_constants && read_block)
 			{
 				const std::size_t at = probe_palettes.size();
@@ -113,6 +197,19 @@ namespace bfvr::stereo::extra_mesh
 				if (read_block(vs_bound[0].buffer, vs_bound[0].first, palette_constants, probe_palettes.data() + at))
 				{
 					d.palette = static_cast<int>(at / (palette_constants * 4));
+					// The other blocks of skinned draws (zeros where nothing is bound or the read fails).
+					const std::size_t blocks_at = probe_blocks.size();
+					probe_blocks.resize(blocks_at + probe_block_slots * probe_block_constants * 4, 0.0f);
+					float* out = probe_blocks.data() + blocks_at;
+					for (UINT slot = 0; slot < probe_block_slots; ++slot)
+					{
+						const cb_binding& b = slot < tracked_slots - 1 ? vs_bound[slot + 1] : ps_bound[slot - (tracked_slots - 1)];
+						if (b.buffer && b.count != 4096)
+						{
+							read_block(b.buffer, b.first, b.count < probe_block_constants ? b.count : probe_block_constants, out + slot * probe_block_constants * 4);
+						}
+					}
+					d.blocks = static_cast<int>(blocks_at / (probe_block_slots * probe_block_constants * 4));
 				}
 				else
 				{
@@ -141,7 +238,27 @@ namespace bfvr::stereo::extra_mesh
 					std::fprintf(file, " %p %u %u", static_cast<void*>(b.buffer), b.first, b.count);
 				}
 				std::fprintf(file, " | %d\n", d.palette);
+				std::fprintf(file, "S %u | ps cb", d.index);
+				for (const cb_binding& b : d.ps_cb)
+				{
+					std::fprintf(file, " %p %u %u", static_cast<void*>(b.buffer), b.first, b.count);
+				}
+				std::fprintf(file, " | rtv %u dsv %p layout %p topo %d | srv vs %x ps %x samplers %x | blend %p depth %p ref %u raster %p | blocks %d\n", d.targets, d.depth,
+					d.layout, d.topology, d.vs_views, d.ps_views, d.ps_samplers, d.blend, d.depth_state, d.stencil_ref, d.raster, d.blocks);
 				skinned += d.palette >= 0 ? 1 : 0;
+			}
+			for (std::size_t k = 0; (k + 1) * probe_block_slots * probe_block_constants * 4 <= probe_blocks.size(); ++k)
+			{
+				for (UINT slot = 0; slot < probe_block_slots; ++slot)
+				{
+					const float* b = probe_blocks.data() + (k * probe_block_slots + slot) * probe_block_constants * 4;
+					std::fprintf(file, "B %zu %s%u", k, slot < tracked_slots - 1 ? "vs" : "ps", slot < tracked_slots - 1 ? slot + 1 : slot - (tracked_slots - 1));
+					for (UINT i = 0; i < probe_block_constants * 4; ++i)
+					{
+						std::fprintf(file, " %.5g", b[i]);
+					}
+					std::fprintf(file, "\n");
+				}
 			}
 			for (std::size_t p = 0; p * palette_constants * 4 < probe_palettes.size(); ++p)
 			{
@@ -187,12 +304,14 @@ namespace bfvr::stereo::extra_mesh
 		// Which draws hold the tagged bones, by (index buffer, start, count): a palette is read in full
 		// only for these, and once for every other mesh until the table is cleared (every few seconds,
 		// so a changed weapon is found again).
+		constexpr unsigned magazine_bit = 1;
+		constexpr unsigned grenade_bit = 2;
 		struct known_mesh
 		{
 			ID3D11Buffer* index_buffer{};
 			UINT start{};
 			UINT count{};
-			bool tagged{};
+			unsigned tags{}; // magazine_bit, grenade_bit
 		};
 		std::vector<known_mesh> known_meshes;
 		ULONGLONG known_cleared{};
@@ -223,35 +342,47 @@ namespace bfvr::stereo::extra_mesh
 			return true;
 		}
 
-		// The draw just issued, once more with our palette in VS slot 0; the game's binding is restored.
-		void draw_with_palette(ID3D11DeviceContext* context, const float* palette, UINT index_count, UINT start_index, INT base_vertex)
+		// Copies bytes into our constant buffer for this render; first = its first constant. Blocks start on
+		// 256-byte boundaries (constant offsets are multiples of 16 constants).
+		bool stage_constants(ID3D11DeviceContext* context, const void* data, UINT bytes, UINT& first)
 		{
-			if (!draw_original || !vs_bind_original || !ensure_copy_buffer(context))
+			if (!ensure_copy_buffer(context))
 			{
-				return;
+				return false;
 			}
-			constexpr UINT bytes = palette_constants * 16;
-			if (copy_offset + bytes > copy_buffer_size)
+			const UINT size = (bytes + 255u) & ~255u;
+			if (copy_offset + size > copy_buffer_size)
 			{
 				++copy_overflows;
-				return;
+				return false;
 			}
 			D3D11_MAPPED_SUBRESOURCE mapped{};
 			const D3D11_MAP type = copy_discarded ? D3D11_MAP_WRITE_NO_OVERWRITE : D3D11_MAP_WRITE_DISCARD;
 			if (FAILED(context->Map(copy_buffer.Get(), 0, type, 0, &mapped)))
 			{
-				return;
+				return false;
 			}
 			copy_discarded = true;
-			std::memcpy(static_cast<std::uint8_t*>(mapped.pData) + copy_offset, palette, bytes);
+			std::memcpy(static_cast<std::uint8_t*>(mapped.pData) + copy_offset, data, bytes);
 			context->Unmap(copy_buffer.Get(), 0);
+			first = copy_offset / 16;
+			copy_offset += size;
+			return true;
+		}
+
+		// The draw just issued, once more with our palette in VS slot 0; the game's binding is restored.
+		void draw_with_palette(ID3D11DeviceContext* context, const float* palette, UINT index_count, UINT start_index, INT base_vertex)
+		{
+			UINT first{};
+			if (!draw_original || !vs_bind_original || !stage_constants(context, palette, palette_constants * 16, first))
+			{
+				return;
+			}
 			ID3D11Buffer* game_buffer{};
 			UINT game_first{}, game_count{};
 			copy_context->VSGetConstantBuffers1(0, 1, &game_buffer, &game_first, &game_count);
 			ID3D11Buffer* const ours = copy_buffer.Get();
-			const UINT first = copy_offset / 16;
 			const UINT count = palette_constants;
-			copy_offset += bytes;
 			vs_bind_original(context, 0, 1, &ours, &first, &count);
 			draw_original(context, index_count, start_index, base_vertex);
 			vs_bind_original(context, 0, 1, &game_buffer, &game_first, &game_count);
@@ -263,10 +394,512 @@ namespace bfvr::stereo::extra_mesh
 		}
 	}
 
-	void set_entry_points(draw_indexed_fn draw_indexed, set_constant_buffers1_fn vs_set_constant_buffers1, read_block_fn read)
+	namespace
+	{
+		// Which pass a draw belongs to: the bound render targets and the blend state (the pre-pass and the
+		// G-buffer write the same four targets with different blend states).
+		struct pass_key
+		{
+			UINT targets{};
+			DXGI_FORMAT format{};
+			void* blend{};
+			bool operator==(const pass_key&) const = default;
+		};
+
+		pass_key current_pass(ID3D11DeviceContext* context)
+		{
+			pass_key key;
+			ID3D11RenderTargetView* views[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+			context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, views, nullptr);
+			for (ID3D11RenderTargetView* view : views)
+			{
+				if (!view)
+				{
+					continue;
+				}
+				if (key.targets++ == 0)
+				{
+					D3D11_RENDER_TARGET_VIEW_DESC desc{};
+					view->GetDesc(&desc);
+					key.format = desc.Format;
+				}
+				view->Release();
+			}
+			ComPtr<ID3D11BlendState> blend;
+			FLOAT factor[4]{};
+			UINT mask{};
+			context->OMGetBlendState(&blend, factor, &mask);
+			key.blend = blend.Get();
+			return key;
+		}
+
+		// A bone under the hidden Wep_Root: scale grenade_tag, and (being at most a few metres below it, scaled
+		// down) within 2 cm of the capture point. The scale alone also matches far-away instance matrices.
+		bool grenade_entry(const float* entry)
+		{
+			if (!palette::tagged(entry, grenade_tag))
+			{
+				return false;
+			}
+			const float dx = entry[3] - grenade_capture_position[0];
+			const float dy = entry[7] - grenade_capture_position[1];
+			const float dz = entry[11] - grenade_capture_position[2];
+			return dx * dx + dy * dy + dz * dz < 0.02f * 0.02f;
+		}
+
+		bool same_binding(const cb_binding& a, const cb_binding& b)
+		{
+			return a.buffer == b.buffer && a.first == b.first && a.count == b.count;
+		}
+
+		constexpr UINT grenade_vertex_slots = 4;
+		constexpr UINT grenade_views = 16;
+		constexpr UINT max_grenade_block = 256; // constants
+
+		// One draw of the game's grenade, captured whole. State it does not own (per-view and per-object
+		// constants, depth, blend, samplers, the rest of the views) comes from the magazine draw it follows.
+		struct grenade_draw
+		{
+			pass_key pass;
+			UINT index_count{};
+			UINT start_index{};
+			INT base_vertex{};
+			ComPtr<ID3D11Buffer> index_buffer;
+			DXGI_FORMAT index_format{};
+			UINT index_offset{};
+			ComPtr<ID3D11Buffer> vertex_buffers[grenade_vertex_slots];
+			UINT strides[grenade_vertex_slots]{};
+			UINT offsets[grenade_vertex_slots]{};
+			ComPtr<ID3D11InputLayout> layout;
+			D3D11_PRIMITIVE_TOPOLOGY topology{};
+			ComPtr<ID3D11VertexShader> vs;
+			ComPtr<ID3D11PixelShader> ps;
+			ComPtr<ID3D11RasterizerState> raster;
+			ComPtr<ID3D11ShaderResourceView> vs_views[grenade_views];
+			ComPtr<ID3D11ShaderResourceView> ps_views[grenade_views];
+			UINT vs_owned{}; // view slots that are the grenade's own
+			UINT ps_owned{};
+			cb_binding ps_cb[tracked_ps_slots];
+			cb_binding vs_cb[tracked_slots];
+			std::vector<float> ps_blocks[tracked_ps_slots]; // contents at the capture
+			UINT ps_cb_owned{};
+			std::vector<float> palette; // the grenade's entries relative to Wep_Root, all others zero
+			std::uint64_t entries{};
+		};
+
+		// Another skinned draw of the same pass during the capture: what the grenade shares with it is
+		// per-view state, left to the magazine draw at replay.
+		struct capture_neighbour
+		{
+			pass_key pass;
+			cb_binding ps_cb[tracked_ps_slots];
+			ID3D11ShaderResourceView* vs_views[grenade_views]{};
+			ID3D11ShaderResourceView* ps_views[grenade_views]{};
+		};
+
+		// Render thread.
+		std::vector<grenade_draw> grenade_capturing;
+		std::vector<grenade_draw> captured_grenade;
+		std::vector<capture_neighbour> neighbours;
+		bool capturing_render{};
+		ULONGLONG last_capture{};
+		std::uint32_t grenade_replayed{}; // bits of captured_grenade drawn in this render
+		bool frame_grenade{};
+		bool frame_armed{};
+		float frame_grenade_matrix[12]{};
+		constexpr ULONGLONG capture_interval_ms = 250;
+
+		// Pose thread requests (request_lock) and pipe-visible counters.
+		std::atomic<ULONGLONG> capture_wanted_at{};
+		bool grenade_request{};
+		bool grenade_request_armed{};
+		float grenade_request_matrix[12]{};
+		ULONGLONG grenade_request_at{};
+		std::atomic<bool> has_capture{};
+		std::atomic<unsigned> captured_draws{};
+		std::atomic<std::uint64_t> grenade_entries_seen{};
+		std::atomic<std::uint64_t> captures{};
+		std::atomic<std::uint64_t> grenade_copies{};
+		std::atomic<ULONGLONG> grenade_drawn_at{};
+		// The M67's palette: entry 0 the pin and ring, entry 1 body and spoon (monitor 2026-11-09).
+		std::atomic<std::uint64_t> pin_entries{ 1 };
+		std::atomic<std::uint64_t> captures_rejected{};
+		std::vector<known_mesh> magazine_meshes; // render thread: the gun magazine draws seen (compared by value only)
+		std::mutex summary_lock;
+		std::string capture_summary; // the last capture's draws, for the pipe
+
+		void get_views(ID3D11DeviceContext* context, bool pixel, ComPtr<ID3D11ShaderResourceView> (&out)[grenade_views])
+		{
+			ID3D11ShaderResourceView* views[grenade_views]{};
+			if (pixel)
+			{
+				context->PSGetShaderResources(0, grenade_views, views);
+			}
+			else
+			{
+				context->VSGetShaderResources(0, grenade_views, views);
+			}
+			for (UINT i = 0; i < grenade_views; ++i)
+			{
+				out[i].Attach(views[i]);
+			}
+		}
+
+		void note_neighbour(ID3D11DeviceContext* context)
+		{
+			const pass_key pass = current_pass(context);
+			for (const capture_neighbour& n : neighbours)
+			{
+				if (n.pass == pass)
+				{
+					return;
+				}
+			}
+			if (neighbours.size() >= 16)
+			{
+				return;
+			}
+			capture_neighbour n;
+			n.pass = pass;
+			std::copy(ps_bound, ps_bound + tracked_ps_slots, n.ps_cb);
+			ComPtr<ID3D11ShaderResourceView> views[grenade_views];
+			get_views(context, false, views);
+			for (UINT i = 0; i < grenade_views; ++i)
+			{
+				n.vs_views[i] = views[i].Get(); // compared by value only
+			}
+			get_views(context, true, views);
+			for (UINT i = 0; i < grenade_views; ++i)
+			{
+				n.ps_views[i] = views[i].Get();
+			}
+			neighbours.push_back(n);
+		}
+
+		void capture_grenade_draw(ID3D11DeviceContext* context, const float* palette_data, UINT count, UINT start, INT base)
+		{
+			grenade_draw d;
+			d.pass = current_pass(context);
+			if (d.pass.targets == 0)
+			{
+				return; // shadow maps: the copies follow magazine draws, which have none
+			}
+			for (const grenade_draw& other : grenade_capturing)
+			{
+				if (other.pass == d.pass && other.start_index == start && other.index_count == count)
+				{
+					return;
+				}
+			}
+			if (grenade_capturing.size() >= 16)
+			{
+				return;
+			}
+			d.index_count = count;
+			d.start_index = start;
+			d.base_vertex = base;
+			context->IAGetIndexBuffer(&d.index_buffer, &d.index_format, &d.index_offset);
+			ID3D11Buffer* buffers[grenade_vertex_slots]{};
+			context->IAGetVertexBuffers(0, grenade_vertex_slots, buffers, d.strides, d.offsets);
+			for (UINT i = 0; i < grenade_vertex_slots; ++i)
+			{
+				d.vertex_buffers[i].Attach(buffers[i]);
+			}
+			context->IAGetInputLayout(&d.layout);
+			context->IAGetPrimitiveTopology(&d.topology);
+			context->VSGetShader(&d.vs, nullptr, nullptr);
+			context->PSGetShader(&d.ps, nullptr, nullptr);
+			context->RSGetState(&d.raster);
+			get_views(context, false, d.vs_views);
+			get_views(context, true, d.ps_views);
+			std::copy(vs_bound + 1, vs_bound + tracked_slots, d.vs_cb + 1); // slot 0 is the palette
+			for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+			{
+				d.ps_cb[slot] = ps_bound[slot];
+				const cb_binding& b = ps_bound[slot];
+				if (b.buffer && b.count != 4096 && b.count <= max_grenade_block)
+				{
+					d.ps_blocks[slot].resize(b.count * 4);
+					if (!read_block(b.buffer, b.first, b.count, d.ps_blocks[slot].data()))
+					{
+						d.ps_blocks[slot].clear();
+					}
+				}
+			}
+			const float root[3] = { grenade_capture_position[0], grenade_capture_position[1], grenade_capture_position[2] };
+			d.palette.assign(palette_data, palette_data + palette_constants * 4);
+			for (int e = 0; e < palette::entries; ++e)
+			{
+				float* entry = d.palette.data() + e * palette::floats_per_entry;
+				if (grenade_entry(entry))
+				{
+					palette::relative_to_root(entry, grenade_tag, root);
+					d.entries |= 1ull << e;
+				}
+				else
+				{
+					std::fill(entry, entry + palette::floats_per_entry, 0.0f);
+				}
+			}
+			if (d.entries && d.index_buffer && d.vertex_buffers[0] && d.layout && d.vs && d.ps)
+			{
+				grenade_capturing.push_back(std::move(d));
+			}
+		}
+
+		// End of a capturing render: what each draw owns, then the capture replaces the last one.
+		void finish_capture()
+		{
+			for (grenade_draw& d : grenade_capturing)
+			{
+				const capture_neighbour* n = nullptr;
+				for (const capture_neighbour& other : neighbours)
+				{
+					n = other.pass == d.pass ? &other : n;
+				}
+				for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+				{
+					// A block the vertex shader has too is the object's (its world transform), not the material's.
+					bool object = false;
+					for (const cb_binding& vs : d.vs_cb)
+					{
+						object = object || (vs.buffer && same_binding(vs, d.ps_cb[slot]));
+					}
+					if (!d.ps_blocks[slot].empty() && !object && (!n || !same_binding(n->ps_cb[slot], d.ps_cb[slot])))
+					{
+						d.ps_cb_owned |= 1u << slot;
+					}
+				}
+				for (UINT i = 0; i < grenade_views; ++i)
+				{
+					if (d.vs_views[i] && (!n || n->vs_views[i] != d.vs_views[i].Get()))
+					{
+						d.vs_owned |= 1u << i;
+					}
+					if (d.ps_views[i] && (!n || n->ps_views[i] != d.ps_views[i].Get()))
+					{
+						d.ps_owned |= 1u << i;
+					}
+				}
+			}
+			// The gun still drawn under the hidden root (the switch to the grenade not finished): not a grenade.
+			bool gun = false;
+			for (const grenade_draw& d : grenade_capturing)
+			{
+				for (const known_mesh& magazine : magazine_meshes)
+				{
+					gun = gun || (d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count);
+				}
+			}
+			if (!grenade_capturing.empty())
+			{
+				std::string summary = gun ? "\n  rejected (a magazine mesh among them):" : "";
+				for (const grenade_draw& d : grenade_capturing)
+				{
+					char line[200];
+					std::snprintf(line, sizeof(line), "\n  draw ib=%p count=%u start=%u targets=%u format=%d blend=%p entries=%llx ps_cb_owned=%x ps_views_owned=%x vs_views_owned=%x",
+						static_cast<void*>(d.index_buffer.Get()), d.index_count, d.start_index, d.pass.targets, static_cast<int>(d.pass.format), d.pass.blend,
+						static_cast<unsigned long long>(d.entries), d.ps_cb_owned, d.ps_owned, d.vs_owned);
+					summary += line;
+				}
+				const std::lock_guard guard(summary_lock);
+				capture_summary = summary;
+			}
+			last_capture = GetTickCount64(); // also after a rejected or empty one: not every render
+			if (gun)
+			{
+				++captures_rejected;
+				grenade_capturing.clear();
+			}
+			if (!grenade_capturing.empty())
+			{
+				std::uint64_t seen = 0;
+				for (const grenade_draw& d : grenade_capturing)
+				{
+					seen |= d.entries;
+				}
+				captured_grenade = std::move(grenade_capturing);
+				captured_draws = static_cast<unsigned>(captured_grenade.size());
+				grenade_entries_seen = seen;
+				has_capture = true;
+				++captures;
+			}
+			grenade_capturing.clear();
+			neighbours.clear();
+		}
+
+		// The captured grenade draw, right after a magazine draw of the same pass, with its root at the hand.
+		void draw_grenade(ID3D11DeviceContext* context, const grenade_draw& d)
+		{
+			if (!draw_original || !vs_bind_original || !ps_bind_original)
+			{
+				return;
+			}
+			alignas(16) float placed[palette_constants * 4]{};
+			// The pin and its ring once pulled, unless they would be all of the draw.
+			const std::uint64_t pins = pin_entries.load(std::memory_order_relaxed);
+			const std::uint64_t hidden = frame_armed && (d.entries & ~pins) ? pins : 0;
+			for (int e = 0; e < palette::entries; ++e)
+			{
+				const std::uint64_t bit = 1ull << e;
+				if ((d.entries & bit) && !(hidden & bit))
+				{
+					palette::multiply(frame_grenade_matrix, d.palette.data() + e * palette::floats_per_entry, placed + e * palette::floats_per_entry);
+				}
+			}
+			UINT palette_first{};
+			if (!stage_constants(context, placed, sizeof(placed), palette_first))
+			{
+				return;
+			}
+			UINT block_first[tracked_ps_slots]{};
+			for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+			{
+				if ((d.ps_cb_owned & (1u << slot))
+					&& !stage_constants(context, d.ps_blocks[slot].data(), static_cast<UINT>(d.ps_blocks[slot].size() * sizeof(float)), block_first[slot]))
+				{
+					return;
+				}
+			}
+			// The magazine draw's state.
+			ComPtr<ID3D11Buffer> index_buffer;
+			DXGI_FORMAT index_format{};
+			UINT index_offset{};
+			context->IAGetIndexBuffer(&index_buffer, &index_format, &index_offset);
+			ID3D11Buffer* vertex_buffers[grenade_vertex_slots]{};
+			UINT strides[grenade_vertex_slots]{}, offsets[grenade_vertex_slots]{};
+			context->IAGetVertexBuffers(0, grenade_vertex_slots, vertex_buffers, strides, offsets);
+			ComPtr<ID3D11InputLayout> layout;
+			context->IAGetInputLayout(&layout);
+			D3D11_PRIMITIVE_TOPOLOGY topology{};
+			context->IAGetPrimitiveTopology(&topology);
+			ComPtr<ID3D11VertexShader> vs;
+			context->VSGetShader(&vs, nullptr, nullptr);
+			ComPtr<ID3D11PixelShader> ps;
+			context->PSGetShader(&ps, nullptr, nullptr);
+			ComPtr<ID3D11RasterizerState> raster;
+			context->RSGetState(&raster);
+			ComPtr<ID3D11ShaderResourceView> vs_views[grenade_views], ps_views[grenade_views];
+			get_views(context, false, vs_views);
+			get_views(context, true, ps_views);
+			ID3D11Buffer* ps_buffers[tracked_ps_slots]{};
+			UINT ps_first[tracked_ps_slots]{}, ps_count[tracked_ps_slots]{};
+			copy_context->PSGetConstantBuffers1(0, tracked_ps_slots, ps_buffers, ps_first, ps_count);
+			ID3D11Buffer* vs_palette{};
+			UINT vs_palette_first{}, vs_palette_count{};
+			copy_context->VSGetConstantBuffers1(0, 1, &vs_palette, &vs_palette_first, &vs_palette_count);
+
+			// The grenade's.
+			context->IASetIndexBuffer(d.index_buffer.Get(), d.index_format, d.index_offset);
+			ID3D11Buffer* ours[grenade_vertex_slots]{};
+			for (UINT i = 0; i < grenade_vertex_slots; ++i)
+			{
+				ours[i] = d.vertex_buffers[i].Get();
+			}
+			context->IASetVertexBuffers(0, grenade_vertex_slots, ours, d.strides, d.offsets);
+			context->IASetInputLayout(d.layout.Get());
+			context->IASetPrimitiveTopology(d.topology);
+			context->VSSetShader(d.vs.Get(), nullptr, 0);
+			context->PSSetShader(d.ps.Get(), nullptr, 0);
+			context->RSSetState(d.raster.Get());
+			for (UINT i = 0; i < grenade_views; ++i)
+			{
+				if (d.vs_owned & (1u << i))
+				{
+					ID3D11ShaderResourceView* const view = d.vs_views[i].Get();
+					context->VSSetShaderResources(i, 1, &view);
+				}
+				if (d.ps_owned & (1u << i))
+				{
+					ID3D11ShaderResourceView* const view = d.ps_views[i].Get();
+					context->PSSetShaderResources(i, 1, &view);
+				}
+			}
+			ID3D11Buffer* const copy = copy_buffer.Get();
+			for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+			{
+				if (d.ps_cb_owned & (1u << slot))
+				{
+					const UINT count = d.ps_cb[slot].count;
+					ps_bind_original(context, slot, 1, &copy, &block_first[slot], &count);
+				}
+			}
+			const UINT palette_count = palette_constants;
+			vs_bind_original(context, 0, 1, &copy, &palette_first, &palette_count);
+			draw_original(context, d.index_count, d.start_index, d.base_vertex);
+
+			// Back to the magazine draw's state.
+			vs_bind_original(context, 0, 1, &vs_palette, &vs_palette_first, &vs_palette_count);
+			for (UINT slot = 0; slot < tracked_ps_slots; ++slot)
+			{
+				if (d.ps_cb_owned & (1u << slot))
+				{
+					ps_bind_original(context, slot, 1, &ps_buffers[slot], &ps_first[slot], &ps_count[slot]);
+				}
+			}
+			for (UINT i = 0; i < grenade_views; ++i)
+			{
+				if (d.vs_owned & (1u << i))
+				{
+					ID3D11ShaderResourceView* const view = vs_views[i].Get();
+					context->VSSetShaderResources(i, 1, &view);
+				}
+				if (d.ps_owned & (1u << i))
+				{
+					ID3D11ShaderResourceView* const view = ps_views[i].Get();
+					context->PSSetShaderResources(i, 1, &view);
+				}
+			}
+			context->RSSetState(raster.Get());
+			context->PSSetShader(ps.Get(), nullptr, 0);
+			context->VSSetShader(vs.Get(), nullptr, 0);
+			context->IASetPrimitiveTopology(topology);
+			context->IASetInputLayout(layout.Get());
+			context->IASetVertexBuffers(0, grenade_vertex_slots, vertex_buffers, strides, offsets);
+			context->IASetIndexBuffer(index_buffer.Get(), index_format, index_offset);
+			for (ID3D11Buffer* buffer : vertex_buffers)
+			{
+				if (buffer)
+				{
+					buffer->Release();
+				}
+			}
+			for (ID3D11Buffer* buffer : ps_buffers)
+			{
+				if (buffer)
+				{
+					buffer->Release();
+				}
+			}
+			if (vs_palette)
+			{
+				vs_palette->Release();
+			}
+			++grenade_copies;
+			grenade_drawn_at = GetTickCount64();
+		}
+
+		// After a magazine draw: each captured grenade draw of this pass, once per render.
+		void replay_grenade(ID3D11DeviceContext* context)
+		{
+			const pass_key pass = current_pass(context);
+			for (std::size_t i = 0; i < captured_grenade.size() && i < 32; ++i)
+			{
+				if (!(grenade_replayed & (1u << i)) && captured_grenade[i].pass == pass)
+				{
+					grenade_replayed |= 1u << i;
+					draw_grenade(context, captured_grenade[i]);
+				}
+			}
+		}
+	}
+
+	void set_entry_points(draw_indexed_fn draw_indexed, set_constant_buffers1_fn vs_set_constant_buffers1, set_constant_buffers1_fn ps_set_constant_buffers1,
+		read_block_fn read)
 	{
 		draw_original = draw_indexed;
 		vs_bind_original = vs_set_constant_buffers1;
+		ps_bind_original = ps_set_constant_buffers1;
 		read_block = read;
 	}
 
@@ -275,18 +908,24 @@ namespace bfvr::stereo::extra_mesh
 		render_eye = eye;
 		copy_offset = 0;
 		copy_discarded = false;
+		const ULONGLONG now = GetTickCount64();
 		{
 			const std::lock_guard guard(request_lock);
-			frame_copy = request_active && GetTickCount64() - request_at < request_stale_ms;
+			frame_copy = request_active && now - request_at < request_stale_ms;
 			std::memcpy(frame_matrix, request_matrix, sizeof(frame_matrix));
+			frame_grenade = grenade_request && now - grenade_request_at < request_stale_ms;
+			frame_armed = grenade_request_armed;
+			std::memcpy(frame_grenade_matrix, grenade_request_matrix, sizeof(frame_grenade_matrix));
 		}
-		if (const ULONGLONG now = GetTickCount64(); now - known_cleared > known_lifetime_ms)
+		grenade_replayed = 0;
+		capturing_render = eye == 0 && now - capture_wanted_at.load(std::memory_order_relaxed) < request_stale_ms && now - last_capture > capture_interval_ms;
+		if (now - known_cleared > known_lifetime_ms)
 		{
 			known_cleared = now;
 			unsigned tagged = 0;
 			for (const known_mesh& mesh : known_meshes)
 			{
-				tagged += mesh.tagged ? 1 : 0;
+				tagged += mesh.tags ? 1 : 0;
 			}
 			tagged_meshes = tagged;
 			known_meshes.clear();
@@ -295,6 +934,7 @@ namespace bfvr::stereo::extra_mesh
 		{
 			probe_draws.clear();
 			probe_palettes.clear();
+			probe_blocks.clear();
 			probe_index = 0;
 			probing = true;
 		}
@@ -302,6 +942,11 @@ namespace bfvr::stereo::extra_mesh
 
 	void end_render()
 	{
+		if (capturing_render)
+		{
+			capturing_render = false;
+			finish_capture();
+		}
 		if (probing && render_eye == 0)
 		{
 			probing = false;
@@ -329,13 +974,30 @@ namespace bfvr::stereo::extra_mesh
 		}
 	}
 
+	void on_ps_bindings(UINT start, UINT count, ID3D11Buffer* const* buffers, const UINT* first, const UINT* number)
+	{
+		for (UINT i = 0; i < count; ++i)
+		{
+			const UINT slot = start + i;
+			if (slot >= tracked_ps_slots)
+			{
+				continue;
+			}
+			ps_bound[slot].buffer = buffers ? buffers[i] : nullptr;
+			ps_bound[slot].first = first ? first[i] : 0;
+			ps_bound[slot].count = number ? number[i] : 4096;
+		}
+	}
+
 	void after_draw(ID3D11DeviceContext* context, UINT index_count, UINT start_index, INT base_vertex, UINT instances)
 	{
 		if (probing && render_eye == 0 && probe_draws.size() < 5000)
 		{
 			record(context, index_count, start_index, base_vertex, instances);
 		}
-		if (frame_copy && render_eye >= 0 && instances == 1 && vs_bound[0].buffer && vs_bound[0].count == palette_constants && read_block)
+		const bool palette_draw = render_eye >= 0 && instances == 1 && vs_bound[0].buffer && vs_bound[0].count == palette_constants && read_block;
+		const bool grenade_replay = frame_grenade && !captured_grenade.empty();
+		if (palette_draw && (frame_copy || grenade_replay || capturing_render))
 		{
 			ComPtr<ID3D11Buffer> ib;
 			DXGI_FORMAT format{};
@@ -350,7 +1012,7 @@ namespace bfvr::stereo::extra_mesh
 					break;
 				}
 			}
-			if (known && !known->tagged)
+			if (known && !known->tags && !capturing_render)
 			{
 				return;
 			}
@@ -360,23 +1022,53 @@ namespace bfvr::stereo::extra_mesh
 				return;
 			}
 			++palettes_read;
-			bool any = false;
-			for (int e = 0; e < palette::entries && !any; ++e)
+			unsigned tags = 0;
+			for (int e = 0; e < palette::entries; ++e)
 			{
-				any = palette::tagged(palette_data + e * palette::floats_per_entry, magazine_tag);
+				const float* entry = palette_data + e * palette::floats_per_entry;
+				tags |= palette::tagged(entry, magazine_tag) ? magazine_bit : grenade_entry(entry) ? grenade_bit : 0u;
 			}
 			if (!known && known_meshes.size() < 512)
 			{
-				known_meshes.push_back({ ib.Get(), start_index, index_count, any });
+				known_meshes.push_back({ ib.Get(), start_index, index_count, tags });
 			}
 			else if (known)
 			{
-				known->tagged = any;
+				known->tags = tags;
 			}
-			if (any && palette::move_tagged(palette_data, frame_matrix, magazine_tag) > 0)
+			if (capturing_render)
 			{
-				draw_with_palette(context, palette_data, index_count, start_index, base_vertex);
-				++magazine_copies;
+				if (tags & grenade_bit)
+				{
+					capture_grenade_draw(context, palette_data, index_count, start_index, base_vertex);
+				}
+				else
+				{
+					note_neighbour(context);
+				}
+			}
+			if (tags & magazine_bit)
+			{
+				const bool listed = std::any_of(magazine_meshes.begin(), magazine_meshes.end(), [&](const known_mesh& m) {
+					return m.index_buffer == ib.Get() && m.start == start_index && m.count == index_count;
+				});
+				if (!listed)
+				{
+					if (magazine_meshes.size() >= 16)
+					{
+						magazine_meshes.erase(magazine_meshes.begin());
+					}
+					magazine_meshes.push_back({ ib.Get(), start_index, index_count, magazine_bit });
+				}
+				if (grenade_replay)
+				{
+					replay_grenade(context);
+				}
+				if (frame_copy && palette::move_tagged(palette_data, frame_matrix, magazine_tag) > 0)
+				{
+					draw_with_palette(context, palette_data, index_count, start_index, base_vertex);
+					++magazine_copies;
+				}
 			}
 			return;
 		}
@@ -414,6 +1106,78 @@ namespace bfvr::stereo::extra_mesh
 		}
 	}
 
+	void set_grenade_capture(bool wanted)
+	{
+		if (wanted)
+		{
+			capture_wanted_at = GetTickCount64();
+		}
+	}
+
+	void set_grenade_copy(bool active, const float* matrix, bool armed)
+	{
+		const std::lock_guard guard(request_lock);
+		grenade_request = active && matrix;
+		grenade_request_armed = armed;
+		if (grenade_request)
+		{
+			std::memcpy(grenade_request_matrix, matrix, sizeof(grenade_request_matrix));
+			grenade_request_at = GetTickCount64();
+		}
+	}
+
+	bool grenade_drawn()
+	{
+		return GetTickCount64() - grenade_drawn_at.load(std::memory_order_relaxed) < 150;
+	}
+
+	bool grenade_captured()
+	{
+		return has_capture.load(std::memory_order_relaxed);
+	}
+
+	std::uint64_t grenade_captures()
+	{
+		return captures.load(std::memory_order_relaxed);
+	}
+
+	std::string set_grenade_pin_entries(const std::string& mask)
+	{
+		unsigned long long value{};
+		if (sscanf_s(mask.c_str(), "%llx", &value) == 1)
+		{
+			pin_entries = value;
+		}
+		char text[64];
+		std::snprintf(text, sizeof(text), "extramesh pin entries %llx", static_cast<unsigned long long>(pin_entries.load()));
+		return text;
+	}
+
+	std::string grenade_report()
+	{
+		bool active{}, armed{};
+		float t[3]{};
+		ULONGLONG age{};
+		{
+			const std::lock_guard guard(request_lock);
+			active = grenade_request;
+			armed = grenade_request_armed;
+			t[0] = grenade_request_matrix[3];
+			t[1] = grenade_request_matrix[7];
+			t[2] = grenade_request_matrix[11];
+			age = GetTickCount64() - grenade_request_at;
+		}
+		char text[320];
+		std::snprintf(text, sizeof(text),
+			"grenade_copy=%d armed=%d at=(%.3f %.3f %.3f) age_ms=%llu captured=%d captures=%llu rejected=%llu draws=%u entries=%llx pin=%llx copies=%llu capture_wanted_ms=%llu",
+			active ? 1 : 0, armed ? 1 : 0, t[0], t[1], t[2], static_cast<unsigned long long>(age), has_capture.load() ? 1 : 0,
+			static_cast<unsigned long long>(captures.load()), static_cast<unsigned long long>(captures_rejected.load()), captured_draws.load(), static_cast<unsigned long long>(grenade_entries_seen.load()),
+			static_cast<unsigned long long>(pin_entries.load()), static_cast<unsigned long long>(grenade_copies.load()),
+			static_cast<unsigned long long>(GetTickCount64() - capture_wanted_at.load()));
+		const std::lock_guard guard(summary_lock);
+		return text + capture_summary;
+	}
+
 	std::string report()
 	{
 		bool active{};
@@ -431,7 +1195,7 @@ namespace bfvr::stereo::extra_mesh
 		std::snprintf(text, sizeof(text), "extra_mesh magazine_copy=%d move=(%.3f %.3f %.3f) age_ms=%llu copies=%llu palettes_read=%llu tagged_meshes=%u overflows=%llu",
 			active ? 1 : 0, t[0], t[1], t[2], static_cast<unsigned long long>(age), static_cast<unsigned long long>(magazine_copies.load()),
 			static_cast<unsigned long long>(palettes_read.load()), tagged_meshes.load(), static_cast<unsigned long long>(copy_overflows.load()));
-		return text;
+		return std::string(text) + "\n" + grenade_report();
 	}
 
 	std::string set_research_copy(const std::string& spec)

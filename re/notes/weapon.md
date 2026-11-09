@@ -290,3 +290,111 @@ now ~450 px apart between the eyes (~17 cm, as expected).
   lower: the bullets leave the gun. Live frame: 37 cm from the camera, forward exactly the barrel's 20 deg.
 - Still from the camera: the game's own aim (the aimer, so the body and dispersion) and the green dot's
   depth (drawn at 25 m: from the hip, a close hit sits off the dot by parallax; on the sight line it is on it).
+- Since #37 the game's aim stays with the body (`aim_with_body`): the bullet direction comes from the
+  shot frame alone (holes follow the gun 15 degrees left and right with the aimer fixed).
+
+## Empty hands: the gun in the off hand (#38, 2026-11-09, monitor)
+
+- `weapon/free_hands` (with `free_hands = 1`) has a third holder besides the gun hand and the floor: the
+  off hand. Letting go with the gun hand while the off hand holds the handguard (the two-handed hold,
+  `weapon/two_handed::off_hand_holds_gun`) hands the gun over; the gun hand gripping within 12 cm of the
+  pistol grip takes it back; the off hand letting go drops it. Unit-tested (tests/free_hands_test.cpp).
+- `body/arm_pose`: the carrying hand is solved first; the gun keeps its animated placement relative to it
+  (for the left hand: where the animation holds the handguard) and turns with that controller as it was at
+  the hand-over (no jump). The trigger is blocked, the two-handed lock is off. The pistol grip (the
+  animation's right-hand point on the gun) is published (`weapon_points::grip`, pipe `holster` grip=).
+- `weapon/physical_reload` passes the free gun hand as the reloading hand with `handle_only`: only the
+  charging handle (no magazine or pouch grabs); it is drawn with the palm on the handle (the pinch and hook
+  shapes are the left hand's).
+- Monitor (fake hands, pad grips): two-handed -> right let go: in the left hand, no jump; left moved 15 cm
+  and turned 25 deg: the gun follows (the grip point swings back to the right as expected); right hand at
+  the handle zone, grip, 6 cm back: racking, pull 0.057; right grip at the published grip point: taken back.
+  Test pitfall: `pad` holds for at most 10 s; the grips must be re-sent, or the off hand "lets go".
+
+### Sling, grenade in either hand, finger shapes, the left-hand pistol grip (#38, 2026-11-09, monitor)
+
+- **Sling** (`sling`, default on, with free hands): a gun let go by both hands hangs at `body_rig::sling_point`
+  (belly height, gun side, 12 cm in front, in the holsters' lazy body frame), barrel 75 degrees down, and
+  follows the body; the gun hand (or the off hand) grabs it back within 15 cm (`sling_reach`: the grenade
+  pouch is 23 cm above it). Off: the floor as before. Monitor: let go -> slung; a room turn moved it with
+  the body; gripped there -> in hand.
+- **Racking hand's fingers**: the hook and underhand points are measured on whichever hand racks
+  (`racking_hand()`); the right hand hooks the handle in its own index (the pinch is the left hand's
+  authored pose). Monitor: the right hand's task is `handle` while racking.
+- **Grenade in either hand** (`grenade_hands`, `either_hand` = the gun dropped or slung): whichever hand grips
+  at the pouch takes it, the other pulls the pin, the holder throws; drawn at that palm (theater), the gun
+  hand's fingers make a fist. Unit-tested incl. a throw by the gun hand; monitor: taken by the right hand
+  (hand=gun, fist), let go unarmed -> put back (no throw in the checkpoint room).
+- **Left-hand pistol grip**: the off hand picks the dropped/slung gun up -> `in_off_grip`: the gun upright
+  along the left aim ray, placed so the right hand's spot on the grip, mirrored across the gun, is the left
+  hand; the hand takes the mirrored gun-hand grip (`fingers::mirrored_hand`), its fingers `gun_grip`; the
+  left trigger fires (the latched controller value, not the game's LT); letting go puts it back on the
+  sling/floor. Monitor: picked up at the sling, aimed 20 degrees right, the left trigger fired 4 rounds,
+  let go -> slung.
+
+### Left-handed two-handed hold, use by reaching under #37, crate menu clicks (2026-11-09, monitor)
+
+- **Two-handed with the left on the grip** (#38): `weapon/two_handed` swaps the roles while the gun is in the
+  off hand by its grip (the left aims, the gun hand's grip and trigger are the support hand's, the support
+  offset mirrored); `arm_pose` applies the barrel line to the hand on the grip and draws the gun hand on the
+  handguard at the animation's left-hand spot mirrored across the gun (`fingers::mirrored_hand`). Monitor:
+  held, steering the right hand 12 cm swung the barrel from -9 to -29 degrees, released.
+- **Melee gesture** off while the gun is in the off hand or dropped: a fast reach of the free gun hand (the
+  fake hand jumping to the handguard) counted as a strike, the game drew the knife for it, and the weapon
+  change reset free hands.
+- **Use by reaching** (`use_reach`) with `aim_with_body` (#37): the game picks the use target with its aim,
+  which now stays with the body. While the off hand reaches to use, the aim goes from the head towards that
+  hand (`weapon::use_reach_direction`, camera_hook): what the hand reaches for is used. Monitor: the gadget
+  stash opened by reaching right-low while facing ahead.
+- **Crate menu clicks (#34)**: with BF4 not the front window (the usual case in VR) the pointer posted
+  WM_MOUSEMOVE (hover worked) and WM_LBUTTONDOWN/UP, which the game ignores: it reads mouse buttons as Raw
+  Input. The click now also posts the synthetic WM_INPUT (marker handle, `GetRawInputData` hook answers
+  RIM_TYPEMOUSE with RI_MOUSE_LEFT_BUTTON_DOWN/UP), like the keys. Monitor (pipe `pointer`, the same
+  function as the headset pointer): C4 -> Gadget One, the Gadget Two tab, M320 -> Gadget Two, Done closed it.
+
+## The dot on what the gun points at (2026-11-09, monitor: fakehead + fakehand in the prologue corridor)
+
+- **Depth source**: while the HUD binds the back buffer (stereo/hud_capture's OMSetRenderTargets hook) the
+  depth target is the resolved scene depth: `D24_UNORM_S8_UINT` view of an `R24G8_TYPELESS` 2160² texture,
+  1 sample, bind `0x48` (depth-stencil and shader resource), so it can be read as `R24_UNORM_X8_TYPELESS`.
+  In pair rendering it is the second eye's (the first eye's image was copied away before eye 2 drew):
+  the readings were identical with the eyes 6.4 cm and ~23 cm apart.
+- **Projection** (RenderView `+0x320`, `eye_pass::world_projection`): row-major x/y scale 0.9324/1.2272,
+  `[2][2]` -1, `[3][2]` -0.06: reversed infinite depth with the near plane at 6 cm, depth = 0.06 / d, so
+  d = -0.06 / (depth - 1).
+- **Method** (`stereo/aim_depth`, math in `aim_depth_math`, tested): 32 points along the shot line
+  (`input::shot_line`, 0.75 to 80 m, spaced geometrically) projected into that eye; a 32-thread compute
+  shader reads the depth at each, after unbinding the targets and keeping the game's compute state; the
+  result goes through a 3-deep staging ring read with `DO_NOT_WAIT`, so it is 2-3 frames old. The first
+  point at or behind the surface (interpolated with the one before) is the hit; surfaces nearer than
+  0.8 m (the drawn gun and arms) and points far behind a nearer surface (a pillar between eye and line)
+  give no information. `weapon::two_handed` puts the dot there and converges the aim on it
+  (`reticle_depth`, falls back to `aim_convergence` when nothing is hit or the reading is over 300 ms old).
+- **Monitor**: aimed across the flat red wall at yaw -15/-25/-35/-45 degrees the hits (2.16, 1.92, 1.78,
+  1.70 m) lie on one straight line within 0.7 cm, steady from frame to frame; 20 degrees down hits the
+  floor at 1.5 m; down the corridor 9 m. Cost: no measurable frame time (131.3 fps on, 131.9 off).
+- **Limits**: a line that leaves the view (aiming more than ~50 degrees from where the head looks) has
+  no depth to read and the dot goes back to `aim_convergence`; so does a wall nearer than 0.8 m.
+
+## The free right hand reloads while the left holds the gun (#38, 2026-11-09, monitor)
+
+- **Roles**: while the off hand carries the gun (by the handguard or by the grip) the reload reads the
+  right hand as the reloading hand (`physical_reload`: its palm, aim rotation, RB as its grip, haptics on
+  it; B stays the release). `free_hand_reload` (default on) lets it change magazines; off, it only racks
+  (`handle_only`, as before). AR palming stays the left hand's (the magazine turns to that hand's outside).
+- **Drawing** (`arm_pose`): the held magazine goes in the reloading hand's fist (`attach_held_magazine` /
+  `fist_magazine` on `racking_hand()`); the grasp frame comes out mirrored on the right hand, and a rifle
+  magazine is symmetric across the gun, so the same placement holds. No palm cup and no authored magazine
+  grip on the right (both are the left hand's). Monitor: the AK magazine upright in the right fist, its top
+  11 cm above the palm.
+- **Right-hand pinch**: the left hand's authored pinch applied to the right hand with each local rotation
+  mirrored, `(-x, -y, z, w)` (the hand bones mirror in z). Monitor: the knob point in hand axes came out
+  mirrored (left (0.126, 0.023, -0.036), right (0.117, 0.040, 0.037)), but the right thumb ends ~2 cm closer
+  to the index (gap -11 mm vs +8 mm): its rest pose is not an exact mirror. Follows `rack_grip`.
+- **Grip conflict**: with the gun carried by the handguard, a right grip near the gun can mean "take the gun
+  back" (free hands) or "take the magazine / handle" (reload). `grip_before_reload` (tested): the pistol grip
+  wins only within `regrip_reach` and nearer than every reload zone; the reload claims the hand while it
+  holds a magazine or racks (`reload_claims_free_hand`, free hands' `busy`).
+- **Monitor** (AK-12, prologue): by the grip: pouch -> magazine taken (30), seated, racked (round ejected),
+  the left kept the gun; by the handguard: magazine out and dropped with the gun still in the left hand,
+  then a grip at the pistol grip took it back.

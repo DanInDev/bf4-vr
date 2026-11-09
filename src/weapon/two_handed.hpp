@@ -30,6 +30,8 @@ namespace bfvr::weapon
 	bool aim_point(float (&point)[3]);
 	// The off hand holds the gun or is on its handguard (its grip is the two-handed grab's).
 	bool off_hand_on_gun();
+	// The off hand holds the handguard with its grip closed (the two-handed hold itself, #38's hand-over).
+	bool off_hand_holds_gun();
 
 	// Pipe "twohand": state, weight, barrel and shot directions, grab count.
 	std::string two_hand_report();

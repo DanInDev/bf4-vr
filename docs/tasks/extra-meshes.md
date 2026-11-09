@@ -2,9 +2,10 @@
 
 Work order: GitHub issue #36 (progress and headset results go there).
 
-**Status (2026-11-05):** the second magazine is done on the monitor (approach A, simpler than planned: the
-magazine is its own small mesh, found by a scale tag on `Wep_Mag`; `re/notes/meshes.md`). Open: the held
-grenade (needs a full draw capture at the throw, see the end of meshes.md) and the headset check (GUN-13).
+**Status (2026-11-09):** both done on the monitor (approach A). The second magazine: its own small mesh,
+found by a scale tag on `Wep_Mag`. The held grenade: captured whole while the game's grenade is selected for
+a moment (it draws none during the quick throw), redrawn after the gun's magazine draws in the fist
+(`re/notes/meshes.md`). Open: the headset checks GUN-13 and GRN-4.
 
 Goal: draw game-quality copies of the gun's magazine (a fresh one in the off hand while the old one is still
 in the gun, the caught one while palming) and of the grenade (held before the throw, while the rifle is out),

@@ -28,8 +28,18 @@ namespace bfvr::weapon
 	// free_hands (#35, weapon/free_hands): the gun is held only while the gun hand grips; let go and it
 	// lies on the floor (drawn there, no firing) until gripped again.
 	void set_free_hands(bool enabled);
+	// Live setting sling (#38): with free hands, a gun let go by both hands hangs at the chest, not on the floor.
+	void set_sling(bool on);
 	// The gun lies on the floor (free hands): no shots, no two-handed hold, no reload on it.
 	bool gun_dropped();
+	// Empty hands (#38): the off hand holds the gun by the handguard; the gun hand is free (no fire).
+	bool gun_in_off_hand();
+	// ...by its pistol grip (picked up with the off hand): it fires with the off-hand trigger.
+	bool gun_in_off_grip();
+	// While the off hand reaches to use something (use_reach): from the head towards that hand, OpenXR LOCAL,
+	// unit. The game's aim goes there so its use target is what the hand reaches for (#37 keeps it with the
+	// body otherwise).
+	bool use_reach_direction(float (&direction)[3]);
 
 	// Present thread, once per frame.
 	void update_weapon_swap();
@@ -50,4 +60,7 @@ namespace bfvr::weapon
 	// Pipe "holster": state. "holster <primary|secondary|knife|gadget1|gadget2>" (research): switch as
 	// if drawn from that holster; "holster order": the squad order key.
 	std::string holster_pipe_command(const std::string& argument);
+	// Held grenade (#36): select the game's grenade for a moment so stereo/extra_mesh can capture it, then
+	// the gun again (only with a primary or secondary gun in hand and no switch running).
+	void request_grenade_capture();
 }

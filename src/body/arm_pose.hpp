@@ -40,6 +40,8 @@ namespace bfvr::body
 	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with
 	// the game body (which turns with the stick).
 	void set_torso_follow(bool follow);
+	// Live setting torso_hands: the torso also leans towards two hands held together in front (off: head only).
+	void set_torso_hands(bool lean);
 	// The shoulder joints where a body has them (either side of the neck, below the eyes), not where
 	// the game's rifle animation holds them (the left one on the chest's centre line).
 	void set_body_shoulders(bool on);
@@ -83,6 +85,7 @@ namespace bfvr::body
 		float rail[3]{};       // Wep_Extra1 (forward rail: light, laser)
 		bool has_support{};
 		float support[3]{};    // where the gun's animation holds the off hand (handguard)
+		float grip[3]{};       // and the gun hand (pistol grip), both while has_support
 		bool hand_valid[2]{};  // arm solved this evaluation; 0 = left, 1 = right (the rig's arms)
 		float hand[2][3]{};    // wrist goals (drawn hands)
 		float palm[2][3]{};    // the controllers' grip points (palms) in the same space: where grabs are measured
@@ -101,7 +104,8 @@ namespace bfvr::body
 
 	// Free hands (#35): the drawn gun lies at this OpenXR LOCAL point on its side, barrel along yaw
 	// (atan2(-forward.x, -forward.z)), instead of in the gun hand; active = false puts it back.
-	void set_dropped_gun(bool active, const float (&position)[3], float yaw);
+	// hanging (#38): on the sling at position (the body point), barrel down, facing yaw; else lying on the floor.
+	void set_dropped_gun(bool active, const float (&position)[3], float yaw, bool hanging = false);
 
 	// Where to draw the magazine: with the gun (detached = false), in the drawn off hand's fist
 	// (in_hand), or at a pose in OpenXR LOCAL.
@@ -132,6 +136,20 @@ namespace bfvr::body
 	// Live setting extra_meshes: the magazine bone is tagged (scale stereo::extra_mesh::magazine_tag) so
 	// its draw can be found.
 	void set_extra_meshes(bool on);
+	// Empty hands (#38, weapon/free_hands): the off hand holds the gun by the handguard; the gun hand is free.
+	// by_grip: by the pistol grip (picked up with the off hand), the hold mirrored from the gun hand's.
+	void set_gun_in_off_hand(bool held, bool by_grip = false);
+	// #38: the free gun hand holds a grenade (its fingers make a fist).
+	void set_gun_hand_fist(bool fist);
+	// Held grenade drawn as the game's own (#36, stereo/extra_mesh). Live setting grenade_mesh with physical
+	// grenades: while weapon/weapon_swap has the game's grenade selected for a capture (set_grenade_weapon) it
+	// is hidden at a tagged pose and captured; while physical_grenade holds one (hand 0 = off, 1 = gun hand)
+	// the capture is drawn in that fist, its pin left out once armed.
+	void set_grenade_mesh(bool on);
+	void set_grenade_weapon(bool current);
+	void set_held_grenade(bool holding, int hand, bool armed);
+	// Pipe extramesh: the hold used, and the game's own hold as last seen (Wep_Root in the right fist's frame).
+	std::string grenade_hold_report();
 
 	struct arm_pose_stats
 	{

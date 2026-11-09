@@ -21,6 +21,8 @@ namespace bfvr::weapon
 	namespace
 	{
 		std::atomic<bool> enabled{ true };
+		std::atomic<bool> aim_with_body{ true };
+		std::atomic<ULONGLONG> replaced_at{};
 		std::atomic<std::uint64_t> calls{};
 		std::atomic<std::uint64_t> replaced{};
 		std::atomic<float> last_offset[3]{};
@@ -70,6 +72,7 @@ namespace bfvr::weapon
 						last_forward[axis] = moved[8 + axis];
 					}
 					++replaced;
+					replaced_at = GetTickCount64();
 					original_setter(weapon, moved);
 					return;
 				}
@@ -135,11 +138,22 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
+	void set_aim_with_body(bool on)
+	{
+		aim_with_body = on;
+	}
+
+	bool aim_stays_with_body()
+	{
+		return aim_with_body.load(std::memory_order_relaxed) && enabled.load(std::memory_order_relaxed)
+			&& GetTickCount64() - replaced_at.load(std::memory_order_relaxed) < 500;
+	}
+
 	std::string shot_origin_report()
 	{
 		char text[256];
-		std::snprintf(text, sizeof(text), "shots_from_gun=%d calls=%llu replaced=%llu start_from_camera=(%.3f %.3f %.3f) forward=(%.3f %.3f %.3f)", enabled.load() ? 1 : 0,
-			static_cast<unsigned long long>(calls.load()), static_cast<unsigned long long>(replaced.load()), last_offset[0].load(), last_offset[1].load(),
+		std::snprintf(text, sizeof(text), "shots_from_gun=%d aim_with_body=%d calls=%llu replaced=%llu start_from_camera=(%.3f %.3f %.3f) forward=(%.3f %.3f %.3f)", enabled.load() ? 1 : 0,
+			aim_stays_with_body() ? 1 : 0, static_cast<unsigned long long>(calls.load()), static_cast<unsigned long long>(replaced.load()), last_offset[0].load(), last_offset[1].load(),
 			last_offset[2].load(), last_forward[0].load(), last_forward[1].load(), last_forward[2].load());
 		return text;
 	}

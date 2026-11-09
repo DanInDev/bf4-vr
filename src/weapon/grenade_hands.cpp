@@ -76,6 +76,7 @@ namespace bfvr::weapon
 		const bool off_pressed = frame.off_grip && !last_off_grip_;
 		const bool off_released = !frame.off_grip && last_off_grip_;
 		const bool gun_pressed = frame.gun_grip && !last_gun_grip_;
+		const bool gun_released = !frame.gun_grip && last_gun_grip_;
 		last_off_grip_ = frame.off_grip;
 		last_gun_grip_ = frame.gun_grip;
 		clock_ += frame.seconds;
@@ -92,47 +93,64 @@ namespace bfvr::weapon
 			return result;
 		}
 
-		history_[history_next_] = { clock_, frame.off_hand };
-		history_next_ = (history_next_ + 1) % history_size;
-		history_count_ = history_count_ < history_size ? history_count_ + 1 : history_size;
-
-		const bool near_belt = length(minus(frame.off_hand, frame.belt)) < config_.reach_belt;
-		const float pin_distance = length(minus(frame.gun_hand, frame.off_hand));
-
+		const bool off_near_belt = length(minus(frame.off_hand, frame.belt)) < config_.reach_belt;
+		const bool gun_near_belt = frame.either_hand && length(minus(frame.gun_hand, frame.belt)) < config_.reach_belt;
 		if (!holding_)
 		{
-			if (off_pressed && near_belt && frame.have_grenade)
+			if (off_pressed && off_near_belt && frame.have_grenade)
 			{
 				holding_ = true;
+				holder_ = 0;
 				armed_ = pin_held_ = false;
+				history_count_ = 0;
+				result.event = grenade_event::taken;
+			}
+			else if (gun_pressed && gun_near_belt && frame.have_grenade)
+			{
+				holding_ = true;
+				holder_ = 1;
+				armed_ = pin_held_ = false;
+				history_count_ = 0;
 				result.event = grenade_event::taken;
 			}
 		}
-		else
+		// The holding hand and the pin hand, by who took the grenade.
+		const bool gun_holds = holding_ && holder_ == 1;
+		const v3 holder = gun_holds ? frame.gun_hand : frame.off_hand;
+		const v3 puller = gun_holds ? frame.off_hand : frame.gun_hand;
+		const bool puller_grip = gun_holds ? frame.off_grip : frame.gun_grip;
+		const bool puller_pressed = gun_holds ? off_pressed : gun_pressed;
+		const bool holder_released = gun_holds ? gun_released : off_released;
+		history_[history_next_] = { clock_, holder };
+		history_next_ = (history_next_ + 1) % history_size;
+		history_count_ = history_count_ < history_size ? history_count_ + 1 : history_size;
+		const float pin_distance = length(minus(puller, holder));
+
+		if (holding_ && result.event != grenade_event::taken)
 		{
 			if (!armed_)
 			{
-				if (gun_pressed && pin_distance < config_.reach_pin)
+				if (puller_pressed && pin_distance < config_.reach_pin)
 				{
 					pin_held_ = true;
-					pin_start_ = frame.gun_hand;
+					pin_start_ = puller;
 				}
-				if (pin_held_ && !frame.gun_grip)
+				if (pin_held_ && !puller_grip)
 				{
 					pin_held_ = false; // let go of the pin before pulling it out
 				}
 				if (pin_held_ && pin_distance > config_.reach_pin * 0.5f
-					&& length(minus(frame.gun_hand, pin_start_)) >= config_.pin_pull)
+					&& length(minus(puller, pin_start_)) >= config_.pin_pull)
 				{
 					armed_ = true;
 					pin_held_ = false;
 					result.event = grenade_event::pin_pulled;
 				}
 			}
-			if (off_released)
+			if (holder_released)
 			{
 				const v3 v = release_velocity();
-				result.position = frame.off_hand;
+				result.position = holder;
 				result.velocity = v;
 				if (!armed_)
 				{
@@ -148,8 +166,10 @@ namespace bfvr::weapon
 
 		result.holding = holding_;
 		result.armed = armed_;
-		result.off_busy = holding_ || near_belt;
-		result.gun_busy = holding_ && (pin_held_ || pin_distance < config_.reach_pin);
+		result.hand = holder_;
+		const bool pin_busy = holding_ && (pin_held_ || pin_distance < config_.reach_pin);
+		result.off_busy = gun_holds ? pin_busy : holding_ || off_near_belt;
+		result.gun_busy = gun_holds ? true : pin_busy || (!holding_ && gun_near_belt);
 		return result;
 	}
 }

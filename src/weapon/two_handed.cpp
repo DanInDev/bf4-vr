@@ -14,6 +14,7 @@
 #include "body/arm_pose.hpp"
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
+#include "stereo/aim_depth.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -46,6 +47,7 @@ namespace bfvr::weapon
 		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
 		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
+		std::atomic<bool> holds{};  // the off hand holds the handguard (two-handed hold), for #38's hand-over
 		std::atomic<bool> trigger_toggles{ true };
 		std::atomic<bool> claim_trigger{};
 		std::atomic<ULONGLONG> pulse_until{};
@@ -59,6 +61,8 @@ namespace bfvr::weapon
 		two_hand_output last;
 		float last_shot[3]{};
 		float last_point[3]{};
+		bool hit_valid{};    // report: the dot sits on a surface (reticle_depth)
+		float last_metres{}; // report: the dot's distance
 		bool shot_valid{};
 		std::uint64_t grabs{};
 		LARGE_INTEGER last_update{};
@@ -69,6 +73,7 @@ namespace bfvr::weapon
 			last = {};
 			shot_valid = false;
 			claim = false;
+			holds = false;
 			claim_trigger = false;
 			const float identity[4]{ 0, 0, 0, 1 };
 			const float none[3]{};
@@ -118,24 +123,29 @@ namespace bfvr::weapon
 		const float seconds = last_update.QuadPart ? std::fmin(static_cast<float>(now.QuadPart - last_update.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
 		last_update = now;
 
-		// Index 1 is the gun hand in either handedness (input/handedness).
+		// Index 1 is the gun hand in either handedness (input/handedness). #38: with the gun picked up by
+		// its pistol grip in the off hand, the roles swap: that hand aims, the gun hand may hold the handguard.
+		const bool left_grip = gun_in_off_grip();
+		const int gh = left_grip ? 0 : 1; // on the pistol grip
+		const int oh = 1 - gh;            // may hold the handguard
 		const stereo::hand_sample hands = stereo::latest_hand_sample();
-		if (!hands.valid[1])
+		if (!hands.valid[gh])
 		{
 			clear();
 			return;
 		}
 
 		two_hand_output out;
-		std::copy(std::begin(hands.aim[1].orientation), std::end(hands.aim[1].orientation), out.rotation);
-		if (enabled.load(std::memory_order_relaxed) && !gun_dropped())
+		std::copy(std::begin(hands.aim[gh].orientation), std::end(hands.aim[gh].orientation), out.rotation);
+		// #38: while the off hand carries the gun by the handguard alone there is no two-handed hold to steer it.
+		if (enabled.load(std::memory_order_relaxed) && !gun_dropped() && (!gun_in_off_hand() || left_grip))
 		{
 			two_hand_input input;
-			input.tracked = hands.valid[0];
-			std::copy(std::begin(hands.aim[1].orientation), std::end(hands.aim[1].orientation), input.gun.orientation);
+			input.tracked = hands.valid[oh];
+			std::copy(std::begin(hands.aim[gh].orientation), std::end(hands.aim[gh].orientation), input.gun.orientation);
 			// Wrists, as drawn: the gun's support offset is measured between its hand bones (wrists).
-			body::wrist_of(1, hands.grip[1], input.gun.position);
-			body::wrist_of(0, hands.grip[0], input.off_hand);
+			body::wrist_of(gh, hands.grip[gh], input.gun.position);
+			body::wrist_of(oh, hands.grip[oh], input.off_hand);
 			// The gun's own support point moves with its animations (an empty-gun or reload pose drops
 			// it 10 cm): eased over a third of a second so a locked barrel never jumps.
 			float support[2]{};
@@ -148,11 +158,12 @@ namespace bfvr::weapon
 				}
 				support_known = true;
 			}
-			input.support_offset[0] = support_smoothed[0];
+			// The left hand on the grip holds the handguard's spot mirrored across the gun.
+			input.support_offset[0] = left_grip ? -support_smoothed[0] : support_smoothed[0];
 			input.support_offset[1] = support_smoothed[1];
 			const input::gamepad_state pad = input::latest();
-			input.grip = (pad.buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
-			input.trigger = static_cast<float>(pad.left_trigger) / 255.0f;
+			input.grip = (pad.buttons & (left_grip ? XINPUT_GAMEPAD_RIGHT_SHOULDER : XINPUT_GAMEPAD_LEFT_SHOULDER)) != 0;
+			input.trigger = static_cast<float>(left_grip ? pad.right_trigger : pad.left_trigger) / 255.0f;
 			// A new grab waits while the hand is inside a reload zone; a hold already on the handguard only
 			// ends when the reload really takes the hand (a magazine, the handle), not when it passes a zone.
 			input.busy = grenade_in_hand() || (last.held ? reload_engages_off_hand() : reload_owns_off_hand());
@@ -162,12 +173,12 @@ namespace bfvr::weapon
 			if (out.held && !last.held)
 			{
 				++grabs;
-				bfvr::input::haptic(0, bfvr::input::pulses::grab);
-				bfvr::input::haptic(1, bfvr::input::pulses::tick);
+				bfvr::input::haptic(oh, bfvr::input::pulses::grab);
+				bfvr::input::haptic(gh, bfvr::input::pulses::tick);
 			}
 			else if (!out.held && last.held)
 			{
-				bfvr::input::haptic(0, bfvr::input::pulses::tick);
+				bfvr::input::haptic(oh, bfvr::input::pulses::tick);
 			}
 		}
 		else
@@ -175,6 +186,7 @@ namespace bfvr::weapon
 			grip.reset();
 		}
 		last = out;
+		holds = out.held;
 		bfvr::input::set_two_handed_haptics(out.held);
 		claim = out.claim_grip;
 		const bool by_trigger = trigger_toggles.load(std::memory_order_relaxed);
@@ -197,7 +209,7 @@ namespace bfvr::weapon
 		}
 
 		const float origin[3]{}; // the game camera is the OpenXR LOCAL origin (the eye pose composes onto it)
-		const float metres = convergence.load(std::memory_order_relaxed);
+		float metres = convergence.load(std::memory_order_relaxed);
 		// shot_line = gun: along the gun as drawn (the optic, else Wep_Root, along its barrel), so the
 		// reticle and the bullets sit on what you see; controller: the controller's aim ray.
 		float start[3]{ hands.grip[1].position[0], hands.grip[1].position[1], hands.grip[1].position[2] };
@@ -231,6 +243,15 @@ namespace bfvr::weapon
 			sight_degrees[0] = std::atan2(points.sight_direction[1], points.sight_direction[2]) * 57.29578f;
 			sight_degrees[1] = std::atan2(-points.sight_direction[0], points.sight_direction[2]) * 57.29578f;
 		}
+		// reticle_depth: the dot (and the aim from the camera) at the surface the barrel line meets, from the
+		// scene depth of a few frames ago; aim_convergence when it meets nothing (sky, beyond 80 m).
+		float hit = 0.0f;
+		hit_valid = stereo::aim_hit_distance(hit);
+		if (hit_valid)
+		{
+			metres = std::clamp(hit, 0.5f, 100.0f);
+		}
+		last_metres = metres;
 		converged_aim(origin, start, line, metres, last_shot);
 		const float* q = line;
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
@@ -307,6 +328,11 @@ namespace bfvr::weapon
 		return claim.load(std::memory_order_relaxed);
 	}
 
+	bool off_hand_holds_gun()
+	{
+		return holds.load(std::memory_order_relaxed);
+	}
+
 	input::gamepad_state filter_two_hand_pad(const input::gamepad_state& pad)
 	{
 		input::gamepad_state out = pad;
@@ -333,10 +359,10 @@ namespace bfvr::weapon
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		const two_hand_input& in = last_input;
 		char text[1024];
-		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f aim_controller=%d",
+		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f dot=%.2f%s aim_controller=%d",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
-			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), input::controller_aim_active() ? 1 : 0);
+			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), last_metres, hit_valid ? "(hit)" : "", input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)"

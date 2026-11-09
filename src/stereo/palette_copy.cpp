@@ -24,20 +24,8 @@ namespace bfvr::stereo::palette
 				}
 				continue;
 			}
-			// [R' | t'] = [Rd | td] * [R | t]: R' = Rd R, t' = Rd t + td.
 			float out[12];
-			for (int row = 0; row < 3; ++row)
-			{
-				for (int column = 0; column < 4; ++column)
-				{
-					float sum = column == 3 ? d[row * 4 + 3] : 0.0f;
-					for (int k = 0; k < 3; ++k)
-					{
-						sum += d[row * 4 + k] * m[k * 4 + column];
-					}
-					out[row * 4 + column] = sum;
-				}
-			}
+			multiply(d, m, out);
 			for (int i = 0; i < floats_per_entry; ++i)
 			{
 				m[i] = out[i];
@@ -45,5 +33,35 @@ namespace bfvr::stereo::palette
 			++moved;
 		}
 		return moved;
+	}
+
+	void multiply(const float (&d)[12], const float* entry, float* out)
+	{
+		// [R' | t'] = [Rd | td] * [R | t]: R' = Rd R, t' = Rd t + td.
+		for (int row = 0; row < 3; ++row)
+		{
+			for (int column = 0; column < 4; ++column)
+			{
+				float sum = column == 3 ? d[row * 4 + 3] : 0.0f;
+				for (int k = 0; k < 3; ++k)
+				{
+					sum += d[row * 4 + k] * entry[k * 4 + column];
+				}
+				out[row * 4 + column] = sum;
+			}
+		}
+	}
+
+	void relative_to_root(float* entry, float tag, const float (&root)[3])
+	{
+		const float inverse = tag != 0.0f ? 1.0f / tag : 1.0f;
+		for (int row = 0; row < 3; ++row)
+		{
+			float* r = entry + row * 4;
+			r[0] *= inverse;
+			r[1] *= inverse;
+			r[2] *= inverse;
+			r[3] = (r[3] - root[row]) * inverse;
+		}
 	}
 }
