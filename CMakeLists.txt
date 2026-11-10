@@ -15,7 +15,7 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL bfvr_pointer_size)
 	message(FATAL_ERROR "${BFVR_GAME} needs a ${bfvr_pointer_size}-byte pointer build: use the matching preset (cmake --preset ${BFVR_GAME}).")
 endif()
 
-option(BFVR_BUILD_TESTS "Build the standalone smoke tests" ON)
+option(BFVR_BUILD_TESTS "Build the unit tests (ctest), the smoke test and the audio loopback tool" ON)
 # CI turns this on so a new warning fails the build; it only applies to bf-vr's own code.
 option(BFVR_WARNINGS_AS_ERRORS "Treat compiler warnings in bf-vr code as errors" OFF)
 

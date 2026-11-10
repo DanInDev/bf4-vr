@@ -6,7 +6,11 @@ Read those instead of reconstructing history.
 
 ## Start here
 
-- `README.md` status and controls; `docs/ARCHITECTURE.md` modules and stages; `docs/TOOLING.md` all tools.
+- `README.md` status and controls; `docs/ARCHITECTURE.md` modules, start-up and the frame flow;
+  `docs/FROSTBITE.md` how the mod handles the engine (start there for any engine question);
+  `docs/TOOLING.md` all tools.
+- Battlefield 3 and multiplayer (Venice Unleashed) live in the sibling repository `..\bf3-vr`; BF4's own
+  multiplayer research ended in `re/notes/server.md` (code on the branch `re/local-server`).
 - `re/notes/camera.md` camera hook (BF4 build 179547 addresses), `stereo.md`, `gamepad.md`.
 - `re/notes/typeinfo.md` engine type registry: `tools/typeinfo_dump.py` names classes, fields and
   vtables; `tools/object_probe.py` / `global_scan.py` name live objects (run the dumper once first).

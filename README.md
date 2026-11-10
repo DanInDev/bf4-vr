@@ -1,51 +1,60 @@
 # bf-vr
 
 Hobby research project: VR support for the **Battlefield 4 single-player campaign**
-(Battlefield 3 remains a supported build target) on a Meta Quest 3, in the spirit
+on a Meta Quest 3, in the spirit
 of [Overlord](https://github.com/Aeka0/Overlord) (MW2CR) and the Titanfall 2 VR mod.
 
-Status (2026-10-25):
-- **Head-tracked stereo works in the headset** (alternate-eye rendering through SteamVR), and
-  the first-person gun stays where the soldier aims while the head looks around (headset-tested).
-- Theater mode (a virtual screen) for menus; VR controllers act as an Xbox pad.
-- **Arms follow the controllers** (two-bone IK on the first-person rig, `arm_ik`, default on): both
-  hands track position and rotation and the gun stays in the right hand (headset-tested); bullets
-  still follow the game's aim, and knife-type items rotate the hand wrongly.
-- Per-eye rendering at the headset's aspect, `gun_scale` and a multiplayer guard are built and
-  checked on the monitor.
-- Research tooling: a control pipe (status, screenshots, memory research commands), a TypeInfo
-  dumper and live object naming (`docs/TOOLING.md`, `re/MAPPING.md`).
+Status (2026-11-10): **the campaign is playable in VR with physical gun handling.**
+- Both eyes are rendered from one game frame (pair rendering) with head tracking through SteamVR /
+  Steam Link; menus, loading screens and cutscenes show on a flat virtual screen with a laser pointer.
+- Arms follow the controllers (IK on the game's first-person rig) and hold the gun; shots start at
+  the drawn gun and fly along its barrel; two-handed grip, free hands, holsters on the body.
+- Physical reload, grenades (pin, throw), melee and use by reach; haptics; HUD on its own layer with
+  per-element toggles; in-VR settings panel and a desktop launcher.
+- Open: magnified scopes and sights (#39), laser sights, some gadgets, the grab-zone models (#41).
+  Headset results are in `docs/HEADSET-TESTS.md`; the roadmap is issue #21.
+- Multiplayer: not in BF4 (see `docs/FROSTBITE.md`, last section). That research continues with
+  Battlefield 3 and Venice Unleashed in the separate repository `bf3-vr`.
 
 | Doc | What it covers |
 | --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, start-up, what happens in one frame, build targets |
+| [docs/FROSTBITE.md](docs/FROSTBITE.md) | How the mod reads and changes the engine: camera, two eyes, HUD, skeleton, weapons |
+| [docs/SAFETY.md](docs/SAFETY.md) | Rules that keep your EA account and other games safe: read first |
 | [docs/SETUP.md](docs/SETUP.md) | What is installed, Quest 3 connection |
-| [docs/SAFETY.md](docs/SAFETY.md) | Rules that keep your EA account and other games safe — read first |
-| [docs/FINDINGS.md](docs/FINDINGS.md) | Verified facts about `bf4.exe`, `bf3.exe` and this PC |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modules, stages, BF4 vs BF3 |
-| [docs/TOOLING.md](docs/TOOLING.md) | Runtime selection (Steam Link / Meta Link / simulator), driving BF4, emulation options |
-| [re/README.md](re/README.md) | Reverse-engineering workspace and REA workflow |
-| [re/MAPPING.md](re/MAPPING.md) | Engine elements still to map, with method and session order |
+| [docs/TOOLING.md](docs/TOOLING.md) | Launcher, dev loop, control pipe commands, probes, headset emulation |
+| [docs/HEADSET-TESTS.md](docs/HEADSET-TESTS.md) | What was tested in the headset and what is waiting |
+| [docs/FINDINGS.md](docs/FINDINGS.md) | First verified facts about `bf4.exe`, `bf3.exe` and this PC (2026-10-22) |
+| [docs/tasks/](docs/tasks) | Task briefs per feature area |
+| [docs/venice-unleashed.md](docs/venice-unleashed.md) | Venice Unleashed (BF3 community servers): reference |
+| [re/README.md](re/README.md) | Reverse-engineering workspace and method |
+| [re/MAPPING.md](re/MAPPING.md) | Engine elements, how each was or can be found |
 | [re/symbols/bf4-179547.md](re/symbols/bf4-179547.md) | Verified addresses and offsets for BF4 build 179547 |
-| [re/notes/stereo.md](re/notes/stereo.md) | BF4's built-in stereo settings and the next experiment |
+| [re/notes/](re/notes) | Evidence per topic: camera, stereo, skeleton, weapon, HUD, sound, haptics, server |
 
 ## Layout
 
 ```
 bf-vr/
-├─ docs/            design notes, findings, setup
-├─ re/              reverse-engineering workspace (dumps/projects are git-ignored)
+├─ docs/            architecture, engine handling, safety, setup, tooling, headset tests, task briefs
+├─ re/              reverse-engineering notes and symbols (dumps/projects are git-ignored)
 ├─ src/
-│  ├─ common/       logging
-│  ├─ loader/       dinput8.dll proxy — the game loads this, it starts core
-│  ├─ control/      \\.\pipe\bfvr: status, back-buffer screenshots
-│  ├─ core/         runtime start-up on its own thread
-│  ├─ hooks/        Present and XInput detours (MinHook)
-│  ├─ input/        shared gamepad state
-│  ├─ launcher/     bfvr_launcher.exe: set BF4 up for VR, install/remove the mod, settings, start BF4 (bf4 preset only)
-│  └─ xr/           theater mode, controller actions, runtime selection
-├─ tests/           smoke_theater: hook + OpenXR without the game; launcher_test: install logic
-├─ tools/           check-env.ps1, deploy.ps1, game.ps1, pipe.ps1, package.ps1, console-probe.ps1, bfvr.ini.example
-└─ CMakeLists.txt   presets bf4 (x64, default) and bf3 (Win32); fetches OpenXR SDK and MinHook
+│  ├─ loader/       dinput8.dll proxy: the game loads this, it starts core
+│  ├─ core/         start-up order, settings fan-out, per-frame tick
+│  ├─ common/       log, bfvr.ini, live settings registry and catalogue
+│  ├─ safety/       multiplayer guard
+│  ├─ hooks/        Present, swap chain, game window, XInput, rumble (MinHook)
+│  ├─ xr/           OpenXR session, layers, controller actions, runtime selection
+│  ├─ stereo/       camera hook, both eyes per frame, HUD layer, scope, foveation, extra meshes
+│  ├─ body/         arm IK, fingers, torso on the first-person rig
+│  ├─ input/        virtual pad, button map, turn, stance, gestures, haptics
+│  ├─ weapon/       reload, grenades, holsters, two hands, shot origin, sounds
+│  ├─ ui/           in-VR settings panel, overlays, HUD element toggles
+│  ├─ control/      \\.\pipe\bfvr: status, screenshots, research commands
+│  └─ launcher/     bfvr_launcher.exe: set BF4 up for VR, install/remove the mod, settings, start (bf4 preset only)
+├─ tests/           unit tests of the engine-free code (ctest), launcher_test, smoke_theater
+├─ tools/           dev-run, pipe, deploy, package, probes (python), bfvr.ini.example
+└─ CMakeLists.txt   presets bf4 (x64, the product) and bf3 (Win32, engine-free part only); fetches OpenXR SDK and MinHook
 ```
 
 ## Quick start

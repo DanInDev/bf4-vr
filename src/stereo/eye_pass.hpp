@@ -8,7 +8,8 @@
 
 namespace bfvr::stereo
 {
-	// Research: per-eye rendering from one game frame (docs/tasks/per-eye-rendering.md, approach 2).
+	// Pair rendering (stereo_render = pair, the default): both eyes from one game frame
+	// (docs/tasks/per-eye-rendering.md, approach 2; started as research, hence the mode flags).
 	// Wraps the world renderer's per-view render 0x140CE7EA0 (render thread; G-buffer, shadows,
 	// lighting, tonemap into the back buffer) and calls it twice per frame for view slot 0, the
 	// second time with the camera moved sideways. The frame-level work around it (sub-renderer

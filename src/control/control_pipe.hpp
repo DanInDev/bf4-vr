@@ -12,7 +12,8 @@ namespace bfvr::control
 	//   dump <path>     in-memory (decrypted) game image as a PE file for local analysis only
 	//   peek <addr> <n> n bytes of game memory as hex (research; unreadable addresses fail cleanly)
 	//   watch <addr> [len] [ms]  instructions that write addr (hardware breakpoint, research)
-	//   help
+	//   help            every command with its arguments (about 75; docs/TOOLING.md describes them)
+	// Memory and experiment commands need research = 1 (config::research_enabled).
 	using status_provider = std::string (*)();
 
 	void start(status_provider provider);

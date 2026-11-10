@@ -1,7 +1,7 @@
 # Environment setup
 
-Besides the Quest 3, you need a PC-VR connection, a 32-bit C++ toolchain, and a
-reverse-engineering kit. Run `tools/check-env.ps1` at any time to see the
+Besides the Quest 3, you need a PC-VR connection, a C++ toolchain (x64 for BF4; x86 only
+for the `bf3` preset), and a reverse-engineering kit. Run `tools/check-env.ps1` at any time to see the
 current state.
 
 ## 1. Already on this PC
@@ -15,7 +15,7 @@ current state.
 | Node.js 24.11.1 (REA needs ≥ 24.11) | ✅ |
 | Python 3.14 | ✅ |
 | Meta Horizon Link with **32-bit** OpenXR runtime registered | ✅ |
-| SteamVR, EA app, Battlefield 3 | ✅ |
+| SteamVR, EA app, Battlefield 4 (and Battlefield 3) | ✅ |
 | GPU/CPU (RTX 5070, 9800X3D) — ample for a 2013 game at Quest 3 resolution | ✅ |
 
 ## 2. Reverse-engineering kit (installed 2026-10-22)
@@ -24,7 +24,7 @@ current state.
 | --- | --- | --- |
 | Temurin **JDK 21** | `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot`; user `JAVA_HOME` points here | Ghidra 12.1.x and REA |
 | **Ghidra 12.1.4** | `C:\Tools\ghidra_12.1.4_PUBLIC`; user `GHIDRA_INSTALL_DIR` | REA 6.7 is validated against 12.1.x. Do not take 12.2 until REA supports it |
-| **x64dbg / x32dbg** | winget package; `x32dbg` command alias | Attach to the running 32-bit game |
+| **x64dbg / x32dbg** | winget package; `x32dbg` command alias | Debugger for the running game (x64 for BF4, x32 for BF3); the pipe's `watch`/`peek` cover most needs |
 | **RenderDoc 1.46** | `C:\Program Files\RenderDoc` | D3D11 frame captures |
 | **REA 6.7.0** | `%APPDATA%\npm`; registered for Claude Code in `~/.claude.json` | Lets Claude Code drive Ghidra over MCP. `rea doctor`'s Hopper/IDA/JADX/Kuna and other-client warnings are expected and harmless |
 
@@ -55,12 +55,14 @@ Added later by CMake, with nothing to install by hand: the OpenXR SDK loader and
 
 ## 3. Quest 3 connection
 
-The game is 32-bit, so the OpenXR runtime must provide a 32-bit build.
+BF4 is 64-bit; `xr_runtime` in `bfvr.ini` picks the runtime for the game process only
+(docs/TOOLING.md). A 32-bit game (BF3) needs a 32-bit runtime: SteamVR has one, Meta's crashes
+(docs/FINDINGS.md).
 
-| Option | 32-bit OpenXR | Recommendation |
+| Option | Status | Recommendation |
 | --- | --- | --- |
-| **Meta Horizon Link** (USB-C cable or Air Link) | ✅ verified in registry | **Use this first.** A USB 3 cable gives the most reliable latency for debugging |
-| SteamVR via Steam Link | ✅ `steamxr_win32.json` present | Fallback; select it with `XR_RUNTIME_JSON` |
+| **Steam Link** (Quest 3 over Wi-Fi through SteamVR) | ✅ used for all headset tests | **Default.** `xr_runtime = auto` picks SteamVR when it runs |
+| Meta Horizon Link (USB-C cable or Air Link) | ✅ session created in the smoke test (x64) | Fallback: `auto` without SteamVR, or `system` |
 | Virtual Desktop (VDXR) | not installed | Optional later |
 
 Air Link needs a Wi-Fi 6/6E router near the play area, with the PC on Ethernet.
@@ -68,5 +70,5 @@ Air Link needs a Wi-Fi 6/6E router near the play area, with the PC on Ethernet.
 ## 4. Before each session
 
 1. Close Battlefield 6 and confirm `EAAntiCheatService` is stopped.
-2. Connect the Quest via Link and confirm the Meta Horizon runtime is active.
-3. Start the BF3 campaign **offline / single-player only**.
+2. Connect the Quest through Steam Link (SteamVR running).
+3. Start the BF4 campaign, **single-player only** (`tools\dev-run.ps1 -Resume` or the launcher).

@@ -51,5 +51,7 @@ pages say they were last edited 2020-2024). Not affiliated with EA/DICE.
 
 ## For bf4-vr
 
-A possible later route to VR beyond the campaign: the `bf3` preset on a private VU server with bots,
-never on official servers (`docs/SAFETY.md`). First find out how VU treats an injected DLL.
+The BF3 + Venice Unleashed work has its own repository, `bf3-vr` (sibling folder): its
+`docs/RESEARCH.md` holds the fuller research of 2026-11-10 (injected DLLs under VU, launch
+arguments, the Lua camera and input hooks, BF3's stereo settings, the local server recipe) and the
+plan. Never on official servers (`docs/SAFETY.md`).

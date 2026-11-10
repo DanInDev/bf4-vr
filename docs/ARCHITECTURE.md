@@ -1,100 +1,149 @@
-# Architecture and roadmap
+# Architecture
 
-The design borrows Overlord's proven split: a thin loader, then infrastructure
-(hooks, VR runtime, rendering), then gameplay on top. Gameplay code never talks
-to the VR runtime directly; it consumes one published input/pose snapshot per frame.
+How the mod is built, as of 2026-11-10 (`main`). How it reads and changes the game engine is in
+[FROSTBITE.md](FROSTBITE.md); addresses are in [`re/symbols/bf4-179547.md`](../re/symbols/bf4-179547.md).
+
+## In one picture
 
 ```
-bf4.exe ──loads──► dinput8.dll (src/loader)          proxy: forwards DirectInput8Create
+bf4.exe ──loads──► dinput8.dll (src/loader)        proxy: forwards DirectInput8Create, starts core
                         │
                         ▼
-                 core (src/core)                       start-up, config, log
+                 core (src/core)                    start-up order, settings fan-out, per-Present tick
                         │
-     ┌──────────────────┼──────────────────────┐
-     ▼                  ▼                      ▼
- hooks (MinHook)   render (D3D11/DXGI)     xr (OpenXR)
- engine functions  Present hook, eye       session on the game's D3D11 device,
- by fixed address  targets, stereo path    swapchains, poses, actions
-     │                  │                      │
-     └──────────► camera ◄─────────────────────┘    per-eye view/projection
-                        │
-                        ▼
-                 input / gameplay                   controller → game input, aim, later hands
+   ┌──────────────┬─────┴────────┬──────────────────┬───────────────┐
+   ▼              ▼              ▼                  ▼               ▼
+ safety         hooks          stereo             xr              control
+ MP guard       Present,       camera, both       OpenXR          pipe: status, shots,
+                XInput,        eyes per frame,    session,        research commands
+                window,        HUD layer, scope   layers, hands
+                swap chain
+                                 │                  ▲
+          ┌──────────────┬───────┴──────┐           │ latest head / hand / rendered-view samples
+          ▼              ▼              ▼           │ (src/stereo/tracking.hpp)
+        body           input          weapon ───────┘
+        arm IK,        pad, turn,     reload, grenades, holsters,
+        fingers        stance, aim    two hands, shot origin        ui: settings panel, overlays
 ```
 
-Implemented: `loader`, `common`, `core`, `hooks` (Present only) and `xr` (theater
-mode). The present hook currently feeds `xr` directly; `render`, `camera`, `ui`
-and `input` are added when their stage starts.
+The design follows Overlord's split: a thin loader, then infrastructure (hooks, VR runtime,
+rendering), then gameplay on top. Gameplay code never calls OpenXR: it reads the latest published
+head and hand samples and writes a virtual gamepad.
 
-### Theater mode (stage 1) as built
+Two rules shape most files:
 
-- `core::start()` runs from `DllMain` on a new thread, creates the theater and installs the Present hook.
-- The hook reads the `Present` address from a throwaway swap chain on a hidden window, then detours it with MinHook.
-- On each game Present, `xr::theater`:
-  1. Lazily creates the OpenXR instance (`XR_KHR_D3D11_enable`), finds the headset (retrying every 2 s while none is available), checks the adapter LUID and creates the session on **the game's own device**.
-  2. Each frame: `xrWaitFrame` (paces the game to the headset), copies the back buffer into an sRGB swap chain of the same format family, and submits one quad layer 2.5 m ahead, 3 m wide, in LOCAL space.
-  3. Handles READY/STOPPING/EXITING/LOSS_PENDING, device recreation and window resizes. It gives up after 30 consecutive frame errors.
-- `xrWaitFrame` runs on a dedicated waiter thread. Present submits only when a headset frame is ready and never blocks, so a throttled headset (taken off, dashboard open) cannot slow the game. Each waited frame is always begun and ended, then the next wait is requested.
-- Controller actions (Oculus Touch bindings) are synced on each Present and published as an Xbox pad. The XInput hook merges that pad into `XInputGetState(0)` in every loaded XInput DLL.
-- Open risks: a single-threaded D3D11 device, an MSAA back buffer (shows an empty frame) and Present called from multiple threads. Under investigation: 6.8 fps observed while SteamVR held the session in `SYNCHRONIZED`; per-call timings in `pipe.ps1 status` will show which call blocks.
+- **Engine-free logic is separate from the game adapter.** A state machine or a piece of maths sits
+  in its own file with a unit test (`weapon/reload`, `weapon/two_hand`, `stereo/eye_math`,
+  `body/arm_ik`); a second file connects it to BF4 (`weapon/physical_reload`, `weapon/two_handed`,
+  `stereo/camera_hook`, `body/arm_pose`). The similar names are the two halves of one feature.
+- **Every feature has a live setting** (`common/settings_store.cpp`), a row on the in-VR panel and
+  the launcher (`common/setting_catalog.cpp`) and a line in `tools/bfvr.ini.example`.
 
-## Module responsibilities
+## Start-up
 
-| Module | Responsibility | Key unknowns to reverse-engineer |
+`DllMain` only logs and starts one thread (nothing else under the loader lock). That thread
+(`core.cpp`) runs in this order:
+
+1. `safety`: stop here on a multiplayer command line; start the level guard thread.
+2. Load `bfvr.ini` into the settings registry.
+3. Swap chain hooks (before the game creates its swap chain).
+4. Engine hooks: camera, HUD capture, arm pose, shot origin. Each waits on its own short-lived
+   thread until the DRM has decrypted the code and the expected bytes are there.
+5. Control pipe (`\\.\pipe\bfvr`).
+6. The OpenXR "theater" object (never destroyed: tearing the runtime down at process exit can deadlock).
+7. Present hook; then HUD widgets, XInput hooks, rumble hook and VR controls.
+
+Installed later, when first needed: the per-view render hook (first stereo frame), the D3D11
+context hooks (first eye pass), the HUD hooks (first matching Present).
+
+## One frame
+
+Four threads take part. They exchange data only through the lock-free "latest sample" slots in
+`stereo/tracking.hpp`.
+
+| Thread | Entry point | What happens |
 | --- | --- | --- |
-| `loader` | Be loaded as `dinput8.dll`, forward to the system DLL, start `core` | none |
-| `core` | Logging, config file, module start/stop order | none |
-| `hooks` | Install/remove MinHook detours, verify bytes before patching (as Overlord does) | target function addresses (code only exists decrypted in memory) |
-| `render` | Hook `IDXGISwapChain::Present`, own eye render targets, drive the engine's stereo path | where Frostbite selects left/right eye; render target creation |
-| `xr` | OpenXR instance/session bound to the game's D3D11 device, swapchains, frame loop, actions | none (standard API) |
-| `camera` | Replace view/projection per eye with HMD pose and per-eye FOV | camera/view-matrix structures (use `typeinfo`) |
-| `ui` | Capture the Scaleform HUD/menus into a quad/cylinder layer | HUD render pass |
-| `input` | OpenXR actions → game input (sticks, buttons), later decoupled aim | input/command structures |
-| `launcher` | Separate desktop exe: finds BF4, checks the build, installs/removes the proxy, edits `bfvr.ini`, starts the game; never loads the mod itself | none |
+| XR waiter (ours) | `xr/theater.cpp` | `xrWaitFrame`, locate both eyes, publish the head sample. Hidden frames are begun and ended here, so a headset that is taken off never slows the game |
+| Game thread | `stereo/camera_hook.cpp`, on the engine's per-frame view copy | Stick turn; menu / cutscene / level check (flat screen or head-tracked); left eye pose and a symmetric cropped FOV written into the camera; controller aim (camera at the body yaw, aimer along the gun); physical stance; gun size; scope planning; publishes what was rendered |
+| Animation jobs | `body/arm_pose.cpp`, on the pose conversion | First-person rig after animation, before skinning: arm IK to the controllers, gun on the hand, fingers, torso; publishes the gun's points (magazine, slide, sight line) |
+| Render thread | `stereo/eye_pass.cpp`, on the per-view world render | Renders the view **twice in one game frame**: left eye, then every constant buffer the left eye used is copied, patched for the right eye and redirected, then the right eye. An optional third render fills a magnified scope. Foveation (NVIDIA VRS) and extra meshes (second magazine, held grenade) attach here |
+| Render thread | `stereo/hud_capture.cpp`, on the UI render | The HUD is drawn into its own transparent texture instead of the eye image; the scene depth along the shot line gives the aim dot's distance |
+| Render thread | `core.cpp` `on_present` → `xr/theater.cpp` | Settings fan-out, weapon and UI updates, controller sync, then one OpenXR frame: a projection layer with exactly the pose and FOV each eye was rendered with, plus quad layers (vignette, HUD pieces, held grenade, scope lens, reticle, settings panel). Menus, loading screens and cutscenes go out as a flat screen with a laser pointer |
 
-## Stages
+`stereo_render = pair` (both eyes per game frame) is the default; `aer` (one eye per frame,
+alternating) is the older path and still works.
 
-| Stage | Goal | Done when |
+## Modules
+
+| Folder | Responsibility | Talks to the engine? |
 | --- | --- | --- |
-| **0. In-process** | Our DLL loads inside the game and logs | `bfvr.log` shows the game exe, matching `pointer_bits` (BF4: 64) and a forwarded `DirectInput8Create` |
-| **1. Theater mode** | OpenXR session shows the flat game on a virtual screen in the Quest | Campaign playable on a floating screen; proves D3D11 ↔ OpenXR inside the game process |
-| **2. Head-tracked stereo** | Each eye from the HMD pose via alternate-eye rendering (the engine has no usable stereo path; see `re/notes/stereo.md`). **Implemented behind `stereo = 1`; camera control verified on screen, headset test pending** (`re/notes/camera.md`) | 3D world with correct scale and head tracking; gamepad controls |
-| **3. Arms and weapon (top priority after the camera)** | Visible arms and shoulders IK-solved to the tracked controllers, holding the weapon; weapon direction from the controller | You see your hands on the gun and shoot where you point |
-| **4+. Full VR** | Weapon handling (reloads, grenades), utility interactions, scripted-scene camera rules | Overlord-like interactions; vehicles stay on the joystick for now |
+| `loader` | `dinput8.dll` proxy; wraps the game's DirectInput so it sees a virtual pad | no |
+| `core` | Start-up order, settings fan-out, per-Present tick, status text | no |
+| `common` | Log, `bfvr.ini`, the settings registry, the setting catalogue (names and pages for the panel and launcher) | no |
+| `safety` | Multiplayer guard: command-line check and a level check four times a second; a multiplayer level disables every hook for the rest of the process | reads the level |
+| `hooks` | Present, swap chain and output (virtual render size), game window (focus, cursor, raw input keys), XInput, rumble; two opt-in probes (`dxgi_probe`, `nvapi_hook`) left from the 3D Vision investigation | mostly Windows APIs |
+| `xr` | OpenXR instance and session on the game's own D3D11 device, waiter thread, composition layers, controller actions, runtime selection | no |
+| `stereo` | Camera hook, pair rendering and constant patching, HUD capture and layout, scope, foveation, extra meshes, aim depth, gun pass FOV, cutscene and walk-sway filters | yes: the centre of it |
+| `body` | Arm IK, fingers, grips, torso, recoil on the first-person rig | `arm_pose` only |
+| `input` | Virtual pad, button map, trigger latch, right stick (turn and stance), gestures, pointer, haptics mixer, handedness; `vr_controls` reads and writes the game's aim, stance and health | `vr_controls`, half of `virtual_pad` |
+| `weapon` | Physical reload, grenades, holsters and weapon swap, two-handed grip, free hands, melee, use reach, shot origin, hit feedback, reload sounds | the adapter half of each feature |
+| `ui` | In-VR settings panel, vignette, reticle, held grenade overlay, HUD element toggles | `hud_widgets` only |
+| `control` | The pipe server and its commands; research tools: crash log, frame trace, thread stacks, hardware watchpoint | generic memory access |
+| `launcher` | `bfvr_launcher.exe` (bf4 preset only): finds BF4, checks the build, installs or removes the DLL, sets BF4 up for VR, edits `bfvr.ini`, starts the game. Never loads the mod | no |
 
-End goal, set by the user 2026-10-23: Overlord-level quality. Its most valuable parts are the
-skeleton (arms/shoulders), weapon handling and utility interactions, so stage 3 follows the camera
-directly.
+`stereo/world_pass.cpp` is research only (rendering the whole world module twice crashes); it is
+kept as a record and is reachable only through research pipe commands.
 
-Stage 1 is the recommended first VR milestone. It needs no reverse engineering,
-and every later stage builds on it.
+## Settings
 
-## Target game: BF4 vs BF3
+- **Start-up keys** (`common/config`): read once from `bfvr.ini` beside the game exe, with a
+  `BFVR_<KEY>` environment override (`theater`, `stereo`, `xr_runtime`, `render_size`, `research`, …).
+- **Live settings** (`common/settings`, `settings_store`): one typed registry. A change bumps its
+  revision; on the next Present `core::apply_settings()` pushes the values into the modules. Changes
+  come from the pipe (`setting list|get|set|step|reset|save`), the in-VR panel or the launcher, and
+  reach the file only on `save` (comments and other keys are kept).
 
-The code targets either game; `BFVR_GAME` and the CMake presets (`bf4` x64,
-`bf3` x86) select the architecture. BF4 is the current default.
+## Control pipe and research mode
 
-| Aspect | BF3 | BF4 | Effect of choosing BF4 |
-| --- | --- | --- | --- |
-| Process | x86, 4 GB limit | **x64** | Easier: room for eye targets, standard x64 hooking and tooling |
-| Type layouts | `typeinfo` readable on disk | encrypted on disk | Harder: dump from the running game or use Frosty's BF4 SDK profile |
-| Asset/campaign data tooling | thin | **Frosty: full BF4 support** | Easier: inspect and tweak cameras, HUD and level logic as data |
-| Built-in stereo | official (2011 patch) | strings present, not advertised | Must be verified first; stage 2 risk |
-| Renderer | DX11 | DX11 or Mantle | Force DX11 |
-| Anti-cheat | PunkBuster | PunkBuster (+ server-side FairFight) | Same rules |
-| Launch | `bf3.exe` | `BFLauncher.exe` → `bf4.exe` | Confirm the x64 binary is what runs |
+`\\.\pipe\bfvr`, one text command per connection, local clients only (`tools\pipe.ps1`). `status`,
+screenshots, settings and each feature's state report are always available; memory and experiment
+commands (`dump`, `peek`/`poke`, `watch`, `scan`, `fakehead`, `pad`, `eyepass`, …) need
+`research = 1` (the default in Debug builds). The full list is in [TOOLING.md](TOOLING.md).
 
-| Meta 32-bit OpenXR runtime | crashes in `xrCreateSession` (smoke test) | x64 runtime works | BF3 via Meta Link is blocked; BF3 would need SteamVR |
+## Build
 
-Net: the stages and modules stay the same. BF4 lowers risk in stages 0–1 and in
-data work, but moves the "stereo path exists" question to the front.
+| Target | Content |
+| --- | --- |
+| `bfvr_common` | Engine-free base: log, config, settings, button map |
+| `bfvr_runtime` | Everything else that runs in the game |
+| `bfvr_loader` | `dinput8.dll` |
+| `bfvr_launcher` | Launcher (bf4 preset only) |
+| tests | 31 ctest unit tests of the engine-free halves, `bfvr_launcher_test`, and `bfvr_smoke_theater` (hooks and OpenXR without the game) |
 
-## Stage 0 procedure (manual, when ready)
+MinHook and the OpenXR loader are fetched by CMake. Presets: `bf4` (x64, the product) and `bf3`
+(Win32).
 
-1. `cmake --preset bf4` then `cmake --build --preset bf4-debug`
-2. Read [SAFETY.md](SAFETY.md). Close Battlefield 6 and BF4.
-3. `tools\deploy.ps1 -Action deploy` (refuses while the game runs or a foreign `dinput8.dll` exists).
-4. Start the campaign, then `tools\deploy.ps1 -Action status` shows the last log lines from `E:\EA\Battlefield 4\bfvr.log`.
-5. `tools\deploy.ps1 -Action remove` before any multiplayer.
+### What the `bf3` preset is
 
-For BF3, use the `bf3` presets and `E:\EA\Battlefield 3\`.
+Both presets compile the same sources. All BF4 knowledge sits behind `#if defined(_M_X64)`, so the
+32-bit build is the engine-free part only: loader, settings, Present and XInput hooks, the flat
+theater screen and the control pipe. It has no camera, arms, HUD layer or weapon features, and
+**no level guard** (only the command-line check). Battlefield 3 work continues in its own
+repository, `bf3-vr`; the preset stays here so the shared code keeps building for x86.
+
+## Known debts
+
+- **Engine constants are spread over the files that use them.** The local soldier pointer is
+  defined in 8 files, the soldier-to-weapon chain in 5, the renderer pointer in 3, and 10 files have
+  their own memory-read helper. The registry is the document `re/symbols/bf4-179547.md`, not a
+  header. A port to another build or game should start by collecting them in one place.
+- `OMSetRenderTargets` is hooked by two modules (`hud_capture`, `scope_scissor`) that hand calls to
+  each other by convention.
+- Seven settings are read both as start-up keys and as live settings (two sources of defaults).
+
+## History
+
+Built in stages, each proven before the next: 0 the DLL loads and logs; 1 theater mode (flat screen
+in the headset); 2 head-tracked stereo, first alternate-eye, then both eyes per frame; 3 arms and
+weapon on the controllers; 4 weapon handling (reload, grenades, holsters, two hands, scopes). Open
+work is tracked in GitHub issues; the roadmap is issue #21.

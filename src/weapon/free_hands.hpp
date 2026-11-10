@@ -2,7 +2,7 @@
 
 #include "weapon/reload_hands.hpp"
 
-// Free hands (#35, setting free_hands, default off): the gun is held only while the gun hand squeezes
+// Free hands (#35, setting free_hands, default on): the gun is held only while the gun hand squeezes
 // its grip. Let go for release_seconds and it drops to the floor below the hand, lying there (drawn by
 // body/arm_pose) while the game keeps the weapon; the trigger does nothing. Reach down to it and grip
 // to pick it up again. Drawing another weapon (holsters) or the game switching weapons ends the drop.

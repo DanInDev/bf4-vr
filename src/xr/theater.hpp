@@ -29,7 +29,9 @@ namespace bfvr::xr
 		std::uint64_t held_grenade_frames{}; // frames that showed the grenade in the off hand
 	};
 
-	// Stage 1: shows the game's back buffer on a virtual screen in the headset.
+	// The OpenXR side of the mod: the flat virtual screen (menus, cutscenes), the head-tracked
+	// projection layer from the stored eye images, and the quad layers on top (HUD, scope lens,
+	// vignette, reticle, held grenade, settings panel, pointer). docs/ARCHITECTURE.md "One frame".
 	// The OpenXR session uses the game's own D3D11 device. Every call must come
 	// from the thread that presents the swap chain.
 	class theater
