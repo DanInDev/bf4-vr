@@ -18,6 +18,9 @@ namespace bfvr::weapon
 	{
 		optic_kind kind{ optic_kind::none };
 		float magnification{ 1.0f }; // nominal (magnified scopes; the magnifier's measured 1.73)
+		// The lens is see-through without the game's aim (the SCAR-H's EOTech, live); the AK-12's PK-AS
+		// is black at the hip. Unknown optics count as not clear.
+		bool clear_at_hip{};
 	};
 
 	// One unlock name; the weapon part before the optic suffix does not matter.
@@ -30,6 +33,10 @@ namespace bfvr::weapon
 		bool magnifier{};
 		bool magnified{};
 		float magnification{ 1.0f }; // the magnified scope's nominal zoom
+		bool reflex_clear{};          // the red dot or holo is see-through at the hip
 	};
+	// sight_ads: does this gun need the game's aim to see through its sight? Not for a clear holo alone
+	// (the game then draws no reticle of its own and walks at full speed); yes for everything else.
+	bool needs_game_aim(const gun_optics& gun);
 	void add_optic(gun_optics& gun, const char* unlock_name);
 }

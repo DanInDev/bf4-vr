@@ -118,7 +118,7 @@ namespace bfvr::settings
 			{ "aim_with_body", kind::boolean, 0, 0, 0, "1", "", "with shots_from_gun: the game's own aim stays with the body, so its first-person body never turns with the gun (off: the game aims with the gun, as before)" },
 			{ "shots_from_gun", kind::boolean, 0, 0, 0, "1", "", "aim = controller: bullets start at the drawn gun's sight line and fly along its barrel (off: from your eyes towards the point 25 m along it)" },
 			{ "shot_line", kind::choice, 0, 0, 0, "gun", "gun|controller", "aim = controller: shots and the dot follow the gun as drawn (its sight), or the controller's pointing ray" },
-			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy)" },
+			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy); not for a clear holo while hip_accuracy is 1" },
 			{ "sight_dot", kind::boolean, 0, 0, 0, "1", "", "guns with an optic: a red dot at infinity along the sight line, seen only by an eye that looks through the lens, aiming or not (the game's own reticle follows the view's centre, not the sight)" },
 			{ "hip_accuracy", kind::real, 0.0f, 1.0f, 0.1f, "1", "", "hip-fire spread of your weapons: 1 = as tight as aiming down sights (sights work without the game's aim), 0 = the game's 3-7 degree hip cone" },
 			{ "sight_dot_size", kind::real, 0.1f, 1.0f, 0.05f, "0.3", "", "sight dot size, degrees (the glow; the bright core is about half)" },

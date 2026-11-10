@@ -18,6 +18,7 @@
 #include "stereo/tracking.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
+#include "weapon/hip_accuracy.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/sight_state.hpp"
 #include "weapon/two_hand.hpp"
@@ -312,7 +313,11 @@ namespace bfvr::weapon
 			}
 			// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
 			stay = stay || ticks - last_trigger_at < 400;
-			if (sight_ads.load(std::memory_order_relaxed))
+			// A clear holo alone needs no game aim once the hip is as accurate as ADS (hip_accuracy 1): the
+			// game then draws no reticle of its own over ours and walks at full speed.
+			const sight_state sight = read_sight_state();
+			const bool game_aim = !sight.attachments_known || needs_game_aim(sight.optics) || hip_accuracy_strength() < 0.99f;
+			if (sight_ads.load(std::memory_order_relaxed) && game_aim)
 			{
 				aiming = sight_latch.update(enter, stay, seconds, sight_leave_hold_seconds);
 			}
@@ -324,7 +329,6 @@ namespace bfvr::weapon
 			// the game draws no reticle of its own; the AK-12's red dot lens stays black until sight_ads aims.
 			// Only for a red dot or holo among the gun's attachments (iron sights and scopes have none of
 			// ours); while the attachments cannot be read, as before.
-			const sight_state sight = read_sight_state();
 			if (points.has_optic && (!sight.attachments_known || sight.optics.reflex))
 			{
 				dot_line.valid = true;

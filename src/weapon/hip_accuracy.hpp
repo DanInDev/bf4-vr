@@ -18,6 +18,7 @@ namespace bfvr::weapon
 		float (&out)[dispersion_floats]);
 
 	void set_hip_accuracy(float strength);
+	float hip_accuracy_strength();
 	// Present thread, once per frame: patches newly seen weapons, follows a changed strength.
 	void update_hip_accuracy();
 	// Pipe "hipaccuracy": strength, patched weapons, the current weapon's standing hip and zoom angles.

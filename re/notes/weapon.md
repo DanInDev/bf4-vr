@@ -373,6 +373,11 @@ nominal zoom, the magnifier; unit-tested; only PK-AS, EOTech and Magnifier seen 
 unreadable attachments keep the old behaviour), and the scope at the hip falls back to a magnified
 optic's nominal zoom before the game has shown it.
 
+**No game aim for a clear holo**: `weapon/optics::needs_game_aim` is false for a gun whose only optic
+is a holo (EOTech, clear at the hip, no game reticle there). With `hip_accuracy` at 1, `sight_ads` then
+leaves the game's aim alone: no game reticle over the dot and full walking speed. Monitor: AK-12
+aims (`aiming=1`), SCAR-H does not (`aiming=0`, dot shown), SCAR-H with `hip_accuracy 0` aims again.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

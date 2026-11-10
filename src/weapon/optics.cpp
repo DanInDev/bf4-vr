@@ -12,14 +12,15 @@ namespace bfvr::weapon
 			const char* suffix;
 			optic_kind kind;
 			float magnification;
+			bool clear_at_hip = false;
 		};
 		// Matched on the part after the weapon's name, without case or separators ("PK-AS" == "pkas").
 		// Reflex sights first: "pkas" must not fall to the magnified "pka".
 		constexpr entry table[] = {
 			{ "magnifier", optic_kind::magnifier, 1.73f },
 			{ "pkas", optic_kind::reflex, 1.0f },
-			{ "eotech", optic_kind::reflex, 1.0f },
-			{ "holo", optic_kind::reflex, 1.0f },
+			{ "eotech", optic_kind::reflex, 1.0f, true },
+			{ "holo", optic_kind::reflex, 1.0f, true },
 			{ "kobra", optic_kind::reflex, 1.0f },
 			{ "rds", optic_kind::reflex, 1.0f },
 			{ "reflex", optic_kind::reflex, 1.0f },
@@ -66,7 +67,7 @@ namespace bfvr::weapon
 		{
 			if (std::strncmp(suffix, e.suffix, std::strlen(e.suffix)) == 0)
 			{
-				return { e.kind, e.magnification };
+				return { e.kind, e.magnification, e.clear_at_hip };
 			}
 		}
 		return {};
@@ -79,6 +80,7 @@ namespace bfvr::weapon
 		{
 		case optic_kind::reflex:
 			gun.reflex = true;
+			gun.reflex_clear = optic.clear_at_hip;
 			break;
 		case optic_kind::magnifier:
 			gun.magnifier = true;
@@ -90,5 +92,10 @@ namespace bfvr::weapon
 		default:
 			break;
 		}
+	}
+
+	bool needs_game_aim(const gun_optics& gun)
+	{
+		return !(gun.reflex && gun.reflex_clear && !gun.magnifier && !gun.magnified);
 	}
 }

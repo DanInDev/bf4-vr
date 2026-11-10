@@ -152,6 +152,11 @@ namespace bfvr::weapon
 		strength = value;
 	}
 
+	float hip_accuracy_strength()
+	{
+		return strength.load(std::memory_order_relaxed);
+	}
+
 	void update_hip_accuracy()
 	{
 #if defined(_M_X64)

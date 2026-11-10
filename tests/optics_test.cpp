@@ -60,6 +60,18 @@ int main()
 	gun_optics acog;
 	add_optic(acog, "U_M16A4_ACOG");
 	expect(acog.magnified && std::fabs(acog.magnification - 4.0f) < 1e-4f && !acog.reflex, "a 4x scope");
+
+	// sight_ads: only the clear holo alone goes without the game's aim.
+	expect(!needs_game_aim(scar), "the SCAR-H's EOTech is clear at the hip");
+	expect(needs_game_aim(ak), "the AK-12's PK-AS is black at the hip (and carries the magnifier)");
+	gun_optics pkas;
+	add_optic(pkas, "U_AK12_PK-AS");
+	expect(needs_game_aim(pkas), "a PK-AS alone");
+	expect(needs_game_aim(irons) && needs_game_aim(acog), "iron sights and scopes keep the game's aim");
+	gun_optics holo_scope;
+	add_optic(holo_scope, "U_X_EOTech");
+	add_optic(holo_scope, "U_X_ACOG");
+	expect(needs_game_aim(holo_scope), "a holo with a scope");
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);
