@@ -97,4 +97,12 @@ namespace bfvr::body::contact
 	// its body pivot_drop below the top. seated: its rotation relative to that frame (Wep_Root, +z along
 	// the barrel, +y up). Positive turns the top towards the gun's left (+x).
 	void tilt_magazine(ik::vec3& top, ik::quat& rotation, ik::quat seated, float angle, float pivot_drop);
+
+	// A held magazine's body (top: the magazine bone, rotation: its bone rotation, seated: its rotation
+	// relative to the gun frame): it hangs below the top along the gun frame's -y.
+	box magazine_box(ik::vec3 top, ik::quat rotation, ik::quat seated, const magazine_size& size);
+
+	// #40, palming: the caught magazine held beside the new one, parallel to it, one width plus gap towards
+	// the gun frame's -x (the inside, away from where the new one leans), so the two bodies never cross.
+	void beside_magazine(ik::vec3& top, ik::quat rotation, ik::quat seated, const magazine_size& size, float gap);
 }

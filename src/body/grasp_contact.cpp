@@ -106,4 +106,20 @@ namespace bfvr::body::contact
 		top = pivot + ik::rotate(turn, top - pivot);
 		rotation = ik::normalize(turn * rotation);
 	}
+
+	box magazine_box(ik::vec3 top, ik::quat rotation, ik::quat seated, const magazine_size& size)
+	{
+		const ik::quat gun = ik::normalize(rotation * ik::conjugate(seated));
+		box out;
+		out.frame = gun;
+		out.centre = top + ik::rotate(gun, ik::vec3{ 0.0f, -0.5f * size.height, 0.0f });
+		out.half = { 0.5f * size.width, 0.5f * size.height, 0.5f * size.depth };
+		return out;
+	}
+
+	void beside_magazine(ik::vec3& top, ik::quat rotation, ik::quat seated, const magazine_size& size, float gap)
+	{
+		const ik::quat gun = ik::normalize(rotation * ik::conjugate(seated));
+		top = top + ik::rotate(gun, ik::vec3{ -(size.width + gap), 0.0f, 0.0f });
+	}
 }

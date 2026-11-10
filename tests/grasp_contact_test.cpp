@@ -89,6 +89,43 @@ namespace
 		expect(near(still, { 1, 2, 3 }), "no angle, no turn");
 	}
 
+	// #40: the palmed pair. The caught magazine sits beside the new one, parallel, and their bodies do not
+	// cross; untilted where it seated, the old one would cross the leaning new one (the headset report).
+	void test_palmed_pair()
+	{
+		const magazine_size size;
+		const box upright = magazine_box({ 0, 0, 0 }, {}, {}, size);
+		expect(near(upright.centre, { 0.0f, -0.5f * size.height, 0.0f }) && near(upright.half.y, 0.5f * size.height), "the body hangs below the top");
+
+		const float angle = 40.0f * 0.017453293f;
+		ik::vec3 top{ 0, 0, 0 };
+		ik::quat rotation{};
+		tilt_magazine(top, rotation, {}, angle, 0.07f);
+		const box held = magazine_box(top, rotation, {}, size);
+		ik::vec3 caught_top = top;
+		beside_magazine(caught_top, rotation, {}, size, 0.006f);
+		const box caught = magazine_box(caught_top, rotation, {}, size);
+		const ik::vec3 apart = caught.centre - held.centre;
+		expect(near(ik::length(apart), size.width + 0.006f, 1e-4f), "one width plus the gap apart");
+		expect(near(ik::dot(apart, ik::rotate(rotation, { 0, 1, 0 })), 0.0f, 1e-4f), "side by side, not one above the other");
+		expect(ik::dot(apart, ik::rotate(rotation, { 1, 0, 0 })) < 0.0f, "on the inside, away from the lean");
+		// Sample the caught body's centre line: every point is outside the held body.
+		bool clear = true;
+		for (int i = 0; i <= 10; ++i)
+		{
+			const ik::vec3 point = caught_top + ik::rotate(rotation, { 0.0f, -size.height * static_cast<float>(i) / 10.0f, 0.0f });
+			clear = clear && signed_distance(held, point) > 0.0f;
+		}
+		expect(clear, "the caught body stays clear of the held one");
+		bool crosses = false;
+		for (int i = 0; i <= 10; ++i)
+		{
+			const ik::vec3 point = ik::vec3{ 0.0f, -size.height * static_cast<float>(i) / 10.0f, 0.0f };
+			crosses = crosses || signed_distance(held, point) < 0.0f;
+		}
+		expect(crosses, "the old placement (untilted at the seat) did cross it");
+	}
+
 	void test_closing()
 	{
 		// A planar finger: knuckle at the origin, two 4 cm segments along +x, curling up about z, under
@@ -158,6 +195,7 @@ int main()
 	test_cup();
 	test_switch();
 	test_tilt();
+	test_palmed_pair();
 	test_closing();
 	if (failures == 0)
 	{

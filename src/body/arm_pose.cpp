@@ -326,6 +326,13 @@ namespace bfvr::body
 		bool has_game_grenade_in_fist{};
 		ik::bone_transform fist_untilted;
 		bool has_fist_untilted{};
+		// #40, palming: the caught magazine beside the leaning new one (contact::beside_magazine), and the
+		// fingers closed by contact on both bodies instead of the game's one-magazine grip (palm_contact).
+		ik::bone_transform fist_caught;
+		bool has_fist_caught{};
+		bool palm_contact{};
+		constexpr float palm_contact_tilt = 0.05f; // radians of lean before the palming grip takes over
+		constexpr float caught_gap = 0.006f;
 		// Racking (weapon/physical_reload): the off hand on the charging handle, the slide pulled back.
 		struct handle_hold
 		{
@@ -1490,15 +1497,70 @@ namespace bfvr::body
 		// The off hand's grip on a held magazine: wrapped the way the game's own reload holds it (an
 		// authored grip per variant) or cupped (contact), by the setting or the palm facing up. Rewrites
 		// the task and its target shape for a cup.
+		// #40, palming: the game's grip holds one upright magazine; leaning aside (and with the caught one
+		// beside it) its fingers floated off or went through. The magazine stays where that grip puts it
+		// (attach_held_magazine), the fingers close by contact on the bodies in the hand.
+		bool close_on_palmed(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
+		{
+			if (rig.arms[0].hand < 0 || rig.magazine < 0 || rig.weapon < 0)
+			{
+				return false;
+			}
+			const authored_grip& grip = magazine_request.ak ? magazine_grip_ak : magazine_grip_ar;
+			const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
+			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
+			ik::vec3 top = hand.position + ik::rotate(hand.rotation, grip.magazine);
+			ik::quat rotation = ik::normalize(hand.rotation * grip.magazine_rotation);
+			contact::tilt_magazine(top, rotation, seated, magazine_request.tilt, magazine_request.tilt_pivot);
+			const contact::box held = contact::magazine_box(top, rotation, seated, magazine_body);
+			const bool has_caught = extra_request.where == extra_magazine_pose::kind::in_fist && extra_meshes_on.load(std::memory_order_relaxed);
+			contact::box caught{};
+			if (has_caught)
+			{
+				ik::vec3 caught_top = top;
+				contact::beside_magazine(caught_top, rotation, seated, magazine_body, caught_gap);
+				caught = contact::magazine_box(caught_top, rotation, seated, magazine_body);
+			}
+			task = fingers::task::cup;
+			target = fingers::shape_for(task, {});
+			bool touched[fingers::count]{};
+			for (int finger = 0; finger < fingers::count; ++finger)
+			{
+				const float open = target.curl[finger];
+				float gap = 0.0f;
+				float curl = close_on(local, finger, held, 0.0f, open, gap);
+				if (has_caught)
+				{
+					float caught_gap_mm = 0.0f;
+					const float on_caught = close_on(local, finger, caught, 0.0f, open, caught_gap_mm);
+					if (on_caught < curl)
+					{
+						curl = on_caught;
+						gap = caught_gap_mm;
+					}
+				}
+				target.curl[finger] = curl;
+				cup_gap_mm[finger] = gap;
+				touched[finger] = gap <= 0.5f;
+			}
+			contact::couple_free_fingers(target.curl, touched);
+			return true;
+		}
+
 		void choose_magazine_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
 		{
 			const bool holding = task == fingers::task::magazine && magazine_request.detached && magazine_request.in_hand;
 			cup = holding ? place_cup(local) : contact::cup_placement{};
 			const int mode = magazine_grip.load(std::memory_order_relaxed);
 			cupped = cup.valid && (mode == 2 || (mode == 0 && contact::cup_grip(cupped, cup_palm_up)));
+			palm_contact = false;
 			if (!cupped)
 			{
-				if (holding && rig.thumb_base[0] > 0)
+				if (holding && rig.thumb_base[0] > 0 && magazine_request.tilt > palm_contact_tilt && close_on_palmed(local, task, target))
+				{
+					palm_contact = true;
+				}
+				else if (holding && rig.thumb_base[0] > 0)
 				{
 					authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
 					authored_hand = 0;
@@ -1716,6 +1778,7 @@ namespace bfvr::body
 					{
 						cup = {}; // the free gun hand holds a magazine in its fist (#38), never cupped
 						cupped = false;
+						palm_contact = false;
 					}
 				}
 				if (hand == rack)
@@ -1791,6 +1854,7 @@ namespace bfvr::body
 		{
 			points.has_held = false;
 			has_fist_untilted = false;
+			has_fist_caught = false;
 			if (!magazine_request.detached || !magazine_request.in_hand || rig.magazine < 0 || rig.weapon < 0)
 			{
 				return;
@@ -1824,14 +1888,18 @@ namespace bfvr::body
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
 			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
 			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
-			if ((authored_shown == &magazine_grip_ak || authored_shown == &magazine_grip_ar) && authored_weight > 0.0f && authored_hand_shown == 0 && holder == 0
+			// Palming (#40): the fingers close by contact (close_on_palmed) on the magazine where the game's grip
+			// holds it, so it stays there.
+			const authored_grip* by_grip = palm_contact ? (magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar) : authored_shown;
+			const float grip_weight = palm_contact ? 1.0f : authored_weight;
+			if ((by_grip == &magazine_grip_ak || by_grip == &magazine_grip_ar) && grip_weight > 0.0f && (palm_contact || authored_hand_shown == 0) && holder == 0
 				&& rig.arms[0].hand >= 0)
 			{
 				// Where the game's own reload holds it, relative to the hand, eased in with the fingers.
 				const ik::bone_transform hand = ik::model_of(local, rig.parents, rig.arms[0].hand);
-				const ik::vec3 held = hand.position + ik::rotate(hand.rotation, authored_shown->magazine);
-				fist_rotation = nlerp(fist_rotation, hand.rotation * authored_shown->magazine_rotation, authored_weight);
-				fist_top = fist_top + (held - fist_top) * authored_weight;
+				const ik::vec3 held = hand.position + ik::rotate(hand.rotation, by_grip->magazine);
+				fist_rotation = nlerp(fist_rotation, hand.rotation * by_grip->magazine_rotation, grip_weight);
+				fist_top = fist_top + (held - fist_top) * grip_weight;
 			}
 			const ik::quat palm_rotation = palm_valid ? ik::normalize(cup.frame * seated) : fist_rotation;
 			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
@@ -1841,6 +1909,10 @@ namespace bfvr::body
 			has_fist_untilted = true;
 			// Palming: turned aside in the hand, leaving the magwell to the old magazine.
 			contact::tilt_magazine(placed.position, placed.rotation, seated, magazine_request.tilt, magazine_request.tilt_pivot);
+			// The caught one (extra meshes) beside it, parallel, not crossing it (#40; untilted at the fist it did).
+			fist_caught = placed;
+			contact::beside_magazine(fist_caught.position, fist_caught.rotation, seated, magazine_body, caught_gap);
+			has_fist_caught = magazine_request.tilt > palm_contact_tilt;
 			ik::bone_transform& current = local[rig.magazine];
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = current;
@@ -1942,7 +2014,12 @@ namespace bfvr::body
 				placed = true;
 				break;
 			case extra_magazine_pose::kind::in_fist:
-				if (has_fist_untilted)
+				if (has_fist_caught)
+				{
+					extra = fist_caught;
+					placed = true;
+				}
+				else if (has_fist_untilted)
 				{
 					extra = fist_untilted;
 					placed = true;
@@ -2559,12 +2636,12 @@ namespace bfvr::body
 			std::snprintf(text + length, sizeof(text) - length,
 				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
-				"\nauthored=%s weight=%.2f", grips[magazine_grip.load() % 3],
+				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
 				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : "auto", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
-				authored_weight);
+				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
 		}
 		return text;
 	}
