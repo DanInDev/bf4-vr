@@ -4,6 +4,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <initializer_list>
 
 namespace bfvr::weapon
 {
@@ -31,6 +33,15 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t aiming_selected_level = 0x1f8;
 		constexpr std::uintptr_t max_slots = 16;
 		constexpr int max_levels = 8;
+		// Per slot in the weapons component: the weapon's unlock, then a tree of every unlock on it (the
+		// weapon, its optic, grip, barrel, camo): +0x20 root node, +0x28 size (u32). Node: +0x00 / +0x08
+		// children, +0x18 the unlock asset (live walk 2026-11-10: AK-12 6 unlocks, SCAR-H 5, M67 and knife 1).
+		constexpr std::uintptr_t slot_records = 0x120;
+		constexpr std::uintptr_t slot_record_size = 0xc0;
+		constexpr std::uintptr_t record_root = 0x20;
+		constexpr std::uintptr_t record_size = 0x28;
+		constexpr std::uintptr_t node_unlock = 0x18;
+		constexpr std::uint32_t max_unlocks = 32;
 
 		template <typename T>
 		bool read(std::uintptr_t address, T& value)
@@ -38,6 +49,59 @@ namespace bfvr::weapon
 			SIZE_T done = 0;
 			return address && ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<LPCVOID>(address), &value, sizeof(value), &done)
 				&& done == sizeof(value);
+		}
+
+		bool read_name(std::uintptr_t unlock, char (&out)[48])
+		{
+			std::uintptr_t name{};
+			if (!read(unlock + unlock_name, name) || !read(name, out))
+			{
+				return false;
+			}
+			out[sizeof(out) - 1] = 0;
+			return true;
+		}
+
+		// The slot's unlock tree, when its record belongs to this weapon's unlock.
+		void read_attachments(std::uintptr_t weapons, std::uint32_t slot, std::uintptr_t weapon_unlock_asset, sight_state& state)
+		{
+			const std::uintptr_t record = weapons + slot_records + slot * slot_record_size;
+			std::uintptr_t unlock{}, root{};
+			std::uint32_t size{};
+			if (!read(record, unlock) || unlock != weapon_unlock_asset || !read(record + record_root, root) || !read(record + record_size, size)
+				|| !root || size == 0 || size > max_unlocks)
+			{
+				return;
+			}
+			std::uintptr_t stack[max_unlocks]{};
+			int depth = 0;
+			std::uint32_t visited = 0;
+			stack[depth++] = root;
+			while (depth > 0 && visited < size)
+			{
+				const std::uintptr_t node = stack[--depth];
+				std::uintptr_t left{}, right{}, asset{};
+				char name[48]{};
+				if (!read(node, left) || !read(node + 8, right) || !read(node + node_unlock, asset) || !asset || !read_name(asset, name))
+				{
+					return;
+				}
+				++visited;
+				const gun_optics before = state.optics;
+				add_optic(state.optics, name);
+				if ((state.optics.reflex && !before.reflex) || (state.optics.magnified && !before.magnified))
+				{
+					std::memcpy(state.optic, name, sizeof(state.optic));
+				}
+				for (const std::uintptr_t child : { left, right })
+				{
+					if (child && depth < static_cast<int>(max_unlocks))
+					{
+						stack[depth++] = child;
+					}
+				}
+			}
+			state.attachments_known = visited == size;
 		}
 	}
 
@@ -53,15 +117,15 @@ namespace bfvr::weapon
 		{
 			return state;
 		}
-		std::uintptr_t unlock{}, name{}, zoom_begin{}, zoom_end{}, aiming{};
+		std::uintptr_t unlock{}, zoom_begin{}, zoom_end{}, aiming{};
 		std::int32_t selected{}, current{};
-		if (!read(weapon + weapon_unlock, unlock) || !read(unlock + unlock_name, name) || !read(name, state.weapon)
+		if (!read(weapon + weapon_unlock, unlock) || !read_name(unlock, state.weapon)
 			|| !read(weapon + weapon_zoom_begin, zoom_begin) || !read(weapon + weapon_zoom_end, zoom_end) || !read(weapon + weapon_aiming, aiming)
 			|| !read(aiming + aiming_selected_level, selected) || !read(aiming + aiming_current_level, current))
 		{
 			return state;
 		}
-		state.weapon[sizeof(state.weapon) - 1] = 0;
+		read_attachments(weapons, index, unlock, state);
 		const std::uintptr_t levels = zoom_begin && zoom_end > zoom_begin ? (zoom_end - zoom_begin) / 8 : 0;
 		if (levels > static_cast<std::uintptr_t>(max_levels) || selected < 0 || current < 0)
 		{
@@ -84,9 +148,11 @@ namespace bfvr::weapon
 	std::string sight_state_report()
 	{
 		const sight_state s = read_sight_state();
-		char text[160];
-		std::snprintf(text, sizeof(text), "sight_state valid=%d weapon=%s levels=%d selected=%d current=%d selected_type=%d", s.valid ? 1 : 0, s.weapon, s.levels,
-			s.selected, s.current, static_cast<int>(s.selected_type));
+		char text[320];
+		std::snprintf(text, sizeof(text),
+			"sight_state valid=%d weapon=%s levels=%d selected=%d current=%d selected_type=%d attachments_known=%d optic=%s reflex=%d magnifier=%d magnified=%d (%.1fx)",
+			s.valid ? 1 : 0, s.weapon, s.levels, s.selected, s.current, static_cast<int>(s.selected_type), s.attachments_known ? 1 : 0, s.optic[0] ? s.optic : "none",
+			s.optics.reflex ? 1 : 0, s.optics.magnifier ? 1 : 0, s.optics.magnified ? 1 : 0, s.optics.magnification);
 		return text;
 	}
 #else

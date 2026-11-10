@@ -19,6 +19,7 @@
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/sight_state.hpp"
 #include "weapon/two_hand.hpp"
 #include "weapon/weapon_swap.hpp"
 
@@ -321,7 +322,10 @@ namespace bfvr::weapon
 			}
 			// The dot does not wait for the game's aim: a clear optic (the SCAR's holo) is live at the hip, where
 			// the game draws no reticle of its own; the AK-12's red dot lens stays black until sight_ads aims.
-			if (points.has_optic)
+			// Only for a red dot or holo among the gun's attachments (iron sights and scopes have none of
+			// ours); while the attachments cannot be read, as before.
+			const sight_state sight = read_sight_state();
+			if (points.has_optic && (!sight.attachments_known || sight.optics.reflex))
 			{
 				dot_line.valid = true;
 				std::copy(std::begin(start), std::end(start), dot_line.start);

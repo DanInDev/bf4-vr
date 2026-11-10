@@ -351,6 +351,28 @@ for the campaign's AI).
   now counts as "outside" for the 0.3 s hold. The scope's own 250 ms freshness still drops single
   frames there (not at headset frame rates).
 
+## A gun's attachments (2026-11-10, monitor, #39)
+
+The weapons component (soldier `+0x570`) keeps a record per slot at **`+0x120 + 0xC0 * slot`**: `+0x00`
+the weapon's unlock, `+0x10` / `+0x18` the leftmost / rightmost node, **`+0x20` the root**, **`+0x28` the
+count** (u32) of a tree of every unlock on that gun; a node has its children at `+0x00` / `+0x08`, the
+parent (low bit = colour) at `+0x10`, **the unlock asset at `+0x18`** (name at asset `+0x20`). `+0xA0` is
+the weapon blueprint. Live walk:
+
+| Slot | Unlocks |
+| --- | --- |
+| 0 `U_SCAR-H` | `U_SCAR-H_EOTech`, `_Foregrip_Angled`, `_MuzzleBrake`, `_TargetPointer` |
+| 1 `U_AK12` | `U_AK12_PK-AS`, `_Magnifier`, `_Foregrip_Folding`, `_HeavyBarrel`, `U_Grass_Woodland` |
+| 6 `U_M67_SP`, 7 `U_Knife` | themselves only |
+
+Found by scanning the weapon object (only `+0x4850`, the weapon unlock) and then the weapons component
+for asset names. `weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a
+nominal zoom, the magnifier; unit-tested; only PK-AS, EOTech and Magnifier seen live).
+`weapon/sight_state` walks the tree when the record's unlock is the current weapon's: the red dot
+(`sight_dot`) now needs a red dot or holo among the attachments (iron-sight guns and scopes get none;
+unreadable attachments keep the old behaviour), and the scope at the hip falls back to a magnified
+optic's nominal zoom before the game has shown it.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

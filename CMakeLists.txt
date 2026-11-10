@@ -168,6 +168,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/hip_accuracy.cpp
 	src/weapon/hip_accuracy_math.cpp
 	src/weapon/sight_state.cpp
+	src/weapon/optics.cpp
 	src/weapon/weapon_swap.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
@@ -241,6 +242,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_two_hand_test PRIVATE bfvr_common)
 	add_executable(bfvr_hip_accuracy_test tests/hip_accuracy_test.cpp src/weapon/hip_accuracy_math.cpp)
 	target_link_libraries(bfvr_hip_accuracy_test PRIVATE bfvr_common)
+	add_executable(bfvr_optics_test tests/optics_test.cpp src/weapon/optics.cpp)
+	target_link_libraries(bfvr_optics_test PRIVATE bfvr_common)
 
 	# In-VR settings panel: pages, hit tests, clicks, GDI rasterising; with a path it writes a BMP snapshot.
 	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
@@ -313,6 +316,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME reload COMMAND bfvr_reload_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
+	add_test(NAME optics COMMAND bfvr_optics_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
 	add_test(NAME held_grenade COMMAND bfvr_held_grenade_test)
