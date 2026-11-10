@@ -524,7 +524,9 @@ namespace bfvr::weapon
 			reach.gun_grip = { points.grip[0], points.grip[1], points.grip[2] };
 			reach.gun_support = { points.support[0], points.support[1], points.support[2] };
 			reach.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
-			reach.busy = grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ui::vr_panel_view().open;
+			// A menu the laser points at (the gadget stash) is no use target: the grip there sent E again and again.
+			reach.busy = grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ui::vr_panel_view().open
+				|| hooks::game_pointer_active();
 			const use_result used = user.update(reach);
 			use_reaching = used.reaching;
 			if (reach.head_valid && reach.hand_valid)

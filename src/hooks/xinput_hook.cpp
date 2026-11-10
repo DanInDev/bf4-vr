@@ -12,6 +12,7 @@
 #include <MinHook.h>
 
 #include "common/log.hpp"
+#include "hooks/game_window.hpp"
 #include "hooks/rumble_hook.hpp"
 #include "input/haptics.hpp"
 #include "input/gamepad.hpp"
@@ -87,7 +88,15 @@ namespace bfvr::hooks
 					state->Gamepad = {};
 				}
 			}
-			const input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())))))));
+			input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())))))));
+			if (hooks::game_pointer_active())
+			{
+				// The laser's trigger clicks the menu; the game's pad must not see it, nor the grips (the
+				// shoulder buttons): both switch the gadget stash's slot tabs (#34).
+				pad.left_trigger = 0;
+				pad.right_trigger = 0;
+				pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
+			}
 			if (!pad.connected)
 			{
 				// The game creates its pad object once at startup and treats a failed first read as

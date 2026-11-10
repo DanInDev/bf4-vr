@@ -103,6 +103,7 @@ namespace bfvr::hooks
 		bool unicode_window{};
 		bool focus_kept{};
 		std::atomic<unsigned long long> hidden{};
+		std::atomic<ULONGLONG> pointer_at{}; // last point_game_cursor call (game_pointer_active)
 		std::atomic<unsigned> virtual_width{};
 		std::atomic<unsigned> virtual_height{};
 
@@ -365,6 +366,7 @@ namespace bfvr::hooks
 		{
 			return false;
 		}
+		pointer_at = GetTickCount64();
 		static bool was_pressed{};
 		const HWND foreground = original_get_foreground_window ? original_get_foreground_window() : GetForegroundWindow();
 		if (foreground == hwnd)
@@ -400,6 +402,11 @@ namespace bfvr::hooks
 		}
 		was_pressed = pressed;
 		return true;
+	}
+
+	bool game_pointer_active()
+	{
+		return GetTickCount64() - pointer_at.load(std::memory_order_relaxed) < 150;
 	}
 
 	unsigned long long focus_losses_hidden()

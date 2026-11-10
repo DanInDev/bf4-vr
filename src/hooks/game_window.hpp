@@ -24,6 +24,10 @@ namespace bfvr::hooks
 	// image and presses the left button while pressed is true. Uses the real cursor (BF4's menus follow
 	// it) when the game is in front, posted mouse messages otherwise. false without a game window.
 	bool point_game_cursor(float u, float v, bool pressed);
+	// The laser points at the game's menu right now (point_game_cursor within the last 150 ms): its trigger
+	// is the click, so the triggers are kept from the game's pad (#34: in the gadget stash the pad's
+	// triggers switch the slot tabs, and each laser click flipped the tab instead of choosing an item).
+	bool game_pointer_active();
 
 	// A key press or release for the game (virtual-key code), through its Raw Input keyboard: a posted
 	// WM_INPUT answered by the GetRawInputData hook. Works without focus. false without a game window.
