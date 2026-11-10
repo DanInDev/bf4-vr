@@ -65,6 +65,7 @@ namespace bfvr::settings
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
 			{ "extra_meshes", "Weapon", "Reloading", "Second magazine", "The gun keeps its own while you hold a new one", "" },
 			{ "free_hand_reload", "Weapon", "Reloading", "Reload with the free hand", "Gun in the left hand: the right changes magazines", "" },
+			{ "magazine_snap", "Weapon", "Reloading", "Hand snaps onto the magazine", "The game's grip, before you squeeze", "" },
 			{ "palm_reload", "Weapon", "Reloading", "Palm magazines (AR)", "New one at the magwell, B, turn the hand", "" },
 			{ "reload_sounds", "Weapon", "Reloading", "Reload sounds", "Magazines, bolt, pouch and pin", "" },
 			{ "game_sounds", "Weapon", "Reloading", "The game's own reload sounds", "Where the gun's sounds are found", "" },

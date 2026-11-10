@@ -92,6 +92,7 @@ namespace bfvr::settings
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
 			{ "extra_meshes", kind::boolean, 0, 0, 0, "1", "", "a second magazine (a new one held while one sits in the gun, the caught one while palming, one falling) drawn as a copy of the game's own magazine; off: the gun's magazine moves to the hand" },
 			{ "free_hand_reload", kind::boolean, 0, 0, 0, "1", "", "physical reload, free hands: while the left hand holds the gun, the right hand changes magazines too (0: it only racks)" },
+			{ "magazine_snap", kind::boolean, 0, 0, 0, "1", "", "physical reload: the open off hand near the seated magazine snaps onto it with the game's magazine grip, so taking it does not jump (#40)" },
 			{ "palm_reload", kind::boolean, 0, 0, 0, "1", "", "physical reload, AR (SCAR-H): a new magazine held at the magwell of a loaded gun turns aside in the hand; B drops the old one into the same hand, turn the hand back to seat the new one, the old one stays in the hand for the pouch" },
 			{ "accessory_toggle", kind::choice, 0, 0, 0, "trigger", "trigger|touch|off", "accessory toggle (laser, light, magnifier: D-pad up): trigger = holding the gun two-handed, press the off-hand trigger; touch = off hand on the optic or front rail + grip" },
 			{ "vr_panel", kind::boolean, 0, 0, 0, "1", "", "hold the left menu button to open this panel (a short press stays the game's Start)" },

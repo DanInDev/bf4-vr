@@ -219,6 +219,7 @@ namespace bfvr::weapon
 			else if (event == reload_event::magazine_out)
 			{
 				start_holding(false);
+				keep_snap_ = true;
 			}
 			else if (event == reload_event::magazine_dropped)
 			{
@@ -241,6 +242,7 @@ namespace bfvr::weapon
 				if (event == reload_event::magazine_out)
 				{
 					start_holding(false);
+					keep_snap_ = true;
 				}
 				emit(result, event);
 			}
@@ -352,6 +354,19 @@ namespace bfvr::weapon
 		{
 			result.in_zone = near_handle ? hand_result::zone::handle : near_magwell ? hand_result::zone::magazine
 				: near_chest ? hand_result::zone::chest : hand_result::zone::none;
+		}
+		// #40: the open hand closing on the seated magazine snaps onto it: from the zone's edge (0) to
+		// magazine_snap_full from its grab point (1), smoothstepped. A magazine just pulled out keeps the
+		// snapped hold by the same distance, so it slides out with the hand instead of jumping to the
+		// controller; once the hand has left the zone the hold is the controller's.
+		// Squeezed or not: an AR's magazine waits in the closed hand for the release button.
+		const bool snap_zone = near_magwell && !near_handle && !gun.state().holding && !racking_ && gun.state().magazine_in;
+		const bool pulling = keep_snap_ && gun.state().holding && palm_ == palm_stage::none;
+		keep_snap_ = pulling && to_magwell < config_.reach_magazine;
+		if ((snap_zone || keep_snap_) && config_.reach_magazine > config_.magazine_snap_full)
+		{
+			const float t = std::fmax(0.0f, std::fmin(1.0f, (config_.reach_magazine - to_magwell) / (config_.reach_magazine - config_.magazine_snap_full)));
+			result.magazine_snap = t * t * (3.0f - 2.0f * t);
 		}
 
 		const float tilt_target = palm_ == palm_stage::none ? 0.0f : config_.palm_tilt_degrees * 0.017453293f;

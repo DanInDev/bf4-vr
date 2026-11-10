@@ -69,6 +69,9 @@ namespace bfvr::weapon
 		bool off_hand_busy{}; // the off-hand grip belongs to the reload (hand in a reload zone): keep it from the game
 		// The zone the open off hand is in (a haptic tick on entering it); none while holding or racking.
 		enum class zone { none, magazine, handle, chest } in_zone{ zone::none };
+		// #40: how far the open off hand has snapped onto the seated magazine (0..1, by distance in the
+		// magazine zone): the drawn hand takes the game's magazine grip on it, so the grab does not jump.
+		float magazine_snap{};
 		// Zone centres and reaches (grab_debug): magazine body, charging handle, chest pouch.
 		v3 zone_centre[3];
 		float zone_reach[3]{};
@@ -129,6 +132,8 @@ namespace bfvr::weapon
 		float magazine_grab_drop{ 0.08f };
 		// Ahead of the magwell along the barrel is the handguard (the two-handed grip), not the magazine.
 		float magazine_ahead_limit{ 0.03f };
+		// #40: the hand is fully snapped onto the seated magazine this close to its grab point.
+		float magazine_snap_full{ 0.05f };
 		// How far the charging handle (and the drawn bolt) can come back.
 		float slide_travel{ 0.08f };
 		// A magazine pushed in slides from the hand into the magwell over this long.
@@ -193,5 +198,6 @@ namespace bfvr::weapon
 		float tilt_{};          // radians, eased
 		q4 catch_in_gun_;       // the hand's magazine (untilted) relative to the gun at the catch
 		bool kept_old_{};       // palmed in: the hand holds the old magazine (not drawn: the mesh is in the gun)
+		bool keep_snap_{};      // #40: a magazine just pulled out, the hand not yet out of the magazine zone
 	};
 }

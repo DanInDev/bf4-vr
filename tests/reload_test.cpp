@@ -454,6 +454,71 @@ namespace
 		expect(r.count == 0, "16 cm below the magazine is out of reach");
 	}
 
+	// #40: the open hand snaps onto the seated magazine by distance; not while holding, gripping or with no
+	// magazine in, and not on the handguard.
+	void test_magazine_snap()
+	{
+		hand_frame frame = at(away, false);
+		frame.has_root = true;
+		frame.root = { 0.0f, -0.2f, 0.0f };
+		frame.root_rotation = { 0.0f, 1.0f, 0.0f, 0.0f };
+		frame.magwell = frame.root + v3{ 0.0f, 0.0f, -0.40f };
+		const v3 body = frame.magwell + v3{ 0.0f, -0.08f, 0.0f };
+		const auto palm_at = [&](v3 palm, bool grip)
+		{
+			hand_frame f = frame;
+			f.grip = grip;
+			f.has_palm = true;
+			f.off_palm = palm;
+			f.off_hand = palm + v3{ 0.0f, 0.0f, 0.06f };
+			return f;
+		};
+		reload gun(ak);
+		gun.load(11, 60);
+		reload_hands hands(flat_hold());
+		hand_result r = hands.update(gun, palm_at(away, false));
+		expect(r.magazine_snap == 0.0f, "away: no snap");
+		r = hands.update(gun, palm_at(body + v3{ 0.095f, 0.0f, 0.0f }, false));
+		expect(r.in_zone == hand_result::zone::magazine && r.magazine_snap > 0.0f && r.magazine_snap < 0.05f, "at the zone's edge: barely");
+		r = hands.update(gun, palm_at(body + v3{ 0.075f, 0.0f, 0.0f }, false));
+		expect(std::fabs(r.magazine_snap - 0.5f) < 0.01f, "half way between the edge and full: half");
+		r = hands.update(gun, palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, false));
+		expect(std::fabs(r.magazine_snap - 1.0f) < 1e-4f, "within 5 cm: full");
+		r = hands.update(gun, palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, true));
+		expect(has(r, reload_event::magazine_out) && std::fabs(r.magazine_snap - 1.0f) < 1e-4f, "the grab takes it: the snapped hold stays, no jump");
+		r = hands.update(gun, palm_at(body + v3{ 0.0f, -0.075f, 0.0f }, true));
+		expect(gun.state().holding && std::fabs(r.magazine_snap - 0.5f) < 0.01f, "pulled 7.5 cm out: the hold is half way back to the controller");
+		r = hands.update(gun, palm_at(body + v3{ 0.0f, -0.12f, 0.0f }, true));
+		expect(r.magazine_snap == 0.0f, "out of the zone: the controller's hold");
+		r = hands.update(gun, palm_at(body + v3{ 0.0f, -0.03f, 0.0f }, true));
+		expect(r.magazine_snap == 0.0f, "brought back while still holding it: no snap again");
+		r = hands.update(gun, palm_at(chest, true));
+		r = hands.update(gun, palm_at(chest, false));
+		r = hands.update(gun, palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, false));
+		expect(r.magazine_snap == 0.0f, "no magazine in the gun: nothing to snap to");
+
+		reload guarded(ak);
+		guarded.load(11, 60);
+		reload_hands on_guard(flat_hold());
+		r = on_guard.update(guarded, palm_at(body + v3{ 0.0f, 0.0f, -0.06f }, false));
+		expect(r.magazine_snap == 0.0f, "on the handguard: no snap");
+
+		// An AR's magazine stays in the gun under the grip alone (the release button takes it): the hand
+		// stays snapped while squeezing, and keeps the hold when B drops it into the hand.
+		reload rifle(ar);
+		rifle.load(21, 60);
+		reload_hands ar_hands(flat_hold());
+		ar_hands.update(rifle, palm_at(away, false));
+		r = ar_hands.update(rifle, palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, false));
+		expect(std::fabs(r.magazine_snap - 1.0f) < 1e-4f, "AR: snapped");
+		r = ar_hands.update(rifle, palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, true));
+		expect(rifle.state().magazine_in && std::fabs(r.magazine_snap - 1.0f) < 1e-4f, "AR: squeezing keeps the snap, the magazine waits for the release");
+		hand_frame release = palm_at(body + v3{ 0.03f, 0.0f, 0.0f }, true);
+		release.button = true;
+		r = ar_hands.update(rifle, release);
+		expect(rifle.state().holding && std::fabs(r.magazine_snap - 1.0f) < 1e-4f, "AR: B drops it into the snapped hand, no jump");
+	}
+
 	void test_hands_ar_drop_and_fall()
 	{
 		reload gun(ar);
@@ -1136,6 +1201,7 @@ int main()
 	test_conservation();
 	test_profiles();
 	test_hands_ak();
+	test_magazine_snap();
 	test_hands_reach_and_overlap();
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();

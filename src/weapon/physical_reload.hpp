@@ -18,6 +18,8 @@ namespace bfvr::weapon
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.
 	void set_palm_reload(bool enabled);
+	// #40, setting magazine_snap: the open off hand snaps onto the seated magazine with the game's grip.
+	void set_magazine_snapping(bool enabled);
 	// #38: while the off hand carries the gun, the free gun hand changes magazines too (false: it only racks).
 	void set_free_hand_reload(bool enabled);
 	// The free gun hand's grip belongs to the reload this frame (it holds a magazine, racks, or is nearer a

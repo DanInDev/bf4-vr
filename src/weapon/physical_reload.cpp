@@ -307,9 +307,31 @@ namespace bfvr::weapon
 		// on and off; the pull itself springs back at once, like the real handle).
 		float handle_weight{};
 		float handle_in_gun[3]{};
+		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
+		// hand returns to the controller after the grab with the magazine in it).
+		std::atomic<bool> magazine_snapping{ true }; // live setting magazine_snap
+		float snap_weight{};
+		bool snap_ak{};
 
-		void draw_off_hand(body::fingers::task task, const hand_result* result, bool has_root, float seconds)
+		void ease_magazine_snap(const hand_result* result, bool ak, float seconds)
 		{
+			const float target = result && magazine_snapping.load(std::memory_order_relaxed) ? result->magazine_snap : 0.0f;
+			const float tau = target > snap_weight ? 0.05f : 0.12f;
+			snap_weight += (target - snap_weight) * (1.0f - std::exp(-seconds / tau));
+			if (target == 0.0f && snap_weight < 0.01f)
+			{
+				snap_weight = 0.0f;
+			}
+			if (target > 0.0f)
+			{
+				snap_ak = ak;
+			}
+			body::set_magazine_snap(snap_weight, snap_ak);
+		}
+
+		void draw_off_hand(body::fingers::task task, const hand_result* result, bool has_root, float seconds, bool ak = false)
+		{
+			ease_magazine_snap(result, ak, seconds);
 			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
 			const bool racking = result && result->racking && has_root;
@@ -383,6 +405,11 @@ namespace bfvr::weapon
 	void set_palm_reload(bool enabled)
 	{
 		palming = enabled;
+	}
+
+	void set_magazine_snapping(bool enabled)
+	{
+		magazine_snapping = enabled;
 	}
 
 	void set_free_hand_reload(bool enabled)
@@ -678,7 +705,7 @@ namespace bfvr::weapon
 		const body::fingers::task off_task = gun.state().holding || result.draw == magazine_draw::in_hand ? body::fingers::task::magazine
 			: result.racking ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
-		draw_off_hand(off_task, &result, frame.has_root, seconds);
+		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
 
 		active = true;
 		block_trigger = !gun.state().chamber;
@@ -786,9 +813,9 @@ namespace bfvr::weapon
 		const char* const palm_names[]{ "none", "ready", "caught" };
 		char zones[512];
 		std::snprintf(zones, sizeof(zones),
-			"\nzone=%s busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) hand=%d"
+			"\nzone=%s snap=%.2f/%.2f busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) hand=%d"
 			"\npalm_reload=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f) held_top=(%.3f,%.3f,%.3f)%s",
-			zone_names[static_cast<int>(r.in_zone)], r.off_hand_busy ? 1 : 0, r.racking ? 1 : 0, r.rack_pull, r.zone_centre[0].x, r.zone_centre[0].y,
+			zone_names[static_cast<int>(r.in_zone)], r.magazine_snap, snap_weight, r.off_hand_busy ? 1 : 0, r.racking ? 1 : 0, r.rack_pull, r.zone_centre[0].x, r.zone_centre[0].y,
 			r.zone_centre[0].z, r.zone_reach[0], r.zone_centre[1].x, r.zone_centre[1].y, r.zone_centre[1].z, r.zone_reach[1], r.zone_centre[2].x,
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
 			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,

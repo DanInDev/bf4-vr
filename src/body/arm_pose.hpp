@@ -207,6 +207,10 @@ namespace bfvr::body
 	// Racking: the drawn off hand on the charging handle (Wep_Root axes, metres), weight 0..1, and the
 	// bolt / handle pulled this far back along the barrel. weight 0 = off.
 	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull);
+	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
+	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
+	// eases back to the controller with the magazine in it. weight 0 = off.
+	void set_magazine_snap(float weight, bool ak);
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).

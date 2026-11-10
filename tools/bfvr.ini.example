@@ -147,6 +147,10 @@ drop_discards_ammo = 1
 # until the new one lines up and it seats. The old one stays in the hand: let go at the pouch to keep its
 # rounds. Pipe `reload` shows the stage.
 palm_reload = 1
+# The open off hand near the seated magazine snaps onto it: the drawn hand takes the game's own
+# magazine grip on it (fingers too), so squeezing takes it without a jump; it eases back to the
+# controller afterwards. Pipe `reload` shows snap=<zone>/<drawn>.
+magazine_snap = 1
 # Empty hands (#38): while the left hand holds the gun (by its handguard or its grip), the free right
 # hand changes magazines (from the pouch, held in its fist) and racks; 0 = it only racks.
 free_hand_reload = 1

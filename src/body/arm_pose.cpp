@@ -334,6 +334,18 @@ namespace bfvr::body
 			float pull{};         // metres back along the barrel; the slide bone moves with it
 		};
 		handle_hold handle_request;
+		// #40: the open off hand snapping onto the seated magazine (set_magazine_snap). delta: the snapped
+		// hand pose less the controller's (model space), kept from the last seated frame so the hand eases
+		// back to the controller after the grab with the magazine in it.
+		struct magazine_snap_hold
+		{
+			float weight{};
+			bool ak{};
+			bool has_delta{};
+			ik::vec3 delta_position;
+			ik::quat delta_rotation;
+		};
+		magazine_snap_hold snap_request;
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
@@ -693,6 +705,34 @@ namespace bfvr::body
 		ik::vec3 tracking_origin(const ik::bone_transform& camera, const ik::quat& frame)
 		{
 			return camera.position + ik::rotate(frame, ik::vec3{ 0.0f, stereo::physical_stance_lift(), 0.0f });
+		}
+
+		// #40: the off hand's goal on the seated magazine: the game's magazine grip inverted (the hand pose that
+		// holds the magazine where it sits), blended in by the snap weight. After the grab (the magazine
+		// detached) the offset from the last seated frame fades with the weight, the magazine in the hand.
+		void apply_magazine_snap(ik::bone_transform* local, ik::arm_goal& goal)
+		{
+			const float weight = snap_request.weight;
+			if (weight <= 0.0f)
+			{
+				snap_request.has_delta = false;
+				return;
+			}
+			if (!magazine_request.detached && rig.magazine >= 0)
+			{
+				const authored_grip& grip = snap_request.ak ? magazine_grip_ak : magazine_grip_ar;
+				const ik::bone_transform seated = ik::model_of(local, rig.parents, rig.magazine);
+				const ik::quat hand = ik::normalize(seated.rotation * ik::conjugate(grip.magazine_rotation));
+				const ik::vec3 wrist = seated.position - ik::rotate(hand, grip.magazine);
+				snap_request.delta_position = wrist - goal.wrist;
+				snap_request.delta_rotation = ik::normalize(hand * ik::conjugate(goal.hand));
+				snap_request.has_delta = true;
+			}
+			if (snap_request.has_delta)
+			{
+				goal.wrist = goal.wrist + snap_request.delta_position * weight;
+				goal.hand = nlerp(goal.hand, ik::normalize(snap_request.delta_rotation * goal.hand), weight);
+			}
 		}
 
 		// Called with rig_lock held, before the conversion: the arms reach for the controllers.
@@ -1057,6 +1097,10 @@ namespace bfvr::body
 						: own && has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
 						: goal.wrist + (on_handle - (origin + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
+				}
+				if (hand == 0 && carrier == 1 && gun_placed)
+				{
+					apply_magazine_snap(local, goal);
 				}
 				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
 				// the hand lies along the first, the belt and hip for the default hint.
@@ -1457,6 +1501,12 @@ namespace bfvr::body
 				if (holding && rig.thumb_base[0] > 0)
 				{
 					authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+					authored_hand = 0;
+				}
+				else if (!magazine_request.detached && snap_request.weight >= 0.5f && rig.thumb_base[0] > 0)
+				{
+					// #40: snapping onto the seated magazine, the fingers already take its grip.
+					authored = snap_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
 					authored_hand = 0;
 				}
 				return;
@@ -2447,6 +2497,13 @@ namespace bfvr::body
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	void set_magazine_snap(float weight, bool ak)
+	{
+		const std::lock_guard guard(rig_lock);
+		snap_request.weight = std::isfinite(weight) ? std::fmax(0.0f, std::fmin(1.0f, weight)) : 0.0f;
+		snap_request.ak = ak;
 	}
 
 	std::string hands_report()
