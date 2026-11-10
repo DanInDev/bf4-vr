@@ -120,6 +120,7 @@ namespace bfvr::settings
 			{ "shot_line", kind::choice, 0, 0, 0, "gun", "gun|controller", "aim = controller: shots and the dot follow the gun as drawn (its sight), or the controller's pointing ray" },
 			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy)" },
 			{ "sight_dot", kind::boolean, 0, 0, 0, "1", "", "guns with an optic: a red dot at infinity along the sight line, seen only by an eye that looks through the lens, aiming or not (the game's own reticle follows the view's centre, not the sight)" },
+			{ "hip_accuracy", kind::real, 0.0f, 1.0f, 0.1f, "1", "", "hip-fire spread of your weapons: 1 = as tight as aiming down sights (sights work without the game's aim), 0 = the game's 3-7 degree hip cone" },
 			{ "sight_dot_size", kind::real, 0.1f, 1.0f, 0.05f, "0.3", "", "sight dot size, degrees (the glow; the bright core is about half)" },
 			{ "scope", kind::boolean, 0, 0, 0, "1", "", "magnifying sights (the AK-12's flip magnifier): while aiming, the lens shows the world magnified (one more render)" },
 			{ "scope_zoom", kind::real, 0.5f, 4.0f, 0.1f, "1", "", "scope magnification times the game's own (1 = the game's: the magnifier 1.7x)" },

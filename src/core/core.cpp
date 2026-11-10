@@ -34,6 +34,7 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
+#include "weapon/hip_accuracy.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/shot_origin.hpp"
@@ -180,6 +181,7 @@ namespace bfvr::core
 			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
 			weapon::set_aim_with_body(store.boolean("aim_with_body", true));
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
+			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
 				bool shown[32]{};
@@ -213,6 +215,7 @@ namespace bfvr::core
 			present_thread = GetCurrentThreadId();
 			apply_settings();
 			weapon::update_physical_reload();
+			weapon::update_hip_accuracy();
 			weapon::update_physical_grenades();
 			weapon::update_two_handed();
 			ui::update_vr_panel();

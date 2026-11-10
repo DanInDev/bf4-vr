@@ -312,6 +312,27 @@ down the barrel (then it nearly coincides with ours). Guns with iron sights
 also get the dot (no optic type is read yet). The other route, turning the gun pass's view axis onto
 the sight while keeping its view-projection, depends on whether the lens shader works in view space.
 
+## Hip-fire spread (2026-11-10, monitor, #39)
+
+With sights live without the game's ADS, the game's hip spread decides where shots go. Measured with
+`recoil 0`, fake head and hand, the wall ~3.3 m away: in ADS 20 rounds made one hole; from the hip 12
+rounds spread over a cone of roughly 3-7 degrees. The data (typeinfo, `GunSwayDispersionData`, degrees):
+
+| Gun | Stand hip still / moving (min..max) | Stand zoom still / moving | Crouch hip | Prone hip |
+| --- | --- | --- | --- | --- |
+| `U_AK12`, `U_SCAR-H` | 3..7 / 3.5..7 | 0.2..1.7 / 1..1.7 | 2.5..7 | 2..7 |
+
+Jumping (hip 6..6, zoom 7..7), sprinting and vaulting are not tighter zoomed. IncreasePerShot 0.11
+(AK) / 0.08 (SCAR); DecreasePerSecond 15 hip, 9.2 / 14.7 zoom.
+
+**The game reads these live**: writing the zoom values into the AK's standing hip block made the next
+hip burst one hole (14 rounds). `weapon/hip_accuracy` (setting `hip_accuracy`, 1 = zoom values, 0 = the
+game's) blends the still and moving hip blocks of every stance towards zoom for the player's carried
+weapons (rescanned every 0.25 s), keeps the originals and writes them back at 0 or when the mod
+disables itself. Monitor: patched hip bursts one tight group, `hip_accuracy 0` the game's spread again.
+GunSwayData is the weapon's data asset: soldiers carrying the same gun model may share it (not checked
+for the campaign's AI).
+
 ## Open
 
 - Scopes on other guns (4x ACOG, sniper scopes): their lens size and distance (one `scope_math::lens`

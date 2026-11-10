@@ -297,6 +297,11 @@ sight_ads = 1
 # centre of the view, which only lines up when the head looks exactly down the barrel). sight_dot_size: degrees.
 sight_dot = 1
 sight_dot_size = 0.3
+# Hip-fire spread of your weapons (standing, crouched, prone; still and moving): 1 = as tight as aiming
+# down sights, so a sight is accurate without the game's aim; 0 = the game's (3-7 degrees at the hip,
+# 0.2-1.7 aiming). Patches the weapons' GunSwayData in memory; enemies carrying the same gun model may
+# share it.
+hip_accuracy = 1
 # Magnifying sights (the AK-12's flip magnifier): while the game aims through one, the world is
 # rendered once more from the sight with the lens's narrow view and shown on the lens, with a red dot
 # on the sight line. Costs one extra world render while aiming. scope_zoom multiplies the game's own
