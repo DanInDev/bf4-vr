@@ -152,6 +152,9 @@ namespace bfvr::body
 	void set_grenade_mesh(bool on);
 	void set_grenade_weapon(bool current);
 	void set_held_grenade(bool holding, int hand, bool armed);
+	// #41: a grenade drawn at its pouch (OpenXR LOCAL, facing yaw = atan2(-forward.x, -forward.z)) while none
+	// is held, in place of the grab ring.
+	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw);
 	// Pipe extramesh: the hold used, and the game's own hold as last seen (Wep_Root in the right fist's frame).
 	std::string grenade_hold_report();
 

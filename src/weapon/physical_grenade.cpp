@@ -330,8 +330,18 @@ namespace bfvr::weapon
 		frame.have_grenade = weapon.valid && weapon.count > 0;
 		frame.either_hand = gun_dropped(); // #38: the gun on the floor or the sling frees the gun hand
 		const grenade_result result = hands.update(frame);
-		// grab_debug: the grenade pouch had no ring and could not be found in the headset (2026-11-04).
-		if (frame.hands_valid && frame.have_grenade && !result.holding)
+		// #41: the game's own grenade stands at the pouch while none is held (once captured); the ring only
+		// stands in until then (grab_debug: the pouch had no ring and could not be found, headset 2026-11-04).
+		{
+			float yaw{};
+			weapon::v3 at;
+			const bool shown = frame.hands_valid && frame.have_grenade && !result.holding && settings::global().boolean("grenade_mesh", true)
+				&& settings::global().boolean("pouch_models", true) && body_rig_point(weapon::grenade_pouch, at, yaw);
+			const float position[3] = { at.x, at.y, at.z };
+			body::set_pouch_grenade(shown, position, yaw);
+		}
+		const bool pouch_model = stereo::extra_mesh::grenade_drawn() && settings::global().boolean("pouch_models", true);
+		if (frame.hands_valid && frame.have_grenade && !result.holding && !pouch_model)
 		{
 			const float pouch[3] = { frame.belt.x, frame.belt.y, frame.belt.z };
 			publish_grab_zone(grab_slot::grenade, pouch, grenade_config{}.reach_belt, result.off_busy);

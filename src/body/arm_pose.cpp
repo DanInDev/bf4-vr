@@ -319,6 +319,10 @@ namespace bfvr::body
 		std::atomic<bool> held_grenade_now{};
 		std::atomic<int> held_grenade_hand{};
 		std::atomic<bool> held_grenade_armed{};
+		// #41: the grenade at its pouch (OpenXR LOCAL, the body's yaw), drawn while none is in hand.
+		std::atomic<bool> pouch_grenade_shown{};
+		std::atomic<float> pouch_grenade_at[3]{};
+		std::atomic<float> pouch_grenade_yaw{};
 		// Wep_Root of a hand grenade in the fist's grasp frame (fingers::grasp: +y out past the index, +z out
 		// through the curled fingers), from the game's own hold of the M67 (pipe extramesh game_hold_in_fist,
 		// 2026-11-09: the right hand drawn by its controller, the game's fingers round the grenade).
@@ -2117,6 +2121,24 @@ namespace bfvr::body
 				em::set_grenade_copy(true, matrix, held_grenade_armed.load(std::memory_order_relaxed));
 				return;
 			}
+			// #41: not in hand, a grenade stands at the pouch (instead of the grab ring), upright, facing ahead
+			// with the body: the fist's frame there is the camera's turned to look forward (+y up, +z ahead).
+			if (on && !game_grenade && pouch_grenade_shown.load(std::memory_order_relaxed) && rig.camera >= 0)
+			{
+				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+				const ik::quat frame = camera_frame(camera);
+				ik::bone_transform pouch;
+				pouch.position = tracking_origin(camera, frame)
+					+ ik::rotate(frame, ik::vec3{ pouch_grenade_at[0].load(), pouch_grenade_at[1].load(), pouch_grenade_at[2].load() });
+				const float half = 0.5f * pouch_grenade_yaw.load(std::memory_order_relaxed);
+				pouch.rotation = ik::normalize(frame * ik::quat{ 0, std::sin(half), 0, std::cos(half) } * ik::quat{ 0, 1, 0, 0 });
+				ik::bone_transform root = ik::compose(ik::inverse(local[0]), ik::compose(pouch, grenade_in_fist));
+				root.scale = 1.0f;
+				float matrix[12];
+				palette_rows(root, matrix);
+				em::set_grenade_copy(true, matrix, false);
+				return;
+			}
 			em::set_grenade_copy(false, nullptr, false);
 		}
 
@@ -2440,6 +2462,16 @@ namespace bfvr::body
 	void set_grenade_weapon(bool current)
 	{
 		grenade_weapon_now = current;
+	}
+
+	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw)
+	{
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			pouch_grenade_at[axis] = position[axis];
+		}
+		pouch_grenade_yaw = yaw;
+		pouch_grenade_shown = shown;
 	}
 
 	void set_held_grenade(bool holding, int hand, bool armed)

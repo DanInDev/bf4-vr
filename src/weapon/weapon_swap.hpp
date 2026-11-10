@@ -53,6 +53,8 @@ namespace bfvr::weapon
 	// A chest rig point (weapon/body_rig: body frame offset from the head) in OpenXR LOCAL, in the
 	// holsters' body frame (the head's yaw while there is none); false without head tracking.
 	bool body_rig_point(const v3& offset, v3& point);
+	// The same, with the body's yaw it was placed at (atan2(-forward.x, -forward.z)).
+	bool body_rig_point(const v3& offset, v3& point, float& yaw);
 
 	// XInput hook thread: the gun-hand grip (RB) stays ours while the hand is in a holster, the
 	// off-hand grip (LB) while the off hand gives the squad signal; adds the melee gesture's

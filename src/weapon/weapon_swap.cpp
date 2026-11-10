@@ -686,6 +686,12 @@ namespace bfvr::weapon
 
 	bool body_rig_point(const v3& offset, v3& point)
 	{
+		float yaw{};
+		return body_rig_point(offset, point, yaw);
+	}
+
+	bool body_rig_point(const v3& offset, v3& point, float& yaw)
+	{
 		const stereo::head_sample head = stereo::latest_head_sample();
 		if (!head.valid)
 		{
@@ -694,7 +700,6 @@ namespace bfvr::weapon
 		const float* l = head.eyes[0].position;
 		const float* r = head.eyes[1].position;
 		const v3 centre{ 0.5f * (l[0] + r[0]), 0.5f * (l[1] + r[1]), 0.5f * (l[2] + r[2]) };
-		float yaw{};
 		if (!body_yaw(yaw))
 		{
 			const float* o = head.eyes[0].orientation;
