@@ -136,7 +136,7 @@ namespace bfvr::launcher::settings_view
 			case ui::settings_panel::action::save:
 				if (s.ini.empty())
 				{
-					tell(L"Choose the Battlefield 4 folder first (Setup).", false);
+					tell(L"Choose the game folder first (Setup).", false);
 				}
 				else if (save())
 				{

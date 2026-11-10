@@ -26,7 +26,7 @@ namespace bfvr::launcher
 	std::span<const wanted_setting> vr_ini_settings();
 
 	// Empty when Documents cannot be resolved; the file itself appears after BF4's first start.
-	std::filesystem::path find_profile();
+	std::filesystem::path find_profile(const game_profile& game = bf4_profile);
 	std::filesystem::path profile_backup(const std::filesystem::path& profile);
 
 	// Settings whose current value differs from the wanted one (numbers compared as numbers, so

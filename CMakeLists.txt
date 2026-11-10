@@ -339,7 +339,9 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME grasp_contact COMMAND bfvr_grasp_contact_test)
 endif()
 
-# Desktop launcher, BF4 only: installs the proxy, edits bfvr.ini and starts the game.
+# Desktop launcher (an x64 program, built with the bf4 preset): installs the proxy, edits bfvr.ini and
+# starts the game. It serves Battlefield 4 and Battlefield 3; BF3's 32-bit dinput8.dll comes from the
+# bf3 preset (build/bf3/<config>, or the folder bf3 beside the launcher in a package).
 if(BFVR_GAME STREQUAL "bf4")
 	add_library(bfvr_launcher_core STATIC
 		src/launcher/ini_file.cpp

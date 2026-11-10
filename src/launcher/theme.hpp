@@ -72,6 +72,8 @@ namespace bfvr::launcher::theme
 	void set_checked(HWND control, bool on);
 
 	void draw_button(const DRAWITEMSTRUCT& item, button style, surface backdrop);
+	// The game's short name in the header ("BF4", before the orange "VR") and its full name on the key art.
+	void set_brand(const wchar_t* game, const wchar_t* title);
 	void draw_header(HDC dc, const RECT& area);
 	void draw_footer(HDC dc, const RECT& area);
 	void draw_panel(HDC dc, const RECT& area);

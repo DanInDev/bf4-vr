@@ -552,6 +552,19 @@ namespace bfvr::launcher::theme
 		}
 	}
 
+	namespace
+	{
+		std::wstring brand_game = L"BF4";
+		std::wstring brand_title = L"BATTLEFIELD 4";
+	}
+
+	void set_brand(const wchar_t* game, const wchar_t* title)
+	{
+		brand_game = game;
+		brand_title = title;
+		CharUpperW(brand_title.data());
+	}
+
 	void draw_header(HDC dc, const RECT& area)
 	{
 		fill_rect(dc, area, color::chrome);
@@ -565,7 +578,7 @@ namespace bfvr::launcher::theme
 			DrawIconEx(dc, left, (area.top + area.bottom - 1 - size) / 2, brand_icon, size, size, 0, nullptr, DI_NORMAL);
 		}
 
-		const std::wstring game = L"BF4";
+		const std::wstring& game = brand_game;
 		const std::wstring vr = L" VR";
 		RECT words{ left + size + scale(8), area.top, area.right, area.bottom - 1 };
 		text(dc, game, words, font::brand, color::text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
@@ -657,7 +670,7 @@ namespace bfvr::launcher::theme
 		bottom = bar_top - scale(6);
 
 		place(L"VR", font::title, color::accent, scale(12));
-		place(L"BATTLEFIELD 4", font::title, color::text, scale(4));
+		place(brand_title, font::title, color::text, scale(4));
 		place(L"SINGLE-PLAYER CAMPAIGN", font::heading, color::text, 0);
 		RestoreDC(dc, saved_again);
 	}

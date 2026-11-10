@@ -103,7 +103,7 @@ namespace bfvr::launcher
 			// Same fields as tools/deploy.ps1, so either tool can update or remove the other's install.
 			std::ofstream file(marker_path(game), std::ios::binary | std::ios::trunc);
 			file << "{\r\n"
-				<< "    \"game\":  \"bf4\",\r\n"
+				<< "    \"game\":  \"" << game.profile->id << "\",\r\n"
 				<< "    \"config\":  \"" << json_escape(config) << "\",\r\n"
 				<< "    \"source\":  \"" << json_escape(to_utf8(source.wstring())) << "\",\r\n"
 				<< "    \"sha256\":  \"" << hash << "\",\r\n"
@@ -113,11 +113,36 @@ namespace bfvr::launcher
 		}
 	}
 
-	std::filesystem::path find_install()
+	const game_profile* profile_by_id(const std::string& id)
+	{
+		for (const game_profile* profile : game_profiles)
+		{
+			if (_stricmp(profile->id, id.c_str()) == 0)
+			{
+				return profile;
+			}
+		}
+		return nullptr;
+	}
+
+	std::filesystem::path find_mod_dll(const std::filesystem::path& launcher_dir, const game_profile& profile, const wchar_t* config)
+	{
+		const std::filesystem::path packaged = launcher_dir / profile.dll_folder / L"dinput8.dll";
+		std::error_code error;
+		if (!*profile.dll_folder || std::filesystem::exists(packaged, error))
+		{
+			return packaged;
+		}
+		// From the build tree: build/bf4/<config>/bfvr_launcher.exe beside build/bf3/<config>/dinput8.dll.
+		const std::filesystem::path built = launcher_dir.parent_path().parent_path() / profile.dll_folder / config / L"dinput8.dll";
+		return std::filesystem::exists(built, error) ? built : packaged;
+	}
+
+	std::filesystem::path find_install(const game_profile& profile)
 	{
 		wchar_t value[MAX_PATH]{};
 		DWORD size = sizeof(value);
-		if (RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\EA Games\\Battlefield 4", L"Install Dir",
+		if (RegGetValueW(HKEY_LOCAL_MACHINE, profile.registry_key, L"Install Dir",
 			RRF_RT_REG_SZ, nullptr, value, &size) != ERROR_SUCCESS)
 		{
 			return {};
@@ -159,7 +184,7 @@ namespace bfvr::launcher
 
 		read(pe + 4, info.machine);
 		read(pe + 8, info.timestamp);
-		info.result = info.machine == bf4_179547_machine && info.timestamp == bf4_179547_timestamp ? build_check::ok : build_check::mismatch;
+		info.result = info.machine == game.profile->machine && info.timestamp == game.profile->timestamp ? build_check::ok : build_check::mismatch;
 		return info;
 	}
 
@@ -251,7 +276,7 @@ namespace bfvr::launcher
 		const build_info build = check_build(game);
 		if (build.result != build_check::ok)
 		{
-			return { false, L"Not installed: " + (game.dir / game.exe).wstring() + L" is not BF4 build 179547, the only build the mod supports." };
+			return { false, L"Not installed: " + (game.dir / game.exe).wstring() + L" is not " + game.profile->name + L" build " + game.profile->build + L", the only build the mod supports." };
 		}
 		if (game_running(game))
 		{

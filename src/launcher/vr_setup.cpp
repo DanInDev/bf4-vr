@@ -170,13 +170,13 @@ namespace bfvr::launcher
 	std::span<const wanted_setting> vr_profile_settings() { return profile_settings; }
 	std::span<const wanted_setting> vr_ini_settings() { return ini_settings; }
 
-	std::filesystem::path find_profile()
+	std::filesystem::path find_profile(const game_profile& game)
 	{
 		PWSTR documents{};
 		std::filesystem::path path;
 		if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, KF_FLAG_DEFAULT, nullptr, &documents)))
 		{
-			path = std::filesystem::path(documents) / L"Battlefield 4" / L"settings" / L"PROFSAVE_profile";
+			path = std::filesystem::path(documents) / game.name / L"settings" / L"PROFSAVE_profile";
 		}
 		CoTaskMemFree(documents);
 		return path;

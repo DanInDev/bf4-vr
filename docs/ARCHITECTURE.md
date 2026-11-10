@@ -89,7 +89,7 @@ alternating) is the older path and still works.
 | `weapon` | Physical reload, grenades, holsters and weapon swap, two-handed grip, free hands, melee, use reach, shot origin, hit feedback, reload sounds | the adapter half of each feature |
 | `ui` | In-VR settings panel, vignette, reticle, held grenade overlay, HUD element toggles | `hud_widgets` only |
 | `control` | The pipe server and its commands; research tools: crash log, frame trace, thread stacks, hardware watchpoint | generic memory access |
-| `launcher` | `bfvr_launcher.exe` (bf4 preset only): finds BF4, checks the build, installs or removes the DLL, sets BF4 up for VR, edits `bfvr.ini`, starts the game. Never loads the mod | no |
+| `launcher` | `bfvr_launcher.exe` (built with the bf4 preset): finds the game, checks the build, installs or removes the DLL, sets BF4 up for VR, edits `bfvr.ini`, starts the game. Never loads the mod. Two games, switched in the header or with `--game bf4\|bf3`; what differs is one `game_profile` each in `launcher/install.hpp`. Battlefield 3 gets the 32-bit research build from the bf3 preset (`build\bf3\<config>\dinput8.dll`, or the folder `bf3` beside the launcher) and no change to the game's own settings | no |
 
 `stereo/world_pass.cpp` is research only (rendering the whole world module twice crashes); it is
 kept as a record and is reachable only through research pipe commands.

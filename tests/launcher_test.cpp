@@ -46,13 +46,12 @@ namespace
 	}
 
 	// Just the headers check_build reads: MZ, e_lfanew, PE signature, machine and timestamp.
-	void write_fake_exe(const fs::path& path, std::uint32_t timestamp)
+	void write_fake_exe(const fs::path& path, std::uint32_t timestamp, std::uint16_t machine = bf4_179547_machine)
 	{
 		std::string image(512, '\0');
 		image[0] = 'M';
 		image[1] = 'Z';
 		const std::uint32_t pe = 0x80;
-		const std::uint16_t machine = bf4_179547_machine;
 		std::memcpy(image.data() + 0x3C, &pe, sizeof(pe));
 		std::memcpy(image.data() + pe, "PE\0\0", 4);
 		std::memcpy(image.data() + pe + 4, &machine, sizeof(machine));
@@ -105,6 +104,44 @@ namespace
 		check(remove(game).ok && !fs::exists(target), "remove after deploy.ps1");
 
 		check(deploy(game, dll, "Test").ok, "deploy again (marker left for --keep inspection)");
+	}
+
+	// Battlefield 3 as the second game: its own build check, DLL folder and marker id.
+	void test_games(const fs::path& root)
+	{
+		check(profile_by_id("bf4") == &bf4_profile && profile_by_id("BF3") == &bf3_profile, "profiles found by id, any case");
+		check(profile_by_id("bf2") == nullptr && profile_by_id("") == nullptr, "unknown id gives no profile");
+
+		const game_install game{ root / L"bf3game", L"bfvr_fake_bf3.exe", &bf3_profile };
+		const fs::path launcher = root / L"build" / L"bf4" / L"Test";
+		const fs::path built = root / L"build" / L"bf3" / L"Test" / L"dinput8.dll";
+		fs::create_directories(game.dir);
+		fs::create_directories(launcher);
+		fs::create_directories(built.parent_path());
+
+		check(find_mod_dll(launcher, bf4_profile, L"Test") == launcher / L"dinput8.dll", "BF4's DLL sits beside the launcher");
+		check(find_mod_dll(launcher, bf3_profile, L"Test") == launcher / L"bf3" / L"dinput8.dll", "BF3's DLL is expected in the folder bf3");
+		write_file(built, "bf-vr x86 proxy");
+		check(find_mod_dll(launcher, bf3_profile, L"Test") == built, "from the build tree the bf3 preset's DLL is used");
+		fs::create_directories(launcher / L"bf3");
+		write_file(launcher / L"bf3" / L"dinput8.dll", "packaged x86 proxy");
+		check(find_mod_dll(launcher, bf3_profile, L"Test") == launcher / L"bf3" / L"dinput8.dll", "a packaged DLL wins over the build tree");
+
+		write_fake_exe(game.dir / game.exe, bf4_179547_timestamp);
+		check(check_build(game).result == build_check::mismatch, "BF4's exe is not accepted as BF3");
+		write_fake_exe(game.dir / game.exe, bf3_1147186_timestamp, bf4_179547_machine);
+		check(check_build(game).result == build_check::mismatch, "BF3's timestamp on an x64 image is not accepted");
+		check(!deploy(game, built, "Test").ok && !fs::exists(game.dir / L"dinput8.dll"), "deploy refused on a wrong BF3 build");
+
+		write_fake_exe(game.dir / game.exe, bf3_1147186_timestamp, bf3_1147186_machine);
+		check(check_build(game).result == build_check::ok, "BF3 build 1147186 (x86) recognised");
+		check(deploy(game, built, "Test").ok && read_file(game.dir / L"dinput8.dll") == "bf-vr x86 proxy", "deploy into BF3");
+		check(read_file(game.dir / L"bfvr.deployed.json").find("\"game\":  \"bf3\"") != std::string::npos, "marker names bf3");
+		check(read_proxy(game).state == proxy_state::ours, "BF3 proxy is ours");
+		check(remove(game).ok && !fs::exists(game.dir / L"dinput8.dll"), "remove from BF3");
+
+		const game_install wrong_game{ game.dir, game.exe, &bf4_profile };
+		check(check_build(wrong_game).result == build_check::mismatch, "BF3's exe is not accepted as BF4");
 	}
 
 	void test_hash(const fs::path& root)
@@ -201,6 +238,7 @@ int wmain(int argc, wchar_t** argv)
 
 	test_hash(root);
 	test_install(root);
+	test_games(root);
 	test_ini(root);
 	test_vr_setup(root);
 
