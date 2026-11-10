@@ -309,6 +309,10 @@ melee_gesture = 1
 # the blade this many degrees to lie on the ray (0 = the knife model's own angle).
 knife_grip = 1
 knife_pitch = 30
+# Further turns of the held knife, degrees: knife_yaw about the controller's up (+ = right), knife_roll about
+# its ray (+ = clockwise seen from behind). Tune them on the panel (Weapon > Hands and melee).
+knife_yaw = 0
+knife_roll = 0
 # Use (pick up, doors, prompts; the game's E): reach the off hand out ahead, away from the gun and
 # below the eyes, and squeeze its grip. With physical reload the pad's own use (X) is not reachable.
 use_reach = 1

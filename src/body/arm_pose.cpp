@@ -259,6 +259,8 @@ namespace bfvr::body
 		}
 		std::atomic<bool> knife_in_hand{};
 		std::atomic<float> knife_pitch{ 0.5235988f }; // radians, live setting knife_pitch
+		std::atomic<float> knife_yaw{};               // radians, live setting knife_yaw (headset 2026-11-10: the knife sat turned)
+		std::atomic<float> knife_roll{};              // radians, live setting knife_roll
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -983,9 +985,15 @@ namespace bfvr::body
 					// The knife's Wep_Root points its blade about 30 degrees off -z towards +y, edge on +y
 					// (monitor, 2026-10-27): 180 degrees about z from the camera axes, then knife_pitch up,
 					// puts the blade along the controller ray, edge down. The hand follows the knife's grip.
+					// knife_yaw turns it about the controller's up (+ = to the right), knife_roll about the ray
+					// (+ = clockwise as seen from behind), both in the controller's axes before the pitch.
 					const float half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
+					const float half_yaw = -0.5f * knife_yaw.load(std::memory_order_relaxed);
+					const float half_roll = -0.5f * knife_roll.load(std::memory_order_relaxed);
 					const ik::quat level{ std::sin(half), 0, 0, std::cos(half) };
-					goal.hand = frame * ik::normalize(aim) * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
+					const ik::quat turn{ 0, std::sin(half_yaw), 0, std::cos(half_yaw) };
+					const ik::quat roll{ 0, 0, std::sin(half_roll), std::cos(half_roll) };
+					goal.hand = frame * ik::normalize(aim) * turn * roll * level * ik::quat{ 0, 0, 1, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
 				if (gun_hand_carries && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed))
 				{
@@ -2177,6 +2185,12 @@ namespace bfvr::body
 	void set_knife_pitch(float degrees)
 	{
 		knife_pitch = degrees * 3.14159265f / 180.0f;
+	}
+
+	void set_knife_turn(float yaw_degrees, float roll_degrees)
+	{
+		knife_yaw = yaw_degrees * 3.14159265f / 180.0f;
+		knife_roll = roll_degrees * 3.14159265f / 180.0f;
 	}
 
 	void set_shoulder_reach(float metres)

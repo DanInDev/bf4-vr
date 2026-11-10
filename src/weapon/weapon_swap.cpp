@@ -136,7 +136,7 @@ namespace bfvr::weapon
 		std::atomic<bool> use_reaching{};
 		float use_offset[3]{}; // the off palm from the head (forward, side, up), for the pipe
 		use_reach user;
-		bool use_down{};
+		std::atomic<bool> use_down{}; // read by the camera hook (use_reach_direction)
 		std::uint64_t uses{};
 		melee_gesture melee;
 		// Free hands (#35).
@@ -753,7 +753,10 @@ namespace bfvr::weapon
 
 	bool use_reach_direction(float (&direction)[3])
 	{
-		if (!use_reaching.load(std::memory_order_relaxed))
+		// Only while using (the grip squeezed in the reach pose, E held): with the hand merely in the pose the
+		// game's aim, and so the walking direction, followed a resting off hand (headset 2026-11-10: pushing
+		// the stick forward ran left, once the pose had widened for the stash).
+		if (!use_reaching.load(std::memory_order_relaxed) || !use_down)
 		{
 			return false;
 		}

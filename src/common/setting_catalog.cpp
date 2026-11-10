@@ -85,6 +85,8 @@ namespace bfvr::settings
 			{ "shot_line", "Weapon", "Aiming", "Shots follow", "The drawn gun's sight, or the controller", "gun=Gun|controller=Controller", true },
 			{ "aim_convergence", "Weapon", "Aiming", "Aim convergence", "Metres where shots meet the barrel line", "", true },
 			{ "knife_pitch", "Weapon", "Hands and melee", "Knife angle", "Degrees the blade is raised", "", true },
+			{ "knife_yaw", "Weapon", "Hands and melee", "Knife turn", "Degrees turned left or right", "", true },
+			{ "knife_roll", "Weapon", "Hands and melee", "Knife roll", "Degrees rolled about the blade", "", true },
 			{ "grips_to_game", "Weapon", "Buttons", "Grips to the game", "Grips also press LB and RB", "", true },
 			{ "trigger_press", "Weapon", "Buttons", "Trigger pull to fire", "Higher: a resting finger never fires", "" },
 			{ "ads_trigger", "Weapon", "Buttons", "Left trigger aims", "The game's zoom on the left trigger", "", true },

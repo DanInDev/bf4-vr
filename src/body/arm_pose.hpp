@@ -32,6 +32,8 @@ namespace bfvr::body
 	void set_knife_in_hand(bool knife);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).
 	void set_knife_pitch(float degrees);
+	// knife_yaw / knife_roll: further turns of the held knife about the controller's up and its ray, degrees.
+	void set_knife_turn(float yaw_degrees, float roll_degrees);
 	// Arm shape: forearm and hand offsets scaled by length (reach), clavicles moved outwards by width
 	// metres per side (a wider torso). 1 and 0 = the rig as authored.
 	void set_arm_shape(float length, float width);

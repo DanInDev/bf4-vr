@@ -19,6 +19,7 @@
 #include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/body_rig.hpp"
+#include "weapon/game_reload_sounds.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/grenade_hands.hpp"
 #include "weapon/reload_sounds.hpp"
@@ -316,8 +317,10 @@ namespace bfvr::weapon
 		grenade_frame frame;
 		frame.seconds = seconds;
 		frame.hands_valid = points.hand_valid[0] && points.hand_valid[1] && now - points.at < points_max_age_ms;
-		frame.off_hand = { points.hand[0][0], points.hand[0][1], points.hand[0][2] };
-		frame.gun_hand = { points.hand[1][0], points.hand[1][1], points.hand[1][2] };
+		// The palms (the controllers' grip points), where every grab zone is measured: the drawn wrists sit
+		// ~8 cm behind and kept two hands apart around a held grenade (headset 2026-11-10: no pin pull).
+		frame.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
+		frame.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 		if (!belt_point(frame.belt))
 		{
 			frame.belt = { 0.0f, -0.70f, -0.10f };
@@ -337,6 +340,18 @@ namespace bfvr::weapon
 		{
 			clear_grab_zone(grab_slot::grenade);
 		}
+		// The pin: a ring on the held grenade until it is out (the other hand grips there and pulls away; with
+		// free hands a quick re-squeeze of the gun hand keeps the gun).
+		if (frame.hands_valid && result.holding && !result.armed)
+		{
+			const v3 at = result.hand == 1 ? frame.gun_hand : frame.off_hand;
+			const float pin[3] = { at.x, at.y, at.z };
+			publish_grab_zone(grab_slot::grenade_pin, pin, grenade_config{}.reach_pin, result.hand == 1 ? result.off_busy : result.gun_busy);
+		}
+		else
+		{
+			clear_grab_zone(grab_slot::grenade_pin);
+		}
 		if (result.event != grenade_event::none)
 		{
 			last_event = event_name(result.event);
@@ -353,7 +368,9 @@ namespace bfvr::weapon
 		}
 		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
 		{
-			play(cue::cloth);
+			// The gun's own pouch foley, as the magazine pouch uses; the synthesised rustle sounded wrong
+			// (headset 2026-11-04 for magazines, 2026-11-10 for grenades), so nothing when it is missing.
+			play_game_reload_sound(reload_event::magazine_taken);
 			input::haptic(held_by, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
 		}
 		else if (result.event == grenade_event::pin_pulled)

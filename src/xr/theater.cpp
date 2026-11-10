@@ -1243,9 +1243,10 @@ namespace bfvr::xr
 		void add_held_grenade_layer(XrCompositionLayerQuad& grenade_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
 			const stereo::head_sample head = stereo::latest_head_sample();
-			// The game's own grenade drawn in the fist (stereo/extra_mesh) replaces this stand-in.
+			// The game's own grenade drawn in the fist (stereo/extra_mesh) replaces this stand-in; with it on the
+			// stand-in is never shown (headset 2026-11-10: it flashed up while the grenade was being captured).
 			if (!settings::global().boolean("grenade_model", true) || !weapon::grenade_in_hand() || !head.valid || layer_count >= max_layers
-				|| stereo::extra_mesh::grenade_drawn())
+				|| stereo::extra_mesh::grenade_drawn() || settings::global().boolean("grenade_mesh", true))
 			{
 				return;
 			}
