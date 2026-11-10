@@ -32,6 +32,32 @@ namespace bfvr::ui
 		}
 	}
 
+	void sight_dot_texture(int size, std::vector<std::uint32_t>& pixels)
+	{
+		pixels.assign(static_cast<std::size_t>(size) * static_cast<std::size_t>(size), 0u);
+		const float half = 0.5f * static_cast<float>(size);
+		for (int y = 0; y < size; ++y)
+		{
+			for (int x = 0; x < size; ++x)
+			{
+				const float dx = (static_cast<float>(x) + 0.5f - half) / half;
+				const float dy = (static_cast<float>(y) + 0.5f - half) / half;
+				const float r = std::sqrt(dx * dx + dy * dy);
+				// Core to 0.4, then a glow fading out by the edge.
+				const float edge = 1.5f / half;
+				const float core = std::clamp((0.4f - r) / edge + 0.5f, 0.0f, 1.0f);
+				const float glow = std::clamp(1.0f - r, 0.0f, 1.0f);
+				const float alpha = std::max(core, 0.35f * glow * glow);
+				// Premultiplied: red, the core a little hot towards orange-white.
+				const auto a = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
+				const auto red = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
+				const auto green = static_cast<std::uint32_t>(std::lround(core * 70.0f));
+				const auto blue = static_cast<std::uint32_t>(std::lround(core * 50.0f));
+				pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(size) + static_cast<std::size_t>(x)] = (a << 24) | (red << 16) | (green << 8) | blue;
+			}
+		}
+	}
+
 	void ring_texture(int size, bool hot, std::vector<std::uint32_t>& pixels)
 	{
 		pixels.assign(static_cast<std::size_t>(size) * static_cast<std::size_t>(size), 0u);

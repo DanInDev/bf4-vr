@@ -40,8 +40,16 @@ namespace bfvr::weapon
 		float sight_ahead_limit{}; // report: how far in front of the game's eye point an eye still counts
 		unsigned long long sight_changes{};
 		ULONGLONG last_trigger_at{};
-		constexpr float sight_enter_metres = 0.025f; // eye this close to the sight line: aiming
-		constexpr float sight_leave_metres = 0.04f;
+		// Eye this close to the sight line: aiming. Under 3.2 cm, so a gun held between the eyes does not
+		// aim; the aim ends 0.3 s after both eyes are more than 5 cm off (no flicker from hand shake).
+		constexpr float sight_enter_metres = 0.03f;
+		constexpr float sight_leave_metres = 0.05f;
+		constexpr float sight_leave_hold_seconds = 0.3f;
+		sight_ads_latch sight_latch;
+		// sight_dot: the lens the dot shows through, as the magnifier's rear lens (re/notes/weapon.md).
+		constexpr float sight_dot_lens_radius = 0.015f;
+		sight_dot_line dot_line;
+		bool dot_seen[2]{}; // report
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
 		constexpr float sight_min_ahead = 0.05f;      // and at least this far in front of it
 		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
@@ -82,6 +90,9 @@ namespace bfvr::weapon
 			input::set_aim_direction(false, none);
 			input::set_shot_line(false, none, none);
 			sight_aiming = false;
+			sight_latch.reset();
+			dot_line = {};
+			dot_seen[0] = dot_seen[1] = false;
 			input::set_sight_aim(false);
 		}
 	}
@@ -265,43 +276,69 @@ namespace bfvr::weapon
 		input::set_shot_line(true, start, barrel);
 
 		// sight_ads: an eye behind the sight holds the game's aim down sights (its lens clears, ADS
-		// accuracy); a wider band to leave than to enter, so a steady aim does not flicker.
-		bool aiming = false;
-		if (sight_ads.load(std::memory_order_relaxed) && sight_line)
-		{
-			if (const stereo::head_sample head = stereo::latest_head_sample(); head.valid)
-			{
-				const float reach = sight_aiming ? sight_leave_metres : sight_enter_metres;
-				// The game's eye point sits ~15 cm behind the optic; in VR the eye may come up to the optic
-				// itself (headset 2026-11-04: close to the sight never aimed).
-				float ahead = sight_min_ahead;
-				if (points.has_optic)
-				{
-					float to_optic = 0.0f;
-					for (int axis = 0; axis < 3; ++axis)
-					{
-						to_optic += (points.optic[axis] - start[axis]) * barrel[axis];
-					}
-					ahead = std::fmax(ahead, to_optic - sight_optic_clearance);
-				}
-				sight_ahead_limit = ahead;
-				for (int e = 0; e < 2; ++e)
-				{
-					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
-					sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
-					aiming = aiming || eye_behind_sight(at, start, barrel, reach, sight_eye_relief, ahead);
-				}
-			}
-		}
-		// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
+		// accuracy); a wider band and a short hold to leave than to enter, so a steady aim does not flicker.
 		const ULONGLONG ticks = GetTickCount64();
 		if (input::latest().right_trigger > 30)
 		{
 			last_trigger_at = ticks;
 		}
-		if (sight_aiming && !aiming && sight_ads.load(std::memory_order_relaxed) && sight_line && ticks - last_trigger_at < 400)
+		bool aiming = false;
+		dot_line = {};
+		dot_seen[0] = dot_seen[1] = false;
+		const stereo::head_sample head = stereo::latest_head_sample();
+		if (sight_line && head.valid)
 		{
-			aiming = true;
+			// The game's eye point sits ~15 cm behind the optic; in VR the eye may come up to the optic
+			// itself (headset 2026-11-04: close to the sight never aimed).
+			float ahead = sight_min_ahead;
+			if (points.has_optic)
+			{
+				float to_optic = 0.0f;
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					to_optic += (points.optic[axis] - start[axis]) * barrel[axis];
+				}
+				ahead = std::fmax(ahead, to_optic - sight_optic_clearance);
+			}
+			sight_ahead_limit = ahead;
+			bool enter = false, stay = false;
+			for (int e = 0; e < 2; ++e)
+			{
+				const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+				sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
+				enter = enter || eye_behind_sight(at, start, barrel, sight_enter_metres, sight_eye_relief, ahead);
+				stay = stay || eye_behind_sight(at, start, barrel, sight_leave_metres, sight_eye_relief, ahead);
+			}
+			// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
+			stay = stay || ticks - last_trigger_at < 400;
+			if (sight_ads.load(std::memory_order_relaxed))
+			{
+				aiming = sight_latch.update(enter, stay, seconds, sight_leave_hold_seconds);
+			}
+			else
+			{
+				sight_latch.reset();
+			}
+			// The dot does not wait for the game's aim: a clear optic (the SCAR's holo) is live at the hip, where
+			// the game draws no reticle of its own; the AK-12's red dot lens stays black until sight_ads aims.
+			if (points.has_optic)
+			{
+				dot_line.valid = true;
+				std::copy(std::begin(start), std::end(start), dot_line.start);
+				std::copy(std::begin(barrel), std::end(barrel), dot_line.direction);
+				dot_line.lens_radius = sight_dot_lens_radius;
+				dot_line.max_behind = sight_eye_relief;
+				dot_line.max_ahead = ahead;
+				for (int e = 0; e < 2; ++e)
+				{
+					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+					dot_seen[e] = sight_dot_for_eye(at, start, barrel, sight_dot_lens_radius, sight_eye_relief, ahead, 1.0f).visible;
+				}
+			}
+		}
+		else
+		{
+			sight_latch.reset();
 		}
 		if (aiming != sight_aiming)
 		{
@@ -314,6 +351,12 @@ namespace bfvr::weapon
 	void set_sight_ads(bool on)
 	{
 		sight_ads = on;
+	}
+
+	sight_dot_line latest_sight_dot_line()
+	{
+		const std::lock_guard guard(lock_);
+		return dot_line;
 	}
 
 	bool aim_point(float (&point)[3])
@@ -365,9 +408,9 @@ namespace bfvr::weapon
 			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), last_metres, hit_valid ? "(hit)" : "", input::controller_aim_active() ? 1 : 0);
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu eye_from_optic=(%.3f %.3f %.3f)"
+			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu dot_seen=%d/%d eye_from_optic=(%.3f %.3f %.3f)"
 				"\neyes off_line_cm=%.1f/%.1f along_cm=%.1f/%.1f (counts: off <= %.1f, along %.0f..%.0f) reticle=(%.3f %.3f %.3f)\ninput tracked=%d grip=%d busy=%d on_handguard=%d support=(%.3f %.3f) gun_wrist=(%.3f %.3f %.3f) off_wrist=(%.3f %.3f %.3f) mode=%s",
-				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2],
+				sight_degrees[0], sight_degrees[1], sight_from_ads ? 1 : 0, sight_ads.load() ? 1 : 0, sight_aiming ? 1 : 0, sight_changes, dot_seen[0] ? 1 : 0, dot_seen[1] ? 1 : 0, eye_from_optic[0], eye_from_optic[1], eye_from_optic[2],
 				100.0f * eye_off[0], 100.0f * eye_off[1], 100.0f * eye_along[0], 100.0f * eye_along[1], 100.0f * (sight_aiming ? sight_leave_metres : sight_enter_metres),
 				-100.0f * sight_eye_relief, 100.0f * sight_ahead_limit, last_point[0], last_point[1], last_point[2], in.tracked ? 1 : 0, in.grip ? 1 : 0, in.busy ? 1 : 0, on_handguard(in.gun, in.off_hand, grip.config()) ? 1 : 0, in.support_offset[0], in.support_offset[1],
 				in.gun.position[0], in.gun.position[1], in.gun.position[2], in.off_hand[0], in.off_hand[1], in.off_hand[2], grip.config().lock ? "lock" : "soft");

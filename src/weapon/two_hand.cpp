@@ -167,6 +167,43 @@ namespace bfvr::weapon
 		return along >= -max_behind && along <= max_ahead && off <= max_offset;
 	}
 
+	sight_dot_view sight_dot_for_eye(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float lens_radius, float max_behind,
+		float max_ahead, float distance)
+	{
+		sight_dot_view view;
+		float off = 0.0f, along = 0.0f;
+		sight_offset(eye, sight_eye, direction, off, along);
+		view.visible = off <= lens_radius && along >= -max_behind && along <= max_ahead;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			view.point[axis] = eye[axis] + direction[axis] * distance;
+		}
+		return view;
+	}
+
+	bool sight_ads_latch::update(bool within_enter, bool within_leave, float seconds, float hold)
+	{
+		if (!aiming_)
+		{
+			aiming_ = within_enter;
+			outside_ = 0.0f;
+			return aiming_;
+		}
+		outside_ = within_leave ? 0.0f : outside_ + seconds;
+		if (outside_ > hold)
+		{
+			aiming_ = false;
+			outside_ = 0.0f;
+		}
+		return aiming_;
+	}
+
+	void sight_ads_latch::reset()
+	{
+		aiming_ = false;
+		outside_ = 0.0f;
+	}
+
 	void converged_aim(const float (&origin)[3], const float (&grip)[3], const float (&rotation)[4], float convergence, float (&direction)[3])
 	{
 		const vec3 barrel = body::ik::rotate(to_quat(rotation), { 0, 0, -1 });

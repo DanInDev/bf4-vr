@@ -203,7 +203,8 @@ game's aim pitch and the firing animation, so it is no sight line.
 - Mod: `body/arm_pose` samples the sight (steady only: not within 0.4 s of firing, within 5 deg of
   the barrel), prefers the ADS sample per gun (reset when the gun in hand changes), and before it
   uses Wep_Scope1 + (0, 0.035, -0.15) along the barrel. `weapon/two_handed` aims along it
-  (`shot_line = gun`) and holds the game's LT while an eye is within 2.5 cm of the line (`sight_ads`).
+  (`shot_line = gun`) and holds the game's LT while an eye is near the line (`sight_ads`; bands below,
+  "The game's reticle follows the view").
 
 ## Magnified sights (2026-11-04, monitor: fakehead, LT with `ads_trigger 1`)
 
@@ -259,6 +260,57 @@ images with and without it are identical (wall, and the room with a fake control
 the gun had **no second-eye offset in ADS** (0 px between the eyes) and could not be hidden from the
 scope. The limit is now 25 (g down to 0.04); ADS: 22 -> 56 per-view blocks moved per frame, the red dot
 now ~450 px apart between the eyes (~17 cm, as expected).
+
+## The game's reticle follows the view, not the sight (2026-11-10, monitor, #39)
+
+Why the headset saw no red dot although the monitor did (AK-12 red dot, `gun_fov_life_size` on,
+fakehead + fakehand, eye pass images):
+
+- With the eye exactly on the sight line (0.4 cm) and the head looking straight down it, ADS engages
+  and stays (`changes=1`), and the dot and ring sit centred in a clear lens.
+- **The dot is drawn at the eye image's centre** (1080, 1080 of 2160), masked by the lens: it marks
+  the view's forward axis, not the sight's. In the game's own ADS the camera always looks down the
+  sight, so the two coincide.
+- Eye on the line, head pitched **2 deg**: the dot moves up inside the lens. **5 deg** up or down:
+  no dot, only an arc of the ring. Eye 2.6 cm off the line (still counted as aiming): no dot, the
+  ring drawn outside the housing.
+- In a headset the head is never held within ~2 deg of the barrel, so the lens shows nothing: the
+  cause of "sights show nothing" (AIM-12), more than the 2.5/4 cm hysteresis flicker seen in the marks.
+- Draw diff ADS vs hip (`meshprobe`): the same 933 draws in both; small gun-pass candidates for the lens
+  and reticle are #594-596 (276/72/36 indices, blend `...271D88`) and #889-891 (24/72/474, HDR target).
+  `eyeskip` on those ranges did not remove the dot (the second eye's draw numbering differs from the
+  probe's), so the reticle draw is not identified yet.
+
+**What the mod does** (`sight_dot`, chosen 2026-11-10): its own collimated red dot, an OpenXR quad
+50 m down the sight line from each eye, shown (left/right eye visibility) only to an eye within the
+lens radius (1.5 cm, the magnifier's rear lens) of the line and between 30 cm behind the game's eye
+point and 2 cm short of the optic (`two_hand` `sight_dot_for_eye`), **aiming or not**: sights stay live
+without the game's ADS, which (`sight_ads`) only clears the AK's lens and gives ADS accuracy. The green aim dot hides meanwhile;
+the magnifier's own scope picture keeps its dot. `sight_ads` now enters at 3 cm (under half the eye
+distance: a gun between the eyes does not aim) and leaves only after 0.3 s beyond 5 cm
+(`sight_ads_latch`); monitor: held through a 0/4.5 cm shake and a brief 7 cm slip.
+
+**The optics without the game's ADS** (monitor, `sight_ads 0`, sight on the left eye):
+
+| Optic | Hip (no ADS) | Game ADS |
+| --- | --- | --- |
+| SCAR-H holographic | window clear, **no game reticle** (a faint glint only): our dot is the only reticle | the game's ring, cross and dots at the view centre |
+| AK-12 red dot | lens **solid black** | lens clear, the game's dot and ring at the view centre |
+
+**Hiding the game's lens and reticle (`eyehide`, 2026-11-10): not one draw.** No single gun-pass
+draw (indexed, by pixel shader) and no single non-indexed draw removes the dot or ring; skipping
+every non-indexed draw does (and also unlights the gun), so the reticle comes out of a full-screen
+or compositing pass. With every gun draw hidden, depth-only draws included, the AK's black lens
+still floats where the lens was: it is drawn outside the gun pass. Combinations of early draws on an
+864x864 target (the first draws of the frame, where the gun pass also renders a small view) clear it,
+consistent with the lens showing a separate small render of the scene (the "magnified grey patch"
+first seen in #39). Draw order shifts between frames, so `eyeskip` bisection by index is unreliable.
+Left for later: the 864x864 view and the compositing pass, or a game-side switch for the lens state.
+
+Still open: with `sight_ads` on, the game's own reticle still shows when the head happens to look
+down the barrel (then it nearly coincides with ours). Guns with iron sights
+also get the dot (no optic type is read yet). The other route, turning the gun pass's view axis onto
+the sight while keeping its view-projection, depends on whether the lens shader works in view space.
 
 ## Open
 

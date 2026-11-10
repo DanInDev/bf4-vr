@@ -56,6 +56,8 @@ namespace bfvr::settings
 			{ "reticle_depth", "Weapon", "Aiming", "Dot on target", "The dot sits on what the gun points at", "" },
 			{ "reticle_size", "Weapon", "Aiming", "Aim dot size", "Degrees", "" },
 			{ "recoil", "Weapon", "Aiming", "Recoil", "The gun kicks in your hand; 0 = off", "" },
+			{ "sight_dot", "Weapon", "Aiming", "Red dot in the sight", "Through the lens, aiming or not", "" },
+			{ "sight_dot_size", "Weapon", "Aiming", "Red dot size", "Degrees", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "" },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },

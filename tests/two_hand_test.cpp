@@ -329,6 +329,58 @@ namespace
 		sight_offset(beside, eye_point, ahead, off, along_line);
 		expect(near(off, 0.035f, 1e-4f) && near(along_line, -0.10f, 1e-4f), "sight_offset: 3.5 cm off the line, 10 cm behind the eye point");
 	}
+
+	// #39: the collimated dot sits along the sight from each eye and shows only through the lens.
+	void test_sight_dot()
+	{
+		const float eye_point[3]{ 0.03f, -0.01f, -0.20f };
+		const float ahead[3]{ 0.0f, 0.0f, -1.0f };
+		const float on_line[3]{ 0.035f, -0.01f, -0.10f }; // 0.5 cm off, 10 cm behind the eye point
+		const sight_dot_view seen = sight_dot_for_eye(on_line, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f);
+		expect(seen.visible, "an eye near the line sees the dot");
+		expect(near(seen.point[0], 0.035f) && near(seen.point[1], -0.01f) && near(seen.point[2], -50.10f), "the dot lies along the sight from that eye (parallel, not on the line)");
+		const float other_eye[3]{ 0.099f, -0.01f, -0.10f }; // the other eye, 6.4 cm to the side
+		expect(!sight_dot_for_eye(other_eye, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f).visible, "the other eye sees the housing, not the dot");
+		const float edge[3]{ 0.044f, -0.01f, -0.10f }; // 1.4 cm off
+		expect(sight_dot_for_eye(edge, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f).visible, "inside the lens edge");
+		const float outside[3]{ 0.047f, -0.01f, -0.10f }; // 1.7 cm off
+		expect(!sight_dot_for_eye(outside, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f).visible, "outside the lens: no dot");
+		const float past_optic[3]{ 0.03f, -0.01f, -0.35f }; // 15 cm in front of the eye point, past the optic
+		expect(!sight_dot_for_eye(past_optic, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f).visible, "an eye in front of the optic: no dot");
+	}
+
+	// #39: the ADS latch enters in the narrow band and leaves only after the hold outside the wide one.
+	void test_sight_ads_latch()
+	{
+		sight_ads_latch latch;
+		expect(!latch.update(false, true, frame, 0.3f), "within the leave band only: not yet aiming");
+		expect(latch.update(true, true, frame, 0.3f), "within the enter band: aiming");
+		expect(latch.update(false, true, frame, 0.3f), "between the bands: still aiming");
+		float elapsed = 0.0f;
+		bool kept = true;
+		while (elapsed < 0.29f)
+		{
+			kept = kept && latch.update(false, false, frame, 0.3f);
+			elapsed += frame;
+		}
+		expect(kept, "a short slip outside the wide band keeps the aim");
+		latch.update(false, true, frame, 0.3f);
+		elapsed = 0.0f;
+		while (elapsed < 0.29f)
+		{
+			kept = kept && latch.update(false, false, frame, 0.3f);
+			elapsed += frame;
+		}
+		expect(kept, "coming back resets the hold");
+		for (int i = 0; i < 10; ++i)
+		{
+			latch.update(false, false, frame, 0.3f);
+		}
+		expect(!latch.aiming(), "outside the wide band for longer than the hold: the aim ends");
+		latch.update(true, true, frame, 0.3f);
+		latch.reset();
+		expect(!latch.aiming(), "reset");
+	}
 }
 
 int main()
@@ -342,6 +394,8 @@ int main()
 	test_accessory_trigger();
 	test_converged_aim();
 	test_drawn_barrel();
+	test_sight_dot();
+	test_sight_ads_latch();
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

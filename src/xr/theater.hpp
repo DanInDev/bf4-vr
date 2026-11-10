@@ -27,6 +27,7 @@ namespace bfvr::xr
 		std::uint32_t focus_losses{}; // FOCUSED left for another state
 		double unfocused_seconds{};  // since focus was last lost, while it is still lost
 		std::uint64_t held_grenade_frames{}; // frames that showed the grenade in the off hand
+		std::uint64_t sight_dot_frames{};    // frames that showed the sight's red dot (#39)
 	};
 
 	// The OpenXR side of the mod: the flat virtual screen (menus, cutscenes), the head-tracked

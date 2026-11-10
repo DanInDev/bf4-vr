@@ -48,6 +48,7 @@
 #include "ui/vr_panel.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
+#include "weapon/two_hand.hpp"
 #include "weapon/two_handed.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/runtime_selection.hpp"
@@ -834,6 +835,9 @@ namespace bfvr::xr
 		cpu_overlay vignette_overlay{ "vignette" };
 		cpu_overlay reticle_overlay{ "reticle" };
 		static constexpr std::uint32_t reticle_pixels_size = 64;
+		cpu_overlay sight_dot_overlay{ "sight dot" };
+		bool sight_dot_shown{}; // this frame: the aim reticle stays off (the sight has its dot)
+		std::atomic<std::uint64_t> sight_dot_layers{}; // frames with a sight dot submitted (pipe status)
 		cpu_overlay ring_overlay[2]{ { "grab zone" }, { "grab zone (hand inside)" } };
 		cpu_overlay grenade_overlay[2]{ { "held grenade" }, { "held grenade (armed)" } };
 		static constexpr std::uint32_t grenade_pixels_size = 128;
@@ -1148,6 +1152,58 @@ namespace bfvr::xr
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&scope_quad);
 		}
 
+		// sight_dot (#39): the reflex sight's red dot, collimated: per eye, far down the sight line from that
+		// eye, shown only to an eye that looks through the lens (the game's own dot follows the view's centre).
+		void add_sight_dot_layers(XrCompositionLayerQuad (&quads)[2], const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			sight_dot_shown = false;
+			const settings::registry& store = settings::global();
+			const stereo::head_sample head = stereo::latest_head_sample();
+			const weapon::sight_dot_line line = weapon::latest_sight_dot_line();
+			if (!line.valid || scope_visible() || !store.boolean("sight_dot", true) || !head.valid)
+			{
+				return;
+			}
+			constexpr float distance = 50.0f;
+			const float angular = store.real("sight_dot_size", 0.3f) * 3.14159265f / 180.0f;
+			for (int e = 0; e < 2; ++e)
+			{
+				const float eye[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+				const weapon::sight_dot_view view = weapon::sight_dot_for_eye(eye, line.start, line.direction, line.lens_radius, line.max_behind, line.max_ahead, distance);
+				if (!view.visible || layer_count >= max_layers || !ensure_overlay(sight_dot_overlay, reticle_pixels_size, reticle_pixels_size))
+				{
+					continue;
+				}
+				if (!sight_dot_overlay.shown)
+				{
+					std::vector<std::uint32_t> pixels;
+					ui::sight_dot_texture(static_cast<int>(reticle_pixels_size), pixels);
+					upload_overlay(sight_dot_overlay, pixels);
+					if (!sight_dot_overlay.shown)
+					{
+						return;
+					}
+				}
+				const ui::reticle_quad placed = ui::place_reticle(view.point, eye, angular);
+				XrCompositionLayerQuad& quad = quads[e];
+				quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+				quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+				quad.space = space;
+				quad.eyeVisibility = e == 0 ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_RIGHT;
+				quad.subImage.swapchain = sight_dot_overlay.swapchain;
+				quad.subImage.imageRect.extent = { static_cast<std::int32_t>(reticle_pixels_size), static_cast<std::int32_t>(reticle_pixels_size) };
+				quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };
+				quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
+				quad.size = { placed.size, placed.size };
+				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
+				sight_dot_shown = true;
+			}
+			if (sight_dot_shown)
+			{
+				++sight_dot_layers;
+			}
+		}
+
 		// Aim reticle (#3, #12): with controller aim, a dot where the shots converge, facing the head,
 		// a constant angular size; world-locked so it sits at that depth in both eyes.
 		void add_reticle_layer(XrCompositionLayerQuad& reticle_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
@@ -1155,7 +1211,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (scope_visible() || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
+			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
 				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;
@@ -2237,7 +2293,8 @@ namespace bfvr::xr
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad grenade_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			const XrCompositionLayerBaseHeader* layers[14 + weapon::grab_zone_count]{};
+			XrCompositionLayerQuad sight_dot_quads[2]{};
+			const XrCompositionLayerBaseHeader* layers[16 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -2302,6 +2359,7 @@ namespace bfvr::xr
 				add_grab_zone_layers(zone_quads, layers, layer_count);
 				add_held_grenade_layer(grenade_quad, layers, layer_count);
 				add_scope_layer(scope_quad, layers, layer_count);
+				add_sight_dot_layers(sight_dot_quads, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
 			}
 			else if (frame.shouldRender && can_copy && copy_to_swapchain(back_buffer.Get()))
@@ -2573,6 +2631,6 @@ namespace bfvr::xr
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
 			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
 			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
-			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.grenade_layers.load() };
+			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.grenade_layers.load(), s.sight_dot_layers.load() };
 	}
 }

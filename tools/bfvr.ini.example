@@ -286,10 +286,17 @@ shots_from_gun = 1
 # With shots_from_gun: the game's own aim stays with your body (the stick turn), so its first-person body
 # never turns with the gun. 0 = the game aims with the gun as before (its body turned and was turned back).
 aim_with_body = 1
-# Hold the gun's sight to an eye (within 2.5 cm of its line, up to 30 cm behind it) and the game aims
-# down the sights: the optic's lens clears (it is opaque at the hip), the reticle shows, and the
-# game's ADS accuracy and slower walk apply. 0 = never (ads_trigger still gives LT by hand).
+# Hold the gun's sight to an eye (within 3 cm of its line, up to 30 cm behind it) and the game aims
+# down the sights: the optic's lens clears (it is opaque at the hip) and the game's ADS accuracy and
+# slower walk apply; it ends 0.3 s after both eyes are more than 5 cm off the line. 0 = never
+# (ads_trigger still gives LT by hand): sights stay live through sight_dot, the SCAR's holo window is
+# clear without the game's aim, the AK-12's red dot lens stays black.
 sight_ads = 1
+# Guns with an optic: a red dot at infinity along the sight line, seen only by the eye that looks
+# through the lens, aiming or not, like a real reflex sight (the game draws its own reticle at the
+# centre of the view, which only lines up when the head looks exactly down the barrel). sight_dot_size: degrees.
+sight_dot = 1
+sight_dot_size = 0.3
 # Magnifying sights (the AK-12's flip magnifier): while the game aims through one, the world is
 # rendered once more from the sight with the lens's narrow view and shown on the lens, with a red dot
 # on the sight line. Costs one extra world render while aiming. scope_zoom multiplies the game's own

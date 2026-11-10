@@ -31,6 +31,9 @@ namespace bfvr::stereo
 	std::string set_eye_poison(const std::string& spec);
 	// Research: indexed draws [from, to) of the second eye are skipped (0 0 = none).
 	std::string set_eye_skip(unsigned from, unsigned to);
+	// Research (pipe eyehide): indexed draws with one of these pixel shaders (hex pointers from meshprobe,
+	// up to 4) are skipped in both eyes; "off" clears.
+	std::string set_eye_hide(const std::string& shaders);
 	// stereo_render = pair: the camera hook sets the right eye's offset (metres along the left eye's
 	// right axis) every frame.
 	void set_eye_pass_shift(float metres);

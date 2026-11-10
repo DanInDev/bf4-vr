@@ -124,6 +124,7 @@ offline mode is the legitimate way to play without a connection.
 | `extramesh` / `extramesh pin <hex mask>` | Extra meshes (#36): whether a second magazine is drawn now, its move, copies drawn, palettes read, meshes carrying the magazine tag; the held grenade: copy on/armed/where, captures (accepted, rejected), the captured draws (pass, owned blocks and views), the hold used and the game's own hold last seen (`re/notes/meshes.md`). `pin`: which palette entries of the grenade vanish once the pin is out (research; default 1 = entry 0) |
 | `depthprobe` | The dot on target: dispatches and readbacks of the scene-depth reads, the last hit distance and its age, the depth texture's description and the world projection (`re/notes/weapon.md`) |
 | `meshprobe <file.txt>` | Research: every indexed draw of the next first-eye render (buffers, shaders, target, VS constant bindings) and every 3072-byte VS slot-0 block as 64 3x4 matrices |
+| `eyehide <ps hex>... \| plain \| null \| list \| off` | Research: skip draws in both eye renders by pixel shader (up to 64 pointers from `meshprobe`), every non-indexed draw (`plain`), every draw without a pixel shader (`null`); `list` gives the non-indexed draws of the last first-eye render (shader, vertices, count). Found the AK-12 lens and the game's reticle to be multi-pass effects (re/notes/weapon.md) |
 | `meshcopy <index buffer hex> <dx dy dz> [entries] \| off` | Research: after each draw from that index buffer, the same draw again with palette entries 0..entries-1 moved (palette space, metres) |
 | `reload [fire\|button\|catch\|grab\|take\|letgo\|stow\|insert\|rack]` | Physical reload (#14): state of the gun in hand, magwell/slide positions, the reloading hand (`hand=`, the right while the left carries the gun) and its palm, the held magazine's top and recent events; with an event (research) drives the state machine directly |
 | `watch <hex address> [len] [ms] [rw]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace; `rw` traps reads too ("what accesses this", e.g. the per-frame reader of a widget's `Visible`) |
@@ -176,7 +177,8 @@ headset (pitch in degrees, up positive: look down at the floor or the chest rig)
 rendering `shot` is not the left eye's headset image (the second eye's gun ends up in it): judge per-eye
 geometry with `eyeshot` / `eyeshot2`. `bodyturn 0|1` A/B-tests turning the first-person body back from the
 gun (re/notes/skeleton.md). `twohand` prints each eye's distance from the sight line
-(`eyes off_line_cm along_cm`, what `sight_ads` needs), `holster` the free hands state (`dropped`, `floor_y`). Timing work on
+(`eyes off_line_cm along_cm`, what `sight_ads` needs) and which eye sees the sight dot (`dot_seen=L/R`;
+`status` counts the frames that showed it, `sight_dot_frames`, headset only), `holster` the free hands state (`dropped`, `floor_y`). Timing work on
 the eye pass needs the Release build (`dev-run.ps1 -Preset bf4-release`, `research = 1` in `bfvr.ini`). Fatal
 exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash_log.cpp`).
 

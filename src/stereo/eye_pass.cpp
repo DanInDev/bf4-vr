@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -96,6 +97,12 @@ namespace bfvr::stereo
 		set_constant_buffers_t original_ps_set_constant_buffers{};
 		draw_indexed_t original_draw_indexed{};
 		draw_indexed_instanced_t original_draw_indexed_instanced{};
+		constexpr int draw_slot = 13;
+		constexpr int draw_instanced_slot = 21;
+		using draw_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT);
+		using draw_instanced_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, UINT, UINT, UINT, UINT);
+		draw_t original_draw{};
+		draw_instanced_t original_draw_instanced{};
 		constexpr int vs_set_constant_buffers1_slot = 119;
 		constexpr int ps_set_constant_buffers1_slot = 123;
 		constexpr int cs_set_constant_buffers1_slot = 124;
@@ -775,8 +782,107 @@ namespace bfvr::stereo
 		std::atomic<UINT> skip_to{};
 		UINT eye2_draws{};
 
-		bool skip_draw()
+		// Research (pipe eyehide): draws with these pixel shaders are not issued in either eye; "eyehide
+		// plain" skips every non-indexed draw, "eyehide list" reports the non-indexed draws of the last
+		// first-eye render (pixel shader, vertex count, draws).
+		constexpr int hide_shader_count = 64;
+		std::atomic<std::uintptr_t> hide_shaders[hide_shader_count]{};
+		std::atomic<bool> hide_plain{};
+		bool in_eye_render{}; // render thread: inside one of the eye renders
+		struct plain_draw
 		{
+			std::uintptr_t shader{};
+			UINT vertices{};
+			UINT draws{};
+		};
+		std::mutex plain_lock;
+		std::vector<plain_draw> plain_draws;      // the render being recorded
+		std::vector<plain_draw> plain_draws_last; // the last complete first-eye render
+
+		std::atomic<bool> hide_null{}; // eyehide null: draws without a pixel shader (depth/stencil only)
+
+		bool shader_hidden(ID3D11DeviceContext* c)
+		{
+			const bool by_null = hide_null.load(std::memory_order_relaxed);
+			if (!in_eye_render || (!hide_shaders[0].load(std::memory_order_relaxed) && !by_null))
+			{
+				return false;
+			}
+			ComPtr<ID3D11PixelShader> shader;
+			c->PSGetShader(&shader, nullptr, nullptr);
+			const auto bound = reinterpret_cast<std::uintptr_t>(shader.Get());
+			if (by_null && !bound)
+			{
+				return true;
+			}
+			for (const std::atomic<std::uintptr_t>& hidden : hide_shaders)
+			{
+				const std::uintptr_t value = hidden.load(std::memory_order_relaxed);
+				if (!value)
+				{
+					break;
+				}
+				if (bound && value == bound)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool skip_plain_draw(ID3D11DeviceContext* c, UINT vertices)
+		{
+			if (!in_eye_render)
+			{
+				return false;
+			}
+			if (!patching)
+			{
+				ComPtr<ID3D11PixelShader> shader;
+				c->PSGetShader(&shader, nullptr, nullptr);
+				const auto bound = reinterpret_cast<std::uintptr_t>(shader.Get());
+				const std::lock_guard guard(plain_lock);
+				auto found = std::find_if(plain_draws.begin(), plain_draws.end(), [&](const plain_draw& d) { return d.shader == bound && d.vertices == vertices; });
+				if (found == plain_draws.end() && plain_draws.size() < 256)
+				{
+					plain_draws.push_back({ bound, vertices, 1 });
+				}
+				else if (found != plain_draws.end())
+				{
+					++found->draws;
+				}
+			}
+			return hide_plain.load(std::memory_order_relaxed) || shader_hidden(c);
+		}
+
+		void STDMETHODCALLTYPE draw_detour(ID3D11DeviceContext* c, UINT vertices, UINT start)
+		{
+			if (skip_plain_draw(c, vertices))
+			{
+				return;
+			}
+			original_draw(c, vertices, start);
+		}
+
+		void STDMETHODCALLTYPE draw_instanced_detour(ID3D11DeviceContext* c, UINT vertices, UINT instances, UINT start, UINT first)
+		{
+			if (skip_plain_draw(c, vertices))
+			{
+				return;
+			}
+			original_draw_instanced(c, vertices, instances, start, first);
+		}
+
+		bool skip_draw(ID3D11DeviceContext* c)
+		{
+			if (shader_hidden(c))
+			{
+				if (patching)
+				{
+					++eye2_draws;
+				}
+				return true;
+			}
 			if (!patching)
 			{
 				return false;
@@ -788,7 +894,7 @@ namespace bfvr::stereo
 		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
 		void STDMETHODCALLTYPE draw_indexed_detour(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
 		{
-			if (skip_draw())
+			if (skip_draw(c))
 			{
 				return;
 			}
@@ -802,7 +908,7 @@ namespace bfvr::stereo
 
 		void STDMETHODCALLTYPE draw_indexed_instanced_detour(ID3D11DeviceContext* c, UINT count, UINT instances, UINT start, INT base, UINT first)
 		{
-			if (skip_draw())
+			if (skip_draw(c))
 			{
 				return;
 			}
@@ -856,6 +962,8 @@ namespace bfvr::stereo
 				{ ps_set_constant_buffers_slot, &ps_set_constant_buffers_detour, reinterpret_cast<void**>(&original_ps_set_constant_buffers) },
 				{ draw_indexed_slot, &draw_indexed_detour, reinterpret_cast<void**>(&original_draw_indexed) },
 				{ draw_indexed_instanced_slot, &draw_indexed_instanced_detour, reinterpret_cast<void**>(&original_draw_indexed_instanced) },
+				{ draw_slot, &draw_detour, reinterpret_cast<void**>(&original_draw) },
+				{ draw_instanced_slot, &draw_instanced_detour, reinterpret_cast<void**>(&original_draw_instanced) },
 			};
 			for (const auto& entry : table)
 			{
@@ -1325,7 +1433,17 @@ namespace bfvr::stereo
 				begin_eye_foveation();
 			}
 			extra_mesh::begin_render(0);
+			{
+				const std::lock_guard guard(plain_lock);
+				plain_draws.clear();
+			}
+			in_eye_render = true;
 			original_per_view_render(renderer, slot, context);
+			in_eye_render = false;
+			{
+				const std::lock_guard guard(plain_lock);
+				plain_draws_last = plain_draws;
+			}
 			extra_mesh::end_render();
 			if (patch_constants)
 			{
@@ -1426,7 +1544,9 @@ namespace bfvr::stereo
 				begin_eye_foveation();
 			}
 			extra_mesh::begin_render(1);
+			in_eye_render = true;
 			original_per_view_render(renderer, slot, context);
+			in_eye_render = false;
 			extra_mesh::end_render();
 			if (patch_constants)
 			{
@@ -1614,6 +1734,52 @@ namespace bfvr::stereo
 		skip_from = from;
 		skip_to = to;
 		return "eyeskip " + std::to_string(from) + ".." + std::to_string(to) + " (last eye-2 draw count " + std::to_string(eye2_draws) + ")";
+	}
+
+	std::string set_eye_hide(const std::string& shaders)
+	{
+		if (shaders == "list")
+		{
+			const std::lock_guard guard(plain_lock);
+			std::string text = "non-indexed draws (pixel shader, vertices, draws): " + std::to_string(plain_draws_last.size());
+			for (const plain_draw& d : plain_draws_last)
+			{
+				char line[64];
+				std::snprintf(line, sizeof(line), "\n%016llX %u %u", static_cast<unsigned long long>(d.shader), d.vertices, d.draws);
+				text += line;
+			}
+			return text;
+		}
+		if (shaders == "plain")
+		{
+			hide_plain = true;
+			return "eyehide: every non-indexed draw";
+		}
+		if (shaders == "null")
+		{
+			hide_null = true;
+			return "eyehide: every draw without a pixel shader";
+		}
+		hide_plain = false;
+		hide_null = false;
+		int given = 0;
+		const char* cursor = shaders.c_str();
+		while (shaders != "off" && given < hide_shader_count)
+		{
+			char* end = nullptr;
+			const unsigned long long value = std::strtoull(cursor, &end, 16);
+			if (end == cursor || value == 0)
+			{
+				break;
+			}
+			hide_shaders[given++] = static_cast<std::uintptr_t>(value);
+			cursor = end;
+		}
+		for (int i = given; i < hide_shader_count; ++i)
+		{
+			hide_shaders[i] = 0;
+		}
+		return given > 0 ? "eyehide: " + std::to_string(given) + " pixel shaders" : "eyehide off";
 	}
 
 	std::string set_eye_poison(const std::string& spec)

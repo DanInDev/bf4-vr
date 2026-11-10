@@ -559,7 +559,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -583,6 +583,7 @@ namespace bfvr::control
 				return stereo::set_eye_skip(from, to);
 			}
 			if (command == "eyepoison") return stereo::set_eye_poison(argument);
+			if (command == "eyehide") return stereo::set_eye_hide(argument);
 			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
 			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
 			if (command == "meshprobe") return stereo::extra_mesh::probe(argument);

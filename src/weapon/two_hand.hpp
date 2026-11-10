@@ -92,4 +92,32 @@ namespace bfvr::weapon
 	// The eye's distance from the sight line (off) and how far along it from the sight's eye point (along:
 	// + towards the muzzle, - behind), metres.
 	void sight_offset(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float& off, float& along);
+
+	// sight_dot (#39): a red dot collimated like a real reflex sight. The game draws its own dot along the
+	// view's centre, which a head never holds on the barrel; this one sits at infinity along the sight
+	// line, so an eye sees it only while that eye's ray parallel to the line passes through the lens:
+	// within lens_radius of the line, from max_behind behind the sight's eye point up to max_ahead in
+	// front of it. point: where to draw it, distance metres from the eye along the sight.
+	struct sight_dot_view
+	{
+		bool visible{};
+		float point[3]{};
+	};
+	sight_dot_view sight_dot_for_eye(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float lens_radius, float max_behind,
+		float max_ahead, float distance);
+
+	// sight_ads: aiming starts with an eye within the enter band and ends only after no eye has been
+	// within the leave band for hold seconds, so hand shake and the drawn recoil do not flicker the
+	// game's ADS (headset 2026-11-10: 82 changes in one session).
+	class sight_ads_latch
+	{
+	public:
+		bool update(bool within_enter, bool within_leave, float seconds, float hold);
+		bool aiming() const { return aiming_; }
+		void reset();
+
+	private:
+		bool aiming_{};
+		float outside_{};
+	};
 }

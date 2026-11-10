@@ -38,4 +38,17 @@ namespace bfvr::weapon
 
 	// sight_ads: holding the gun's sight to an eye aims down it in the game (two_hand eye_behind_sight).
 	void set_sight_ads(bool on);
+
+	// sight_dot (#39): for a drawn gun with an optic, aiming or not, the sight line (OpenXR LOCAL) and the
+	// lens limits for two_hand sight_dot_for_eye; the XR thread draws the dot per eye from it.
+	struct sight_dot_line
+	{
+		bool valid{};
+		float start[3]{};     // the sight's eye point
+		float direction[3]{}; // unit, towards the muzzle
+		float lens_radius{};
+		float max_behind{};
+		float max_ahead{};
+	};
+	sight_dot_line latest_sight_dot_line();
 }
