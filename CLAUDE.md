@@ -44,6 +44,23 @@ python -E -P tools\camera_probe.py # live camera chain
 Config: `E:\EA\Battlefield 4\bfvr.ini` (template `tools/bfvr.ini.example`). Input tools refuse to send
 keys unless BF4 is the foreground window. A headset test needs the user; batch those requests.
 
+## Done means verified
+
+- Nothing is "done" without `tools\gate.ps1` green (both presets warning-free, all unit tests, no forbidden
+  files) and, for behaviour in the game, the live check with its raw output. State what was not checked.
+- Write the check before the change where possible: a unit test, or the pipe command and expected value.
+- What only the headset can judge ends at "ready for your check", with a row in `docs/HEADSET-TESTS.md`.
+- A dead end, a misleading tool or a new address is written down when it happens (`re/notes/`,
+  "Tool pitfalls" below, `re/symbols/`), so the next session does not repeat it.
+
+## Unattended runs
+
+`docs/UNATTENDED.md` is the method; `/work-queue` runs it over the issues labelled `agent-ready`.
+Between `tools\agent\run.ps1 start` and `stop` the hooks in `.claude/settings.json` refuse pushes, work on
+`main`, closing issues and saving live settings, and a turn cannot end with the gate red. One issue per
+branch; green branches are collected on `night/<date>`; three failed attempts park an issue as
+`agent-blocked` with what was tried. State lives in issues and files, never only in the conversation.
+
 ## Conventions
 
 - C++20, MSVC, tabs, `bfvr::` namespaces, comments only where the code cannot say it.

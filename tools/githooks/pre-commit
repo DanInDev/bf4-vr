@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuses commits that contain dumps, game files, screenshots or profile data (docs/SAFETY.md).
+# Enabled with: git config core.hooksPath tools/githooks
+bad=$(git diff --cached --name-only --diff-filter=ACMR | grep -i -E '\.(dmp|exe|gpr|i64|idb|rdc)$|^re/(dumps|projects|screenshots|assets)/|PROFSAVE|(^|/)bfvr\.(ini|log)$|(^|/)bfvr_marks/')
+if [ -n "$bad" ]; then
+	echo "Commit refused: these files must never be committed (docs/SAFETY.md):" >&2
+	echo "$bad" >&2
+	exit 1
+fi
+exit 0

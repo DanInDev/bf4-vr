@@ -1,0 +1,64 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake *)", "PowerShell(cmake *)",
+      "Bash(ctest *)", "PowerShell(ctest *)",
+      "Bash(python -E *)", "PowerShell(python -E *)",
+      "Bash(git status*)", "PowerShell(git status*)",
+      "Bash(git diff*)", "PowerShell(git diff*)",
+      "Bash(git log*)", "PowerShell(git log*)",
+      "Bash(git show*)", "PowerShell(git show*)",
+      "Bash(git add *)", "PowerShell(git add *)",
+      "Bash(git commit *)", "PowerShell(git commit *)",
+      "Bash(git switch *)", "PowerShell(git switch *)",
+      "Bash(git checkout *)", "PowerShell(git checkout *)",
+      "Bash(git branch*)", "PowerShell(git branch*)",
+      "Bash(git merge *)", "PowerShell(git merge *)",
+      "Bash(git worktree *)", "PowerShell(git worktree *)",
+      "Bash(git rev-parse *)", "PowerShell(git rev-parse *)",
+      "Bash(git ls-files*)", "PowerShell(git ls-files*)",
+      "Bash(gh issue list*)", "PowerShell(gh issue list*)",
+      "Bash(gh issue view *)", "PowerShell(gh issue view *)",
+      "Bash(gh issue comment *)", "PowerShell(gh issue comment *)",
+      "Bash(gh issue edit *)", "PowerShell(gh issue edit *)",
+      "Bash(gh label list*)", "PowerShell(gh label list*)",
+      "PowerShell(tools\\gate.ps1*)", "PowerShell(.\\tools\\gate.ps1*)",
+      "PowerShell(tools\\agent\\run.ps1*)", "PowerShell(.\\tools\\agent\\run.ps1*)",
+      "PowerShell(tools\\pipe.ps1*)", "PowerShell(.\\tools\\pipe.ps1*)",
+      "PowerShell(tools\\dev-run.ps1*)", "PowerShell(.\\tools\\dev-run.ps1*)",
+      "PowerShell(tools\\game.ps1*)", "PowerShell(.\\tools\\game.ps1*)",
+      "PowerShell(tools\\deploy.ps1*)", "PowerShell(.\\tools\\deploy.ps1*)",
+      "PowerShell(tools\\check-env.ps1*)", "PowerShell(.\\tools\\check-env.ps1*)",
+      "PowerShell(tools\\settings.ps1*)", "PowerShell(.\\tools\\settings.ps1*)",
+      "PowerShell(tools\\soak.ps1*)", "PowerShell(.\\tools\\soak.ps1*)",
+      "mcp__rea"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/tools/agent/pre-command.ps1\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/tools/agent/stop-check.ps1\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
