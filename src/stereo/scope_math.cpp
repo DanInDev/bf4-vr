@@ -1,6 +1,8 @@
 #include "stereo/scope_math.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace bfvr::stereo::scope_math
 {
@@ -155,5 +157,51 @@ namespace bfvr::stereo::scope_math
 		out[13] = p.y;
 		out[14] = p.z;
 		out[15] = camera[15];
+	}
+
+	void magnification_memory::remember(const char* weapon, int level, float magnification)
+	{
+		if (!weapon || !weapon[0] || !std::isfinite(magnification) || magnification < 1.0f || magnification > 40.0f)
+		{
+			return;
+		}
+		entry* slot = nullptr;
+		for (int i = 0; i < count_; ++i)
+		{
+			if (entries_[i].level == level && std::strncmp(entries_[i].weapon, weapon, sizeof(entries_[i].weapon)) == 0)
+			{
+				slot = &entries_[i];
+			}
+		}
+		if (!slot)
+		{
+			// Full: the oldest entry goes.
+			if (count_ == capacity)
+			{
+				for (int i = 1; i < capacity; ++i)
+				{
+					entries_[i - 1] = entries_[i];
+				}
+				--count_;
+			}
+			slot = &entries_[count_++];
+			const std::size_t length = std::min(std::strlen(weapon), sizeof(slot->weapon) - 1);
+			std::memcpy(slot->weapon, weapon, length);
+			slot->weapon[length] = 0;
+			slot->level = level;
+		}
+		slot->magnification = magnification;
+	}
+
+	float magnification_memory::lookup(const char* weapon, int level, float fallback) const
+	{
+		for (int i = 0; weapon && i < count_; ++i)
+		{
+			if (entries_[i].level == level && std::strncmp(entries_[i].weapon, weapon, sizeof(entries_[i].weapon)) == 0)
+			{
+				return entries_[i].magnification;
+			}
+		}
+		return fallback;
 	}
 }

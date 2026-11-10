@@ -336,6 +336,12 @@ namespace bfvr::weapon
 				}
 			}
 		}
+		else if (sight_ads.load(std::memory_order_relaxed))
+		{
+			// No fresh sight line this frame (a slow frame, a swap): outside, so a lost frame or two does
+			// not drop the aim (monitor at 5 fps: 3 ADS changes a second); a holster ends it after the hold.
+			aiming = sight_latch.update(false, false, seconds, sight_leave_hold_seconds);
+		}
 		else
 		{
 			sight_latch.reset();

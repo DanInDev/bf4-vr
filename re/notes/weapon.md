@@ -333,8 +333,30 @@ disables itself. Monitor: patched hip bursts one tight group, `hip_accuracy 0` t
 GunSwayData is the weapon's data asset: soldiers carrying the same gun model may share it (not checked
 for the campaign's AI).
 
+## The magnifier without the game's ADS (2026-11-10, monitor, #39)
+
+- Runtime zoom levels (weapon `+0x47D0`, `WeaponZoomLevelData*`) carry `SightType` at `+0x2C`
+  (enum: 0 None, 1 Canted, 2 Magnifier). AK-12: level 0 hip, 1 the red dot, 2 **Magnifier**; SCAR-H:
+  0 hip, 1 the holo (None). No world zoom there (`RenderFov` is the gun pass's, held at life size).
+- Aiming simulation (weapon `+0x4988`) **`+0x1F8` = the level the next aim uses**: D-pad up at the hip
+  flips it 1 <-> 2 with the magnifier (diff of the object around two flips); `+0x1E8` the level in use
+  (0 at the hip, 2 while aiming through the magnifier).
+- `weapon/sight_state` reads both; `stereo/scope` runs the lens picture at the hip when the selected
+  level is a Magnifier (or any level with a learned zoom of 1.25x or more) and an eye is within 3 cm of the sight line, at the zoom learned while the game
+  last aimed through that weapon and level (`scope_math::magnification_memory`; 1.725x measured, 1.73x
+  until learned). Monitor: folded away no picture; flipped in, eye on the line: the 1.7x picture with
+  its dot; 4.5 cm off: none; ADS learned 1.725 (and 1.14 for the red dot level).
+- Found on the way: at 4-5 fps (Debug + the scope render) the drawn gun's data is sometimes older than
+  250 ms; the sight latch reset on such a frame and ADS cycled ~3 times a second. A missing sight line
+  now counts as "outside" for the 0.3 s hold. The scope's own 250 ms freshness still drops single
+  frames there (not at headset frame rates).
+
 ## Open
 
+- Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
+  runs once the game has aimed through that weapon and level (learned zoom >= 1.25x); before that only
+  in the game's ADS. Their lens size and reticle are still the magnifier's (untested: no such optic in
+  this checkpoint).
 - Scopes on other guns (4x ACOG, sniper scopes): their lens size and distance (one `scope_math::lens`
   per optic, now the magnifier's for every gun), and the game's own scope overlay at high zoom.
 - The scope's compute passes (tiled lighting, SSAO) still cover the whole image; a smaller render

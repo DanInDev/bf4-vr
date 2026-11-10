@@ -120,6 +120,7 @@ offline mode is the legitimate way to play without a connection.
 | `scan <hex bytes> [max]` | Research: addresses of a byte pattern in committed private read/write memory (heap), e.g. a vtable to find live objects |
 | `entityevent <entity> <event id> [slot]` | Research: on the game thread, call the entity's event handler (vtable slot, default 5) with that event id (`re/notes/sound.md`) |
 | `motion` | The game camera's own yaw rate and speed (no head pose), the comfort vignette's input (#10) |
+| `sightstate` | The current weapon's sight (#39): unlock name, zoom levels, the level the next aim uses and the one in use, its SightType (2 = magnifier) |
 | `hipaccuracy` | `hip_accuracy` (#39): strength, patched GunSwayData blocks, each one's standing hip min/max as written, the game's and the zoom values |
 | `twohand` | Two-handed weapon (#29): held, blend weight, grab count, barrel and converged shot directions (OpenXR LOCAL), aim mode |
 | `extramesh` / `extramesh pin <hex mask>` | Extra meshes (#36): whether a second magazine is drawn now, its move, copies drawn, palettes read, meshes carrying the magazine tag; the held grenade: copy on/armed/where, captures (accepted, rejected), the captured draws (pass, owned blocks and views), the hold used and the game's own hold last seen (`re/notes/meshes.md`). `pin`: which palette entries of the grenade vanish once the pin is out (research; default 1 = entry 0) |

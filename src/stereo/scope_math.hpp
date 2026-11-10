@@ -32,6 +32,28 @@ namespace bfvr::stereo::scope_math
 	// atan(radius / distance from the eye); it shows that angle divided by magnification.
 	plan plan_scope(const pose& eye, const float (&sight_eye)[3], const float (&rotation)[4], const float (&sight)[3], float magnification, const lens& optic);
 
+	// #39: the game's magnification per weapon and zoom level, learned while it aims (its world FOV is the
+	// only place it shows), so the lens picture can run at the hip with the same zoom. Unknown levels
+	// answer the fallback.
+	class magnification_memory
+	{
+	public:
+		void remember(const char* weapon, int level, float magnification);
+		float lookup(const char* weapon, int level, float fallback) const;
+		int size() const { return count_; }
+
+	private:
+		static constexpr int capacity = 32;
+		struct entry
+		{
+			char weapon[48]{};
+			int level{};
+			float magnification{};
+		};
+		entry entries_[capacity]{};
+		int count_{};
+	};
+
 	// to expressed in from's frame (from^-1 * to).
 	pose relative_pose(const pose& from, const pose& to);
 

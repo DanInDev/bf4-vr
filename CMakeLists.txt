@@ -167,6 +167,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/two_handed.cpp
 	src/weapon/hip_accuracy.cpp
 	src/weapon/hip_accuracy_math.cpp
+	src/weapon/sight_state.cpp
 	src/weapon/weapon_swap.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp

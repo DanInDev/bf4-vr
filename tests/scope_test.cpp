@@ -127,11 +127,34 @@ namespace
 	}
 }
 
+// #39: the zoom learned while the game aims answers at the hip, per weapon and level.
+void learned_magnification()
+{
+	magnification_memory memory;
+	expect(near(memory.lookup("U_AK12", 2, 1.73f), 1.73f), "unknown: the fallback");
+	memory.remember("U_AK12", 2, 1.7f);
+	memory.remember("U_AK12", 1, 1.14f);
+	expect(near(memory.lookup("U_AK12", 2, 1.0f), 1.7f) && near(memory.lookup("U_AK12", 1, 1.0f), 1.14f), "per level");
+	expect(near(memory.lookup("U_SCAR-H", 2, 1.0f), 1.0f), "per weapon");
+	memory.remember("U_AK12", 2, 1.75f);
+	expect(near(memory.lookup("U_AK12", 2, 1.0f), 1.75f) && memory.size() == 2, "a new reading replaces the old one");
+	memory.remember("U_AK12", 3, std::nanf(""));
+	memory.remember("U_AK12", 3, 0.5f);
+	memory.remember("", 3, 2.0f);
+	expect(memory.size() == 2, "nonsense is not kept");
+	for (int i = 0; i < 40; ++i)
+	{
+		memory.remember("U_GUN", i, 2.0f);
+	}
+	expect(memory.size() == 32 && near(memory.lookup("U_GUN", 39, 1.0f), 2.0f) && near(memory.lookup("U_AK12", 2, 1.0f), 1.0f), "full: the oldest goes");
+}
+
 int main()
 {
 	game_magnification();
 	scope_along_the_sight();
 	relative_and_rows();
+	learned_magnification();
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);
