@@ -699,14 +699,6 @@ namespace bfvr::stereo::extra_mesh
 			// The gun still drawn under the hidden root (the switch to the grenade not finished): not a grenade.
 			// Its magazine is marked (capture_magazine_scale); the list of magazine meshes seen before covers a gun
 			// whose magazine draw came after the mark was lifted.
-			bool gun = capture_saw_gun;
-			for (const grenade_draw& d : grenade_capturing)
-			{
-				for (const known_mesh& magazine : magazine_meshes)
-				{
-					gun = gun || (d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count);
-				}
-			}
 			// The grenade is drawn in several passes (pre-pass, G-buffer, the R16G16 one) from one index buffer;
 			// a tagged draw whose mesh shows up in one pass only is something else (headset 2026-11-09: gear
 			// in the G-buffer only).
@@ -716,6 +708,26 @@ namespace bfvr::stereo::extra_mesh
 				for (std::size_t j = 0; j < grenade_capturing.size(); ++j)
 				{
 					keep[i] = keep[i] || (grenade_capturing[i].index_buffer.Get() == grenade_capturing[j].index_buffer.Get() && !(grenade_capturing[i].pass == grenade_capturing[j].pass));
+				}
+			}
+			// Only what would be kept counts: with the knife out the gun's body is still drawn under the hidden
+			// root in the G-buffer alone (monitor 2026-11-11), which the one-pass rule leaves out anyway.
+			// The knife: draws seen with the gun before (the hands share its skeleton under the hidden root) are
+			// left out rather than taken for the gun still drawn (monitor 2026-11-11: every knife capture was
+			// rejected that way).
+			const bool knife = capturing_item == static_cast<int>(captured::knife);
+			bool gun = capture_saw_gun && !knife;
+			for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
+			{
+				for (const known_mesh& magazine : magazine_meshes)
+				{
+					const grenade_draw& d = grenade_capturing[i];
+					const bool seen_with_gun = d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count;
+					if (seen_with_gun && knife)
+					{
+						keep[i] = false;
+					}
+					gun = gun || (keep[i] && seen_with_gun);
 				}
 			}
 			if (!grenade_capturing.empty())

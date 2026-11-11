@@ -2007,12 +2007,13 @@ namespace bfvr::body
 			}
 			ik::bone_transform& magazine = local[rig.magazine];
 			const bool remembered = magazine_memory.has_written && std::memcmp(&magazine, &magazine_memory.written, sizeof(magazine)) == 0;
-			// While the held grenade or the knife is captured (publish_extra_grenade, publish_holster_knife), the
-			// gun's magazine marks the gun instead.
-			knife_capturing = grenade_mesh_on.load(std::memory_order_relaxed) && knife_weapon_now.load(std::memory_order_relaxed)
-				&& !grenade_weapon_now.load(std::memory_order_relaxed) && !stereo::extra_mesh::item_captured(stereo::extra_mesh::captured::knife);
-			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && (grenade_weapon_now.load(std::memory_order_relaxed) || knife_capturing);
-			magazine.scale = capturing ? stereo::extra_mesh::capture_magazine_scale : stereo::extra_mesh::magazine_tag;
+			// While the held grenade is captured (publish_extra_grenade), the gun's magazine marks the gun instead.
+			// While the knife is out, nothing is marked: the knife's own mesh carries the Wep_Mag bone too (its
+			// captures all came out "the gun among them", monitor 2026-11-11); a gun still drawn is caught by
+			// the list of magazine meshes seen before.
+			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && grenade_weapon_now.load(std::memory_order_relaxed);
+			magazine.scale = capturing ? stereo::extra_mesh::capture_magazine_scale
+				: knife_weapon_now.load(std::memory_order_relaxed) ? 1.0f : stereo::extra_mesh::magazine_tag;
 			if (remembered)
 			{
 				magazine_memory.written = magazine;
