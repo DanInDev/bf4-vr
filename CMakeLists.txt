@@ -106,6 +106,7 @@ add_library(bfvr_runtime STATIC
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
 	src/safety/mp_guard.cpp
+	src/safety/mp_rules.cpp
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
 	src/body/finger_pose.cpp
@@ -223,6 +224,9 @@ if(BFVR_BUILD_TESTS)
 	# Shot frame at the gun (where bullets start with controller aim).
 	add_executable(bfvr_shot_frame_test tests/shot_frame_test.cpp src/weapon/shot_frame.cpp)
 	target_link_libraries(bfvr_shot_frame_test PRIVATE bfvr_common)
+	# Campaign-only rules: command lines and level paths, both games.
+	add_executable(bfvr_mp_rules_test tests/mp_rules_test.cpp src/safety/mp_rules.cpp)
+	target_link_libraries(bfvr_mp_rules_test PRIVATE bfvr_common)
 	# Trigger press/release latch (a resting finger never fires).
 	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
 	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
@@ -312,6 +316,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
+	add_test(NAME mp_rules COMMAND bfvr_mp_rules_test)
 	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME aim_depth COMMAND bfvr_aim_depth_test)
 	add_test(NAME gun_pass_fov COMMAND bfvr_gun_pass_fov_test)
