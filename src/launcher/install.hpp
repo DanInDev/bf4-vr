@@ -48,8 +48,9 @@ namespace bfvr::launcher
 
 	// Research build (..\bf3-vr): the 32-bit DLL has the loader, the flat screen in the headset and the
 	// control pipe, no engine hooks and no multiplayer guard. The EA app's launch link only leads to
-	// Battlelog for this game; bf3.exe with these arguments hands the launch to the EA app, whose
-	// BF3WebHelper.exe then starts the campaign (..\bf3-vr\re\notes\launch.md, verified 2026-11-11).
+	// Battlelog for this game; bf3.exe with these arguments hands the launch to the EA app and its
+	// BF3WebHelper.exe, and the game starts once the user starts the campaign on the Battlelog page
+	// (..\bf3-vr\re\notes\launch.md, 2026-11-11: two starts with that click, none without).
 	inline constexpr game_profile bf3_profile{
 		"bf3", L"Battlefield 3", L"BF3", L"bf3.exe", L"SOFTWARE\\WOW6432Node\\EA Games\\Battlefield 3", L"1147186",
 		bf3_1147186_timestamp, bf3_1147186_machine, L"bf3",

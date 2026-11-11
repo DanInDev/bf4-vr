@@ -657,8 +657,10 @@ namespace bfvr::launcher
 					: L"Could not start " + command.file + L".");
 				return;
 			}
-			say(dialog, std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute"
-				+ (game().launch_link ? L"" : L" (its campaign menu in about two)") + L". If nothing happens, check the EA app for a prompt.");
+			say(dialog, game().launch_link
+				? std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute. If nothing happens, check the EA app for a prompt."
+				: std::wstring(L"Launch sent. Battlelog opens in your browser: start the campaign there, then ") + game().brand
+					+ L" opens (its campaign menu after about two minutes).");
 		}
 
 		// The texts that name the game, the header brand and the fresh state of the chosen game.
