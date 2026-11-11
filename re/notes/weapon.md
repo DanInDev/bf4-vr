@@ -330,6 +330,11 @@ hip burst one hole (14 rounds). `weapon/hip_accuracy` (setting `hip_accuracy`, 1
 game's) blends the still and moving hip blocks of every stance towards zoom for the player's carried
 weapons (rescanned every 0.25 s), keeps the originals and writes them back at 0 or when the mod
 disables itself. Monitor: patched hip bursts one tight group, `hip_accuracy 0` the game's spread again.
+Headset 2026-11-11: at 1 a full-auto burst stays pin-point on the dot (before, it spread out a lot). Kept
+at 1 for now; for more spread later, the blend is linear per field (`hip + (zoom - hip) * strength`), so
+the standing-still cone (min..max degrees) is 0.2..1.7 at 1, 0.9..3.0 at 0.75, 1.6..4.35 at 0.5,
+2.3..5.7 at 0.25 and 3..7 at 0; moving 1..1.7 at 1, 2.25..4.35 at 0.5. IncreasePerShot and the decrease rates
+are blended the same way (their zoom values were not written down). `pipe hipaccuracy` shows the values as written.
 GunSwayData is the weapon's data asset: soldiers carrying the same gun model may share it (not checked
 for the campaign's AI).
 

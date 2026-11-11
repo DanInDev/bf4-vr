@@ -87,6 +87,17 @@ VR app **and to Steam itself**; BF4 is closed with it. Theater mode therefore
 treats the OpenXR `EXITING` state as final: VR stays off until the game restarts,
 instead of reconnecting (which relaunched SteamVR or kept BF4 registered during shutdown).
 
+## What the headset shows: `tools/vrview-shot.ps1`
+
+`pipe shot`, `eyeshot` and the marks hold only the game's image. Everything the mod adds as an OpenXR
+layer is missing there: grab rings, the green aim dot, the sight dot, the scope picture, the panel,
+notices, the laser beam. SteamVR's mirror window (**VR View**: SteamVR Status window, pop-out icon on its
+small headset picture) shows the composited result, and `tools\vrview-shot.ps1 <out.png>` captures it
+(`PrintWindow` with full content, so it works behind other windows, not minimised; 1920x1080 for the
+popped-out view). Without VR View it falls back to the small view inside the Status window;
+`-List` prints the open windows. It is the compositor's mirror, so slightly cropped and warped
+against the lenses. First used 2026-11-11 (the laser beam showed; marks never do).
+
 ## One-shot dev loop: `tools/dev-run.ps1`
 
 `dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks (through the mod's pointer, no focus needed; RESUME by pad A)
