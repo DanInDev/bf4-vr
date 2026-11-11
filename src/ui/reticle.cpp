@@ -48,11 +48,13 @@ namespace bfvr::ui
 				const float core = std::clamp((0.4f - r) / edge + 0.5f, 0.0f, 1.0f);
 				const float glow = std::clamp(1.0f - r, 0.0f, 1.0f);
 				const float alpha = std::max(core, 0.35f * glow * glow);
-				// Premultiplied: red, the core a little hot towards orange-white.
+				// Premultiplied: red, the middle of the core nearly white so it reads on a red or dark wall
+				// (headset 2026-11-11: a plain red dot was not seen in the red room).
+				const float hot = std::clamp((0.22f - r) / edge + 0.5f, 0.0f, 1.0f);
 				const auto a = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
 				const auto red = static_cast<std::uint32_t>(std::lround(alpha * 255.0f));
-				const auto green = static_cast<std::uint32_t>(std::lround(core * 70.0f));
-				const auto blue = static_cast<std::uint32_t>(std::lround(core * 50.0f));
+				const auto green = static_cast<std::uint32_t>(std::lround(core * 70.0f + hot * 150.0f));
+				const auto blue = static_cast<std::uint32_t>(std::lround(core * 50.0f + hot * 150.0f));
 				pixels[static_cast<std::size_t>(y) * static_cast<std::size_t>(size) + static_cast<std::size_t>(x)] = (a << 24) | (red << 16) | (green << 8) | blue;
 			}
 		}

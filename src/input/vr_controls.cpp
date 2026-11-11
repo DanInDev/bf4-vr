@@ -269,12 +269,6 @@ namespace bfvr::input
 		{
 			pad.left_trigger = 0;
 		}
-		if (sight_aim.load(std::memory_order_relaxed))
-		{
-			pad.left_trigger = 255;
-			pad.connected = true;
-		}
-		game_aiming_now = !item_trigger.load(std::memory_order_relaxed) && pad.left_trigger > 128;
 		// Left X opens the game's menu (Start); the reload is the right B (weapon/physical_reload).
 		if (x_menu.load(std::memory_order_relaxed) && (pad.buttons & XINPUT_GAMEPAD_X))
 		{
@@ -507,6 +501,22 @@ namespace bfvr::input
 		sight_aim = aiming;
 	}
 
+	gamepad_state with_sight_aim(const gamepad_state& pad)
+	{
+		gamepad_state out = pad;
+		if (sight_aim.load(std::memory_order_relaxed))
+		{
+			out.left_trigger = 255;
+			out.connected = true;
+		}
+		return out;
+	}
+
+	void note_game_pad(const gamepad_state& pad)
+	{
+		game_aiming_now = !item_trigger.load(std::memory_order_relaxed) && pad.left_trigger > 128;
+	}
+
 	bool game_aiming()
 	{
 		return game_aiming_now.load(std::memory_order_relaxed);
@@ -535,6 +545,8 @@ namespace bfvr::input
 	void set_game_buttons(bool, bool, bool) {}
 	void set_item_left_trigger(bool) {}
 	void set_sight_aim(bool) {}
+	gamepad_state with_sight_aim(const gamepad_state& pad) { return pad; }
+	void note_game_pad(const gamepad_state&) {}
 	bool game_aiming() { return false; }
 	void install_vr_controls() {}
 	void configure_turn(const std::string&, int, bool) {}

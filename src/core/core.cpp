@@ -191,6 +191,7 @@ namespace bfvr::core
 			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
 			weapon::set_aim_with_body(store.boolean("aim_with_body", true));
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
+			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{

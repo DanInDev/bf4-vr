@@ -61,6 +61,8 @@ namespace bfvr::settings
 			{ "recoil", "Weapon", "Aiming", "Recoil", "The gun kicks in your hand; 0 = off", "" },
 			{ "sight_dot", "Weapon", "Aiming", "Red dot in the sight", "Through the lens, aiming or not", "" },
 			{ "sight_dot_size", "Weapon", "Aiming", "Red dot size", "Degrees", "" },
+			{ "sight_dot_reach", "Weapon", "Aiming", "Red dot eye tolerance", "cm off the sight line", "" },
+			{ "sight_dot_test", "Weapon", "Aiming", "Red dot test", "Always on, both eyes", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "" },

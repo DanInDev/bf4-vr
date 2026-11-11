@@ -349,6 +349,16 @@ namespace
 		expect(!sight_dot_for_eye(past_optic, eye_point, ahead, 0.015f, 0.30f, 0.13f, 50.0f).visible, "an eye in front of the optic: no dot");
 	}
 
+	// #39: only a camera behind the optic counts as the game's ADS sample (headset 2026-11-11: the hip pose was taken).
+	void test_ads_sample()
+	{
+		using bfvr::body::ik::ads_eye_behind_optic;
+		expect(ads_eye_behind_optic({ 0.001f, 0.035f, -0.159f }), "the AK-12's measured ADS eye point");
+		expect(ads_eye_behind_optic({ 0.001f, 0.036f, -0.141f }), "the SCAR-H's measured ADS eye point");
+		expect(!ads_eye_behind_optic({ 0.076f, 0.050f, -0.223f }), "the hip pose's camera (7.6 cm to the side) is no sight");
+		expect(!ads_eye_behind_optic({ 0.0f, 0.035f, 0.05f }), "in front of the optic is no eye point");
+	}
+
 	// #39: the ADS latch enters in the narrow band and leaves only after the hold outside the wide one.
 	void test_sight_ads_latch()
 	{
@@ -395,6 +405,7 @@ int main()
 	test_converged_aim();
 	test_drawn_barrel();
 	test_sight_dot();
+	test_ads_sample();
 	test_sight_ads_latch();
 	if (failures)
 	{

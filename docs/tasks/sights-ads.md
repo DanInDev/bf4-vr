@@ -37,6 +37,14 @@ scopes still do not work at all"; 2026-11-10 nothing shown, ADS flickered 22 and
 `docs/HEADSET-TESTS.md`. **Every fix so far looked right on the monitor and failed in the headset**: the
 monitor checks use `fakehead`/`fakehand`, which hold the eye exactly on the line. Plan for that gap.
 
+**2026-11-12 (branch `fix/sights-headset`):** the monitor gap was the hold, not only the eye: every
+headset mark had the gun in both hands, and the two-handed hold zeroed the aim button, so the game never
+aimed and the hip pose became the "sight line" (`re/notes/weapon.md`, "Why the headset never aimed").
+Fixed and checked two-handed on the monitor. **Test sights with both fake hands and pad `300`.** Still
+open: the SCAR-H's dot was submitted to the right eye (mark 1) and not seen; `sight_dot_test` and a VR
+View capture decide between "layer not shown" and "too small to notice" (short list S1-S7 in
+`docs/HEADSET-TESTS.md`).
+
 ## How it works today
 
 The full measurements are in `re/notes/weapon.md`, sections "Sights and aiming down sights",

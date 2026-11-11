@@ -51,4 +51,6 @@ namespace bfvr::weapon
 		float max_ahead{};
 	};
 	sight_dot_line latest_sight_dot_line();
+	// sight_dot_reach: how far off the sight line (metres) an eye still sees the dot.
+	void set_sight_dot_reach(float metres);
 }

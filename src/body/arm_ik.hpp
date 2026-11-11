@@ -41,6 +41,12 @@ namespace bfvr::body::ik
 	// Model-space transform of one bone: walks the parent chain (parents[i] < i, root -1).
 	bone_transform model_of(const bone_transform* local, const int* parents, int bone);
 	bone_transform compose(const bone_transform& parent, const bone_transform& local);
+
+	// #39: a camera-joint sample taken as the game's aim down sights is the sight's eye point only when it
+	// sits behind the optic on its axis (Wep_Root axes from Wep_Scope1: +x left, +y up, +z barrel; the two
+	// measured guns: (0.001, 0.035, -0.159) and (0.001, 0.036, -0.141)). The hip pose's camera, 7.6 cm to
+	// the side, was once taken for it (headset 2026-11-11: the aim button never reached the game).
+	bool ads_eye_behind_optic(vec3 eye_from_optic);
 	// Inverse of a rigid transform with uniform scale: compose(t, inverse(t)) is the identity.
 	bone_transform inverse(const bone_transform& t);
 	// Rewrites local[bone] so the bone's model transform becomes model.

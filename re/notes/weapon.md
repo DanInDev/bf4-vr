@@ -383,6 +383,46 @@ is a holo (EOTech, clear at the hip, no game reticle there). With `hip_accuracy`
 leaves the game's aim alone: no game reticle over the dot and full walking speed. Monitor: AK-12
 aims (`aiming=1`), SCAR-H does not (`aiming=0`, dot shown), SCAR-H with `hip_accuracy 0` aims again.
 
+## Why the headset never aimed: the two-handed hold ate the aim button (2026-11-12, #39)
+
+Read from the headset marks of 2026-11-11 (`bfvr_marks`, their `twohand` / `scope` sections), then
+reproduced on the monitor. Every headset mark had `held=1` (the gun in both hands); every earlier
+monitor check used one fake hand.
+
+- **Cause 1.** `weapon::filter_two_hand_pad` zeroes the pad's LT while the off hand holds the handguard (its
+  trigger is the accessory toggle). It ran after `input::for_game`, which had set LT to 255 for `sight_ads`.
+  So with both hands on the gun the game never aimed: lens black, `game_fov=45`, zoom level in use 0, no
+  magnifier picture, while the mod reported `aiming=1`.
+- **Cause 2.** `body/arm_pose` trusted that report: 0.5 s later it stored the hip pose's camera as the
+  "ADS sight line" (`from_ads=1`, `eye_from_optic=(0.076 0.050 -0.223)`, 1.4 deg right). The line jumped
+  7.6 cm to the left: the dot was gated on a line beside the optic, shots and the green dot followed
+  it, and the left eye (2.4 cm from the wrong line) held the latch. Marks 2-4 show exactly these values.
+- **Fix.** The sight aim's LT goes in after the two-handed filter (`input::with_sight_aim`, order in
+  `hooks/xinput_hook.cpp`); `game_aiming` answers from the pad the game finally gets
+  (`input::note_game_pad`); an ADS sample counts only with the camera behind the optic on its axis
+  (`body::ik::ads_eye_behind_optic`, unit-tested with both guns' values and the hip pose).
+
+Monitor, AK-12, fake head 6.4 cm, right hand (0.054, -0.166, -0.3), left (-0.024, -0.158, -0.60), pad
+`300` (both grips; `free_hands 0`, else the fake gun hand without a grip slings the gun):
+
+| Hold | Before (main 40ce38c) | After |
+| --- | --- | --- |
+| One hand (`200`) | `game_fov=40 current=1`, eye_from_optic (0.000 0.035 -0.159), eyes 6.5/0.1 cm, `dot_seen=0/1` | same |
+| Both hands (`300`) | `game_fov=45 current=0`, eye_from_optic **(0.077 0.051 -0.222)**, eyes 2.4/8.0 cm, `dot_seen=0/0` | `game_fov=40 current=1`, (0.001 0.035 -0.159), eyes 6.5/0.1, `dot_seen=0/1`; `eyeshot2`: lens clear |
+| Both hands, magnifier in | (not run) | `game_fov=27 magnification=1.725 active=1 eye=1 current=2` |
+| Both hands, eye 1.9 cm off | | `dot_seen=0/1` (`sight_dot_reach` 2 cm) |
+
+**The SCAR-H's dot is not explained by this.** Mark 1 (SCAR, right eye 0.9 cm off the correct line) had
+`dot_seen=0/1`: the layer was submitted to the right eye and still not seen. Not verifiable on the
+monitor (no compositor). Changed on suspicion: the dot was 0.3 degrees of plain red (core ~3 px) in a
+red room, now 0.6 with a near-white middle; `sight_dot_reach` (cm, default 2) replaces the fixed 1.5 cm;
+`sight_dot_test` shows it to both eyes wherever the gun is, to tell "layer not shown" (single-eye quads
+have never been confirmed in the headset: the scope picture uses them too) from "shown but missed".
+Needs the headset with a VR View capture.
+
+Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
+(`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

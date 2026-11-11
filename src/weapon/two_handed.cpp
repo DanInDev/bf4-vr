@@ -48,8 +48,9 @@ namespace bfvr::weapon
 		constexpr float sight_leave_metres = 0.05f;
 		constexpr float sight_leave_hold_seconds = 0.3f;
 		sight_ads_latch sight_latch;
-		// sight_dot: the lens the dot shows through, as the magnifier's rear lens (re/notes/weapon.md).
-		constexpr float sight_dot_lens_radius = 0.015f;
+		// sight_dot: how far off the sight line an eye still sees the dot (live setting sight_dot_reach; the
+		// lens is about 1.5 cm in radius, a hand-held headset eye needs a little more).
+		std::atomic<float> sight_dot_lens_radius{ 0.02f };
 		sight_dot_line dot_line;
 		bool dot_seen[2]{}; // report
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
@@ -334,13 +335,14 @@ namespace bfvr::weapon
 				dot_line.valid = true;
 				std::copy(std::begin(start), std::end(start), dot_line.start);
 				std::copy(std::begin(barrel), std::end(barrel), dot_line.direction);
-				dot_line.lens_radius = sight_dot_lens_radius;
+				const float reach = sight_dot_lens_radius.load(std::memory_order_relaxed);
+				dot_line.lens_radius = reach;
 				dot_line.max_behind = sight_eye_relief;
 				dot_line.max_ahead = ahead;
 				for (int e = 0; e < 2; ++e)
 				{
 					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
-					dot_seen[e] = sight_dot_for_eye(at, start, barrel, sight_dot_lens_radius, sight_eye_relief, ahead, 1.0f).visible;
+					dot_seen[e] = sight_dot_for_eye(at, start, barrel, reach, sight_eye_relief, ahead, 1.0f).visible;
 				}
 			}
 		}
@@ -365,6 +367,11 @@ namespace bfvr::weapon
 	void set_sight_ads(bool on)
 	{
 		sight_ads = on;
+	}
+
+	void set_sight_dot_reach(float metres)
+	{
+		sight_dot_lens_radius = std::clamp(metres, 0.005f, 0.06f);
 	}
 
 	sight_dot_line latest_sight_dot_line()

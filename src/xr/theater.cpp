@@ -1173,12 +1173,14 @@ namespace bfvr::xr
 				return;
 			}
 			constexpr float distance = 50.0f;
-			const float angular = store.real("sight_dot_size", 0.3f) * 3.14159265f / 180.0f;
+			const float angular = store.real("sight_dot_size", 0.6f) * 3.14159265f / 180.0f;
+			// sight_dot_test: both eyes, wherever the gun is (does the headset show this layer at all?).
+			const bool test = store.boolean("sight_dot_test", false);
 			for (int e = 0; e < 2; ++e)
 			{
 				const float eye[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
 				const weapon::sight_dot_view view = weapon::sight_dot_for_eye(eye, line.start, line.direction, line.lens_radius, line.max_behind, line.max_ahead, distance);
-				if (!view.visible || layer_count >= max_layers || !ensure_overlay(sight_dot_overlay, reticle_pixels_size, reticle_pixels_size))
+				if ((!view.visible && !test) || layer_count >= max_layers || !ensure_overlay(sight_dot_overlay, reticle_pixels_size, reticle_pixels_size))
 				{
 					continue;
 				}
