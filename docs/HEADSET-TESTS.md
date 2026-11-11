@@ -26,18 +26,24 @@ Before each session:
 
 ## Next session: a short list
 
-Work order (what gets fixed before the next session): the comment of 2026-11-09 on #21. The 3D grenade
-(#36), snap turn (#37) and the gadget stash (#34) come first; ADS and scopes (#39) after them.
+Build: `main` a2eee2e, **Release** deployed 2026-11-11 (Update mod in the launcher installs the same
+build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever something looks off.
 
-1. **Free hands (FREE-3 to FREE-9):** now on by default. Let go of the gun (it hangs on the sling), pick it
-   up with either hand, hold it in the left and reload with the right, take a grenade with the right.
-2. **Snap turn (HAND-15):** after the fix, snap several times each way, then move the gun and look down.
-   Hands, gun and torso should line up as they do with physical turning.
-3. **3D grenade (GRN-4):** after the fix, take the first grenade of the session with a gun out, look at it,
-   pull the pin.
-4. **Gadget stash (CTRL-17, CTRL-14):** reach for the crates with the left hand and grip; pick items with
-   the pointer.
-5. **Rings:** are the grab rings at 30 % easier to live with?
+1. **Red dot sights (AIM-12):** AK-12, bring its red dot to one eye, then tilt your head a little; the dot
+   stays on target, in that eye only. Then the SCAR's holo: walk while looking through it (full speed,
+   no second reticle).
+2. **Hip fire (AIM-13):** shoot a far wall from the hip without raising the sight: the holes stay tight
+   where the barrel points.
+3. **Magnifier (AIM-14):** AK-12, flip the magnifier in (off-hand trigger while holding two-handed) and look
+   through it: magnified with a dot, the view itself does not zoom, no pumping.
+4. **Magazine snap (GUN-15):** reach slowly for the seated magazine with the open off hand: the hand slides
+   onto it before you squeeze; pull it out (SCAR: squeeze, then B): no jump.
+5. **SCAR palming (GUN-12):** new magazine from the pouch to the magwell, B, look at both magazines and the
+   fingers in your hand, roll back and seat.
+6. **Free hands (FREE-3 to FREE-9):** let go of the gun (sling), pick it up with either hand, hold it in the
+   left and reload with the right.
+7. **Snap turn, grenade, stash (HAND-15, GRN-4, CTRL-17/CTRL-14):** snap a few times and look at the hands;
+   take the first grenade with the gun out and pull the pin; open the stash with the left hand.
 
 ## Main problems (2026-11-04)
 
