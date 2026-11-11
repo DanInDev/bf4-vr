@@ -91,11 +91,41 @@ namespace bfvr::safety
 				MH_StatusToString(status));
 		}
 
+#if !defined(_M_X64)
+		// The BF3 addresses hold for one build only. On any other image the level could not be read and
+		// the guard would see "no level" for ever, so the mod is refused instead.
+		bool known_bf3_build()
+		{
+			constexpr std::uint32_t bf3_1147186_timestamp = 0x511C9356;
+			const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+			std::uint32_t pe = 0, timestamp = 0;
+			return read(base + 0x3C, pe) && read(base + pe + 8, timestamp) && timestamp == bf3_1147186_timestamp;
+		}
+#endif
+
 		DWORD WINAPI guard_thread(LPVOID)
 		{
 			std::string last_path;
+#if !defined(_M_X64)
+			if (!known_bf3_build())
+			{
+				disable("not Battlefield 3 build 1147186: the level cannot be checked", {});
+			}
+			bool context_seen = false;
+#endif
 			for (;;)
 			{
+#if !defined(_M_X64)
+				if (!disabled && !context_seen)
+				{
+					std::uint32_t context = 0;
+					if (read(bf3_game_context_global, context) && context != 0)
+					{
+						context_seen = true;
+						log::write("safety: level guard running (game context %08X)", context);
+					}
+				}
+#endif
 				if (disabled)
 				{
 					// A hook installed late (e.g. a wait-for-decryption thread) must not stay enabled.

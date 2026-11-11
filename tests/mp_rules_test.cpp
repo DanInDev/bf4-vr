@@ -44,6 +44,12 @@ int main()
 	expect(command_line_refusal(game::bf4, R"("E:\EA\Battlefield 4\bf4.exe")") == nullptr, "BF4: a plain start is allowed (the level guard decides)");
 	expect(command_line_refusal(game::bf4, R"("bf4.exe" -webMode MP -requestState State_ConnectToGameId)") != nullptr, "BF4: joining a server: off");
 	expect(command_line_refusal(game::bf4, R"("bf4.exe" -requestState State_ClaimReservation)") != nullptr, "BF4: claiming a reservation: off");
+	// Stricter than before this file existed: these four also keep the BF4 mod off.
+	expect(command_line_refusal(game::bf4, R"("bf4.exe" -requestState State_ConnectToUserId)") != nullptr, "BF4: joining a player: off");
+	expect(command_line_refusal(game::bf4, R"("bf4.exe" -requestState State_MatchmakeCoOp)") != nullptr, "BF4: co-op matchmaking: off");
+	expect(command_line_refusal(game::bf4, R"("bf4.exe" -requestState State_CreateCoOpPeer)") != nullptr, "BF4: hosting co-op: off");
+	expect(command_line_refusal(game::bf4, R"("bf4.exe" -webMode COOP)") != nullptr, "BF4: co-op mode: off");
+	expect(command_line_refusal(game::bf4, R"("bf4.exe" -webMode SP -requestState State_ResumeCampaign)") == nullptr, "BF4: a campaign request is allowed");
 
 	expect(judge_level(game::bf3, "") == level_kind::none, "no level");
 	expect(judge_level(game::bf3, "Levels/Web_Loading/Web_Loading") == level_kind::front_end, "BF3: the campaign front end");
