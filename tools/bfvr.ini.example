@@ -320,6 +320,9 @@ sight_dot_size = 0.6
 # the headset shows the dot layer at all).
 sight_dot_reach = 2
 sight_dot_test = 0
+# sighting = only the eye behind the sight sees the dot; both = one layer for both eyes (try it if the
+# dot never shows at one eye).
+sight_dot_eyes = sighting
 # Hip-fire spread of your weapons (standing, crouched, prone; still and moving): 1 = as tight as aiming
 # down sights, so a sight is accurate without the game's aim; 0 = the game's (3-7 degrees at the hip,
 # 0.2-1.7 aiming). Patches the weapons' GunSwayData in memory; enemies carrying the same gun model may

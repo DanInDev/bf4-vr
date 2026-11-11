@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include "stereo/tracking.hpp"
+
 namespace bfvr::stereo
 {
 	struct camera_stats
@@ -45,6 +47,9 @@ namespace bfvr::stereo
 	// Eye distance multiplier (world scale), 0.5..2; 1 = the runtime's IPD.
 	void set_ipd_scale(float scale);
 	float current_gun_scale();
+	// Where an eye's picture is rendered from (LOCAL): the runtime's eye moved by ipd_scale. What that eye
+	// sees through a drawn optic depends on this point, not on the real eye (#39).
+	void rendered_eye_position(const head_sample& head, int eye, float (&position)[3]);
 	// gun_life_size: in head-tracked frames the gun and arms are scaled by tan(22.5 deg)/tan(fovY/2) on top
 	// of gun_scale, so the foreground's fixed 45 degree FOV draws them at life size, on the controllers.
 	void set_gun_life_size(bool on);

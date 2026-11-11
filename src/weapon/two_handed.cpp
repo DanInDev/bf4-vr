@@ -15,6 +15,7 @@
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/aim_depth.hpp"
+#include "stereo/camera_hook.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -307,7 +308,8 @@ namespace bfvr::weapon
 			bool enter = false, stay = false;
 			for (int e = 0; e < 2; ++e)
 			{
-				const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+				float at[3];
+				stereo::rendered_eye_position(head, e, at);
 				sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
 				enter = enter || eye_behind_sight(at, start, barrel, sight_enter_metres, sight_eye_relief, ahead);
 				stay = stay || eye_behind_sight(at, start, barrel, sight_leave_metres, sight_eye_relief, ahead);
@@ -341,7 +343,8 @@ namespace bfvr::weapon
 				dot_line.max_ahead = ahead;
 				for (int e = 0; e < 2; ++e)
 				{
-					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+					float at[3];
+					stereo::rendered_eye_position(head, e, at);
 					dot_seen[e] = sight_dot_for_eye(at, start, barrel, reach, sight_eye_relief, ahead, 1.0f).visible;
 				}
 			}

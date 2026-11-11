@@ -815,6 +815,16 @@ namespace bfvr::stereo
 		ipd_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.5f), 2.0f) : 1.0f;
 	}
 
+	void rendered_eye_position(const head_sample& head, int eye, float (&position)[3])
+	{
+		const float scale = ipd_scale.load(std::memory_order_relaxed);
+		const pose centre = eye_math::centre_pose(head);
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			position[axis] = centre.position[axis] + (head.eyes[eye].position[axis] - centre.position[axis]) * scale;
+		}
+	}
+
 	float current_gun_scale()
 	{
 		return gun_scale;

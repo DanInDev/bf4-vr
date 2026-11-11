@@ -1176,11 +1176,17 @@ namespace bfvr::xr
 			const float angular = store.real("sight_dot_size", 0.6f) * 3.14159265f / 180.0f;
 			// sight_dot_test: both eyes, wherever the gun is (does the headset show this layer at all?).
 			const bool test = store.boolean("sight_dot_test", false);
-			for (int e = 0; e < 2; ++e)
+			// sight_dot_eyes = both: one quad for both eyes, down the line from the sighting eye (no single-eye layer).
+			const bool both = store.text("sight_dot_eyes", "sighting") == "both";
+			for (int e = 0; e < 2 && !(both && sight_dot_shown); ++e)
 			{
+				// Seen through the drawn lens from where the picture is rendered (ipd_scale); drawn from the real eye.
+				float rendered[3];
+				stereo::rendered_eye_position(head, e, rendered);
 				const float eye[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+				const bool seen = weapon::sight_dot_for_eye(rendered, line.start, line.direction, line.lens_radius, line.max_behind, line.max_ahead, distance).visible;
 				const weapon::sight_dot_view view = weapon::sight_dot_for_eye(eye, line.start, line.direction, line.lens_radius, line.max_behind, line.max_ahead, distance);
-				if ((!view.visible && !test) || layer_count >= max_layers || !ensure_overlay(sight_dot_overlay, reticle_pixels_size, reticle_pixels_size))
+				if ((!seen && !test) || layer_count >= max_layers || !ensure_overlay(sight_dot_overlay, reticle_pixels_size, reticle_pixels_size))
 				{
 					continue;
 				}
@@ -1199,7 +1205,7 @@ namespace bfvr::xr
 				quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
 				quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
 				quad.space = space;
-				quad.eyeVisibility = e == 0 ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_RIGHT;
+				quad.eyeVisibility = both ? XR_EYE_VISIBILITY_BOTH : e == 0 ? XR_EYE_VISIBILITY_LEFT : XR_EYE_VISIBILITY_RIGHT;
 				quad.subImage.swapchain = sight_dot_overlay.swapchain;
 				quad.subImage.imageRect.extent = { static_cast<std::int32_t>(reticle_pixels_size), static_cast<std::int32_t>(reticle_pixels_size) };
 				quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };

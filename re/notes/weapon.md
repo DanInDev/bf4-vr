@@ -439,6 +439,28 @@ All two-handed (`held=1`). What the marks and captures show, before the user's o
   with `eyeshot` off-axis, and a capture without the stick tap (`pipe mark` + `vrview-shot` from the PC).
 - `changes` went 2 -> 21 in five minutes (11 by mark 3, steady through marks 3-5).
 
+**The user's verdict on that run:** the AK-12 with the magnifier works as intended, best at the left
+eye, with a white glitch at the bottom of the view; the AK-12's red dot alone shows a dot and circle
+that are not centred and sometimes partly cut off (that is the game's own reticle, drawn at the view's
+centre and masked by the lens: it shows now that the game really aims); the SCAR-H's holo: no change, no dot.
+
+What follows from it:
+
+- The SCAR-H's dot went to the right eye in both sessions (`dot_seen=0/1`) and was never seen; the only dot
+  ever seen in a capture was a left-eye one. Whether SteamVR shows `XR_EYE_VISIBILITY_RIGHT` quads through
+  Steam Link is therefore open. `sight_dot_eyes = both` draws one quad for both eyes (no single-eye layer)
+  to decide it; VR View can also be switched to the right eye or both.
+- `ipd_scale` (1.15 in that session) moves the rendered eyes apart, 0.5 cm each: the sight checks now use
+  the rendered eye (`stereo::rendered_eye_position`), since that is where the drawn lens is seen from.
+  Monitor with `ipd_scale 1.15`: `eyes off_line_cm=7.0/0.4` (was 6.5/0.1 with the runtime's eyes).
+- Monitor, right eye on the line, magnifier in, two-handed: at the hip the eye looks into the magnifier
+  (in line, lens dark where the scope quad goes). **In the game's ADS the right eye's image has a ring
+  and mount about 210 px right of the sight and a second piece of the gun at the bottom right** (`eyeshot2`),
+  where the left eye's image has the gun: parts of the gun are drawn at the first eye's place in the
+  second eye while the game aims through the magnifier. Not followed up; a candidate for "best at the
+  left eye". The white glitch at the bottom did not show on the monitor (asked for a mark next time).
+  With the scope render on, two dark slivers appear on the wall below the gun and the window's glare changes.
+
 Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
 (`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
 
