@@ -26,7 +26,8 @@ namespace bfvr::launcher
 		std::uint32_t timestamp;
 		std::uint16_t machine;
 		const wchar_t* dll_folder; // where the mod's dinput8.dll sits beside the launcher ("" = the launcher's folder)
-		const wchar_t* launch_link; // the EA app link the Start button opens
+		const wchar_t* launch_link; // the EA app link the Start button opens, or null
+		const wchar_t* launch_arguments; // without a link: the game's exe is started with these
 		bool vr_setup; // the game's own settings and the VR values for bfvr.ini are known
 		const wchar_t* status; // one line under the header: what the mod does in this game today
 		const wchar_t* warning; // the multiplayer warning on the Setup page
@@ -39,18 +40,21 @@ namespace bfvr::launcher
 		bf4_179547_timestamp, bf4_179547_machine, L"",
 		L"origin2://game/launch/?offerIds=1007968,1011575,1011576,1011577,1010268,1010269,1010270,"
 		L"1010271,1010958,1010959,1010960,1010961,1007077,1016751,1016757,1016754,1015365,1015364,1015363,1015362",
+		nullptr,
 		true,
 		L"Battlefield 4 single-player campaign in VR  \x00B7  Quest 3 through Steam Link",
 		L"Campaign only. Remove the mod before joining any multiplayer server: PunkBuster bans for foreign DLLs.",
 	};
 
 	// Research build (..\bf3-vr): the 32-bit DLL has the loader, the flat screen in the headset and the
-	// control pipe, no engine hooks and no multiplayer guard. Content id 71067 is the base game's in the
-	// EA app's log; the link is not yet confirmed to start the campaign (..\bf3-vr\re\notes\launch.md).
+	// control pipe, no engine hooks and no multiplayer guard. The EA app's launch link only leads to
+	// Battlelog for this game; bf3.exe with these arguments hands the launch to the EA app, whose
+	// BF3WebHelper.exe then starts the campaign (..\bf3-vr\re\notes\launch.md, verified 2026-11-11).
 	inline constexpr game_profile bf3_profile{
 		"bf3", L"Battlefield 3", L"BF3", L"bf3.exe", L"SOFTWARE\\WOW6432Node\\EA Games\\Battlefield 3", L"1147186",
 		bf3_1147186_timestamp, bf3_1147186_machine, L"bf3",
-		L"origin2://game/launch/?offerIds=71067",
+		nullptr,
+		L"-webMode SP -Origin_NoAppFocus -requestState State_ResumeCampaign",
 		false,
 		L"Battlefield 3: research build  \x00B7  flat screen in the headset, campaign only, no VR view yet",
 		L"Campaign only. This build has no multiplayer guard yet: remove the mod before joining any server.",
@@ -66,6 +70,15 @@ namespace bfvr::launcher
 		std::wstring exe = L"bf4.exe";
 		const game_profile* profile = &bf4_profile;
 	};
+
+	// What the Start button runs (ShellExecute): the EA app link, or the game's exe in its own folder.
+	struct launch_command
+	{
+		std::wstring file;
+		std::wstring arguments;
+		std::wstring directory;
+	};
+	launch_command launch_of(const game_install& game);
 
 	// The profile's "Install Dir" from the registry; empty when absent.
 	std::filesystem::path find_install(const game_profile& profile = bf4_profile);

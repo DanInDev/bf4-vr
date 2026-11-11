@@ -140,6 +140,14 @@ namespace
 		check(read_proxy(game).state == proxy_state::ours, "BF3 proxy is ours");
 		check(remove(game).ok && !fs::exists(game.dir / L"dinput8.dll"), "remove from BF3");
 
+		const launch_command bf3_start = launch_of(game);
+		check(bf3_start.file == (game.dir / game.exe).wstring() && bf3_start.directory == game.dir.wstring()
+			&& bf3_start.arguments.find(L"-webMode SP") == 0 && bf3_start.arguments.find(L"State_ResumeCampaign") != std::wstring::npos,
+			"BF3 starts its own exe in the game folder with the single-player arguments");
+		const launch_command bf4_start = launch_of(game_install{ game.dir, L"bf4.exe", &bf4_profile });
+		check(bf4_start.file.find(L"origin2://game/launch/") == 0 && bf4_start.arguments.empty() && bf4_start.directory.empty(),
+			"BF4 starts through the EA app link");
+
 		const game_install wrong_game{ game.dir, game.exe, &bf4_profile };
 		check(check_build(wrong_game).result == build_check::mismatch, "BF3's exe is not accepted as BF4");
 	}

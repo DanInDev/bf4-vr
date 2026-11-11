@@ -125,6 +125,15 @@ namespace bfvr::launcher
 		return nullptr;
 	}
 
+	launch_command launch_of(const game_install& game)
+	{
+		if (game.profile->launch_link)
+		{
+			return { game.profile->launch_link, {}, {} };
+		}
+		return { (game.dir / game.exe).wstring(), game.profile->launch_arguments, game.dir.wstring() };
+	}
+
 	std::filesystem::path find_mod_dll(const std::filesystem::path& launcher_dir, const game_profile& profile, const wchar_t* config)
 	{
 		const std::filesystem::path packaged = launcher_dir / profile.dll_folder / L"dinput8.dll";

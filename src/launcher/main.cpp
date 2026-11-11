@@ -649,13 +649,16 @@ namespace bfvr::launcher
 			{
 				return;
 			}
-			if (reinterpret_cast<INT_PTR>(ShellExecuteW(dialog, L"open", game().launch_link, nullptr, nullptr, SW_SHOWNORMAL)) <= 32)
+			const launch_command command = launch_of(app.game);
+			if (reinterpret_cast<INT_PTR>(ShellExecuteW(dialog, L"open", command.file.c_str(), command.arguments.empty() ? nullptr : command.arguments.c_str(),
+					command.directory.empty() ? nullptr : command.directory.c_str(), SW_SHOWNORMAL)) <= 32)
 			{
-				fail(dialog, L"Windows did not accept the EA app's launch link. Is the EA app installed?");
+				fail(dialog, game().launch_link ? L"Windows did not accept the EA app's launch link. Is the EA app installed?"
+					: L"Could not start " + command.file + L".");
 				return;
 			}
-			say(dialog, std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute. If nothing happens, check the EA app for a prompt"
-				+ (game().vr_setup ? L"." : L" (it may open Battlelog in the browser: start the campaign there)."));
+			say(dialog, std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute"
+				+ (game().launch_link ? L"" : L" (its campaign menu in about two)") + L". If nothing happens, check the EA app for a prompt.");
 		}
 
 		// The texts that name the game, the header brand and the fresh state of the chosen game.
