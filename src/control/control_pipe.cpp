@@ -944,21 +944,26 @@ namespace bfvr::control
 				// An optional second number turns the head left by that many degrees, a third moves it up
 				// (metres, negative: crouching; physical stance tests), a fourth pitches it (degrees, up positive).
 				stereo::head_sample head;
-				float ipd = 0.0f, yaw = 0.0f, height = 0.0f, pitch = 0.0f;
-				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f %f", &ipd, &yaw, &height, &pitch) >= 1 && ipd > 0.0f && ipd < 0.1f;
+				// A fifth number rolls it (degrees, positive: the head tilts to its right, as at a gun's stock);
+				// the eyes turn about the head's centre.
+				float ipd = 0.0f, yaw = 0.0f, height = 0.0f, pitch = 0.0f, roll = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f %f %f", &ipd, &yaw, &height, &pitch, &roll) >= 1 && ipd > 0.0f && ipd < 0.1f;
 				const float half = yaw * 3.14159265f / 360.0f;
 				const float tilt = pitch * 3.14159265f / 360.0f;
+				const float lean = -roll * 3.14159265f / 360.0f; // about +z: negative tilts to the right
+				// yaw about +y, then pitch about the turned x axis, then roll about the view axis: q = yaw * pitch * roll.
+				const float yp[4]{ std::cos(half) * std::sin(tilt), std::sin(half) * std::cos(tilt), -std::sin(half) * std::sin(tilt), std::cos(half) * std::cos(tilt) };
+				const float q[4]{ yp[0] * std::cos(lean) + yp[1] * std::sin(lean), yp[1] * std::cos(lean) - yp[0] * std::sin(lean),
+					yp[2] * std::cos(lean) + yp[3] * std::sin(lean), yp[3] * std::cos(lean) - yp[2] * std::sin(lean) };
+				// The head's right: q applied to +x.
+				const float right[3]{ 1 - 2 * (q[1] * q[1] + q[2] * q[2]), 2 * (q[0] * q[1] + q[2] * q[3]), 2 * (q[0] * q[2] - q[1] * q[3]) };
 				for (int eye = 0; eye < 2; ++eye)
 				{
 					const float side = eye == 0 ? -0.5f * ipd : 0.5f * ipd;
-					// yaw about +y, then pitch about the turned x axis: q = yaw * pitch.
-					head.eyes[eye].orientation[0] = std::cos(half) * std::sin(tilt);
-					head.eyes[eye].orientation[1] = std::sin(half) * std::cos(tilt);
-					head.eyes[eye].orientation[2] = -std::sin(half) * std::sin(tilt);
-					head.eyes[eye].orientation[3] = std::cos(half) * std::cos(tilt);
-					head.eyes[eye].position[0] = side * std::cos(2 * half);
-					head.eyes[eye].position[1] = height;
-					head.eyes[eye].position[2] = -side * std::sin(2 * half);
+					std::copy(std::begin(q), std::end(q), head.eyes[eye].orientation);
+					head.eyes[eye].position[0] = side * right[0];
+					head.eyes[eye].position[1] = height + side * right[1];
+					head.eyes[eye].position[2] = side * right[2];
 				}
 				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
 				head.fovs[1] = { -0.698f, 0.942f, 0.768f, -0.890f };

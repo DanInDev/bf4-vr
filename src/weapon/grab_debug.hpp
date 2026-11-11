@@ -20,6 +20,7 @@ namespace bfvr::weapon
 		gadget2,
 		dropped_gun, // free hands: the gun on the floor
 		grenade_pin, // the held grenade's pin until it is pulled
+		sight_lens,  // #39: where the mod takes the optic's lens to be (on the sight line), green while an eye sees the dot
 		count,
 	};
 

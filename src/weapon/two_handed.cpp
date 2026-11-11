@@ -54,6 +54,7 @@ namespace bfvr::weapon
 		std::atomic<float> sight_dot_lens_radius{ 0.02f };
 		sight_dot_line dot_line;
 		bool dot_seen[2]{}; // report
+		bool dot_seen_last{}; // the previous update's dot_seen, either eye (the lens ring's colour)
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
 		constexpr float sight_min_ahead = 0.05f;      // and at least this far in front of it
 		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
@@ -288,6 +289,7 @@ namespace bfvr::weapon
 		}
 		bool aiming = false;
 		dot_line = {};
+		dot_seen_last = dot_seen[0] || dot_seen[1];
 		dot_seen[0] = dot_seen[1] = false;
 		const stereo::head_sample head = stereo::latest_head_sample();
 		if (sight_line && head.valid)
@@ -305,6 +307,16 @@ namespace bfvr::weapon
 				ahead = std::fmax(ahead, to_optic - sight_optic_clearance);
 			}
 			sight_ahead_limit = ahead;
+			if (points.has_optic && grab_debug_enabled())
+			{
+				// grab_debug: a ring where the lens should be drawn. In the headset it must sit on the optic.
+				float lens[3];
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					lens[axis] = start[axis] + barrel[axis] * (ahead + sight_optic_clearance);
+				}
+				publish_grab_zone(grab_slot::sight_lens, lens, sight_dot_lens_radius.load(std::memory_order_relaxed), dot_seen_last);
+			}
 			bool enter = false, stay = false;
 			for (int e = 0; e < 2; ++e)
 			{
