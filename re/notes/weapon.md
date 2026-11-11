@@ -420,6 +420,25 @@ red room, now 0.6 with a near-white middle; `sight_dot_reach` (cm, default 2) re
 have never been confirmed in the headset: the scope picture uses them too) from "shown but missed".
 Needs the headset with a VR View capture.
 
+**Headset 2026-11-12 (8 marks, VR View captured ~1 s after each mark; VR View shows the left eye).**
+All two-handed (`held=1`). What the marks and captures show, before the user's own verdict:
+
+- The game now aims with the AK-12 in both hands: marks 3-5 and 8 `game_fov=40 current=1`,
+  `eye_from_optic=(0.001 0.035 -0.159)`; marks 6-7 the magnifier `game_fov=27 magnification=1.725 active=1`.
+  `sight_dot_frames` rose from 1509 to 8666 over five minutes (997 in four the day before).
+- **The single-eye dot layer is shown by the compositor**: mark 8 (left eye 0.3 cm off the line,
+  `dot_seen=1/0`) has the red dot in VR View, beside the red dot sight's clear lens, about 50 px (~5-6
+  degrees) left of the lens centre. Marks 1-6 had the right eye on the sight (`dot_seen=0/1`), which
+  VR View cannot show.
+- **The magnifier picture is shown too** (mark 7, left eye), but about a lens diameter down-left of the
+  drawn magnifier housing, and larger than the housing's rear lens (picture ~100 px across, drawn lens ~60).
+- Both offsets point at lead 2 of the brief (the drawn optic is not where the mod's points say), but one
+  delayed capture each is weak: tapping both stick clicks jolts the gun and the scope picture is a few
+  frames old. Settings in that session that scale the picture against LOCAL: `gun_scale 1.1`,
+  `ipd_scale 1.15`. Next: a pipe report of the optic's and the dot's projected pixel per eye to compare
+  with `eyeshot` off-axis, and a capture without the stick tap (`pipe mark` + `vrview-shot` from the PC).
+- `changes` went 2 -> 21 in five minutes (11 by mark 3, steady through marks 3-5).
+
 Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
 (`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
 
