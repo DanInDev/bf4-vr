@@ -26,8 +26,9 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `main` 14d9881, **Release** deployed 2026-11-11 (Update mod in the Release launcher installs the
-same build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever something looks off.
+Build: `main` with the #34 menu fix, **Release** deployed 2026-11-11 (Update mod in the Release launcher
+installs the same build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever
+something looks off.
 
 0. **Body calibration (BODY-1):** when the level loads a notice asks you to stand straight, arms out to
    the sides, and hold both triggers: hold still for a second. It should report about your height and
@@ -45,8 +46,12 @@ same build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks
    fingers in your hand, roll back and seat.
 6. **Free hands (FREE-3 to FREE-9):** let go of the gun (sling), pick it up with either hand, hold it in the
    left and reload with the right.
-7. **Snap turn, grenade, stash (HAND-15, GRN-4, CTRL-17/CTRL-14):** snap a few times and look at the hands;
-   take the first grenade with the gun out and pull the pin; open the stash with the left hand.
+7. **Grenade (GRN-4, GRN-5):** take the first grenade with the gun out: no flat picture, the game's sound,
+   then pull the pin (a ring marks it). Afterwards look down at the pouch: a real grenade stands there.
+8. **Knife (GRN-6, HAND-16):** draw the knife from the chest holster once, put it back, look down: the knife
+   stands in the holster. In the hand, note the Knife angle / turn / roll values that look right.
+9. **Gadget stash (CTRL-14):** open it with the left hand, laser-click C4 into Gadget One, M320 into Gadget
+   Two, Done. The tabs no longer flip on each click; afterwards the left stick walks straight.
 
 ## Main problems (2026-11-04)
 
