@@ -461,6 +461,32 @@ What follows from it:
   left eye". The white glitch at the bottom did not show on the monitor (asked for a mark next time).
   With the scope render on, two dark slivers appear on the wall below the gun and the window's glare changes.
 
+**Second headset run, 2026-11-12 (12 marks, VR View on both eyes).** User: the green dot now turns red;
+the grab rings got in the way (off from mark 9).
+
+- **The red dot on the wall is the SCAR's laser** (`U_SCAR-H_TargetPointer`), not the mod's dot: it is in
+  the marks' own game image too. It marks the game's aim (the body, `aim_with_body`), not the drawn barrel:
+  on the monitor with the head turned 30 degrees it sits at the view's centre, 30 degrees from the barrel.
+  It misled the first reading of these captures.
+- **The mod's dot is shown by the compositor**, in both eye images, with `sight_dot_test 1` and
+  `sight_dot_eyes both` (marks 8-12; the AK-12 has no laser, so its single red spot is the mod's). It is
+  about 2 px in VR View's 830 px eye image. "The green dot turns red" is that test mode: the dot is
+  always on, so the green one hides. With `sighting` and no test (marks 2-3) the captures, taken ~1.3 s
+  after the tap, show no mod dot: undecided whether a right-eye-only quad is shown.
+- **The mod's layers sit 15-20 degrees off the drawn optic in the right eye's image**: mark 7, same
+  composited frame, the magnifier picture is ~11 degrees right and ~13 below the drawn magnifier (and has
+  a white wedge at its lower edge: the "white glitch"); marks 10 and 12 have the dot the same way off the
+  SCAR window and the AK sight. Run 1's mark 7 (left eye) had the picture down-left by as much.
+- **Not reproduced on the monitor**: with the right eye on the sight line the SCAR's window is drawn where
+  the barrel points with the head turned 30 degrees (32.3 seen, 30 x gun_scale 1.1 expected), pitched 25
+  down (27.5 seen) and rolled 30 (centred), `ipd_scale 1.15`. `gun_scale` does move the drawn optic 10 %
+  further from the view's centre than the mod's point (2.3 degrees at 30 off axis).
+- So either the hold moved between the tap and the capture, or the layers lead the picture while the gun
+  moves (quads use the newest pose, the eye images are frames older), or something only a real head
+  sample has. Next: `grab_debug` now draws a small ring where the mod takes the lens to be
+  (`grab_slot::sight_lens`, green while an eye sees the dot): held still in the headset it must sit on
+  the optic. The capture script now keeps VR View frames from before each mark.
+
 Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
 (`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
 
