@@ -33,6 +33,7 @@ namespace bfvr::weapon
 		bool off_grip{};
 		bool off_busy{};    // reload, grenade, two-handed hold, menu
 		bool left_handed{}; // zones mirrored
+		float body_scale{ 1.0f }; // #46: the calibrated body's size against the reference the zones are laid out for
 	};
 
 	struct holster_result

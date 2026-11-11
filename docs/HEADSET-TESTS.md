@@ -155,6 +155,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
+| BODY-1 | open | Body calibration: start a level with `body_height = 0` (or pipe `calibrate start`); when the notice asks, stand straight, arms straight out to the sides, hold both triggers still for a second | A notice "Fit the body to you", then "Hold still: measuring", a buzz on both hands and "Body fitted: <height>" close to your real height; the gun does not fire meanwhile. Afterwards: arms reach where your hands are, the pouches and holsters sit where your body has them (Body > Calibration shows height and span; 0 asks again) | #46 | 2026-11-11: built, gate green; monitor check pending |
 | HAND-1 | open | Empty off hand: squeeze the grip slowly, pull the trigger, rest and lift the thumb | Fingers close with the grip, the index with the trigger, the thumb with the touch; no snapping | #11 | |
 | HAND-2 | open | Gun hand: lift the index off the trigger, then touch and pull | The drawn index lies straight along the frame, wraps the trigger on a touch | #11 | |
 | HAND-3 | open | Take a magazine from the pouch and from the gun (AK-12, then SCAR-H), look at it, turn the hand (`magazine_grip = auto`) | AK: fingers along its body, thumb across; AR: upright along the fingers; it turns with the wrist and still seats | #14 | |

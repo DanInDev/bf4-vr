@@ -45,6 +45,7 @@
 #include "weapon/physical_reload.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "ui/hud_widgets.hpp"
+#include "ui/body_calibration_flow.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/shot_origin.hpp"
 #include "weapon/two_handed.hpp"
@@ -857,6 +858,7 @@ namespace bfvr::control
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
+			if (command == "calibrate") return ui::body_calibration_command(argument);
 			if (command == "sightstate") return weapon::sight_state_report();
 			if (command == "motion")
 			{

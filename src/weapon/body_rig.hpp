@@ -14,5 +14,6 @@ namespace bfvr::weapon
 	constexpr v3 sling_point{ 0.10f, -0.50f, -0.12f };
 
 	// body_yaw: radians, 0 = facing -z, + = turned left (holsters::body_yaw). Mirrored when left-handed.
-	v3 body_point(const v3& head, float body_yaw, const v3& offset, bool left_handed);
+	// scale: the calibrated body against the reference these points are laid out for (#46).
+	v3 body_point(const v3& head, float body_yaw, const v3& offset, bool left_handed, float scale = 1.0f);
 }

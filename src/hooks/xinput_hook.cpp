@@ -17,6 +17,7 @@
 #include "input/gamepad.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/virtual_pad.hpp"
+#include "ui/body_calibration_flow.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
@@ -86,7 +87,7 @@ namespace bfvr::hooks
 					state->Gamepad = {};
 				}
 			}
-			const input::gamepad_state pad = ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest()))))));
+			const input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())))))));
 			if (!pad.connected)
 			{
 				// The game creates its pad object once at startup and treats a failed first read as

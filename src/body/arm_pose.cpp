@@ -164,6 +164,7 @@ namespace bfvr::body
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> arm_length{ 1.0f };   // live setting: forearm and hand offsets scaled (reach)
 		std::atomic<float> shoulder_width{};     // live setting: clavicles moved outwards, metres per side
+		std::atomic<float> body_scale{ 1.0f };   // #46: the calibrated body against the reference (shoulder height)
 		std::atomic<bool> body_shoulders{ true }; // live setting: shoulder joints at shoulder_anchor from the head
 		// Right shoulder joint from the head (between the eyes), OpenXR axes; the left one mirrored.
 		constexpr ik::vec3 shoulder_anchor{ 0.18f, -0.22f, 0.04f };
@@ -970,7 +971,10 @@ namespace bfvr::body
 					// there (the torso turn below then turns both about the spine).
 					const int clavicle = rig.parents[bones.upper];
 					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
-					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y, shoulder_anchor.z };
+					// #46: the anchor's height below the eyes and its depth scale with the calibrated body (its
+					// width comes from shoulder_width).
+					const float scale = body_scale.load(std::memory_order_relaxed);
+					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y * scale, shoulder_anchor.z * scale };
 					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, body_head + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
@@ -2359,6 +2363,11 @@ namespace bfvr::body
 	{
 		arm_length = length > 0.5f && length < 2.0f ? length : 1.0f;
 		shoulder_width = width;
+	}
+
+	void set_body_scale(float scale)
+	{
+		body_scale = std::isfinite(scale) && scale > 0.5f && scale < 1.5f ? scale : 1.0f;
 	}
 
 	void set_shoulder_offset(float x, float y, float z)

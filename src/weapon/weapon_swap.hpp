@@ -12,6 +12,8 @@
 namespace bfvr::weapon
 {
 	void set_holsters(bool enabled);
+	// #46: the calibrated body's size against the reference the holsters, pouches and sling are laid out for.
+	void set_body_scale(float scale);
 	// Squad order by hand signal (weapon/hand_signal): off hand raised ahead above the eyes + grip = Q.
 	void set_squad_signal(bool enabled);
 	// melee_gesture: a quick forward thrust of the gun hand is the game's melee (pad right-stick

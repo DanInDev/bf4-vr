@@ -1,5 +1,7 @@
 #include "stereo/tracking.hpp"
 
+#include <atomic>
+#include <cmath>
 #include <mutex>
 
 namespace bfvr::stereo
@@ -34,6 +36,24 @@ namespace bfvr::stereo
 	{
 		const std::lock_guard guard(lock);
 		return head;
+	}
+
+	namespace
+	{
+		std::atomic<bool> floor_known{};
+		std::atomic<float> floor_height{};
+	}
+
+	void publish_floor(bool valid, float y)
+	{
+		floor_height = y;
+		floor_known = valid && std::isfinite(y);
+	}
+
+	bool latest_floor(float& y)
+	{
+		y = floor_height.load(std::memory_order_relaxed);
+		return floor_known.load(std::memory_order_relaxed);
 	}
 
 	void publish_rendered_view(const rendered_view& view)

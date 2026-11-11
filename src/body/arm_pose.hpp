@@ -37,6 +37,8 @@ namespace bfvr::body
 	// Arm shape: forearm and hand offsets scaled by length (reach), clavicles moved outwards by width
 	// metres per side (a wider torso). 1 and 0 = the rig as authored.
 	void set_arm_shape(float length, float width);
+	// #46: the calibrated body against the reference: the shoulders' height below the eyes and depth scale.
+	void set_body_scale(float scale);
 	// The first-person legs collapsed onto the hips (they sit oddly under a tracked head).
 	void set_legs_hidden(bool hidden);
 	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with

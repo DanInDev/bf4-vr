@@ -890,6 +890,21 @@ namespace
 		const hand_config reach;
 		const grenade_config grenade_reach;
 		expect(gap(grenade_pouch, magazine_pouch) > reach.reach_chest + grenade_reach.reach_belt, "grenade and magazine pouches do not overlap");
+
+		// #46: a calibrated body 10 % smaller pulls every point 10 % closer to the head; 1 leaves them.
+		const v3 small = body_point(head, 0.0f, magazine_pouch, false, 0.9f);
+		expect(std::fabs(small.y - (head.y + 0.9f * magazine_pouch.y)) < 1e-5f && std::fabs(small.x - (head.x + 0.9f * magazine_pouch.x)) < 1e-5f
+				&& std::fabs(small.z - (head.z + 0.9f * magazine_pouch.z)) < 1e-5f, "body scale 0.9: the pouch 10 % closer");
+		const v3 same = body_point(head, 0.0f, magazine_pouch, false, 1.0f);
+		expect(std::fabs(same.y - (head.y + magazine_pouch.y)) < 1e-5f, "body scale 1: as laid out");
+		holster_frame scaled = frame;
+		scaled.head = {};
+		scaled.head_yaw = 0.0f;
+		scaled.body_scale = 0.9f;
+		holsters smaller;
+		const holster_result placed = smaller.update(scaled);
+		const int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
+		expect(placed.has_centres && std::fabs(placed.centres[knife_zone].y - 0.9f * -0.27f) < 1e-4f, "body scale 0.9: the knife holster 10 % higher up the chest");
 	}
 	void test_hand_signal()
 	{

@@ -33,6 +33,9 @@ namespace bfvr::settings
 
 			// Body
 			{ "arm_ik", "Body", "Arms", "Arms follow the controllers", "The soldier's arms reach for your hands", "" },
+			{ "body_calibration", "Body", "Calibration", "Body calibration", "T-pose, both triggers, after a level loads", "first=Until done|always=Every level|off=Off" },
+			{ "body_height", "Body", "Calibration", "Your height", "Metres; 0 asks again at the next level", "" },
+			{ "body_span", "Body", "Calibration", "Your arm span", "Grip to grip, metres (measured)", "" },
 			{ "arm_length", "Body", "Arms", "Arm length", "Longer arms reach further", "" },
 			{ "shoulder_width", "Body", "Arms", "Shoulder width", "Metres added on each side", "" },
 			{ "body_shoulders", "Body", "Arms", "Natural shoulders", "Either side of the neck", "" },

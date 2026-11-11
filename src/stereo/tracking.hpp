@@ -28,6 +28,11 @@ namespace bfvr::stereo
 	void publish_head_sample(const head_sample& sample);
 	head_sample latest_head_sample();
 
+	// The floor's height in OpenXR LOCAL (y of the STAGE space's origin), when the runtime has a STAGE space
+	// (the Quest's guardian floor through SteamVR); for the body calibration (#46).
+	void publish_floor(bool valid, float y);
+	bool latest_floor(float& y);
+
 	// Controller poses for the same display time as the head sample, OpenXR LOCAL space.
 	// grip: palm centre, -z along the handle; aim: pointing ray, -z forward.
 	struct hand_sample

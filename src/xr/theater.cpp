@@ -165,6 +165,7 @@ namespace bfvr::xr
 		XrSession session{ XR_NULL_HANDLE };
 		XrSpace space{ XR_NULL_HANDLE };
 		XrSpace view_space{ XR_NULL_HANDLE }; // head-locked layers (HUD)
+		XrSpace stage_space{ XR_NULL_HANDLE }; // the floor, when the runtime has one (#46)
 		bool session_running{};
 
 		// xrWaitFrame runs on its own thread so a throttled headset (taken off, dashboard open)
@@ -446,6 +447,13 @@ namespace bfvr::xr
 			if (!check(xrCreateReferenceSpace(session, &space_info, &view_space), "xrCreateReferenceSpace(VIEW)"))
 			{
 				return false;
+			}
+			// Optional: the floor (STAGE) for the body calibration (#46); without it the height comes from the span.
+			space_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+			if (XR_FAILED(xrCreateReferenceSpace(session, &space_info, &stage_space)))
+			{
+				stage_space = XR_NULL_HANDLE;
+				log::write("theater: no STAGE space (the body calibration estimates the height from the arm span)");
 			}
 
 			log::write("theater: session created on '%ls'", adapter_desc.Description);
@@ -1991,6 +1999,13 @@ namespace bfvr::xr
 				}
 			}
 			stereo::publish_head_sample(sample);
+			if (stage_space != XR_NULL_HANDLE)
+			{
+				XrSpaceLocation floor{ XR_TYPE_SPACE_LOCATION };
+				const bool located = XR_SUCCEEDED(xrLocateSpace(stage_space, space, display_time, &floor))
+					&& (floor.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT);
+				stereo::publish_floor(located, located ? floor.pose.position.y : 0.0f);
+			}
 		}
 
 		bool copy_to_swapchain(ID3D11Texture2D* back_buffer)
@@ -2459,6 +2474,12 @@ namespace bfvr::xr
 				destroy_overlay(overlay);
 			}
 			destroy_pointer_swapchain();
+			if (stage_space != XR_NULL_HANDLE)
+			{
+				xrDestroySpace(stage_space);
+				stage_space = XR_NULL_HANDLE;
+				stereo::publish_floor(false, 0.0f);
+			}
 			if (view_space != XR_NULL_HANDLE)
 			{
 				xrDestroySpace(view_space);

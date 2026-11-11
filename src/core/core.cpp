@@ -43,6 +43,8 @@
 #include "weapon/reload_sounds.hpp"
 #include "ui/hud_widget_table.hpp"
 #include "ui/hud_widgets.hpp"
+#include "body/body_calibration.hpp"
+#include "ui/body_calibration_flow.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -151,6 +153,13 @@ namespace bfvr::core
 			xr::set_trigger_press(store.real("trigger_press", 0.55f));
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
+			{
+				// #46: the body zones and the shoulders' height scale with the calibrated height (1.78 m: as laid out).
+				const float height = store.real("body_height", 0.0f);
+				const float scale = height > 0.0f ? height / body::calibration::reference{}.stature : 1.0f;
+				body::set_body_scale(scale);
+				weapon::set_body_scale(scale);
+			}
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_torso_follow(store.boolean("torso_follow", true));
 			body::set_torso_hands(store.boolean("torso_hands", false));
@@ -219,6 +228,7 @@ namespace bfvr::core
 			weapon::update_hip_accuracy();
 			weapon::update_physical_grenades();
 			weapon::update_two_handed();
+			ui::update_body_calibration();
 			ui::update_vr_panel();
 			weapon::update_weapon_swap();
 			weapon::update_hit_feedback();
