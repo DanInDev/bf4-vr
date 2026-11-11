@@ -175,7 +175,9 @@ grenade_model = 1
 # selects it for about half a second (the gun goes away and comes back) to capture it (pipe `extramesh`);
 # with no gun out, and with 0, the flat picture above stands in.
 grenade_mesh = 1
-# With the 3D grenade: one stands at the grenade pouch while none is held, in place of the grab ring (#41).
+# With the 3D grenade: one stands at the grenade pouch while none is held, and the knife in its chest
+# holster while it is not out, in place of the grab rings (#41). The knife is captured the first time it is
+# out (hidden for that moment); until then its ring stays.
 pouch_models = 1
 # Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
 # gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.

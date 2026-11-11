@@ -77,7 +77,7 @@ namespace bfvr::settings
 			{ "grenade_throw_scale", "Weapon", "Grenades and gadgets", "Throw strength", "Launch speed times your hand speed", "" },
 			{ "grenade_model", "Weapon", "Grenades and gadgets", "Grenade in your hand", "Drawn while you hold it", "" },
 			{ "grenade_mesh", "Weapon", "Grenades and gadgets", "3D grenade", "The game's own model in your fist", "" },
-			{ "pouch_models", "Weapon", "Grenades and gadgets", "Grenade at the pouch", "A 3D grenade instead of the ring", "" },
+			{ "pouch_models", "Weapon", "Grenades and gadgets", "Grenade and knife at their slots", "3D models instead of the rings", "" },
 			{ "c4_trigger", "Weapon", "Grenades and gadgets", "C4 with the triggers", "Off hand throws, gun hand detonates", "" },
 			{ "holsters", "Weapon", "Hands and melee", "Holsters on the body", "Shoulder, hip, chest and belt", "" },
 			{ "free_hands", "Weapon", "Hands and melee", "Free hands", "Let go and the gun drops; grip to pick up", "" },

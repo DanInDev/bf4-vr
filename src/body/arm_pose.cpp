@@ -323,6 +323,13 @@ namespace bfvr::body
 		std::atomic<bool> pouch_grenade_shown{};
 		std::atomic<float> pouch_grenade_at[3]{};
 		std::atomic<float> pouch_grenade_yaw{};
+		// #41: the knife. Out as the game's weapon it is captured once (hidden and tagged for that render);
+		// otherwise the copy stands in its holster (OpenXR LOCAL, the body's yaw), blade down.
+		std::atomic<bool> knife_weapon_now{};
+		std::atomic<bool> holster_knife_shown{};
+		std::atomic<float> holster_knife_at[3]{};
+		std::atomic<float> holster_knife_yaw{};
+		bool knife_capturing{}; // rig_lock: this frame tags the knife for its capture
 		// Wep_Root of a hand grenade in the fist's grasp frame (fingers::grasp: +y out past the index, +z out
 		// through the curled fingers), from the game's own hold of the M67 (pipe extramesh game_hold_in_fist,
 		// 2026-11-09: the right hand drawn by its controller, the game's fingers round the grenade).
@@ -2000,8 +2007,11 @@ namespace bfvr::body
 			}
 			ik::bone_transform& magazine = local[rig.magazine];
 			const bool remembered = magazine_memory.has_written && std::memcmp(&magazine, &magazine_memory.written, sizeof(magazine)) == 0;
-			// While the held grenade is captured (publish_extra_grenade), the gun's magazine marks the gun instead.
-			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && grenade_weapon_now.load(std::memory_order_relaxed);
+			// While the held grenade or the knife is captured (publish_extra_grenade, publish_holster_knife), the
+			// gun's magazine marks the gun instead.
+			knife_capturing = grenade_mesh_on.load(std::memory_order_relaxed) && knife_weapon_now.load(std::memory_order_relaxed)
+				&& !grenade_weapon_now.load(std::memory_order_relaxed) && !stereo::extra_mesh::item_captured(stereo::extra_mesh::captured::knife);
+			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && (grenade_weapon_now.load(std::memory_order_relaxed) || knife_capturing);
 			magazine.scale = capturing ? stereo::extra_mesh::capture_magazine_scale : stereo::extra_mesh::magazine_tag;
 			if (remembered)
 			{
@@ -2142,6 +2152,48 @@ namespace bfvr::body
 			em::set_grenade_copy(false, nullptr, false);
 		}
 
+		// Called with rig_lock held, after publish_extra_grenade (#41): the first time the game's knife is out,
+		// its Wep_Root goes to the capture pose for the render that records it (hidden for that moment); while
+		// it is not out, the captured knife stands in its holster, handle up, blade down, edge ahead.
+		void publish_holster_knife(ik::bone_transform* local)
+		{
+			namespace em = stereo::extra_mesh;
+			const bool on = grenade_mesh_on.load(std::memory_order_relaxed) && rig.weapon >= 0 && rig.parents[rig.weapon] >= 0 && rig.bones > 0;
+			const bool knife_out = on && knife_weapon_now.load(std::memory_order_relaxed);
+			knife_capturing = knife_out && !grenade_weapon_now.load(std::memory_order_relaxed) && !em::item_captured(em::captured::knife);
+			if (knife_capturing)
+			{
+				ik::bone_transform hidden;
+				hidden.position = { em::grenade_capture_position[0], em::grenade_capture_position[1], em::grenade_capture_position[2] };
+				hidden.scale = em::grenade_tag;
+				ik::set_model_transform(local, rig.parents, rig.weapon, ik::compose(local[0], hidden));
+				em::set_item_capture(em::captured::knife, true);
+			}
+			if (on && !knife_out && holster_knife_shown.load(std::memory_order_relaxed) && rig.camera >= 0)
+			{
+				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+				const ik::quat frame = camera_frame(camera);
+				ik::bone_transform sheath;
+				sheath.position = tracking_origin(camera, frame)
+					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load(), holster_knife_at[1].load(), holster_knife_at[2].load() });
+				// As in the hand (edit_arms: the blade along the controller's ray after knife_pitch), with that ray
+				// turned straight down (-90 degrees about x) and facing ahead with the body.
+				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
+				const float pitch_half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
+				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
+				const ik::quat down{ -0.70710678f, 0.0f, 0.0f, 0.70710678f };
+				const ik::quat level{ std::sin(pitch_half), 0, 0, std::cos(pitch_half) };
+				sheath.rotation = ik::normalize(frame * body_yaw * down * level * ik::quat{ 0, 0, 1, 0 });
+				ik::bone_transform root = ik::compose(ik::inverse(local[0]), sheath);
+				root.scale = 1.0f;
+				float matrix[12];
+				palette_rows(root, matrix);
+				em::set_item_copy(em::captured::knife, true, matrix);
+				return;
+			}
+			em::set_item_copy(em::captured::knife, false, nullptr);
+		}
+
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
 		// engine's model pose, and the numbers for the report.
 		void check_pose(const ik::bone_transform* local, std::uint64_t pose_object)
@@ -2236,6 +2288,7 @@ namespace bfvr::body
 					attach_held_magazine(local);
 					publish_extra_magazine(local);
 					publish_extra_grenade(local);
+					publish_holster_knife(local);
 				}
 			}
 			original_conversion(pose);
@@ -2462,6 +2515,21 @@ namespace bfvr::body
 	void set_grenade_weapon(bool current)
 	{
 		grenade_weapon_now = current;
+	}
+
+	void set_knife_weapon(bool out)
+	{
+		knife_weapon_now = out;
+	}
+
+	void set_holster_knife(bool shown, const float (&position)[3], float yaw)
+	{
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			holster_knife_at[axis] = position[axis];
+		}
+		holster_knife_yaw = yaw;
+		holster_knife_shown = shown;
 	}
 
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw)

@@ -14,6 +14,7 @@
 #include "body/arm_pose.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "input/handedness.hpp"
 #include "input/haptics.hpp"
@@ -445,7 +446,10 @@ namespace bfvr::weapon
 		const ULONGLONG now = GetTickCount64();
 		advance(now);
 		const slot_state held = read_slot();
-		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "Knife") != nullptr);
+		const bool knife_out = held.valid && std::strstr(held.name, "Knife") != nullptr;
+		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && knife_out);
+		// #41: the game's knife out is captured once for its holster (body/arm_pose, stereo/extra_mesh).
+		body::set_knife_weapon(knife_out);
 		// Slots 0 and 1 hold the primary and secondary guns; gadgets, grenades and the knife keep their own hold.
 		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
@@ -651,10 +655,24 @@ namespace bfvr::weapon
 			published_body_yaw = zones.body_yaw();
 			body_yaw_known = true;
 		}
+		// #41: the knife at its holster (the game's own knife, once captured) while it is not the weapon; its
+		// ring is left out while that is drawn.
+		{
+			constexpr int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
+			const float at[3]{ result.centres[knife_zone].x, result.centres[knife_zone].y, result.centres[knife_zone].z };
+			const bool shown = result.has_centres && !knife_out && zones.body_known() && settings::global().boolean("pouch_models", true)
+				&& settings::global().boolean("grenade_mesh", true);
+			body::set_holster_knife(shown, at, zones.body_yaw());
+		}
 		if (grab_debug_enabled() && result.has_centres)
 		{
 			for (int i = 0; i < 5; ++i)
 			{
+				if (static_cast<int>(holster::primary) + i == static_cast<int>(holster::knife) && stereo::extra_mesh::item_drawn(stereo::extra_mesh::captured::knife))
+				{
+					clear_grab_zone(grab_slot::knife);
+					continue;
+				}
 				const float centre[3]{ result.centres[i].x, result.centres[i].y, result.centres[i].z };
 				publish_grab_zone(static_cast<grab_slot>(static_cast<int>(grab_slot::primary) + i), centre, result.radii[i], result.zone == static_cast<holster>(static_cast<int>(holster::primary) + i));
 			}

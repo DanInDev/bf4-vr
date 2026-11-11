@@ -54,6 +54,21 @@ namespace bfvr::stereo::extra_mesh
 	// it is the gun, still drawn while the game switches, and that capture is thrown away.
 	constexpr float capture_magazine_scale = 1.5f;
 	constexpr float grenade_capture_position[3] = { 0.0f, 1.0f, 0.0f };
+	// The items captured this way: the grenade (#36), and the knife (#41) for its holster. Each keeps its
+	// own capture and copy; one capture runs at a time (the item whose Wep_Root is under the hidden root).
+	enum class captured : int
+	{
+		grenade = 0,
+		knife = 1,
+	};
+	constexpr int item_count = 2;
+	// Pose thread: this item is the game's weapon, tagged under the hidden root (a capture is wanted).
+	void set_item_capture(captured item, bool wanted);
+	// Pose thread: draw the item's copy with its Wep_Root at matrix (3x4 rows, palette space, scale 1).
+	void set_item_copy(captured item, bool active, const float* matrix);
+	bool item_drawn(captured item); // a copy drawn within the last 150 ms
+	bool item_captured(captured item);
+	std::uint64_t item_captures(captured item);
 	// Pose thread: the game's grenade is out and tagged (a capture is wanted).
 	void set_grenade_capture(bool wanted);
 	// Pose thread: the held grenade's Wep_Root (3x4 rows, palette space, scale 1); armed: the pin is out

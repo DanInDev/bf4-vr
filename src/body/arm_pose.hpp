@@ -155,6 +155,10 @@ namespace bfvr::body
 	// #41: a grenade drawn at its pouch (OpenXR LOCAL, facing yaw = atan2(-forward.x, -forward.z)) while none
 	// is held, in place of the grab ring.
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw);
+	// #41: the game's knife is the weapon (captured once, hidden for that render), and the knife drawn at its
+	// holster (OpenXR LOCAL, the body's yaw) while it is not.
+	void set_knife_weapon(bool out);
+	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
 	// Pipe extramesh: the hold used, and the game's own hold as last seen (Wep_Root in the right fist's frame).
 	std::string grenade_hold_report();
 

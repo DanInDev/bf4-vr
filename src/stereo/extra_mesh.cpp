@@ -508,30 +508,32 @@ namespace bfvr::stereo::extra_mesh
 			ID3D11ShaderResourceView* ps_views[grenade_views]{};
 		};
 
-		// Render thread.
+		// Render thread. Per captured item (the grenade, #36; the knife, #41): its draws, and this render's copy.
 		std::vector<grenade_draw> grenade_capturing;
-		std::vector<grenade_draw> captured_grenade;
+		std::vector<grenade_draw> captured_items[item_count];
 		std::vector<capture_neighbour> neighbours;
 		bool capturing_render{};
+		int capturing_item{}; // the item this capturing render records
 		ULONGLONG last_capture{};
-		std::uint32_t grenade_replayed{}; // bits of captured_grenade drawn in this render
-		bool frame_grenade{};
+		std::uint32_t replayed[item_count]{}; // bits of captured_items[i] drawn in this render
+		bool frame_item[item_count]{};
 		bool frame_armed{};
-		float frame_grenade_matrix[12]{};
+		float frame_item_matrix[item_count][12]{};
 		constexpr ULONGLONG capture_interval_ms = 250;
 
 		// Pose thread requests (request_lock) and pipe-visible counters.
 		std::atomic<ULONGLONG> capture_wanted_at{};
-		bool grenade_request{};
+		std::atomic<int> capture_wanted_item{};
+		bool item_request[item_count]{};
 		bool grenade_request_armed{};
-		float grenade_request_matrix[12]{};
-		ULONGLONG grenade_request_at{};
-		std::atomic<bool> has_capture{};
-		std::atomic<unsigned> captured_draws{};
+		float item_request_matrix[item_count][12]{};
+		ULONGLONG item_request_at[item_count]{};
+		std::atomic<bool> has_capture[item_count]{};
+		std::atomic<unsigned> captured_draws[item_count]{};
 		std::atomic<std::uint64_t> grenade_entries_seen{};
-		std::atomic<std::uint64_t> captures{};
-		std::atomic<std::uint64_t> grenade_copies{};
-		std::atomic<ULONGLONG> grenade_drawn_at{};
+		std::atomic<std::uint64_t> captures[item_count]{};
+		std::atomic<std::uint64_t> item_copies[item_count]{};
+		std::atomic<ULONGLONG> item_drawn_at[item_count]{};
 		// The M67's palette: entry 0 the pin and ring, entry 1 body and spoon (monitor 2026-11-09).
 		std::atomic<std::uint64_t> pin_entries{ 1 };
 		std::atomic<std::uint64_t> captures_rejected{};
@@ -756,33 +758,39 @@ namespace bfvr::stereo::extra_mesh
 				{
 					seen |= d.entries;
 				}
-				captured_grenade = std::move(grenade_capturing);
-				captured_draws = static_cast<unsigned>(captured_grenade.size());
-				grenade_entries_seen = seen;
-				has_capture = true;
-				++captures;
+				const int item = capturing_item;
+				captured_items[item] = std::move(grenade_capturing);
+				captured_draws[item] = static_cast<unsigned>(captured_items[item].size());
+				if (item == static_cast<int>(captured::grenade))
+				{
+					grenade_entries_seen = seen;
+				}
+				has_capture[item] = true;
+				++captures[item];
 			}
 			grenade_capturing.clear();
 			neighbours.clear();
 		}
 
-		// The captured grenade draw, right after a magazine draw of the same pass, with its root at the hand.
-		void draw_grenade(ID3D11DeviceContext* context, const grenade_draw& d)
+		// A captured item's draw, right after a magazine draw of the same pass, with its root where the pose
+		// thread asked (the hand, the pouch, the holster).
+		void draw_grenade(ID3D11DeviceContext* context, const grenade_draw& d, int item)
 		{
 			if (!draw_original || !vs_bind_original || !ps_bind_original)
 			{
 				return;
 			}
 			alignas(16) float placed[palette_constants * 4]{};
-			// The pin and its ring once pulled, unless they would be all of the draw.
+			// The grenade's pin and its ring once pulled, unless they would be all of the draw.
 			const std::uint64_t pins = pin_entries.load(std::memory_order_relaxed);
-			const std::uint64_t hidden = frame_armed && (d.entries & ~pins) ? pins : 0;
+			const bool armed = frame_armed && item == static_cast<int>(captured::grenade);
+			const std::uint64_t hidden = armed && (d.entries & ~pins) ? pins : 0;
 			for (int e = 0; e < palette::entries; ++e)
 			{
 				const std::uint64_t bit = 1ull << e;
 				if ((d.entries & bit) && !(hidden & bit))
 				{
-					palette::multiply(frame_grenade_matrix, d.palette.data() + e * palette::floats_per_entry, placed + e * palette::floats_per_entry);
+					palette::multiply(frame_item_matrix[item], d.palette.data() + e * palette::floats_per_entry, placed + e * palette::floats_per_entry);
 				}
 			}
 			UINT palette_first{};
@@ -913,20 +921,28 @@ namespace bfvr::stereo::extra_mesh
 			{
 				vs_palette->Release();
 			}
-			++grenade_copies;
-			grenade_drawn_at = GetTickCount64();
+			++item_copies[item];
+			item_drawn_at[item] = GetTickCount64();
 		}
 
-		// After a magazine draw: each captured grenade draw of this pass, once per render.
-		void replay_grenade(ID3D11DeviceContext* context)
+		// After a magazine draw: each wanted item's captured draws of this pass, once per render.
+		void replay_items(ID3D11DeviceContext* context)
 		{
 			const pass_key pass = current_pass(context);
-			for (std::size_t i = 0; i < captured_grenade.size() && i < 32; ++i)
+			for (int item = 0; item < item_count; ++item)
 			{
-				if (!(grenade_replayed & (1u << i)) && captured_grenade[i].pass == pass)
+				if (!frame_item[item])
 				{
-					grenade_replayed |= 1u << i;
-					draw_grenade(context, captured_grenade[i]);
+					continue;
+				}
+				const std::vector<grenade_draw>& draws = captured_items[item];
+				for (std::size_t i = 0; i < draws.size() && i < 32; ++i)
+				{
+					if (!(replayed[item] & (1u << i)) && draws[i].pass == pass)
+					{
+						replayed[item] |= 1u << i;
+						draw_grenade(context, draws[i], item);
+					}
 				}
 			}
 		}
@@ -951,12 +967,16 @@ namespace bfvr::stereo::extra_mesh
 			const std::lock_guard guard(request_lock);
 			frame_copy = request_active && now - request_at < request_stale_ms;
 			std::memcpy(frame_matrix, request_matrix, sizeof(frame_matrix));
-			frame_grenade = grenade_request && now - grenade_request_at < request_stale_ms;
+			for (int item = 0; item < item_count; ++item)
+			{
+				frame_item[item] = item_request[item] && now - item_request_at[item] < request_stale_ms;
+				std::memcpy(frame_item_matrix[item], item_request_matrix[item], sizeof(frame_item_matrix[item]));
+				replayed[item] = 0;
+			}
 			frame_armed = grenade_request_armed;
-			std::memcpy(frame_grenade_matrix, grenade_request_matrix, sizeof(frame_grenade_matrix));
 		}
-		grenade_replayed = 0;
 		capturing_render = eye == 0 && now - capture_wanted_at.load(std::memory_order_relaxed) < request_stale_ms && now - last_capture > capture_interval_ms;
+		capturing_item = capture_wanted_item.load(std::memory_order_relaxed);
 		if (now - known_cleared > known_lifetime_ms)
 		{
 			known_cleared = now;
@@ -1034,7 +1054,11 @@ namespace bfvr::stereo::extra_mesh
 			record(context, index_count, start_index, base_vertex, instances);
 		}
 		const bool palette_draw = render_eye >= 0 && instances == 1 && vs_bound[0].buffer && vs_bound[0].count == palette_constants && read_block;
-		const bool grenade_replay = frame_grenade && !captured_grenade.empty();
+		bool grenade_replay = false;
+		for (int item = 0; item < item_count; ++item)
+		{
+			grenade_replay = grenade_replay || (frame_item[item] && !captured_items[item].empty());
+		}
 		if (palette_draw && (frame_copy || grenade_replay || capturing_render))
 		{
 			ComPtr<ID3D11Buffer> ib;
@@ -1101,7 +1125,7 @@ namespace bfvr::stereo::extra_mesh
 				}
 				if (grenade_replay)
 				{
-					replay_grenade(context);
+					replay_items(context);
 				}
 				if (frame_copy && palette::move_tagged(palette_data, frame_matrix, magazine_tag) > 0)
 				{
@@ -1145,39 +1169,69 @@ namespace bfvr::stereo::extra_mesh
 		}
 	}
 
-	void set_grenade_capture(bool wanted)
+	void set_item_capture(captured item, bool wanted)
 	{
 		if (wanted)
 		{
+			capture_wanted_item = static_cast<int>(item);
 			capture_wanted_at = GetTickCount64();
 		}
 	}
 
+	void set_item_copy(captured item, bool active, const float* matrix)
+	{
+		const int i = static_cast<int>(item);
+		const std::lock_guard guard(request_lock);
+		item_request[i] = active && matrix;
+		if (item_request[i])
+		{
+			std::memcpy(item_request_matrix[i], matrix, sizeof(item_request_matrix[i]));
+			item_request_at[i] = GetTickCount64();
+		}
+	}
+
+	bool item_drawn(captured item)
+	{
+		return GetTickCount64() - item_drawn_at[static_cast<int>(item)].load(std::memory_order_relaxed) < 150;
+	}
+
+	bool item_captured(captured item)
+	{
+		return has_capture[static_cast<int>(item)].load(std::memory_order_relaxed);
+	}
+
+	std::uint64_t item_captures(captured item)
+	{
+		return captures[static_cast<int>(item)].load(std::memory_order_relaxed);
+	}
+
+	void set_grenade_capture(bool wanted)
+	{
+		set_item_capture(captured::grenade, wanted);
+	}
+
 	void set_grenade_copy(bool active, const float* matrix, bool armed)
 	{
-		const std::lock_guard guard(request_lock);
-		grenade_request = active && matrix;
-		grenade_request_armed = armed;
-		if (grenade_request)
 		{
-			std::memcpy(grenade_request_matrix, matrix, sizeof(grenade_request_matrix));
-			grenade_request_at = GetTickCount64();
+			const std::lock_guard guard(request_lock);
+			grenade_request_armed = armed;
 		}
+		set_item_copy(captured::grenade, active, matrix);
 	}
 
 	bool grenade_drawn()
 	{
-		return GetTickCount64() - grenade_drawn_at.load(std::memory_order_relaxed) < 150;
+		return item_drawn(captured::grenade);
 	}
 
 	bool grenade_captured()
 	{
-		return has_capture.load(std::memory_order_relaxed);
+		return item_captured(captured::grenade);
 	}
 
 	std::uint64_t grenade_captures()
 	{
-		return captures.load(std::memory_order_relaxed);
+		return item_captures(captured::grenade);
 	}
 
 	std::string set_grenade_pin_entries(const std::string& mask)
@@ -1194,27 +1248,35 @@ namespace bfvr::stereo::extra_mesh
 
 	std::string grenade_report()
 	{
-		bool active{}, armed{};
-		float t[3]{};
-		ULONGLONG age{};
+		std::string out;
+		for (int item = 0; item < item_count; ++item)
 		{
-			const std::lock_guard guard(request_lock);
-			active = grenade_request;
-			armed = grenade_request_armed;
-			t[0] = grenade_request_matrix[3];
-			t[1] = grenade_request_matrix[7];
-			t[2] = grenade_request_matrix[11];
-			age = GetTickCount64() - grenade_request_at;
+			bool active{}, armed{};
+			float t[3]{};
+			ULONGLONG age{};
+			{
+				const std::lock_guard guard(request_lock);
+				active = item_request[item];
+				armed = item == static_cast<int>(captured::grenade) && grenade_request_armed;
+				t[0] = item_request_matrix[item][3];
+				t[1] = item_request_matrix[item][7];
+				t[2] = item_request_matrix[item][11];
+				age = GetTickCount64() - item_request_at[item];
+			}
+			char text[320];
+			std::snprintf(text, sizeof(text), "%s%s_copy=%d armed=%d at=(%.3f %.3f %.3f) age_ms=%llu captured=%d captures=%llu draws=%u copies=%llu",
+				item ? "\n" : "", item == static_cast<int>(captured::grenade) ? "grenade" : "knife", active ? 1 : 0, armed ? 1 : 0, t[0], t[1], t[2],
+				static_cast<unsigned long long>(age), has_capture[item].load() ? 1 : 0, static_cast<unsigned long long>(captures[item].load()),
+				captured_draws[item].load(), static_cast<unsigned long long>(item_copies[item].load()));
+			out += text;
 		}
-		char text[320];
-		std::snprintf(text, sizeof(text),
-			"grenade_copy=%d armed=%d at=(%.3f %.3f %.3f) age_ms=%llu captured=%d captures=%llu rejected=%llu draws=%u entries=%llx pin=%llx copies=%llu capture_wanted_ms=%llu",
-			active ? 1 : 0, armed ? 1 : 0, t[0], t[1], t[2], static_cast<unsigned long long>(age), has_capture.load() ? 1 : 0,
-			static_cast<unsigned long long>(captures.load()), static_cast<unsigned long long>(captures_rejected.load()), captured_draws.load(), static_cast<unsigned long long>(grenade_entries_seen.load()),
-			static_cast<unsigned long long>(pin_entries.load()), static_cast<unsigned long long>(grenade_copies.load()),
+		char text[200];
+		std::snprintf(text, sizeof(text), "\nrejected=%llu grenade_entries=%llx pin=%llx capture_wanted=%s %llu ms ago",
+			static_cast<unsigned long long>(captures_rejected.load()), static_cast<unsigned long long>(grenade_entries_seen.load()),
+			static_cast<unsigned long long>(pin_entries.load()), capture_wanted_item.load() == static_cast<int>(captured::grenade) ? "grenade" : "knife",
 			static_cast<unsigned long long>(GetTickCount64() - capture_wanted_at.load()));
 		const std::lock_guard guard(summary_lock);
-		return text + capture_summary;
+		return out + text + capture_summary;
 	}
 
 	std::string report()

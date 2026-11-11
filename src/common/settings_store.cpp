@@ -90,7 +90,7 @@ namespace bfvr::settings
 			{ "grenade_throw_scale", kind::real, 0.5f, 4.0f, 0.1f, "1.5", "", "physical grenades: launch speed = hand speed times this" },
 			{ "grenade_model", kind::boolean, 0, 0, 0, "1", "", "physical grenades: draw the grenade in the off hand while you hold it (the game shows none until the throw)" },
 			{ "grenade_mesh", kind::boolean, 0, 0, 0, "1", "", "physical grenades: the held grenade is the game's own model, drawn in your fist while a gun is out (captured when you first take one: the gun goes away for about half a second); off, or with no gun out: the flat picture" },
-			{ "pouch_models", kind::boolean, 0, 0, 0, "1", "", "the grenade drawn at its pouch (the game's own model, once captured) instead of the grab ring while none is held" },
+			{ "pouch_models", kind::boolean, 0, 0, 0, "1", "", "the grenade at its pouch and the knife in its chest holster, the game's own models (each once captured: the first grenade taken, the first time the knife is out) instead of the grab rings while not in hand" },
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "game_sounds", kind::boolean, 0, 0, 0, "1", "", "reload sounds: the game's own magazine-out, magazine-in and bolt sounds where the gun's are found (assault rifles)" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
