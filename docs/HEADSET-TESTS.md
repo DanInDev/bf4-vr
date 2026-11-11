@@ -26,9 +26,12 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `main` a2eee2e, **Release** deployed 2026-11-11 (Update mod in the launcher installs the same
-build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever something looks off.
+Build: `main` 14d9881, **Release** deployed 2026-11-11 (Update mod in the Release launcher installs the
+same build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever something looks off.
 
+0. **Body calibration (BODY-1):** when the level loads a notice asks you to stand straight, arms out to
+   the sides, and hold both triggers: hold still for a second. It should report about your height and
+   save it; arms, pouches and holsters then fit you. (Ignore it and nothing changes.)
 1. **Red dot sights (AIM-12):** AK-12, bring its red dot to one eye, then tilt your head a little; the dot
    stays on target, in that eye only. Then the SCAR's holo: walk while looking through it (full speed,
    no second reticle).
