@@ -160,7 +160,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
-		std::atomic<bool> free_hand_reload{ true }; // live setting free_hand_reload (#38)
+		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
 		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
@@ -309,7 +309,7 @@ namespace bfvr::weapon
 		float handle_in_gun[3]{};
 		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
 		// hand returns to the controller after the grab with the magazine in it).
-		std::atomic<bool> magazine_snapping{ true }; // live setting magazine_snap
+		std::atomic<bool> magazine_snapping{ true }; // always on since #48 (was magazine_snap)
 		float snap_weight{};
 		bool snap_ak{};
 
