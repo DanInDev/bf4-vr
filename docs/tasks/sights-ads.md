@@ -114,6 +114,11 @@ the zoom mesh, shown only past the transition point of the game's ADS. The ring 
 right eye's image while the game aims (monitor `eyeshot2`, and the owner's "ring to the right") would be
 one of the two meshes not getting the second eye's shift.
 
+State 2026-11-12 evening: step 1 is built (`weapon/zoom_mesh`, `sight_zoom_mesh`; the factor is plain data,
+0 shows the zoom mesh at the hip; monitor-checked on the SCAR-H, the AK-12 not yet). Step 3's draw is
+found (one 6-index quad, stencil ref 2); moving it is not built. Step 2 is intermittent and unexplained.
+Evidence: `re/notes/weapon.md` "The zoom mesh at the hip".
+
 Work order:
 
 1. **Find the runtime switch.** Who reads `ZoomMeshTransitionFactor` and which field of the client weapon

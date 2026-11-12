@@ -35,6 +35,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/zoom_mesh.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/shot_origin.hpp"
@@ -193,6 +194,7 @@ namespace bfvr::core
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
+			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
 				bool shown[32]{};
@@ -229,6 +231,7 @@ namespace bfvr::core
 			weapon::update_hip_accuracy();
 			weapon::update_physical_grenades();
 			weapon::update_two_handed();
+			weapon::update_zoom_mesh();
 			ui::update_body_calibration();
 			ui::update_vr_panel();
 			weapon::update_weapon_swap();

@@ -535,6 +535,42 @@ Not checked: the AK-12 (not carried in this checkpoint state; its black lens sho
 clear the same way), a factor between 0 and 1, the per-zoom-level `ZoomInOutMeshTransitionFactors`
 (empty arrays on the SCAR-H), and whether other soldiers share the data asset.
 
+**In the mod (`weapon/zoom_mesh`, setting `sight_zoom_mesh`, default on).** While an eye is behind the
+sight (the same 3 cm / 5 cm + 0.3 s latch as `sight_ads`, but whatever the game's aim does) the factor of
+every state of every carried weapon is 0; the data's values are kept and written back afterwards, and
+only where our value still stands. Pipe `zoommesh [0..1|off]` reports and, for research, holds a value.
+Release build, SCAR-H, right eye on the line, the game not aiming:
+
+```
+(gun away)   zoom_mesh=1 at_eye=0 forced=-1.00 patched=0 writes=0
+(eye on line) eyes off_line_cm=6.4/0.0 ... aiming=0 ; scope game_fov=45.00 ...
+             zoom_mesh=1 at_eye=1 forced=-1.00 patched=4 writes=4
+             00000001787D7240 factor 0.00 (game 1.00)   (+3 more)
+(gun away)   zoom_mesh=1 at_eye=0 forced=-1.00 patched=0 writes=4
+```
+
+`eyeshot2` with the eye on the line: the holo's ring and three dots in the window.
+
+**The reticle is one draw.** `meshprobe` with the factor held at 1 and at 0 (same pose): the frames differ
+in three skinned draws of 276 / 72 / 36 indices (the lens parts, other index buffers), two static ones of
+7200 / 1260 and the frame's last draw: **6 indices** (a quad), VS `...6846F8`, PS `...183A78`, into the
+final 2160 target, depth-stencil state shared with the zoom mesh's static parts, **stencil ref 2**, its
+per-view block (32 constants) in the late constant buffer. `eyehide` with that pixel shader removes the
+reticle and nothing else (the 2026-11-10 note "not one draw" was the AK-12 in the game's ADS; not
+rechecked). So the reticle is a quad on the view's axis, cut to the lens by stencil.
+
+Plan for the placement (not built): for that draw only, in each eye's render, a view turned so that its
+forward axis is the sight line as that eye sees it, and without the second eye's shift, so the reticle
+is collimated. The draw is to be recognised without names: it is what the frame gains in the final
+target when the factor goes to 0 (learned per weapon, like the magnification), or by its stencil
+reference and state. Needs a per-draw constant override in `stereo/eye_pass` (today blocks are patched
+when bound, by layout).
+
+**The stray piece in the second eye** came and went between captures of the same pose in the Release
+build (a dark piece right of the gun in one, none in the next two); in the debug build at 4 fps it was a
+full second sight. Not explained. The per-view blocks of a dumped frame (`eyeprobe`) are of two cameras
+only, the world's and the first-person one in soldier space, re-uploaded many times late in the frame.
+
 Test pitfall: a relative path given to `eyeshot` is written from the game's drive root (`E:\`).
 
 ## Open

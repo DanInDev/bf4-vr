@@ -319,6 +319,10 @@ sight_dot_size = 0.6
 # unsteady hold. sight_dot_test = 1 shows the dot to both eyes wherever the gun is held (a check that
 # the headset shows the dot layer at all).
 sight_dot_reach = 2
+# A sight held to your eye shows the game's own aiming mesh of the gun and its optic (the clear lens and
+# the optic's own reticle) without the game aiming: no slower walk, no zoom. Works from the weapon's
+# data, for every gun and optic.
+sight_zoom_mesh = 1
 sight_dot_test = 0
 # sighting = only the eye behind the sight sees the dot; both = one layer for both eyes (try it if the
 # dot never shows at one eye).

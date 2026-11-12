@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/zoom_mesh.hpp"
 
 using namespace bfvr::weapon;
 
@@ -46,6 +47,9 @@ int main()
 	expect(near(out[0], 3.0f), "clamped below 0");
 	blend_dispersion(hip, zoom, std::numeric_limits<float>::quiet_NaN(), out);
 	expect(near(out[0], 3.0f) && near(out[1], 7.0f), "NaN: the game's values");
+	// sight_zoom_mesh (#39): the zoom mesh shows from the start of the zoom while a sight is at an eye.
+	expect(bfvr::weapon::zoom_mesh_factor(1.0f, true) == 0.0f, "sight at the eye: the zoom mesh at once");
+	expect(bfvr::weapon::zoom_mesh_factor(0.7f, false) == 0.7f, "otherwise the data's own factor");
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

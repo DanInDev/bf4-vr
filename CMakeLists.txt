@@ -169,6 +169,8 @@ add_library(bfvr_runtime STATIC
 	src/weapon/two_handed.cpp
 	src/weapon/hip_accuracy.cpp
 	src/weapon/hip_accuracy_math.cpp
+	src/weapon/zoom_mesh.cpp
+	src/weapon/zoom_mesh_math.cpp
 	src/weapon/sight_state.cpp
 	src/weapon/optics.cpp
 	src/weapon/weapon_swap.cpp
@@ -244,7 +246,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_two_hand_test PRIVATE bfvr_common)
 	add_executable(bfvr_body_calibration_test tests/body_calibration_test.cpp src/body/body_calibration.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_body_calibration_test PRIVATE bfvr_common)
-	add_executable(bfvr_hip_accuracy_test tests/hip_accuracy_test.cpp src/weapon/hip_accuracy_math.cpp)
+	add_executable(bfvr_hip_accuracy_test tests/hip_accuracy_test.cpp src/weapon/hip_accuracy_math.cpp src/weapon/zoom_mesh_math.cpp)
 	target_link_libraries(bfvr_hip_accuracy_test PRIVATE bfvr_common)
 	add_executable(bfvr_optics_test tests/optics_test.cpp src/weapon/optics.cpp)
 	target_link_libraries(bfvr_optics_test PRIVATE bfvr_common)
