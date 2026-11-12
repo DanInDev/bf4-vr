@@ -503,6 +503,40 @@ and each attachment's mesh part-way through its zoom. That would be the AK lens'
 general switch for every optic. Not followed live yet; plan in `docs/tasks/sights-ads.md`
 ("Direction from 2026-11-12").
 
+## The zoom mesh at the hip: one data field for every weapon (2026-11-12, monitor, #39)
+
+Build: the deployed `test/headset-48-49` debug build (4 fps without SteamVR), SCAR-H with the EOTech,
+fake head, right eye on the sight line (`eyes off_line_cm=6.4/0.0`), `aiming=0`, `game_fov=45.00`
+throughout: the game never aimed.
+
+| `WeaponStateData.ZoomMeshTransitionFactor` (SCAR-H state 0, `0x1777dc750` that session) | Right eye's image (`eyeshot2`) |
+| --- | --- |
+| 1.0 (the data's value) | Window clear, **no reticle** (only the laser's spot through it) |
+| **0.0** (`pipe poke`) | **The game's holo reticle in the window** (ring arcs and three dots), and a **second copy of the sight about 250 px to the right** |
+| 0.0, left eye (`eyeshot`) | One gun, no copy |
+| 0.0, head turned 8 degrees, right eye still on the line | Window empty again, the copy still to the right |
+
+So:
+
+1. **The switch is data and is read live.** With the factor at 0 the game shows its zoom mesh (the optic's
+   lens state and its own reticle art) without aiming: no LT held, no slower walk, no FOV change. The
+   same field exists for every weapon (`SoldierWeaponData +0x88` `WeaponStates`), so nothing is keyed on a
+   gun or an optic. `weapon/hip_accuracy` already patches weapon data the same way (keep originals, write
+   back at off).
+2. **The copy is the second eye's bug**, and is what the owner saw as "the ring to the right of the gun":
+   with the zoom mesh shown, one of the two meshes is drawn at the first eye's place in the second eye
+   (not in the first eye's own image). It also shows in the game's own ADS (2026-11-12, AK-12 magnifier).
+   To find: which draws those are (`meshprobe` with the factor at 0) and why `eye_pass` does not move their
+   per-view block.
+3. **The reticle still follows the view's centre**: 8 degrees of head turn empty the window. Needs the
+   reticle's placement (the zoom mesh's lens draw and its constants).
+
+Not checked: the AK-12 (not carried in this checkpoint state; its black lens should be the hip mesh and
+clear the same way), a factor between 0 and 1, the per-zoom-level `ZoomInOutMeshTransitionFactors`
+(empty arrays on the SCAR-H), and whether other soldiers share the data asset.
+
+Test pitfall: a relative path given to `eyeshot` is written from the game's drive root (`E:\`).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
