@@ -1,6 +1,7 @@
 // Checks the calibration step's screen (src/ui/calibration_screen): which step is current, how many
 // loading segments are lit, the titles per stage, and that everything stays on the screen.
 // With a folder as the first argument it also writes each stage as a BMP (for looking at the design).
+#include <chrono>
 #include <cstdio>
 #include <string>
 
@@ -109,10 +110,13 @@ int main(int argc, char** argv)
 			++failures;
 		}
 		std::vector<std::uint32_t> pixels;
-		expect(rasterise(items, calibration_width, calibration_height, pixels, { { calibration_backdrop, 215 } }) && pixels.size() == static_cast<std::size_t>(calibration_width) * calibration_height,
+		const auto start = std::chrono::steady_clock::now();
+		expect(rasterise(items, calibration_width, calibration_height, pixels, calibration_keys()) && pixels.size() == static_cast<std::size_t>(calibration_width) * calibration_height,
 			"rasterises at full size");
+		const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 		if (argc > 1)
 		{
+			std::printf("%s: %zu items, rasterised in %.1f ms\n", e.name, items.size(), ms);
 			write_bmp(std::string(argv[1]) + "\\calibration-" + e.name + ".bmp", pixels, calibration_width, calibration_height);
 		}
 	}

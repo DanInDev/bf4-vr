@@ -4,8 +4,10 @@
 #include <xinput.h>
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <future>
 #include <mutex>
 
 #include "body/arm_ik.hpp"
@@ -68,6 +70,10 @@ namespace bfvr::ui
 		std::uint64_t calibration_revision{};
 		std::string calibration_key;
 		std::atomic<bool> calibration_on{};
+		// Drawn off the present thread (a redraw takes ~10 ms in Release, 50 ms the first time with the
+		// font): one job at a time; a job from before the screen was hidden publishes nothing.
+		std::future<void> calibration_job;
+		std::uint64_t calibration_generation{};
 
 		std::atomic<bool> panel_open{};
 		std::atomic<bool> enabled{ true };
@@ -201,9 +207,11 @@ namespace bfvr::ui
 		{
 			if (!shown)
 			{
-				if (calibration_on.exchange(false))
+				if (!calibration_key.empty())
 				{
 					calibration_key.clear();
+					++calibration_generation;
+					calibration_on = false;
 					log::write("panel: calibration screen hidden");
 				}
 				return;
@@ -212,21 +220,35 @@ namespace bfvr::ui
 			char key[192];
 			std::snprintf(key, sizeof(key), "%d|%d|%d%d%d%d%d|%.2f|%.2f|%.2f|%.2f|%d", static_cast<int>(view.at), calibration_step(view), view.arms_out, view.left_trigger,
 				view.right_trigger, view.holding, view.lower_first, view.progress, view.measured, view.stored, view.span, view.seconds_left);
-			if (calibration_key == key && calibration_on.load())
+			if (calibration_key == key)
 			{
 				return;
 			}
-			if (!rasterise(calibration_screen(view), calibration_width, calibration_height, calibration_image, { { calibration_backdrop, 215 } }))
+			if (calibration_job.valid() && calibration_job.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 			{
-				calibration_image.clear();
+				return; // still drawing the last change: this one is drawn next frame
 			}
 			if (calibration_key.empty())
 			{
 				log::write("panel: calibration screen shown");
 			}
 			calibration_key = key;
-			++calibration_revision;
-			calibration_on = !calibration_image.empty();
+			const std::uint64_t generation = calibration_generation;
+			calibration_job = std::async(std::launch::async, [view, generation] {
+				std::vector<std::uint32_t> pixels;
+				const bool drawn = rasterise(calibration_screen(view), calibration_width, calibration_height, pixels, calibration_keys());
+				const std::lock_guard guard(lock);
+				if (generation != calibration_generation)
+				{
+					return; // hidden meanwhile
+				}
+				if (drawn)
+				{
+					calibration_image = std::move(pixels);
+					++calibration_revision;
+				}
+				calibration_on = drawn;
+			});
 		}
 
 		// Called with lock held: the notice for this frame (empty: none).

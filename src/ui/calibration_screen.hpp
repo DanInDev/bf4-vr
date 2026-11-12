@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "ui/panel_canvas.hpp"
 #include "ui/settings_panel.hpp"
 
 // The body calibration as a full step (#50): a wide head-locked screen with a T-pose figure, the three
@@ -12,8 +13,12 @@ namespace bfvr::ui
 {
 	constexpr int calibration_width = 1600;
 	constexpr int calibration_height = 700;
-	// Drawn see-through (the game stays visible, dimmed, behind the step).
+	// Drawn see-through (the game stays visible, dimmed, behind the step): the backdrop, its scan lines
+	// and the panel behind the steps, each at its own opacity.
 	constexpr std::uint32_t calibration_backdrop = 0x0B0F14;
+	constexpr std::uint32_t calibration_scanline = 0x18212B;
+	constexpr std::uint32_t calibration_panel = 0x121A23;
+	std::vector<see_through> calibration_keys();
 
 	struct calibration_view
 	{

@@ -33,6 +33,37 @@ namespace bfvr::ui
 			items.push_back(item);
 		}
 
+		void polygon(std::vector<draw_item>& items, std::vector<int> points, std::uint32_t color)
+		{
+			draw_item item;
+			item.kind = draw_item::type::polygon;
+			item.points = std::move(points);
+			item.color = color;
+			// The bounding box, so on-screen checks see polygons too.
+			int x0 = item.points[0], x1 = item.points[0], y0 = item.points[1], y1 = item.points[1];
+			for (std::size_t i = 0; i + 1 < item.points.size(); i += 2)
+			{
+				x0 = std::min(x0, item.points[i]);
+				x1 = std::max(x1, item.points[i]);
+				y0 = std::min(y0, item.points[i + 1]);
+				y1 = std::max(y1, item.points[i + 1]);
+			}
+			item.area = { x0, y0, x1 - x0, y1 - y0 };
+			items.push_back(item);
+		}
+
+		// A parallelogram leaning right by skew pixels (labels, loading segments, accents).
+		void slanted(std::vector<draw_item>& items, rect r, int skew, std::uint32_t color)
+		{
+			polygon(items, { r.x + skew, r.y, r.x + r.w, r.y, r.x + r.w - skew, r.y + r.h, r.x, r.y + r.h }, color);
+		}
+
+		// A box with its top-left and bottom-right corners cut off (panels, step chips).
+		void chamfered(std::vector<draw_item>& items, rect r, int cut, std::uint32_t color)
+		{
+			polygon(items, { r.x + cut, r.y, r.x + r.w, r.y, r.x + r.w, r.y + r.h - cut, r.x + r.w - cut, r.y + r.h, r.x, r.y + r.h, r.x, r.y + cut }, color);
+		}
+
 		void text(std::vector<draw_item>& items, rect area, std::uint32_t color, std::string content, int size, int align = 0, bool heading = false, bool wrap = false)
 		{
 			draw_item item;
@@ -140,7 +171,7 @@ namespace bfvr::ui
 			const bool done = current > index;
 			const bool now = current == index;
 			const std::uint32_t chip = done ? done_green : now ? accent : chip_off;
-			box(items, { steps_left, top, 58, 58 }, chip, 6);
+			chamfered(items, { steps_left, top, 58, 58 }, 12, chip);
 			text(items, { steps_left, top, 58, 58 }, done || now ? 0x10141A : text_dim, done ? "OK" : std::to_string(index), done ? 24 : 32, 1, true);
 			text(items, { steps_left + 82, top - 4, 560, 40 }, done ? text_dim : now ? text_main : text_dim, title, 34, 0, true);
 			text(items, { steps_left + 82, top + 36, 600, 30 }, text_dim, detail, 22);
@@ -149,6 +180,11 @@ namespace bfvr::ui
 				box(items, { steps_left - 22, top, 6, 58 }, accent);
 			}
 		}
+	}
+
+	std::vector<see_through> calibration_keys()
+	{
+		return { { calibration_backdrop, 205 }, { calibration_scanline, 215 }, { calibration_panel, 232 } };
 	}
 
 	int calibration_step(const calibration_view& view)
@@ -192,11 +228,17 @@ namespace bfvr::ui
 		const int step = calibration_step(view);
 		const bool finished = step >= 4;
 		box(items, { 0, 0, calibration_width, calibration_height }, calibration_backdrop);
+		for (int y = 1; y < calibration_height; y += 4)
+		{
+			box(items, { 0, y, calibration_width, 1 }, calibration_scanline);
+		}
+		// The panel behind the steps.
+		chamfered(items, { steps_left - 44, 200, calibration_width - margin - (steps_left - 44), 384 }, 28, calibration_panel);
 		corners(items, finished ? done_green : accent);
 
-		// Header: the tag, the title, the step counter.
-		box(items, { margin, 58, 8, 30 }, accent);
-		text(items, { margin + 20, 54, 600, 38 }, text_dim, "BODY CALIBRATION", 26, 0, true);
+		// Header: the slanted tag, the title, the step counter.
+		slanted(items, { margin, 52, 290, 40 }, 14, finished ? done_green : accent);
+		text(items, { margin + 26, 52, 260, 40 }, 0x10141A, "BODY CALIBRATION", 26, 0, true);
 		const char* title = "STAND IN A T-POSE";
 		if (view.at == calibration_view::stage::confirm)
 		{
@@ -215,7 +257,7 @@ namespace bfvr::ui
 		std::snprintf(counter, sizeof(counter), finished ? "COMPLETE" : "STEP %d / 3", step);
 		text(items, { calibration_width - margin - 400, 54, 400, 38 }, finished ? done_green : accent, counter, 28, 2, true);
 		box(items, { margin, 184, calibration_width - 2 * margin, 2 }, line_dim);
-		box(items, { margin, 183, 240, 4 }, finished ? done_green : accent);
+		slanted(items, { margin, 180, 260, 9 }, 7, finished ? done_green : accent);
 
 		figure(items, view, step);
 
@@ -239,7 +281,7 @@ namespace bfvr::ui
 		const int lit = calibration_segments_lit(view);
 		for (int i = 0; i < calibration_segments; ++i)
 		{
-			box(items, { margin + i * (segment_width + segment_gap), bar_top, segment_width, 14 }, i < lit ? (finished ? done_green : accent) : segment_off, 2);
+			slanted(items, { margin + i * (segment_width + segment_gap), bar_top, segment_width, 14 }, 6, i < lit ? (finished ? done_green : accent) : segment_off);
 		}
 		std::string status;
 		if (view.at == calibration_view::stage::done)
