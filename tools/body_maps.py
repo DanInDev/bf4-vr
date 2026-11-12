@@ -250,7 +250,7 @@ def quest_controls():
 
     L = 880
     callout(parts, lk["trigger"], L, 470, "end", "Trigger", ["off: raise the gun to", "your eye to aim · C4: detonate"], "gun")
-    callout(parts, lk["upper"], L, 720, "end", "Y", ["switch weapon"], "game")
+    callout(parts, lk["upper"], L, 720, "end", "Y", ["fire mode"], "game")
     callout(parts, lk["stick"], L, 900, "end", "Stick · click", ["walk where you look", "click: sprint"], "game")
     callout(parts, lk["lower"], L, 1130, "end", "X", ["the game's menu"], "gun")
     callout(parts, lk["system"], L, 1310, "end", "Menu ≡", ["tap: pause", "hold: bf-vr panel"], "mod")

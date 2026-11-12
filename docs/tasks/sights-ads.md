@@ -70,16 +70,18 @@ The full measurements are in `re/notes/weapon.md`, sections "Sights and aiming d
   a red dot and shown on a quad at the lens for the sighting eye. It runs at the hip when the selected
   zoom level is a Magnifier (`weapon/sight_state`: weapon `+0x4988` `+0x1F8`/`+0x1E8`, `SightType` at
   level `+0x2C`) and an eye is within 3 cm of the line. Cost: 87-91 fps scoped vs 98-107 at the hip.
-- **Gun size in ADS**: `gun_fov_life_size` keeps the gun at life size through the gun pass's own FOV (45
-  degrees at the hip, 17 in the game's ADS); with it off the red dot never shows.
-- **Shots**: `shots_from_gun` and `shot_line = gun` put bullets on the drawn barrel; `hip_accuracy` 1 makes
+- **Gun size in ADS**: the gun is kept at life size through the gun pass's own FOV (45 degrees at the
+  hip, 17 in the game's ADS), so the red dot can show. Always on since #48 (was `gun_fov_life_size`).
+- **Shots**: bullets leave the drawn barrel along its sight line (always on since #48; was `shots_from_gun`,
+  `shot_line = gun`); `hip_accuracy` 1 makes
   hip fire as tight as ADS (GunSwayData patched live).
 
 ### Settings involved (`src/common/settings_store.cpp`, panel Weapon page)
 
-`sight_ads` 1, `sight_dot` 1, `sight_dot_size` 0.3, `scope` 1, `scope_zoom` 1, `gun_fov_life_size` 1,
-`hip_accuracy` 1, `ads_trigger` 0 (LT = the game's ADS by hand, for monitor tests), `shots_from_gun` 1,
-`shot_line` gun, `reticle` 1, `reticle_depth` 1, `aim_convergence` 25. Every new behaviour gets a live
+`sight_ads` 1, `sight_dot` 1, `sight_dot_size` 0.3, `scope` 1, `scope_zoom` 1 (Advanced), `hip_accuracy` 1,
+`ads_trigger` 0 (LT = the game's ADS by hand, for monitor tests), `reticle` 1, `aim_convergence` 25.
+Fixed since #48 (no longer settings): life size through the gun pass's FOV, shots from the gun along its
+sight, the dot on the target. Every new behaviour gets a live
 setting, a panel row and a line in `tools/bfvr.ini.example` (CLAUDE.md).
 
 ## Leads for the invisible dot (not verified)
@@ -92,7 +94,7 @@ Start here. Find out what the headset actually shows before changing anything:
    at that eye.
 2. **Placement.** The dot is placed from `head.eyes[e]` and the sight line taken in the game frame. The
    compositor shows it at the time the frame is displayed. If the line, eye positions or LOCAL space
-   disagree with where the drawn optic actually appears (gun life size, `gun_fov_life_size`,
+   disagree with where the drawn optic actually appears (gun life size through the gun pass's FOV,
    per-eye offsets of the gun pass), the dot can sit outside the lens, or on the far side of the housing.
    Compare in a VR View capture: dot vs the drawn lens.
 3. **The 1.5 cm gate.** In the headset an eye is rarely within 1.5 cm of a hand-held line for long
