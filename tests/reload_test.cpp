@@ -822,6 +822,11 @@ namespace
 		expect(h.update(frame).draw == holster::none, "a grip held into the zone does not draw");
 		frame.gun_grip = false;
 		expect(h.update(frame).zone == holster::primary, "zone reported while the hand is there");
+		// #49: a grip at the selected weapon's own holster with the hand empty takes it, not "already in hand".
+		expect(draw_for(false, false) == draw_action::switch_weapon && draw_for(false, true) == draw_action::switch_weapon,
+			"another weapon: switch to it");
+		expect(draw_for(true, true) == draw_action::take_into_hand, "the selected weapon on the sling: into the hand");
+		expect(draw_for(true, false) == draw_action::none, "the selected weapon in the hand or on the floor: nothing");
 
 		holster_frame left = frame;
 		left.left_handed = true;
