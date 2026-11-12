@@ -709,7 +709,8 @@ namespace bfvr::weapon
 				log::write("holsters: %s taken from its holster (it hung on the sling)", holster_name(result.draw));
 				break;
 			case draw_action::none:
-				last_result = "already in hand";
+				// The selected weapon: in the hand, or (free hands) on the floor, picked up where it lies.
+				last_result = dropped_now.load() ? "on the floor (pick it up there)" : "already in hand";
 				break;
 			}
 		}

@@ -103,7 +103,7 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   line breaks and NUL bytes. Use the file write/edit tools for source files.
 - The command permission check sometimes returns no verdict; the same command usually passes on a retry.
 - Unverified (2026-11-12, #49): on a headset-less debug run (level at 4-16 fps, Ghidra busy beside it) the
-  hip holster's switch never happened (`holster`: `failed=1..6`, log `holsters: secondary: no switch`), while a
-  held stick walked. Cause not established; do not judge weapon switches from such a run.
+  hip holster's switch never happened (`holster`: `failed=1..6`, log `holsters: secondary: no switch`).
+  Cause not established; do not judge weapon switches from such a run.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

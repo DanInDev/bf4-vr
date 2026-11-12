@@ -284,8 +284,8 @@ void test_sling()
 	expect(r.dropped && !r.slung && near(r.position.y, g.floor_y + floor.config().lie_height), "sling off: on the floor");
 }
 
-// #49: with the hand empty (the selected gun on the sling or the floor), gripping at that gun's own holster
-// takes it into the hand there and then, wherever the gun hangs; held, it stays.
+// #49: with the hand empty (the selected gun on the sling), gripping at that gun's own holster takes it into
+// the hand there and then; held, it stays. A gun on the floor is not recalled.
 void test_holster_take()
 {
 	free_hands hands;
@@ -307,10 +307,17 @@ void test_holster_take()
 	expect(r.dropped && r.event == free_hands_event::none, "a grip far from the sling alone does not take it");
 	f.grip = false;
 	hands.update(f);
+	// As in the game: frame N, the press at the holster (the holster claims the grip: busy) and no take yet;
+	// frame N+1, the grip still held with no new press, and the holster's take arrives.
 	f.grip = true;
+	f.busy = true;
+	r = hands.update(f);
+	expect(r.dropped && r.event == free_hands_event::none, "frame N: the press belongs to the holster");
+	f.busy = false;
 	f.holster_take = true;
 	r = hands.update(f);
-	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.slung && !r.block_fire, "a grip at its holster takes it into the hand");
+	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.slung && !r.block_fire,
+		"frame N+1: the held grip (no second press) takes it into the hand");
 	f.holster_take = false;
 	f.gun_hand = { 0.2f, -0.3f, -0.3f }; // pulled out in front, grip held
 	for (int i = 0; i < 20; ++i)
@@ -334,8 +341,11 @@ void test_holster_take()
 	{
 	}
 	g.grip = true;
+	g.busy = true;
+	floor.update(g); // frame N: the press at the holster
+	g.busy = false;
 	g.holster_take = true;
-	r = floor.update(g);
+	r = floor.update(g); // frame N+1: the take
 	expect(r.dropped && r.event == free_hands_event::none, "a gun on the floor is not recalled by its holster");
 }
 
