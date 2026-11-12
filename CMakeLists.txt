@@ -113,6 +113,8 @@ add_library(bfvr_runtime STATIC
 	src/body/torso.cpp
 	src/body/grasp_contact.cpp
 	src/body/body_calibration.cpp
+	src/body/soldier_radius.cpp
+	src/body/soldier_radius_game.cpp
 	src/stereo/camera_hook.cpp
 	src/stereo/constant_patch.cpp
 	src/stereo/eye_math.cpp
@@ -242,6 +244,8 @@ if(BFVR_BUILD_TESTS)
 	# Two-handed grip and the converged shot direction; exits non-zero on failure.
 	add_executable(bfvr_two_hand_test tests/two_hand_test.cpp src/weapon/two_hand.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_two_hand_test PRIVATE bfvr_common)
+	add_executable(bfvr_soldier_radius_test tests/soldier_radius_test.cpp src/body/soldier_radius.cpp)
+	target_link_libraries(bfvr_soldier_radius_test PRIVATE bfvr_common)
 	add_executable(bfvr_body_calibration_test tests/body_calibration_test.cpp src/body/body_calibration.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_body_calibration_test PRIVATE bfvr_common)
 	add_executable(bfvr_hip_accuracy_test tests/hip_accuracy_test.cpp src/weapon/hip_accuracy_math.cpp)
@@ -320,6 +324,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME reload COMMAND bfvr_reload_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME body_calibration COMMAND bfvr_body_calibration_test)
+	add_test(NAME soldier_radius COMMAND bfvr_soldier_radius_test)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
 	add_test(NAME optics COMMAND bfvr_optics_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)

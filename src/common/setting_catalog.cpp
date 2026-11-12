@@ -43,6 +43,7 @@ namespace bfvr::settings
 			{ "torso_hands", "Body", "Body", "Lean towards both hands", "Off: the body turns only with your head", "" },
 			{ "torso_follow", "Body", "Body", "Body turns with you", "Follows your real body, not only the stick", "" },
 			{ "hide_legs", "Body", "Body", "Hide the legs", "They sit oddly under a tracked head", "" },
+			{ "soldier_radius", "Body", "Body", "Room to the walls", "Metres; 0 = the game's 0.35. From the next checkpoint", "" },
 			{ "finger_poses", "Body", "Hands", "Fingers follow the controllers", "Squeeze, trigger and thumb", "" },
 			{ "off_hand_pose", "Body", "Hands", "Free hand pose", "How the empty off hand is held", "neutral=Neutral|animated=Animated" },
 			{ "magazine_grip", "Body", "Hands", "Magazine grip", "Fist, or standing on the palm", "auto=Auto|wrap=Fist|cup=Palm" },

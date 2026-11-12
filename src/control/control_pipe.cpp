@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "body/arm_pose.hpp"
+#include "body/soldier_radius.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
@@ -578,6 +579,7 @@ namespace bfvr::control
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
 			if (command == "scope") return stereo::scope_report();
 			if (command == "lean") return stereo::lean_report();
+			if (command == "radius") return body::soldier_radius_report();
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyeskip")

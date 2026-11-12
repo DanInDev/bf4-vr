@@ -49,3 +49,22 @@ another push                                                          moved 0.00
   the code that reads `+0x48` at spawn is hooked: not found yet).
 - Smaller radii also let the soldier stand closer to doors, props and companions; how far to go needs
   the headset (lean out of a window with 0.15-0.20).
+
+## The setting, live (2026-11-12/13, 23:58-00:01, branch `research/lean-report` Release build)
+
+The mod's own chain found the asset (`0x1677AD630` in this session) and read 0.35. Raw:
+
+```
+> setting set soldier_radius 0.15
+soldier_radius wanted=0.15 ... game=0.350 now=0.150
+23:59:47.738 soldier radius: 0.35 -> 0.15 m in 00000001677AD630 (the game's 0.35; applies from the next spawn ...)
+checkpoint restart, same walk from the spawn (feet -435.669 397.490 -649.687):
+pushed again (stopped at wall?)    feet -431.596  397.844 -637.410
+another push moved 0.019 m (stopped)
+> setting set soldier_radius 0
+00:01:09.740 soldier radius: 0.15 -> 0.35 m in 00000001677AD630 (the game's 0.35; ...)
+soldier_radius wanted=0.00 ... game=0.350 now=0.350
+```
+
+Corner reached: z -637.690 (0.35), -637.410 (0.15, 0.28 m closer), -637.358 (0.10). Afterwards BF4 was
+closed and the owner's deployed DLL, deploy marker and bfvr.ini were put back (hashes equal to the backups).

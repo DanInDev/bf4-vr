@@ -85,6 +85,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | VIEW-13 | done | Pair rendering: depth, motion, comfort | | #6 | 2026-10-26: "looked amazing, depth and motion was great", no judder or eye strain |
 | VIEW-14 | done | Sharpness with `render_size = 2160x2160` and `keep_focus` | | #1 | 2026-10-25: "the changes helped a ton" |
 | VIEW-15 | done | Side and top crop sweep | | #1 | 2026-10-25: `view_crop_h 0.78`, `view_crop_v 0.72` saved |
+| VIEW-16 | open | Lean out of a window (#53): Body > Room to the walls 0.20 (then 0.15), restart the checkpoint from the pause menu, walk up to a window with the stick and lean out; pipe `lean` at the ledge | With 0.20/0.15 the soldier gets right up to the wall and your lean carries the view past the ledge; doors and props still block. Pick the value that feels right; 0 = the game's 0.35 again (after a checkpoint restart) | #53 | Monitor 2026-11-12: radius 0.10 after a checkpoint restart let the soldier 0.33 m further into a corner (re/notes/collision.md) |
 
 ## HUD
 
