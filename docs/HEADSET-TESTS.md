@@ -91,7 +91,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
 | HUD-1 | done | `hud_show_crosshair` (HUD page) on and off | The game's crosshair appears and goes; nothing else in the middle of the HUD changes | #28 |  2026-11-04: works |
-| HUD-2 | open | Fight with `hud_show_hit_markers`, `hud_show_damage`, `hud_show_score` off in turn | Off: no hit marker, no red damage arcs, no "+100". On: they come back | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
+| HUD-2 | open | Fight with `hud_show_damage` off, then on (hit markers and score: HUD-11, off by default since #51) | Off: no red damage arcs. On: they come back | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
 | HUD-3 | done | At the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or the use reach still opens it. Objectives off: note what goes | #28 |  2026-11-04: works |
 | HUD-4 | open | `hud_show_markers` off | The names and triangles over your squad are gone; note whether the objective marker or grenade warnings go too | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
 | HUD-5 | retest | `hud_mode = body` (default): squad triangles and the objective marker | Each sits on its target; the crosshair is centred; the HUD corners are out of the way (`hud_marker_distance`) | #27 | 2026-10-25: on the flat HUD panel the triangles were off their people, "a little distracting" |
