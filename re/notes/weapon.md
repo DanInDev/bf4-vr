@@ -490,6 +490,19 @@ the grab rings got in the way (off from mark 9).
 Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
 (`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
 
+**Third headset run, 2026-11-12 night (no marks, VR View closed), `gun_scale` and `ipd_scale` 1.** User: no
+large change; the AK's ring still shows to the right of the gun; no red dot but the mod's own (also at the
+hip: `sight_dot_test` was left on and is saved as 1 in `bfvr.ini`, with `sight_dot_eyes both`); grab
+distances felt off with the sizes at 1. Whether the lens ring sat on the optic was not reported
+(`grab_debug` was saved off).
+
+**Zoom meshes (typeinfo, static, 2026-11-12).** `WeaponMesh1p` has `Mesh` and `MeshZoom`;
+`WeaponSocketObjectData` has `Used1p` / `Used1pZoom`; `WeaponStateData +0x48 ZoomMeshTransitionFactor`,
+`+0x50 ZoomInOutMeshTransitionFactors`; `SocketData +0xD4 HideByZoomTransition`. The game swaps the weapon's
+and each attachment's mesh part-way through its zoom. That would be the AK lens's two states and the
+general switch for every optic. Not followed live yet; plan in `docs/tasks/sights-ads.md`
+("Direction from 2026-11-12").
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

@@ -90,6 +90,50 @@ The full measurements are in `re/notes/weapon.md`, sections "Sights and aiming d
 `shot_line` gun, `reticle` 1, `reticle_depth` 1, `aim_convergence` 25. Every new behaviour gets a live
 setting, a panel row and a line in `tools/bfvr.ini.example` (CLAUDE.md).
 
+## Direction from 2026-11-12: the game's own optics, for every gun (owner's requirement)
+
+Headset, third run (`gun_scale` and `ipd_scale` at 1): no large change. The only red dot seen is the mod's
+own, also at the hip; the AK-12's ring still shows "in a weird way to the right of the gun". The owner
+expects other scopes and holographic sights, each with its own reticle, to have the same problems, and
+wants **one solution for every gun and optic, not work per sight**.
+
+So the mod's own dot (`sight_dot`) is a stopgap at best: it cannot draw each optic's reticle. The plan is to
+make the game's optics work as they are. What the type registry says (static, `tools/typeinfo_dump.py`, not
+yet followed live):
+
+| Type | Fields | Meaning |
+| --- | --- | --- |
+| `WeaponMesh1p` (0x10) | `+0x00 Mesh`, `+0x08 MeshZoom` (SkinnedMeshAsset) | Every first-person weapon has a second mesh for zoom |
+| `WeaponSocketObjectData` | `+0x10 Used1p`, `+0x18 Used1pZoom`, `+0x20 Used3p`, `+0x28 Used3pZoom` | Every attachment (optic) too |
+| `SocketData` | `+0xD4 HideByZoomTransition` | Attachments hidden across the switch |
+| `WeaponStateData` (0x88) | `+0x48 ZoomMeshTransitionFactor`, `+0x4C ZoomScaleFactor`, `+0x50 ZoomInOutMeshTransitionFactors` | Where in the zoom animation the meshes switch |
+| `WeaponZoomLevelData` | `+0x20 ZoomInOutMeshTransitionFactors`, `+0x2C SightType` | Per zoom level |
+
+Reading (to verify): the black AK-12 lens is the hip mesh of the optic; the clear lens with its reticle is
+the zoom mesh, shown only past the transition point of the game's ADS. The ring beside the gun in the
+right eye's image while the game aims (monitor `eyeshot2`, and the owner's "ring to the right") would be
+one of the two meshes not getting the second eye's shift.
+
+Work order:
+
+1. **Find the runtime switch.** Who reads `ZoomMeshTransitionFactor` and which field of the client weapon
+   holds "zoom mesh shown" (REA: xrefs to the field offset in the `WeaponStateData` readers; live: diff the
+   weapon object hip vs ADS, `pipe watch` on the candidate). Goal: show the zoom mesh of weapon and
+   attachments while a sight is at the eye, without the game's aim (no speed change, no FOV pumping, no
+   input held).
+2. **Both meshes in both eyes.** Find why a piece is drawn at the first eye's place in the second eye
+   during ADS (`eye_pass` `foreground_block` / `shift_per_view_block` against the zoom mesh's blocks).
+3. **The reticle along the sight.** With the zoom mesh shown, find what places the reticle at the view's
+   centre (`meshprobe` on the zoom mesh's lens draw: its pixel shader constants) and give it the sight
+   line's direction per eye. This is the step that makes every reticle (dot, ring, cross, scope
+   crosshairs) work without drawing our own.
+4. **Scopes**: the lens picture (`stereo/scope`) keyed on the weapon's own zoom level data (`RenderFov`,
+   `SightType`, learned magnification), lens size from the optic's mesh bounds instead of the magnifier's
+   constants.
+
+Rule for all of it: nothing keyed on a weapon or attachment name. `weapon/optics` (suffix table) becomes a
+fallback only.
+
 ## Leads for the invisible dot (not verified)
 
 Start here. Find out what the headset actually shows before changing anything:
