@@ -29,6 +29,7 @@
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "input/gestures.hpp"
+#include "input/menu_back.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
@@ -1788,6 +1789,9 @@ namespace bfvr::xr
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
+		// #34: the off-hand grip pressed again backs out of a menu over the level (Escape).
+		input::menu_back menu_back_gesture;
+		ULONGLONG escape_release_at{};
 		// #34 diagnostics (status): the laser on the flat screen.
 		std::atomic<std::uint64_t> pointer_frames{}, pointer_no_hand{}, pointer_misses{}, pointer_hits{};
 		std::atomic<float> pointer_last_u{}, pointer_last_v{};
@@ -2344,6 +2348,23 @@ namespace bfvr::xr
 					menu_screen_placed = true;
 				}
 				log::write("theater: %s", ui_on_screen ? "menu over the level: flat screen (in front of the head)" : "back to the level: stereo");
+			}
+			{
+				// #34: off-hand grip again = Escape while the menu is up (the game layout's left shoulder is the
+				// off hand's grip for either dominant hand).
+				constexpr std::uint16_t off_grip = 0x0100; // XINPUT_GAMEPAD_LEFT_SHOULDER
+				const ULONGLONG now = GetTickCount64();
+				const bool enabled = settings::global().boolean("menu_grip_back", true) && !ui::vr_panel_view().open;
+				if (menu_back_gesture.update(ui_on_screen && enabled, (input::latest().buttons & off_grip) != 0) && hooks::press_game_key(VK_ESCAPE, true))
+				{
+					escape_release_at = now + 80;
+					log::write("theater: off-hand grip in a menu: Escape");
+				}
+				if (escape_release_at && now >= escape_release_at)
+				{
+					hooks::press_game_key(VK_ESCAPE, false);
+					escape_release_at = 0;
+				}
 			}
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1] && !ui_on_screen;
 			enter("copy to swap chain");

@@ -113,6 +113,7 @@ namespace bfvr::settings
 			{ "physical_pad", kind::boolean, 0, 0, 0, "1", "", "a real gamepad on the first slot also reaches the game (off: only the VR controllers; a stuck trigger there fires the gun)" },
 			{ "grab_debug", kind::boolean, 0, 0, 0, "0", "", "draw every grab zone (magazine, handle, pouch, handguard, holsters) as a ring as large as its reach; green while a hand is inside" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|pad", "menus: point with a controller and pull the trigger, or the pad only" },
+			{ "menu_grip_back", kind::boolean, 0, 0, 0, "1", "", "while a menu is up over the level (a crate, the pause menu), pressing the off-hand grip again backs out of it (Escape): close a crate the way you opened it (#34)" },
 			{ "aim", kind::choice, 0, 0, 0, "controller", "head|controller", "what aims the gun: the gun-hand controller (bullets leave the drawn barrel) or the view (game default)" },
 			{ "gun_pose", kind::choice, 0, 0, 0, "aim", "aim|animated", "where the drawn gun points: exactly along the controller ray, or the game's hip pose turned by the controller (its idle angle and sway stay)" },
 			{ "reticle", kind::boolean, 0, 0, 0, "1", "", "aim = controller: a dot where the shots converge (aim_convergence ahead along the barrel)" },

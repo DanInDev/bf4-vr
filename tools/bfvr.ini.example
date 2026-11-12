@@ -369,6 +369,9 @@ haptics_game = 1
 haptics_gestures = 1
 # The pause menu (and other menus drawn over a level) is shown on the flat screen with the pointer.
 pause_flat = 1
+# While such a menu is up (a crate, the pause menu), pressing the off-hand grip again backs out of it
+# (Escape): close a crate the way you opened it, without aiming at Done (#34).
+menu_grip_back = 1
 
 # In-VR settings panel (issue #7): hold the left menu button to open it (a short press stays the
 # game's Start); point with either controller, its trigger clicks; Save writes this file.
