@@ -259,9 +259,9 @@ namespace bfvr::body
 			return ik::normalize(ik::quat{ a.x + (s * b.x - a.x) * t, a.y + (s * b.y - a.y) * t, a.z + (s * b.z - a.z) * t, a.w + (s * b.w - a.w) * t });
 		}
 		std::atomic<bool> knife_in_hand{};
-		std::atomic<float> knife_pitch{ 0.5235988f }; // radians, live setting knife_pitch
-		std::atomic<float> knife_yaw{};               // radians, live setting knife_yaw (headset 2026-11-10: the knife sat turned)
-		std::atomic<float> knife_roll{};              // radians, live setting knife_roll
+		std::atomic<float> knife_pitch{ 2.5307274f }; // radians (145 degrees, headset 2026-11-12), live setting knife_pitch
+		std::atomic<float> knife_yaw{ -0.2617994f };  // radians (-15 degrees), live setting knife_yaw (headset 2026-11-10: the knife sat turned)
+		std::atomic<float> knife_roll{ 2.9670597f };  // radians (170 degrees), live setting knife_roll
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
