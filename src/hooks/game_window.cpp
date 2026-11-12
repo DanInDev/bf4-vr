@@ -104,6 +104,7 @@ namespace bfvr::hooks
 		bool focus_kept{};
 		std::atomic<unsigned long long> hidden{};
 		std::atomic<ULONGLONG> pointer_at{}; // last point_game_cursor call (game_pointer_active)
+		std::atomic<unsigned long long> pointer_front{}, pointer_behind{}, pointer_clicks{}; // #34 diagnostics
 		std::atomic<unsigned> virtual_width{};
 		std::atomic<unsigned> virtual_height{};
 
@@ -369,8 +370,13 @@ namespace bfvr::hooks
 		pointer_at = GetTickCount64();
 		static bool was_pressed{};
 		const HWND foreground = original_get_foreground_window ? original_get_foreground_window() : GetForegroundWindow();
+		if (pressed && !was_pressed)
+		{
+			++pointer_clicks;
+		}
 		if (foreground == hwnd)
 		{
+			++pointer_front;
 			original_set_cursor_pos ? original_set_cursor_pos(screen.x, screen.y) : SetCursorPos(screen.x, screen.y);
 			if (pressed != was_pressed)
 			{
@@ -382,6 +388,7 @@ namespace bfvr::hooks
 		}
 		else
 		{
+			++pointer_behind;
 			// Client coordinates of the real window; the window procedure scales them to the virtual size.
 			const LPARAM position = MAKELPARAM(x, y);
 			PostMessageW(hwnd, WM_MOUSEMOVE, pressed ? MK_LBUTTON : 0, position);
@@ -407,6 +414,12 @@ namespace bfvr::hooks
 	bool game_pointer_active()
 	{
 		return GetTickCount64() - pointer_at.load(std::memory_order_relaxed) < 150;
+	}
+
+	std::string game_pointer_report()
+	{
+		return "cursor front=" + std::to_string(pointer_front.load()) + " behind=" + std::to_string(pointer_behind.load()) + " clicks=" + std::to_string(pointer_clicks.load())
+			+ " active=" + (game_pointer_active() ? "1" : "0");
 	}
 
 	unsigned long long focus_losses_hidden()

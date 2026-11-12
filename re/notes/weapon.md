@@ -542,3 +542,29 @@ Monitor (head level, gun held): a bent-arm reach 33 cm ahead, 30 cm right of cen
 the off side count; the chest pouch (12 cm ahead) does not. Head pitched 30 degrees down, hand 40 cm ahead
 toward the crates: the stash opened. Its menu closes with the pointer when it hovers before the click
 (Done at 0.648, 0.736).
+
+### Crate menu in the headset: what the monitor rules out (2026-11-13, monitor, #34)
+
+Headset 2026-11-11 (CTRL-14, marks 16-19 in `E:\EA\Battlefield 4\bfvr_marks`): `menu_over_level=1` in all four, so the
+stash menu **was** detected (it is letterboxed like the pause menu) and the flat screen with the pointer was up. The
+game's red circle (its gamepad cursor) sat at the same lower-middle spot; the tabs alternated.
+
+Monitor, Baku checkpoint, the owner's deployed Release build, stash opened with pipe `key 45` after walking up to it
+(it is the black/green crate stack ~30 degrees right of the spawn direction, a blue stash icon above it). Every click
+through `hooks::point_game_cursor` (pipe `pointer`, the function the headset laser calls) worked:
+
+| Condition | Result |
+| --- | --- |
+| BF4 behind another window, virtual pad held connected and idle (`pad 0 0 0 0 8000`) | C4 -> Gadget One |
+| BF4 in front (SetForegroundWindow), real cursor + SendInput path | Gadget Two tab, then M320 -> Gadget Two |
+| BF4 behind, pad held connected with the mark's stick drift (`pad -0.1 -0.1 ...`) | Gadget One tab, M320 hovered |
+| Pause menu, both paths, pad connected | hover follows (RESUME, RESTART MISSION, EXIT TO MENU) |
+
+So neither the window focus, nor the gamepad mode, nor stick drift stops the pointer reaching the menu. What is left is
+the headset-only stage before it: the laser tested against the flat screen (`theater::point_at_screen`), which needs an
+XR session. If `point_game_cursor` had been called, `game_pointer_active` would have kept the triggers from the game,
+and the tabs would not have flipped: the laser most likely never hit the screen (or the pointing hand was not tracked).
+
+`pipe status` now has a line for the next headset run (branch `fix/crate-pointer`):
+`menu_pointer frames=.. no_hand=.. misses=.. hits=.. hand=.. last_uv=u,v cursor front=.. behind=.. clicks=.. active=0|1`.
+Marks save the status, so a mark in the stash menu shows which stage fails.

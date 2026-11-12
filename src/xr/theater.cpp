@@ -1788,6 +1788,9 @@ namespace bfvr::xr
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
+		// #34 diagnostics (status): the laser on the flat screen.
+		std::atomic<std::uint64_t> pointer_frames{}, pointer_no_hand{}, pointer_misses{}, pointer_hits{};
+		std::atomic<float> pointer_last_u{}, pointer_last_v{};
 		bool menu_shown{};
 		// A menu over a level (pause, crates) is shown in front of where the head looked when it came
 		// up: at a crate the player faces the crate, not where tracking started (#34).
@@ -1892,9 +1895,11 @@ namespace bfvr::xr
 			{
 				pointer_hand = triggers[0] ? 0 : 1;
 			}
+			++pointer_frames;
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
 			if (!hands.valid[pointer_hand])
 			{
+				++pointer_no_hand;
 				return;
 			}
 			input::quad_target screen;
@@ -1903,6 +1908,16 @@ namespace bfvr::xr
 			screen.height = height;
 			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
 			place_pointer_visual(hands.aim[pointer_hand], hit);
+			if (!hit.hit)
+			{
+				++pointer_misses;
+			}
+			else
+			{
+				++pointer_hits;
+				pointer_last_u = hit.u;
+				pointer_last_v = hit.v;
+			}
 			if (hit.hit)
 			{
 				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
@@ -2652,6 +2667,7 @@ namespace bfvr::xr
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
 			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
 			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
-			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.grenade_layers.load(), s.sight_dot_layers.load() };
+			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.grenade_layers.load(), s.sight_dot_layers.load(),
+			s.pointer_frames.load(), s.pointer_no_hand.load(), s.pointer_misses.load(), s.pointer_hits.load(), s.pointer_hand, s.pointer_last_u.load(), s.pointer_last_v.load() };
 	}
 }
