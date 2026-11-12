@@ -37,7 +37,7 @@ namespace bfvr::ui
 
 	// A one-line notice on a small head-locked quad below the view centre: the opener hint after a
 	// level loads (menu_hint), and that SteamVR has the controllers while the session is visible but
-	// not focused (focus_notice).
+	// not focused (always; its setting was removed in #48).
 	constexpr int notice_width = 768;
 	constexpr int notice_height = 80;
 	bool vr_notice_shown();
