@@ -53,7 +53,7 @@ namespace bfvr::weapon
 		sight_ads_latch mesh_latch; // sight_zoom_mesh: a sight at an eye, whatever the game's aim does
 		bool eye_line_valid{};      // sight_reticle: a sight is at an eye and its line is fresh
 		float eye_line[3]{};        // that line's direction, OpenXR LOCAL
-		std::atomic<bool> sight_reticle{}; // live setting sight_reticle (experiment, off)
+		std::atomic<bool> sight_reticle{ true }; // live setting sight_reticle
 		// sight_dot: how far off the sight line an eye still sees the dot (live setting sight_dot_reach; the
 		// lens is about 1.5 cm in radius, a hand-held headset eye needs a little more).
 		std::atomic<float> sight_dot_lens_radius{ 0.02f };

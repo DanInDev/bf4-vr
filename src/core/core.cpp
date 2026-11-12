@@ -195,7 +195,7 @@ namespace bfvr::core
 			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
 			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
-			weapon::set_sight_reticle(store.boolean("sight_reticle", false));
+			weapon::set_sight_reticle(store.boolean("sight_reticle", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
 				bool shown[32]{};

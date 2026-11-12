@@ -569,28 +569,56 @@ when bound, by layout).
 **Headset 2026-11-12 evening (owner):** the holo sight's reticle seen for the first time; it follows the
 head and does not stay in the optic.
 
-**Moving the reticle by its viewport: tried, not working (`sight_reticle`, off by default; pipe `reticle`).**
-Release build, SCAR-H, another game session (other shader pointers). The frame's last two draws, both in
-the final target with stencil reference 2 and the same depth-stencil state: **18 indices** from the gun's
-own index buffer (start 6471) and **6 indices** (the quad found before). The rule "6 indices, stencil
-enabled, reference 2" matches about ten draws a frame, not one. What the right eye's image shows:
+**The reticle on the sight line (`sight_reticle`, default on; `stereo/eye_pass`, pipe `reticle`).**
+Release build, SCAR-H, zoom mesh shown, fake head.
 
-| Head | Viewport of the matched draws | Seen |
-| --- | --- | --- |
-| straight, eye on the line | unmoved | ring and three dots in the window |
-| straight | +0.02 / +0.01 and +0.03 / 0 (tan) | **the ring moves** (up/right, cut by the window's edge); **the three dots stay** |
-| turned 8 degrees, eye on the line | unmoved | window empty (as before) |
-| turned 8 degrees | +0.1405 (onto the window, the mod's own value) | window still empty |
-| turned 8 degrees | **-0.1405** | **the whole reticle, ring and dots, uncut, on the wall at the view's centre** |
-| turned 8 degrees, left eye on the line, first eye's image, no shift | | window empty: the game's own render does it too |
+How the game draws it (pipe `reticle dump`, 413 stencil-tested draws of ~640 indexed in a first-eye render):
 
-So the dots are the 18-index draw (not matched, not moved), the ring is among the 6-index ones, and the
-picture is not "a sprite on the view's axis cut to the lens by stencil". The last row but one says that
-with the head turned the ring moved by -8 degrees lands on the view's centre, where the dots are, and
-both then show uncut on the bare wall; unmoved or moved the other way nothing shows. Not understood. To
-do before any more code: the depth-stencil state's description (stencil function and depth function) and
-the two draws' constants in both head poses, and which draw of the zoom mesh writes the mask
-(`meshprobe` has the state pointers only; `eyeprobe` the constants).
+- A late pass of three blended draws without depth write, all "stencil reference 2, read mask F0, function
+  GREATER_EQUAL, pass REPLACE, depth LESS_EQUAL" (the state of 347 other draws: no lens mask): 150 and 18
+  indices from the gun's own index buffer (the holo's glass; the 18-index one is the tinted octagon) and
+  the **6-index quad: the whole reticle, ring and dots**. A second 6-index quad earlier in the frame
+  writes no colour.
+- The quad sits at the lens, rigid with the gun. Its picture does not: the pixel shader takes the
+  pixel's position times the per-view block's **inverse screen size (`+0x18`, `+0x1C`; `+0x10` / `+0x14`
+  are the size)** and anchors the reticle where that is 0.5, the screen's centre. Hence "it follows the
+  head": 8 degrees of head turn put the picture beside the quad.
+
+How that was found (head turned 8 degrees, eye on the line, the window 141 px right of the centre):
+
+| Change | Seen |
+| --- | --- |
+| none | window empty |
+| the quad's viewport moved -141 px | the whole reticle, uncut, on the wall at the screen's centre |
+| the 18-index draw's viewport moved | a dark octagon moves: the glass, not the dots |
+| the quad drawn without stencil test, without depth test, without both | window still empty: no test hides it |
+| view rows of every per-view block turned +-8 degrees (second eye) | nothing for the reticle (other draws break) |
+| screen width times 1.13 or 0.885 | nothing |
+| **inverse width times 0.885** | **the reticle in the window** |
+
+The fix: for a draw that is "6 indices, stencil reference 2, blended, colour written, no depth write",
+in both eye renders, the per-view block bound to PS (and VS) slot 2 is copied on the GPU into a buffer of
+the mod's (the game's buffer cannot be read on the CPU during the first eye), the two inverse-size floats
+are replaced by `1 / (width + 2 dx)` and `1 / (height + 2 dy)` with (dx, dy) the sight line's place on
+screen from `weapon/two_handed` (the line in the rendered eye's view space, `camera_hook`), the quad is
+drawn and the game's binding restored. The same anchor in both eyes: collimated.
+
+```
+straight R: eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.0000 0.0000)
+yaw8 R:     eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(0.1405 -0.0000)
+yaw8 L:     eyes off_line_cm=0.0/6.3 | reticle valid=1 tan=(0.1405 0.0000)
+yaw-8 R:    eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.1405 -0.0000)
+pitch-6 R:  eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.0000 0.1051)
+pitch+6 R:  eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(0.0000 -0.1051)
+reticle ... draws=7691 moved=7465
+```
+
+In all six the ring and dots sit in the window (`eyeshot` / `eyeshot2`).
+
+Limits: moving the anchor through the inverse size also scales the picture on that axis by
+`1 / (1 + 2 dx / width)`: at 8 degrees the ring is about 13 % wider or narrower. The rule is the SCAR-H
+holo's; other optics may draw their reticle with another index count (the AK-12's and scopes unchecked).
+An earlier reading in this file, "the reticle is not one draw" (2026-11-10), was wrong for this optic.
 
 **The stray piece in the second eye** came and went between captures of the same pose in the Release
 build (a dark piece right of the gun in one, none in the next two); in the debug build at 4 fps it was a

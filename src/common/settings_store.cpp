@@ -129,7 +129,7 @@ namespace bfvr::settings
 			{ "sight_dot_size", kind::real, 0.1f, 2.0f, 0.05f, "0.6", "", "sight dot size, degrees (the glow; the bright core is about half)" },
 			{ "sight_dot_reach", kind::real, 1.0f, 6.0f, 0.5f, "2", "", "how far off the sight line an eye still sees the red dot, cm (the lens is about 1.5; more forgives an unsteady hold)" },
 			{ "sight_zoom_mesh", kind::boolean, 0, 0, 0, "1", "", "a sight held to your eye shows the game's own aiming view of the gun (the optic's clear lens and its reticle) without the game aiming: no slower walk, no zoom" },
-			{ "sight_reticle", kind::boolean, 0, 0, 0, "0", "", "experiment, not working yet: while a sight is at your eye, the game's reticle quad is drawn through a viewport moved onto the sight line (it moves the ring but not the dots, and does not bring the reticle into the lens)" },
+			{ "sight_reticle", kind::boolean, 0, 0, 0, "1", "", "while a sight is at your eye, the game's own reticle stays on the sight line when your head turns, the same in both eyes (it is drawn at the centre of the view otherwise and leaves the lens)" },
 			{ "sight_dot_eyes", kind::choice, 0, 0, 0, "sighting", "sighting|both", "who sees the red dot: only the eye behind the sight (like a real one), or both eyes (one layer for both; a check for headsets that do not show single-eye layers)" },
 			{ "sight_dot_test", kind::boolean, 0, 0, 0, "0", "", "test: the red dot shown to both eyes wherever the gun is held (checks that the headset shows the dot layer at all)" },
 			{ "scope", kind::boolean, 0, 0, 0, "1", "", "magnifying sights (the AK-12's flip magnifier): while aiming, the lens shows the world magnified (one more render)" },

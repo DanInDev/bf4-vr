@@ -891,10 +891,11 @@ namespace bfvr::stereo
 			return index >= skip_from.load(std::memory_order_relaxed) && index < skip_to.load(std::memory_order_relaxed);
 		}
 
-		// sight_reticle (#39): the game draws an optic's reticle as one quad on the view's axis (6 indices,
-		// stencil reference 2, the frame's last draws; re/notes/weapon.md). Drawn through a viewport moved by
-		// the angle between the view's axis and the sight line it sits on the sight instead, the same in both
-		// eyes (collimated); the stencil still cuts it to the lens.
+		// sight_reticle (#39): with the zoom mesh shown the game draws an optic's reticle as one quad at the lens
+		// (6 indices, stencil reference 2, the frame's last draw), and its pixel shader places the picture by
+		// the pixel's position times the inverse screen size of the per-view block: at the screen's centre.
+		// So the reticle follows the head. Drawn with a copy of that block whose inverse size puts the anchor
+		// on the sight line, it stays on the sight, the same in both eyes (re/notes/weapon.md).
 		constexpr UINT reticle_indices = 6;
 		constexpr UINT reticle_stencil = 2;
 		std::atomic<bool> reticle_valid{};
@@ -904,6 +905,95 @@ namespace bfvr::stereo
 		std::atomic<std::uint64_t> reticle_draws{};
 		std::atomic<std::uint64_t> reticle_moved{};
 
+		// Research (pipe "reticle dump <file>"): every indexed draw of one first-eye render that has the
+		// stencil test on, with its depth-stencil, blend, scissor and viewport state.
+		std::atomic<int> state_dump{}; // 1 = armed, 2 = collecting, 3 = done
+		std::mutex state_dump_lock;
+		std::vector<std::string> state_dump_lines;
+		UINT state_dump_index{};
+
+		void begin_state_dump()
+		{
+			int armed = 1;
+			if (state_dump.compare_exchange_strong(armed, 2))
+			{
+				const std::lock_guard guard(state_dump_lock);
+				state_dump_lines.clear();
+				state_dump_index = 0;
+			}
+		}
+
+		void end_state_dump()
+		{
+			int running = 2;
+			state_dump.compare_exchange_strong(running, 3);
+		}
+
+		void dump_draw_state(ID3D11DeviceContext* c, UINT count, UINT start)
+		{
+			if (state_dump.load(std::memory_order_relaxed) != 2 || !in_eye_render)
+			{
+				return;
+			}
+			const UINT index = state_dump_index++;
+			ComPtr<ID3D11DepthStencilState> state;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&state, &reference);
+			D3D11_DEPTH_STENCIL_DESC d{};
+			if (state)
+			{
+				state->GetDesc(&d);
+			}
+			if (!state || !d.StencilEnable)
+			{
+				return;
+			}
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT mask = 0;
+			c->OMGetBlendState(&blend, factor, &mask);
+			D3D11_BLEND_DESC b{};
+			if (blend)
+			{
+				blend->GetDesc(&b);
+			}
+			ComPtr<ID3D11RasterizerState> raster;
+			c->RSGetState(&raster);
+			D3D11_RASTERIZER_DESC r{};
+			if (raster)
+			{
+				raster->GetDesc(&r);
+			}
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			c->RSGetViewports(&viewports, &viewport);
+			D3D11_RECT scissor{};
+			UINT scissors = 1;
+			c->RSGetScissorRects(&scissors, &scissor);
+			ComPtr<ID3D11PixelShader> shader;
+			c->PSGetShader(&shader, nullptr, nullptr);
+			ComPtr<ID3D11RenderTargetView> target;
+			ComPtr<ID3D11DepthStencilView> depth;
+			c->OMGetRenderTargets(1, &target, &depth);
+			char text[512];
+			std::snprintf(text, sizeof(text),
+				"%u idx %u start %u ps %p rtv %p dsv %p | ref %u depth en %d write %d func %d | stencil rmask %02x wmask %02x front func %d pass %d fail %d zfail %d back func %d pass %d"
+				" | blend %d src %d dst %d op %d wm %x | cull %d scissor %d (%ld %ld %ld %ld) | vp %.0f %.0f %.0f %.0f z %.3f %.3f",
+				index, count, start, static_cast<void*>(shader.Get()), static_cast<void*>(target.Get()), static_cast<void*>(depth.Get()), reference, d.DepthEnable ? 1 : 0,
+				static_cast<int>(d.DepthWriteMask), static_cast<int>(d.DepthFunc), d.StencilReadMask, d.StencilWriteMask, static_cast<int>(d.FrontFace.StencilFunc),
+				static_cast<int>(d.FrontFace.StencilPassOp), static_cast<int>(d.FrontFace.StencilFailOp), static_cast<int>(d.FrontFace.StencilDepthFailOp),
+				static_cast<int>(d.BackFace.StencilFunc), static_cast<int>(d.BackFace.StencilPassOp), b.RenderTarget[0].BlendEnable ? 1 : 0,
+				static_cast<int>(b.RenderTarget[0].SrcBlend), static_cast<int>(b.RenderTarget[0].DestBlend), static_cast<int>(b.RenderTarget[0].BlendOp),
+				static_cast<unsigned>(b.RenderTarget[0].RenderTargetWriteMask), static_cast<int>(r.CullMode), r.ScissorEnable ? 1 : 0, scissor.left, scissor.top, scissor.right,
+				scissor.bottom, viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height, viewport.MinDepth, viewport.MaxDepth);
+			const std::lock_guard guard(state_dump_lock);
+			if (state_dump_lines.size() < 4000)
+			{
+				state_dump_lines.emplace_back(text);
+			}
+		}
+
+		// The reticle's quad: 6 indices, blended, colour written, no depth write, stencil reference 2.
 		bool reticle_draw(ID3D11DeviceContext* c, UINT count)
 		{
 			if (!in_eye_render || scope_rendering || count != reticle_indices)
@@ -919,7 +1009,99 @@ namespace bfvr::stereo
 			}
 			D3D11_DEPTH_STENCIL_DESC desc{};
 			state->GetDesc(&desc);
-			return desc.StencilEnable != FALSE;
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT sample_mask = 0;
+			c->OMGetBlendState(&blend, factor, &sample_mask);
+			if (!desc.StencilEnable || desc.DepthWriteMask != D3D11_DEPTH_WRITE_MASK_ZERO || !blend)
+			{
+				return false;
+			}
+			D3D11_BLEND_DESC blending{};
+			blend->GetDesc(&blending);
+			return blending.RenderTarget[0].BlendEnable && blending.RenderTarget[0].RenderTargetWriteMask != 0;
+		}
+
+		// The quad drawn with its own copy of the per-view block (VS and PS slot 2) in which the inverse
+		// screen size (+0x18, +0x1C) puts the picture's anchor, 0.5 / inverse, on the sight line.
+		constexpr UINT per_view_slot = 2;
+		constexpr UINT per_view_bytes = 512;
+		constexpr UINT inverse_size_offset = 0x18;
+		ComPtr<ID3D11Buffer> reticle_block;  // the copy
+		ComPtr<ID3D11Buffer> reticle_values; // the two floats, as a copy source
+
+		bool draw_reticle_anchored(ID3D11DeviceContext* c, UINT count, UINT start, INT base, float tx, float ty)
+		{
+			ComPtr<ID3D11DeviceContext1> c1;
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			c->RSGetViewports(&viewports, &viewport);
+			if (FAILED(c->QueryInterface(IID_PPV_ARGS(&c1))) || viewports != 1 || viewport.Width < 16.0f || viewport.Height < 16.0f
+				|| !original_vs_set_constant_buffers1 || !original_ps_set_constant_buffers1)
+			{
+				return false;
+			}
+			ComPtr<ID3D11Buffer> vs_buffer, ps_buffer;
+			UINT vs_first = 0, vs_count = 0, ps_first = 0, ps_count = 0;
+			c1->VSGetConstantBuffers1(per_view_slot, 1, &vs_buffer, &vs_first, &vs_count);
+			c1->PSGetConstantBuffers1(per_view_slot, 1, &ps_buffer, &ps_first, &ps_count);
+			if (!ps_buffer || ps_count * 16 < per_view_bytes)
+			{
+				return false;
+			}
+			D3D11_BUFFER_DESC source{};
+			ps_buffer->GetDesc(&source);
+			if (ps_first * 16 + per_view_bytes > source.ByteWidth)
+			{
+				return false;
+			}
+			if (!reticle_block || !reticle_values)
+			{
+				ComPtr<ID3D11Device> device;
+				c->GetDevice(&device);
+				D3D11_BUFFER_DESC desc{};
+				desc.ByteWidth = per_view_bytes;
+				desc.Usage = D3D11_USAGE_DEFAULT;
+				desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+				D3D11_BUFFER_DESC values = desc;
+				values.ByteWidth = 16;
+				values.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+				if (FAILED(device->CreateBuffer(&desc, nullptr, &reticle_block)) || FAILED(device->CreateBuffer(&values, nullptr, &reticle_values)))
+				{
+					reticle_block.Reset();
+					reticle_values.Reset();
+					return false;
+				}
+			}
+			// The anchor moves by the sight line's place on screen: x right, y down.
+			const float dx = tx * projection_sx * 0.5f * viewport.Width;
+			const float dy = -ty * projection_sy * 0.5f * viewport.Height;
+			const float inverse[4]{ 1.0f / std::fmax(viewport.Width + 2.0f * dx, 16.0f), 1.0f / std::fmax(viewport.Height + 2.0f * dy, 16.0f), 0.0f, 0.0f };
+			c->UpdateSubresource(reticle_values.Get(), 0, nullptr, inverse, 0, 0);
+			const UINT from = ps_first * 16;
+			const D3D11_BOX head{ from, 0, 0, from + inverse_size_offset, 1, 1 };
+			const D3D11_BOX two{ 0, 0, 0, 8, 1, 1 };
+			const D3D11_BOX tail{ from + inverse_size_offset + 8, 0, 0, from + per_view_bytes, 1, 1 };
+			c->CopySubresourceRegion(reticle_block.Get(), 0, 0, 0, 0, ps_buffer.Get(), 0, &head);
+			c->CopySubresourceRegion(reticle_block.Get(), 0, inverse_size_offset, 0, 0, reticle_values.Get(), 0, &two);
+			c->CopySubresourceRegion(reticle_block.Get(), 0, inverse_size_offset + 8, 0, 0, ps_buffer.Get(), 0, &tail);
+			ID3D11Buffer* own = reticle_block.Get();
+			const UINT zero = 0, whole = per_view_bytes / 16;
+			const bool same = vs_buffer.Get() == ps_buffer.Get() && vs_first == ps_first;
+			original_ps_set_constant_buffers1(c, per_view_slot, 1, &own, &zero, &whole);
+			if (same)
+			{
+				original_vs_set_constant_buffers1(c, per_view_slot, 1, &own, &zero, &whole);
+			}
+			original_draw_indexed(c, count, start, base);
+			ID3D11Buffer* ps_back = ps_buffer.Get();
+			original_ps_set_constant_buffers1(c, per_view_slot, 1, &ps_back, &ps_first, &ps_count);
+			if (same)
+			{
+				ID3D11Buffer* vs_back = vs_buffer.Get();
+				original_vs_set_constant_buffers1(c, per_view_slot, 1, &vs_back, &vs_first, &vs_count);
+			}
+			return true;
 		}
 
 		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
@@ -933,24 +1115,16 @@ namespace bfvr::stereo
 			{
 				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
 			}
+			dump_draw_state(c, count, start);
 			if (reticle_draw(c, count))
 			{
 				++reticle_draws;
 				const bool forced = reticle_forced.load(std::memory_order_relaxed) != 0;
 				const float tx = forced ? reticle_forced_tan[0].load(std::memory_order_relaxed) : reticle_tan[0].load(std::memory_order_relaxed);
 				const float ty = forced ? reticle_forced_tan[1].load(std::memory_order_relaxed) : reticle_tan[1].load(std::memory_order_relaxed);
-				D3D11_VIEWPORT viewport{};
-				UINT viewports = 1;
-				c->RSGetViewports(&viewports, &viewport);
-				if ((forced || reticle_valid.load(std::memory_order_relaxed)) && viewports == 1 && projection_sx > 0.0f && projection_sy > 0.0f
-					&& std::fabs(tx) < 1.5f && std::fabs(ty) < 1.5f)
+				if ((forced || reticle_valid.load(std::memory_order_relaxed)) && projection_sx > 0.0f && projection_sy > 0.0f && std::fabs(tx) < 1.5f && std::fabs(ty) < 1.5f
+					&& draw_reticle_anchored(c, count, start, base, tx, ty))
 				{
-					D3D11_VIEWPORT moved = viewport;
-					moved.TopLeftX += tx * projection_sx * 0.5f * viewport.Width;
-					moved.TopLeftY -= ty * projection_sy * 0.5f * viewport.Height;
-					c->RSSetViewports(1, &moved);
-					original_draw_indexed(c, count, start, base);
-					c->RSSetViewports(1, &viewport);
 					++reticle_moved;
 					extra_mesh::after_draw(c, count, start, base, 1);
 					return;
@@ -959,6 +1133,7 @@ namespace bfvr::stereo
 			original_draw_indexed(c, count, start, base);
 			extra_mesh::after_draw(c, count, start, base, 1);
 		}
+
 
 		void STDMETHODCALLTYPE draw_indexed_instanced_detour(ID3D11DeviceContext* c, UINT count, UINT instances, UINT start, INT base, UINT first)
 		{
@@ -1491,9 +1666,11 @@ namespace bfvr::stereo
 				const std::lock_guard guard(plain_lock);
 				plain_draws.clear();
 			}
+			begin_state_dump();
 			in_eye_render = true;
 			original_per_view_render(renderer, slot, context);
 			in_eye_render = false;
+			end_state_dump();
 			{
 				const std::lock_guard guard(plain_lock);
 				plain_draws_last = plain_draws;
@@ -1873,6 +2050,28 @@ namespace bfvr::stereo
 	std::string reticle_command(const std::string& argument)
 	{
 		float tx = 0.0f, ty = 0.0f;
+		if (argument.rfind("dump ", 0) == 0)
+		{
+			// One first-eye render's stencil-tested draws, written to the file.
+			state_dump = 1;
+			for (int waited = 0; waited < 40 && state_dump.load() != 3; ++waited)
+			{
+				Sleep(50);
+			}
+			const bool done = state_dump.exchange(0) == 3;
+			const std::lock_guard guard(state_dump_lock);
+			FILE* file{};
+			if (!done || fopen_s(&file, argument.substr(5).c_str(), "w") != 0 || !file)
+			{
+				return done ? "reticle dump: cannot write the file" : "reticle dump: no eye render within 2 s";
+			}
+			for (const std::string& line : state_dump_lines)
+			{
+				std::fprintf(file, "%s\n", line.c_str());
+			}
+			std::fclose(file);
+			return "reticle dump: " + std::to_string(state_dump_lines.size()) + " stencil-tested draws of " + std::to_string(state_dump_index) + " indexed draws";
+		}
 		if (argument == "off")
 		{
 			reticle_forced = 0;
