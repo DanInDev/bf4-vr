@@ -1,5 +1,7 @@
 #include "ui/calibration_screen.hpp"
 
+#include "ui/vector_art.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -94,14 +96,20 @@ namespace bfvr::ui
 			box(items, { right - thick, bottom - arm, thick, arm }, color);
 		}
 
-		void dashed_horizontal(std::vector<draw_item>& items, int x0, int x1, int y, std::uint32_t color)
+		void dashed_horizontal(std::vector<draw_item>& items, int x0, int x1, int y, std::uint32_t color, bool tick_left = true, bool tick_right = true)
 		{
 			for (int x = x0; x < x1; x += 18)
 			{
 				box(items, { x, y, std::min(10, x1 - x), 2 }, color);
 			}
-			box(items, { x0, y - 8, 2, 18 }, color);
-			box(items, { x1 - 2, y - 8, 2, 18 }, color);
+			if (tick_left)
+			{
+				box(items, { x0, y - 8, 2, 18 }, color);
+			}
+			if (tick_right)
+			{
+				box(items, { x1 - 2, y - 8, 2, 18 }, color);
+			}
 		}
 
 		void dashed_vertical(std::vector<draw_item>& items, int x, int y0, int y1, std::uint32_t color)
@@ -123,47 +131,53 @@ namespace bfvr::ui
 
 		// The T-pose figure, built from rounded bars: head, torso, arms straight out, legs; a trigger chip
 		// under each hand lights when that trigger is held.
+		// Our soldier (assets/ui/soldier-tpose.svg), tinted by the state: grey, orange once the arms are
+		// out, green when done. The arm-span and height guides sit behind it; a trigger chip under each
+		// glove lights while that trigger is held.
 		void figure(std::vector<draw_item>& items, const calibration_view& view, int step)
 		{
-			const int cx = figure_centre;
-			const std::uint32_t body = step >= 4 ? done_green : view.arms_out ? accent : figure_idle;
-			constexpr int head_top = 236, head = 56;
-			constexpr int shoulder_y = 312, torso_half = 50, upper = 118, fore = 104, hand = 38;
-			constexpr int torso_top = head_top + head + 10, torso_height = 140;
-			constexpr int leg_length = 128;
-			const int leg_top = torso_top + torso_height - 12;
+			// The art's layout in viewBox units (see the comment in the SVG).
+			constexpr float art_top = 56.0f, art_feet = 952.0f, art_centre = 500.0f;
+			constexpr float glove_x = 100.0f, glove_y = 295.0f, glove_radius = 30.0f;
+			constexpr float scale = 0.43f;
+			constexpr int top = 204;
+			const auto sx = [](float x) { return static_cast<int>(std::lround(figure_centre + (x - art_centre) * scale)); };
+			const auto sy = [](float y) { return static_cast<int>(std::lround(top + (y - art_top) * scale)); };
+			const bool finished = step >= 4;
+			const std::uint32_t body = finished ? done_green : view.arms_out ? accent : figure_idle;
 
-			// Guides first, behind the figure: the span over the hands (its label at the left end, clear of
-			// the head), the height beside the body.
-			const int span_left = cx - torso_half - upper - fore + 16 - hand + 4 + hand / 2;
-			const int span_right = 2 * cx - span_left;
-			dashed_horizontal(items, span_left, span_right, shoulder_y - 30, line_dim);
-			const std::string span_label = step >= 4 && view.span > 0.0f ? "ARM SPAN  " + metres(view.span) : "ARM SPAN";
-			text(items, { span_left - 6, shoulder_y - 64, 220, 28 }, step >= 4 ? done_green : text_dim, span_label, 20, 0, true);
-			const int height_x = span_right + 76;
-			const int feet = leg_top + leg_length;
-			dashed_vertical(items, height_x, head_top, feet, line_dim);
-			const std::string height_label = step >= 4 && view.measured > 0.0f ? metres(view.measured) : "HEIGHT";
-			text(items, { height_x - 70, feet + 6, 140, 28 }, step >= 4 ? done_green : text_dim, height_label, 20, 1, true);
+			const int span_left = sx(glove_x), span_right = sx(1000.0f - glove_x);
+			const int span_y = sy(glove_y - 80.0f);
+			// Broken around the head so it does not cross the face.
+			dashed_horizontal(items, span_left, sx(art_centre - 90.0f), span_y, line_dim, true, false);
+			dashed_horizontal(items, sx(art_centre + 90.0f), span_right, span_y, line_dim, false, true);
+			const std::string span_label = finished && view.span > 0.0f ? "ARM SPAN  " + metres(view.span) : "ARM SPAN";
+			text(items, { span_left - 6, span_y - 34, 240, 28 }, finished ? done_green : text_dim, span_label, 20, 0, true);
+			const int height_x = span_right + 60;
+			const int head = sy(art_top), feet = sy(art_feet);
+			dashed_vertical(items, height_x, head, feet, line_dim);
+			const std::string height_label = finished && view.measured > 0.0f ? metres(view.measured) : "HEIGHT";
+			text(items, { height_x + 14, (head + feet) / 2 - 14, 130, 28 }, finished ? done_green : text_dim, height_label, 20, 0, true);
 
-			box(items, { cx - head / 2, head_top, head, head }, body, head / 2);
-			box(items, { cx - 9, head_top + head, 18, 12 }, body);
-			box(items, { cx - torso_half, torso_top, 2 * torso_half, torso_height }, body, 26);
+			for (const vector_shape& shape : soldier_tpose().shapes)
+			{
+				std::vector<int> points;
+				points.reserve(shape.xy.size());
+				for (std::size_t i = 0; i < shape.xy.size(); ++i)
+				{
+					points.push_back(i % 2 ? sy(shape.xy[i]) : sx(shape.xy[i]));
+				}
+				polygon(items, std::move(points), shape.cut ? calibration_backdrop : body);
+			}
+
 			for (const int side : { -1, 1 })
 			{
-				const int upper_x = side < 0 ? cx - torso_half - upper + 6 : cx + torso_half - 6;
-				box(items, { upper_x, shoulder_y, upper, 34 }, body, 17);
-				const int fore_x = side < 0 ? upper_x - fore + 6 : upper_x + upper - 6;
-				box(items, { fore_x, shoulder_y + 3, fore, 28 }, body, 14);
-				const int hand_x = side < 0 ? fore_x - hand + 4 : fore_x + fore - 4;
-				box(items, { hand_x, shoulder_y - 2, hand, hand }, body, hand / 2);
-				// The controller's trigger under the hand.
+				const int glove = sx(side < 0 ? glove_x : 1000.0f - glove_x);
+				const int chip_top = sy(glove_y + glove_radius) + 10;
 				const bool pressed = side < 0 ? view.left_trigger : view.right_trigger;
-				box(items, { hand_x - 4, shoulder_y + hand + 6, hand + 8, 16 }, pressed ? accent : chip_off, 8);
-				text(items, { hand_x - 30, shoulder_y + hand + 26, hand + 60, 28 }, pressed ? accent : text_dim, side < 0 ? "LEFT TRIGGER" : "RIGHT TRIGGER", 18, 1, true);
+				box(items, { glove - 26, chip_top, 52, 14 }, pressed ? accent : chip_off, 7);
+				text(items, { glove - 80, chip_top + 18, 160, 26 }, pressed ? accent : text_dim, side < 0 ? "LEFT TRIGGER" : "RIGHT TRIGGER", 18, 1, true);
 			}
-			box(items, { cx - 42, leg_top, 34, leg_length }, body, 17);
-			box(items, { cx + 8, leg_top, 34, leg_length }, body, 17);
 		}
 
 		void step_row(std::vector<draw_item>& items, int index, int current, int top, const char* title, const char* detail)

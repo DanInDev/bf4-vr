@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+<!-- bf-vr's own soldier for the body calibration step (#50). White = body, black = cut lines
+     (the backdrop shows through). The mod reads only <path fill="#ffffff|#000000" d="..."> with
+     absolute M, L, C, Q and Z, drawn in order; keep to those when editing (Inkscape: Preferences,
+     Input/Output, SVG output, Path string format = Absolute). Glove centres: 100,295 and 900,295. -->
+<rect width="1000" height="1000" fill="#1e2228"/>
+<!-- Face, then the combat helmet over it (down over the ears), night-vision mount -->
+<path fill="#ffffff" d="M 468 140 L 532 140 L 534 198 C 530 220 516 232 500 232 C 484 232 470 220 466 198 Z"/>
+<path fill="#ffffff" d="M 432 176 C 424 104 458 56 500 56 C 542 56 576 104 568 176 L 550 182 C 548 162 540 150 530 146 L 470 146 C 460 150 452 162 450 182 Z"/>
+<path fill="#000000" d="M 438 140 C 446 136 456 134 466 134 L 534 134 C 544 134 554 136 562 140 L 562 146 C 554 142 544 140 534 140 L 466 140 C 456 140 446 142 438 146 Z"/>
+<path fill="#000000" d="M 484 66 L 516 66 L 518 96 L 482 96 Z"/>
+<path fill="#ffffff" d="M 489 71 L 511 71 L 512 91 L 488 91 Z"/>
+<path fill="#ffffff" d="M 482 226 L 518 226 L 524 258 L 476 258 Z"/>
+<!-- Torso: plate carrier narrowing to the waist, shoulder straps, plate, magazine pouches -->
+<path fill="#ffffff" d="M 404 254 L 596 254 C 614 256 622 266 622 282 L 614 340 L 600 430 L 588 516 L 412 516 L 400 430 L 386 340 L 378 282 C 378 266 386 256 404 254 Z"/>
+<path fill="#000000" d="M 448 256 L 455 256 L 455 288 L 448 288 Z"/>
+<path fill="#000000" d="M 545 256 L 552 256 L 552 288 L 545 288 Z"/>
+<path fill="#000000" d="M 440 288 L 560 288 L 560 404 L 440 404 Z"/>
+<path fill="#ffffff" d="M 446 294 L 554 294 L 554 398 L 446 398 Z"/>
+<path fill="#000000" d="M 424 418 L 472 418 L 472 486 L 424 486 Z"/>
+<path fill="#ffffff" d="M 429 423 L 467 423 L 467 481 L 429 481 Z"/>
+<path fill="#000000" d="M 476 418 L 524 418 L 524 486 L 476 486 Z"/>
+<path fill="#ffffff" d="M 481 423 L 519 423 L 519 481 L 481 481 Z"/>
+<path fill="#000000" d="M 528 418 L 576 418 L 576 486 L 528 486 Z"/>
+<path fill="#ffffff" d="M 533 423 L 571 423 L 571 481 L 533 481 Z"/>
+<path fill="#000000" d="M 424 432 L 472 432 L 472 437 L 424 437 Z"/>
+<path fill="#000000" d="M 476 432 L 524 432 L 524 437 L 476 437 Z"/>
+<path fill="#000000" d="M 528 432 L 576 432 L 576 437 L 528 437 Z"/>
+<!-- Arms straight out: sleeves tapering from the shoulder, elbow seams, forearms, cuffs -->
+<path fill="#ffffff" d="M 392 258 C 384 256 378 262 376 270 L 240 270 C 232 270 228 278 228 286 L 228 306 C 228 314 232 320 240 320 L 376 330 C 380 336 388 336 392 330 Z"/>
+<path fill="#ffffff" d="M 608 258 C 616 256 622 262 624 270 L 760 270 C 768 270 772 278 772 286 L 772 306 C 772 314 768 320 760 320 L 624 330 C 620 336 612 336 608 330 Z"/>
+<path fill="#000000" d="M 384 262 L 392 262 L 392 330 L 384 330 Z"/>
+<path fill="#000000" d="M 608 262 L 616 262 L 616 330 L 608 330 Z"/>
+<path fill="#ffffff" d="M 246 274 L 128 278 C 120 278 116 284 116 290 L 116 304 C 116 310 120 314 128 314 L 246 316 Z"/>
+<path fill="#ffffff" d="M 754 274 L 872 278 C 880 278 884 284 884 290 L 884 304 C 884 310 880 314 872 314 L 754 316 Z"/>
+<path fill="#000000" d="M 238 268 L 245 268 L 245 322 L 238 322 Z"/>
+<path fill="#000000" d="M 755 268 L 762 268 L 762 322 L 755 322 Z"/>
+<path fill="#000000" d="M 126 274 L 134 274 L 134 318 L 126 318 Z"/>
+<path fill="#000000" d="M 866 274 L 874 274 L 874 318 L 866 318 Z"/>
+<!-- Gloves gripping the controllers -->
+<path fill="#ffffff" d="M 80 238 C 80 228 88 222 98 222 L 104 222 C 114 222 120 228 120 238 L 120 262 L 80 262 Z"/>
+<path fill="#ffffff" d="M 920 238 C 920 228 912 222 902 222 L 896 222 C 886 222 880 228 880 238 L 880 262 L 920 262 Z"/>
+<path fill="#000000" d="M 78 258 L 122 258 L 122 264 L 78 264 Z"/>
+<path fill="#000000" d="M 878 258 L 922 258 L 922 264 L 878 264 Z"/>
+<path fill="#ffffff" d="M 70 295 C 70 278 83 265 100 265 C 117 265 130 278 130 295 C 130 312 117 325 100 325 C 83 325 70 312 70 295 Z"/>
+<path fill="#ffffff" d="M 930 295 C 930 278 917 265 900 265 C 883 265 870 278 870 295 C 870 312 883 325 900 325 C 917 325 930 312 930 295 Z"/>
+<!-- Belt and buckle -->
+<path fill="#000000" d="M 410 512 L 590 512 L 590 518 L 410 518 Z"/>
+<path fill="#ffffff" d="M 410 518 L 590 518 L 594 548 L 406 548 Z"/>
+<path fill="#000000" d="M 486 523 L 514 523 L 514 543 L 486 543 Z"/>
+<path fill="#ffffff" d="M 491 527 L 509 527 L 509 539 L 491 539 Z"/>
+<path fill="#000000" d="M 404 548 L 596 548 L 596 553 L 404 553 Z"/>
+<!-- Legs tapering to the boots, knee pads, boots -->
+<path fill="#ffffff" d="M 404 553 L 496 553 L 492 680 L 484 900 L 428 900 L 414 690 C 410 640 406 600 404 553 Z"/>
+<path fill="#ffffff" d="M 596 553 L 504 553 L 508 680 L 516 900 L 572 900 L 586 690 C 590 640 594 600 596 553 Z"/>
+<path fill="#000000" d="M 410 686 L 492 686 L 490 752 L 414 752 Z"/>
+<path fill="#ffffff" d="M 416 691 L 486 691 L 485 747 L 418 747 Z"/>
+<path fill="#000000" d="M 590 686 L 508 686 L 510 752 L 586 752 Z"/>
+<path fill="#ffffff" d="M 584 691 L 514 691 L 515 747 L 582 747 Z"/>
+<path fill="#ffffff" d="M 426 904 L 486 904 L 490 952 L 404 952 C 399 952 397 947 400 943 L 412 928 L 426 920 Z"/>
+<path fill="#ffffff" d="M 574 904 L 514 904 L 510 952 L 596 952 C 601 952 603 947 600 943 L 588 928 L 574 920 Z"/>
+</svg>

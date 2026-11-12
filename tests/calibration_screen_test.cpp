@@ -1,12 +1,15 @@
 // Checks the calibration step's screen (src/ui/calibration_screen): which step is current, how many
 // loading segments are lit, the titles per stage, and that everything stays on the screen.
 // With a folder as the first argument it also writes each stage as a BMP (for looking at the design).
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <string>
 
 #include "ui/calibration_screen.hpp"
 #include "ui/panel_canvas.hpp"
+#include "ui/vector_art.hpp"
 
 using namespace bfvr::ui;
 
@@ -78,6 +81,35 @@ int main(int argc, char** argv)
 	calibration_view kept;
 	kept.at = calibration_view::stage::kept;
 	kept.stored = 1.86f;
+
+	// Our vector art: the subset reader, then the soldier compiled in from assets/ui/soldier-tpose.svg.
+	const vector_art tiny = parse_vector_art(
+		"<svg viewBox=\"0 0 100 50\"><rect fill=\"#1e2228\"/>"
+		"<path fill=\"#ffffff\" d=\"M 0 0 L 10 0 10 10 Z\"/>"   // an implicit second line after L
+		"<path fill=\"#000000\" d=\"M 0 0 Q 50 50 100 0 Z\"/>"  // a curve, flattened
+		"<path fill=\"#ff0000\" d=\"M 0 0 L 1 1 L 2 0 Z\"/>"    // another colour: not ours, skipped
+		"<path fill=\"#ffffff\" d=\"m 0 0 l 1 1 l 1 -1 z\"/>"   // relative commands: outside the subset, skipped
+		"</svg>");
+	expect(tiny.width == 100.0f && tiny.height == 50.0f, "the viewBox");
+	expect(tiny.shapes.size() == 2, "two shapes in the subset, the red and the relative one left out");
+	expect(tiny.shapes.size() == 2 && !tiny.shapes[0].cut && tiny.shapes[0].xy.size() == 6, "M, L and an implicit L: a triangle");
+	expect(tiny.shapes.size() == 2 && tiny.shapes[1].cut && tiny.shapes[1].xy.size() == 2 + 2 * 10, "black is a cut; the curve is ten segments");
+	const vector_art& soldier = soldier_tpose();
+	expect(soldier.width == 1000.0f && soldier.height == 1000.0f && soldier.shapes.size() >= 40, "the soldier art is compiled in and read");
+	bool within = true, has_cut = false;
+	float left = 1e9f, right = -1e9f;
+	for (const vector_shape& shape : soldier.shapes)
+	{
+		has_cut = has_cut || shape.cut;
+		for (std::size_t i = 0; i < shape.xy.size(); i += 2)
+		{
+			within = within && shape.xy[i] >= 0.0f && shape.xy[i] <= 1000.0f && shape.xy[i + 1] >= 0.0f && shape.xy[i + 1] <= 1000.0f;
+			left = std::min(left, shape.xy[i]);
+			right = std::max(right, shape.xy[i]);
+		}
+	}
+	expect(within && has_cut, "every point inside the viewBox, with cut lines");
+	expect(std::fabs((left + right) - 1000.0f) < 1.0f, "the T-pose is symmetric about the centre");
 
 	expect(calibration_step(waiting) == 1, "no pose: step 1, arms out");
 	expect(calibration_step(arms) == 2, "arms out, one trigger: step 2, both triggers");
