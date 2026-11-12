@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 #include <string>
 
 #include "common/setting_catalog.hpp"
@@ -36,8 +37,8 @@ namespace
 		store.add({ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "arms follow the controllers" });
 		store.add({ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders" });
 		store.add({ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload" });
-		for (const char* name : { "sight_ads", "two_handed", "reticle", "scope", "drop_discards_ammo", "reload_sounds", "game_sounds", "grenade_model",
-				 "c4_trigger", "holsters", "free_hands", "use_reach", "melee_gesture", "knife_grip", "squad_signal" })
+		for (const char* name : { "sight_ads", "sight_dot", "reticle", "scope", "drop_discards_ammo", "reload_sounds", "grenade_throw_scale",
+				 "c4_trigger", "sling", "free_hands", "use_reach", "melee_gesture", "squad_signal" })
 		{
 			store.add({ name, kind::boolean, 0, 0, 0, "0", "", "weapon setting" });
 		}
@@ -413,6 +414,31 @@ int main(int argc, char** argv)
 			std::printf("FAIL: catalog entry %s is no %s setting\n", std::string(entry.name).c_str(), entry.startup ? "start-up" : "live");
 			++failures;
 		}
+	}
+	// #48: settings that only compared an old behaviour while testing are gone; the tested one is fixed.
+	// An old bfvr.ini still names them: they are not registered, so loading skips them.
+	for (const char* removed : { "two_handed", "two_hand_mode", "arm_reach", "body_shoulders", "finger_poses", "gun_life_size",
+			 "gun_fov_life_size", "steady_walk", "reticle_depth", "extra_meshes", "magazine_snap", "palm_reload", "game_sounds",
+			 "free_hand_reload", "grenade_model", "grenade_mesh", "pouch_models", "holsters", "knife_grip", "aim", "gun_pose",
+			 "aim_with_body", "shots_from_gun", "shot_line", "pause_flat", "focus_notice" })
+	{
+		if (settings::global().definition_of(removed) || settings::presentation_of(removed))
+		{
+			std::printf("FAIL: %s should no longer be a setting (#48)\n", removed);
+			++failures;
+		}
+	}
+	{
+		const auto old_ini = [](const std::string& name) -> std::optional<std::string> {
+			return name == "holsters" || name == "two_hand_mode" ? std::optional<std::string>{ "0" } : std::nullopt;
+		};
+		settings::registry fresh;
+		for (const auto& item : settings::live_definitions())
+		{
+			fresh.add(item);
+		}
+		expect(fresh.load(old_ini).empty(), "an old bfvr.ini with removed keys loads without warnings");
+		expect(fresh.boolean("holsters", true) && fresh.text("two_hand_mode", "lock") == "lock", "removed keys read as their fixed value");
 	}
 	expect(default_pages(settings::global()).front().title == "View", "no start-up page in the game's own panel");
 	{

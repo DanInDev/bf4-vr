@@ -287,7 +287,7 @@ namespace bfvr::ui
 
 		hint_shown = hint.update(safety::campaign_level_loaded(), seconds) && enabled.load() && store.boolean("menu_hint", true) && !open;
 		const std::string calibration = body_calibration_notice();
-		if (focus_lost.load() && store.boolean("focus_notice", true))
+		if (focus_lost.load())
 		{
 			show_notice("SteamVR has the controllers: close its menu", true);
 		}

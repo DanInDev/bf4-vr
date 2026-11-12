@@ -662,8 +662,7 @@ namespace bfvr::weapon
 		{
 			constexpr int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
 			const float at[3]{ result.centres[knife_zone].x, result.centres[knife_zone].y, result.centres[knife_zone].z };
-			const bool shown = result.has_centres && !knife_out && zones.body_known() && settings::global().boolean("pouch_models", true)
-				&& settings::global().boolean("grenade_mesh", true);
+			const bool shown = result.has_centres && !knife_out && zones.body_known();
 			body::set_holster_knife(shown, at, zones.body_yaw());
 		}
 		if (grab_debug_enabled() && result.has_centres)

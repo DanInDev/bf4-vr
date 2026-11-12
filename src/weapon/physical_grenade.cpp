@@ -335,12 +335,11 @@ namespace bfvr::weapon
 		{
 			float yaw{};
 			weapon::v3 at;
-			const bool shown = frame.hands_valid && frame.have_grenade && !result.holding && settings::global().boolean("grenade_mesh", true)
-				&& settings::global().boolean("pouch_models", true) && body_rig_point(weapon::grenade_pouch, at, yaw);
+			const bool shown = frame.hands_valid && frame.have_grenade && !result.holding && body_rig_point(weapon::grenade_pouch, at, yaw);
 			const float position[3] = { at.x, at.y, at.z };
 			body::set_pouch_grenade(shown, position, yaw);
 		}
-		const bool pouch_model = stereo::extra_mesh::grenade_drawn() && settings::global().boolean("pouch_models", true);
+		const bool pouch_model = stereo::extra_mesh::grenade_drawn();
 		if (frame.hands_valid && frame.have_grenade && !result.holding && !pouch_model)
 		{
 			const float pouch[3] = { frame.belt.x, frame.belt.y, frame.belt.z };
@@ -369,7 +368,7 @@ namespace bfvr::weapon
 		// The grenade is in result.hand (the off hand, or the free gun hand, #38); the other pulls the pin.
 		const int held_by = result.hand;
 		const int pin_hand = 1 - held_by;
-		if (result.event == grenade_event::taken && settings::global().boolean("grenade_mesh", true) && weapon.valid
+		if (result.event == grenade_event::taken && weapon.valid
 			&& (!stereo::extra_mesh::grenade_captured() || std::strcmp(captured_for, weapon.name) != 0))
 		{
 			// The game's own grenade for the hand (#36): once, and again for another kind of grenade.

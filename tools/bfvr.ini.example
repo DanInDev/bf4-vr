@@ -24,16 +24,9 @@ stereo_first_person = 1
 # Per-eye image shape: headset = render each eye at the headset's own aspect (anamorphic 16:9
 # image covering exactly the lens FOV, re/notes/camera.md); game = the window's 16:9 (wider than the lens).
 stereo_aspect = headset
-# The game draws the gun and arms with a fixed 45 degree vertical FOV, about 2.7 times too large in
-# the headset's wide view and off the controllers. gun_life_size = 1 corrects that every frame
-# (tan(22.5 deg) / tan(half the rendered FOV)), so they are life size and on your hands.
-gun_life_size = 1
-# How life size is made (#39): 1 = the game's own gun-pass FOV (hip, and every zoom level of the weapon in
-# hand) is set to the life-size value, so the first-person camera stays unscaled and the sights' red dots
-# and lenses draw as the game means them; 0 = the first-person camera is squeezed instead (no red dot).
-gun_fov_life_size = 1
-# Apparent size of the gun and arms on top of that (1 = life size; without gun_life_size, 1 = the
-# game's own); other values scale them around the view centre and move the hands off the controllers.
+# The gun and arms are drawn at life size on the controllers (the game's own 45 degree gun FOV is set to
+# the life-size value every frame). gun_scale: their apparent size on top of that (1 = life size; other
+# values scale them around the view centre and move the hands off the controllers).
 gun_scale = 1.0
 # Part of the headset's reported FOV that is rendered (0.4-1, tangent space). The Quest 3 via
 # Steam Link reports more than its lenses show; cropping makes the visible image sharper. Too
@@ -63,14 +56,8 @@ arm_ik_pole = 0.5 -1 0.3
 # The game's arms can be shorter than yours (arm_length below scales them always). A hand still out
 # of reach then moves the shoulder forward up to shoulder_reach metres, and the arm may get up to
 # arm_stretch longer (0.25 = 25 %); 0 = off. Pipe `arms` shows reach (above 1 = out of reach). #31.
-# arm_reach = 0 turns both off.
-arm_reach = 1
 shoulder_reach = 0.12
 arm_stretch = 0.25
-
-# Comfort: the game's walk animation swings the first-person camera about 6 cm side to side with every
-# step, which sways the whole world in a headset. 1 = removed (hands and gun follow); your head still moves.
-steady_walk = 1
 
 # Comfort vignette (issue #10): darkens the edge of the view while the game turns or moves you (stick
 # turning and aiming, walking, vehicles; never your own head): off | turning | moving | both, and how
@@ -142,22 +129,6 @@ bind_menu = start
 reload = physical
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
-# Physical reload, AR (SCAR-H): palm magazines. Bring a new magazine to the magwell while one is in the
-# gun: it turns aside in the hand (a tick). B drops the old one into the same hand; turn the hand back
-# until the new one lines up and it seats. The old one stays in the hand: let go at the pouch to keep its
-# rounds. Pipe `reload` shows the stage.
-palm_reload = 1
-# The open off hand near the seated magazine snaps onto it: the drawn hand takes the game's own
-# magazine grip on it (fingers too), so squeezing takes it without a jump; it eases back to the
-# controller afterwards. Pipe `reload` shows snap=<zone>/<drawn>.
-magazine_snap = 1
-# Empty hands (#38): while the left hand holds the gun (by its handguard or its grip), the free right
-# hand changes magazines (from the pouch, held in its fist) and racks; 0 = it only racks.
-free_hand_reload = 1
-# A second magazine: the one in the gun while you hold a new one, the caught one while palming, one
-# falling. Drawn as a copy of the game's own magazine (the rig has only one); 0 = the gun's magazine
-# moves to the hand as before. Pipe `extramesh` shows it.
-extra_meshes = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
 #   trigger  hold the gun with both hands (off hand + grip on the handguard), press the off-hand trigger
 #   touch    off hand on the optic or the front rail + grip
@@ -167,21 +138,6 @@ accessory_toggle = trigger
 # the off-hand grip, pull the pin with the gun hand (grip next to the grenade, pull away), throw by
 # letting go while the arm moves. Launch speed = hand speed x grenade_throw_scale.
 grenade = physical
-# Physical grenades: the grenade is drawn in the off hand while you hold it (pin ring until pulled);
-# the game itself shows none until the throw. 0 = nothing in the hand.
-grenade_model = 1
-# Physical grenades: the held grenade is the game's own 3D model, lit like the scene, its pin gone once
-# pulled. The game draws its grenade only while it is the weapon in hand, so the first grenade you take
-# selects it for about half a second (the gun goes away and comes back) to capture it (pipe `extramesh`);
-# with no gun out, and with 0, the flat picture above stands in.
-grenade_mesh = 1
-# With the 3D grenade: one stands at the grenade pouch while none is held, and the knife in its chest
-# holster while it is not out, in place of the grab rings (#41). The knife is captured the first time it is
-# out (hidden for that moment); until then its ring stays.
-pouch_models = 1
-# Weapon holsters (docs/tasks/weapon-swap.md): gun hand + grip over the gun-side shoulder = primary,
-# gun-side hip = secondary, off-side chest = knife, off-side belt front/back = gadgets.
-holsters = 1
 # Draw every grab zone (magazine, charging handle, chest pouch, handguard, holsters) as a ring as large
 # as its reach, green while a hand is inside: for finding the spots and for tuning them.
 grab_debug = 0
@@ -226,9 +182,6 @@ body_span = 0
 # First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).
 arm_length = 1.15
 shoulder_width = 0.0
-# Shoulder joints either side of the neck, 22 cm below and 4 cm behind the eyes (the game's rifle pose
-# holds the left one mid-chest, which twists the left arm reaching out); 0 = the game's.
-body_shoulders = 1
 # First-person legs hidden (they sit oddly under a tracked head).
 hide_legs = 1
 # Torso: the shoulders turn with your real body, judged from the head (which may look ~40 degrees aside
@@ -238,10 +191,6 @@ torso_follow = 1
 # The torso also leans towards two hands held together in front. 0 = like a native VR game: it turns
 # only when your head turns past ~40 degrees from it, or with the stick.
 torso_hands = 0
-# Fingers: the free hand follows the controller (squeeze, trigger, thumb on a button), wraps a held
-# magazine, hooks the charging handle; the gun hand's index leaves the trigger when you lift it.
-# 0 = the game's animated hands. Pipe `fingers` shows each hand's task and shape.
-finger_poses = 1
 # The off hand's wrist when it is not on the gun: neutral = the gun hand's grip mirrored, i.e. how you
 # hold the controller (a held magazine stands upright in the fist); animated = the game's handguard
 # hold turned by the controller. Monitor-checked 2026-11-03; the headset decides (H1).
@@ -259,49 +208,26 @@ rack_grip = auto
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one
-# (cloth, magazine_in, magazine_out, chamber, pin .wav).
+# (cloth, magazine_in, magazine_out, chamber, pin .wav). For assault rifles the game's own magazine and
+# bolt sounds play where they are found (#30).
 reload_sounds = 1
-# For assault rifles the game's own magazine-out, magazine-in and bolt sounds play instead (#30).
-game_sounds = 1
 grenade_throw_scale = 1.5
-# What aims the gun: controller = the gun hand's controller (bullets leave the drawn barrel; the view
-# then turns only with the body, and the right stick always turns), head = the view (game default).
-aim = controller
-# Where the drawn gun points: aim = exactly along the controller ray; animated = the game's hip pose
-# turned by the controller (keeps its idle angle and sway, so it drifts off the shot line).
-gun_pose = aim
 # Left stick forward walks where your head faces (head), where the gun points (gun), or along the
 # body like the game does (body; turning in the room then walks the old way).
 move_direction = head
-# aim = controller: a dot where the shots converge, and its size in degrees (the game's crosshair,
+# The gun aims with the gun-hand controller: bullets leave the drawn gun along its barrel and land on
+# its sight's dot; the game's own aim stays with the body. Off hand + grip on the handguard holds the
+# gun with both hands, the barrel on the line between them (pipe `twohand`).
+# A dot on what the barrel points at, where the shots go, and its size in degrees (the game's crosshair,
 # hud_show_crosshair, marks the head's aim, not the gun's).
 reticle = 1
 reticle_size = 1
-# The dot sits on what the barrel points at (read from the scene depth, a few frames late), and the
-# aim converges there; 0 = always aim_convergence metres away.
-reticle_depth = 1
-# Two-handed weapon (issue #29): off hand on the handguard + grip holds the gun with both hands; the
-# barrel then points along the line between the hands. Pipe `twohand` shows the state.
-two_handed = 1
-# lock = the barrel lies on the line between your hands and the off hand is drawn on the handguard
-# (a VR shooter's hold); soft = the hand line at the grab is kept and only its turns steer the gun.
-two_hand_mode = lock
 # Recoil: the drawn gun kicks per shot (muzzle up about the wrist and a little sideways, back along the
 # barrel), full auto climbs, and it settles back to the controller in ~0.2 s; a support hand on the
 # handguard halves it. Each gun kicks by its own game data (the SCAR-H harder and slower than the
-# AK-12, a bigger first shot). 0 = off, up to 3. The controller and the view do not move; with
-# shot_line = gun (below) the shots follow the kicked gun, as with a real one.
+# AK-12, a bigger first shot). 0 = off, up to 3. The controller and the view do not move; the shots
+# follow the kicked gun, as with a real one.
 recoil = 1
-# aim = controller: what the shots and the dot follow. gun = the gun as drawn (its optic or front sight
-# along the barrel), so looking down the sights is where you hit; controller = the controller's pointing
-# ray (the menu pointer's line; the drawn gun can sit a few degrees off it).
-shot_line = gun
-# Bullets start at the drawn gun (its sight line) and fly along the barrel, so they land on the sight's
-# dot at any range. 0 = from your eyes towards the point 25 m along the barrel (the game's own origin).
-shots_from_gun = 1
-# With shots_from_gun: the game's own aim stays with your body (the stick turn), so its first-person body
-# never turns with the gun. 0 = the game aims with the gun as before (its body turned and was turned back).
-aim_with_body = 1
 # Hold the gun's sight to an eye (within 3 cm of its line, up to 30 cm behind it) and the game aims
 # down the sights: the optic's lens clears (it is opaque at the hip) and the game's ADS accuracy and
 # slower walk apply; it ends 0.3 s after both eyes are more than 5 cm off the line. 0 = never
@@ -328,8 +254,7 @@ hip_accuracy = 1
 # magnification (the magnifier: 1.7x).
 scope = 1
 scope_zoom = 1
-# aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
-# many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
+# When the barrel points at nothing (the sky), shots meet the barrel line this many metres away.
 aim_convergence = 25
 
 # VR controllers act as an Xbox pad (merged into the game's XInput slot 1). 0 = leave input alone.
@@ -339,7 +264,6 @@ gamepad = 1
 melee_gesture = 1
 # With the knife out, the blade points along the gun-hand controller (edge down); knife_pitch raises
 # the blade this many degrees to lie on the ray (0 = the knife model's own angle).
-knife_grip = 1
 knife_pitch = 30
 # Further turns of the held knife, degrees: knife_yaw about the controller's up (+ = right), knife_roll about
 # its ray (+ = clockwise seen from behind). Tune them on the panel (Weapon > Hands and melee).
@@ -367,8 +291,6 @@ haptics = 1
 haptics_strength = 0.8
 haptics_game = 1
 haptics_gestures = 1
-# The pause menu (and other menus drawn over a level) is shown on the flat screen with the pointer.
-pause_flat = 1
 
 # In-VR settings panel (issue #7): hold the left menu button to open it (a short press stays the
 # game's Start); point with either controller, its trigger clicks; Save writes this file.
@@ -386,6 +308,3 @@ mark_tap = 1
 panel_opacity = 0.6
 # After a level loads, "Hold both sticks: VR settings" shows below the view for 8 s.
 menu_hint = 1
-# While SteamVR has the controllers (dashboard open, OpenXR session VISIBLE, not FOCUSED), a notice
-# below the view says so; pipe `status` (xr_focus) and `panel` show it too.
-focus_notice = 1

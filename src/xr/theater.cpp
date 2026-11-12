@@ -1219,7 +1219,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
+			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || !head.valid || !weapon::aim_point(point)
 				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;
@@ -1300,61 +1300,6 @@ namespace bfvr::xr
 				quad.size = { 2.0f * zones[i].radius, 2.0f * zones[i].radius };
 				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
 			}
-		}
-
-		// Physical grenades: the game draws nothing until the throw, so the held grenade is a quad at
-		// the off hand's palm, facing the head, its fuse out of the top of the fist (ui/held_grenade).
-		void add_held_grenade_layer(XrCompositionLayerQuad& grenade_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
-		{
-			const stereo::head_sample head = stereo::latest_head_sample();
-			// The game's own grenade drawn in the fist (stereo/extra_mesh) replaces this stand-in; with it on the
-			// stand-in is never shown (headset 2026-11-10: it flashed up while the grenade was being captured).
-			if (!settings::global().boolean("grenade_model", true) || !weapon::grenade_in_hand() || !head.valid || layer_count >= max_layers
-				|| stereo::extra_mesh::grenade_drawn() || settings::global().boolean("grenade_mesh", true))
-			{
-				return;
-			}
-			const body::weapon_points points = body::latest_weapon_points();
-			const int hand = weapon::grenade_hand(); // #38: the gun hand may hold it too
-			if (!points.hand_valid[hand] || GetTickCount64() - points.at > 250)
-			{
-				return;
-			}
-			const int armed = weapon::grenade_armed() ? 1 : 0;
-			cpu_overlay& overlay = grenade_overlay[armed];
-			if (!ensure_overlay(overlay, grenade_pixels_size, grenade_pixels_size))
-			{
-				return;
-			}
-			if (!overlay.shown)
-			{
-				std::vector<std::uint32_t> pixels;
-				ui::held_grenade_texture(static_cast<int>(grenade_pixels_size), armed == 0, pixels);
-				upload_overlay(overlay, pixels);
-				if (!overlay.shown)
-				{
-					return;
-				}
-			}
-			// The aim pose's axes (x right, y up, -z along the pointing ray): held in a fist, the fuse
-			// points up and a little forward.
-			const float* q = points.hand_rotation[hand];
-			const body::ik::vec3 fuse_axis = body::ik::rotate({ q[0], q[1], q[2], q[3] }, { 0.0f, 1.0f, -0.4f });
-			const float fuse[3]{ fuse_axis.x, fuse_axis.y, fuse_axis.z };
-			const stereo::pose centre = stereo::eye_math::centre_pose(head);
-			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
-			const ui::reticle_quad placed = ui::place_held_grenade(points.palm[hand], fuse, eye);
-			grenade_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
-			grenade_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-			grenade_quad.space = space;
-			grenade_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-			grenade_quad.subImage.swapchain = overlay.swapchain;
-			grenade_quad.subImage.imageRect.extent = { static_cast<std::int32_t>(grenade_pixels_size), static_cast<std::int32_t>(grenade_pixels_size) };
-			grenade_quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };
-			grenade_quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
-			grenade_quad.size = { placed.size, placed.size };
-			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&grenade_quad);
-			++grenade_layers;
 		}
 
 		// Comfort vignette (#10): head-locked, darkens the edge while the game turns or moves the
@@ -2307,18 +2252,16 @@ namespace bfvr::xr
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-			XrCompositionLayerQuad grenade_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad sight_dot_quads[2]{};
 			const XrCompositionLayerBaseHeader* layers[16 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
-			const bool pause_flat = settings::global().boolean("pause_flat", true);
-			if (stereo_mode && back_buffer && pause_flat)
+			if (stereo_mode && back_buffer)
 			{
 				watch_letterbox(back_buffer.Get());
 			}
-			const bool ui_on_screen = stereo_mode && pause_flat && letterboxed;
+			const bool ui_on_screen = stereo_mode && letterboxed;
 			if (ui_on_screen != menu_shown)
 			{
 				menu_shown = ui_on_screen;
@@ -2372,7 +2315,6 @@ namespace bfvr::xr
 					}
 				}
 				add_grab_zone_layers(zone_quads, layers, layer_count);
-				add_held_grenade_layer(grenade_quad, layers, layer_count);
 				add_scope_layer(scope_quad, layers, layer_count);
 				add_sight_dot_layers(sight_dot_quads, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
