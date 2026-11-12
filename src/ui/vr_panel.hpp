@@ -7,6 +7,7 @@
 #include "input/gamepad.hpp"
 #include "input/pointer.hpp"
 #include "stereo/tracking.hpp"
+#include "ui/calibration_screen.hpp"
 
 // The in-VR settings panel in the game (issue #7): a long press on the left menu button, or both
 // thumbstick clicks held together (stick_menu), opens it 0.8 m ahead at eye height where the user
@@ -43,6 +44,10 @@ namespace bfvr::ui
 	bool vr_notice_shown();
 	// Like vr_panel_pixels, for the notice (notice_width x notice_height).
 	bool vr_notice_pixels(std::uint64_t& revision, std::vector<std::uint32_t>& pixels);
+	// #50: the body calibration step screen (ui/calibration_screen, calibration_width x calibration_height),
+	// on a wide head-locked quad while the calibration runs and its result shows.
+	bool vr_calibration_shown();
+	bool vr_calibration_pixels(std::uint64_t& revision, std::vector<std::uint32_t>& pixels);
 
 	// Theater: the session is visible but not focused (the runtime has the controllers). A menu
 	// button or stick chord held when that happens is forgotten, not passed to the game as Start.

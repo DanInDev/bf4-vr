@@ -41,6 +41,10 @@ namespace bfvr::ui
 		bool confirming{};
 		bool wait_for_release{};
 		cal::measurement pending;
+		// #50: what the calibration step screen shows this frame.
+		calibration_view screen;
+		bool screen_on{};
+		calibration_view::stage result_stage{ calibration_view::stage::done };
 
 		std::string mode()
 		{
@@ -71,6 +75,7 @@ namespace bfvr::ui
 			store.set("arm_length", value);
 			std::snprintf(value, sizeof(value), "%.2f", last_shape.shoulder_width);
 			store.set("shoulder_width", value);
+			result_stage = calibration_view::stage::done;
 			const std::string saved = settings::save_global();
 			char text[128];
 			std::snprintf(text, sizeof(text), "Body fitted: %.2f m tall, arms %.2f m%s", measured.stature, measured.span + 0.18f,
@@ -121,6 +126,7 @@ namespace bfvr::ui
 				std::snprintf(text, sizeof(text), "Kept your height: %.2f m", settings::global().real("body_height", 0.0f));
 				result_text = text;
 				result_until = now + result_ms;
+				result_stage = calibration_view::stage::kept;
 				log::write("body calibration: %.3f m not confirmed, keeping %.3f m", pending.stature, settings::global().real("body_height", 0.0f));
 				confirming = false;
 			}
@@ -156,6 +162,14 @@ namespace bfvr::ui
 			}
 			const cal::t_pose::state state = wait_for_release ? cal::t_pose::state::waiting : detector.update(s);
 			holds_triggers = detector.in_pose(s) || state == cal::t_pose::state::done;
+			cal::sample arms_only = s;
+			arms_only.left_trigger = arms_only.right_trigger = true;
+			screen = {};
+			screen.arms_out = detector.in_pose(arms_only);
+			screen.left_trigger = s.left_trigger;
+			screen.right_trigger = s.right_trigger;
+			screen.holding = state == cal::t_pose::state::holding;
+			screen.progress = detector.progress();
 			char text[128];
 			if (state == cal::t_pose::state::done)
 			{
@@ -217,6 +231,32 @@ namespace bfvr::ui
 		{
 			notice = now < result_until ? result_text : std::string{};
 		}
+
+		const float stored = settings::global().real("body_height", 0.0f);
+		if (prompting)
+		{
+			screen.at = confirming ? calibration_view::stage::confirm : calibration_view::stage::pose;
+			screen.lower_first = wait_for_release;
+			screen.measured = confirming ? pending.stature : 0.0f;
+			screen.stored = stored;
+			screen.seconds_left = prompt_until > now ? static_cast<int>((prompt_until - now + 999) / 1000) : 0;
+		}
+		else if (now < result_until)
+		{
+			screen = {};
+			screen.at = result_stage;
+			screen.measured = last_measured.stature;
+			screen.span = last_measured.valid ? last_measured.span + 0.18f : 0.0f; // fingertips, as the notice says
+			screen.stored = stored;
+		}
+		screen_on = prompting || now < result_until;
+	}
+
+	bool body_calibration_screen(calibration_view& view)
+	{
+		const std::lock_guard guard(lock);
+		view = screen;
+		return screen_on;
 	}
 
 	std::string body_calibration_notice()

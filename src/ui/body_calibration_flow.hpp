@@ -3,6 +3,7 @@
 #include <string>
 
 #include "input/gamepad.hpp"
+#include "ui/calibration_screen.hpp"
 
 // The body calibration in the game (#46): after a level loads, a notice asks for a T-pose (arms out to
 // the sides, both triggers held still for a second) while the body is not calibrated yet
@@ -13,8 +14,10 @@ namespace bfvr::ui
 {
 	// Present thread, once per frame.
 	void update_body_calibration();
-	// The notice to show now (empty: none); vr_panel shows it.
+	// The notice text (empty: none): logs and the pipe; the headset shows the step screen instead.
 	std::string body_calibration_notice();
+	// #50: the calibration step screen's state; false while there is nothing to show.
+	bool body_calibration_screen(calibration_view& view);
 	// XInput hook thread: both triggers are the calibration's while the pose is being held.
 	input::gamepad_state filter_calibration_pad(const input::gamepad_state& pad);
 	// Pipe "calibrate": "start" asks again now, "stop" ends the prompt; else the state and the last result.

@@ -87,6 +87,7 @@ namespace bfvr::ui
 		bool wrap{};           // text: break into lines within the area (else one line, ellipsis)
 		int radius{};          // box: rounded corners (antialiased); half the height makes a pill
 		bool bold{};           // text: semibold
+		int face{};            // text: 0 Segoe UI, 1 Bahnschrift condensed (headings of the calibration step)
 	};
 
 	// How a setting row is switched.

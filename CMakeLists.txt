@@ -165,6 +165,7 @@ add_library(bfvr_runtime STATIC
 	src/ui/hud_widget_table.cpp
 	src/ui/vr_panel.cpp
 	src/ui/body_calibration_flow.cpp
+	src/ui/calibration_screen.cpp
 	src/weapon/two_hand.cpp
 	src/weapon/two_handed.cpp
 	src/weapon/hip_accuracy.cpp
@@ -253,6 +254,10 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
 	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
 
+	# Body calibration step screen (#50): steps, loading segments, titles; with a folder it writes each stage as a BMP.
+	add_executable(bfvr_calibration_screen_test tests/calibration_screen_test.cpp src/ui/calibration_screen.cpp src/ui/panel_canvas.cpp)
+	target_link_libraries(bfvr_calibration_screen_test PRIVATE bfvr_common)
+
 	# Comfort vignette strength and texture; exits non-zero on failure.
 	add_executable(bfvr_vignette_test tests/vignette_test.cpp src/ui/vignette.cpp src/ui/reticle.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_vignette_test PRIVATE bfvr_common)
@@ -323,6 +328,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
 	add_test(NAME optics COMMAND bfvr_optics_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
+	add_test(NAME calibration_screen COMMAND bfvr_calibration_screen_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)
 	add_test(NAME held_grenade COMMAND bfvr_held_grenade_test)
 	add_test(NAME hud_widgets COMMAND bfvr_hud_widgets_test)

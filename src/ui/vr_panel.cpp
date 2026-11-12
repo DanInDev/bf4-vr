@@ -63,6 +63,12 @@ namespace bfvr::ui
 		std::vector<std::uint32_t> notice_image;
 		std::uint64_t notice_revision{};
 
+		// #50: the body calibration step screen and what it was drawn from.
+		std::vector<std::uint32_t> calibration_image;
+		std::uint64_t calibration_revision{};
+		std::string calibration_key;
+		std::atomic<bool> calibration_on{};
+
 		std::atomic<bool> panel_open{};
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> stick_menu{ true };
@@ -189,6 +195,40 @@ namespace bfvr::ui
 			}
 		}
 
+		// Called with lock held: the calibration step screen, redrawn only when what it shows changes (the
+		// loading bar moves in segments, so a hold redraws it 36 times, not every frame).
+		void show_calibration(bool shown, calibration_view view)
+		{
+			if (!shown)
+			{
+				if (calibration_on.exchange(false))
+				{
+					calibration_key.clear();
+					log::write("panel: calibration screen hidden");
+				}
+				return;
+			}
+			view.progress = static_cast<float>(calibration_segments_lit(view)) / static_cast<float>(calibration_segments);
+			char key[192];
+			std::snprintf(key, sizeof(key), "%d|%d|%d%d%d%d%d|%.2f|%.2f|%.2f|%.2f|%d", static_cast<int>(view.at), calibration_step(view), view.arms_out, view.left_trigger,
+				view.right_trigger, view.holding, view.lower_first, view.progress, view.measured, view.stored, view.span, view.seconds_left);
+			if (calibration_key == key && calibration_on.load())
+			{
+				return;
+			}
+			if (!rasterise(calibration_screen(view), calibration_width, calibration_height, calibration_image, { { calibration_backdrop, 215 } }))
+			{
+				calibration_image.clear();
+			}
+			if (calibration_key.empty())
+			{
+				log::write("panel: calibration screen shown");
+			}
+			calibration_key = key;
+			++calibration_revision;
+			calibration_on = !calibration_image.empty();
+		}
+
 		// Called with lock held: the notice for this frame (empty: none).
 		void show_notice(const std::string& text, bool warning)
 		{
@@ -286,14 +326,16 @@ namespace bfvr::ui
 		}
 
 		hint_shown = hint.update(safety::campaign_level_loaded(), seconds) && enabled.load() && store.boolean("menu_hint", true) && !open;
-		const std::string calibration = body_calibration_notice();
+		calibration_view calibration;
+		const bool calibrating = body_calibration_screen(calibration);
+		show_calibration(calibrating, calibration);
 		if (focus_lost.load())
 		{
 			show_notice("SteamVR has the controllers: close its menu", true);
 		}
-		else if (!calibration.empty())
+		else if (calibrating)
 		{
-			show_notice(calibration, false);
+			show_notice({}, false); // the step screen says it all
 		}
 		else if (GetTickCount64() < mark_notice_until)
 		{
@@ -382,6 +424,23 @@ namespace bfvr::ui
 		return notice_on.load(std::memory_order_relaxed);
 	}
 
+	bool vr_calibration_shown()
+	{
+		return calibration_on.load(std::memory_order_relaxed);
+	}
+
+	bool vr_calibration_pixels(std::uint64_t& revision, std::vector<std::uint32_t>& pixels)
+	{
+		const std::lock_guard guard(lock);
+		if (calibration_image.empty() || calibration_revision == revision)
+		{
+			return false;
+		}
+		pixels = calibration_image;
+		revision = calibration_revision;
+		return true;
+	}
+
 	bool vr_notice_pixels(std::uint64_t& revision, std::vector<std::uint32_t>& pixels)
 	{
 		const std::lock_guard guard(lock);
@@ -462,6 +521,15 @@ namespace bfvr::ui
 				apply(panel.click(over, settings::global()));
 			}
 		}
+		else if (command == "calshot" && sscanf_s(argument.c_str(), "%*s %259[^\n]", path, static_cast<unsigned>(sizeof(path))) == 1)
+		{
+			// #50: the calibration step screen as last drawn (monitor checks without a headset).
+			if (calibration_image.empty())
+			{
+				return "error: no calibration screen drawn yet (calibrate start)";
+			}
+			return write_bmp(path, calibration_image, calibration_width, calibration_height) ? std::string("calibration screen written to ") + path : "error: could not write the image";
+		}
 		else if (command == "shot" && sscanf_s(argument.c_str(), "%*s %259[^\n]", path, static_cast<unsigned>(sizeof(path))) == 1)
 		{
 			ensure_pages();
@@ -471,7 +539,7 @@ namespace bfvr::ui
 		}
 		else if (!command.empty())
 		{
-			return "error: usage: panel [open|close|hover <u> <v>|click <u> <v>|shot <path.bmp>]";
+			return "error: usage: panel [open|close|hover <u> <v>|click <u> <v>|shot <path.bmp>|calshot <path.bmp>]";
 		}
 		if (open)
 		{

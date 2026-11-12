@@ -122,11 +122,12 @@ namespace bfvr::ui
 				continue;
 			}
 			const int size = sized(item.size);
-			HFONT& font = fonts[size * 2 + (item.bold ? 1 : 0)];
+			HFONT& font = fonts[(size * 2 + (item.bold ? 1 : 0)) * 2 + (item.face == 1 ? 1 : 0)];
 			if (!font)
 			{
+				// Bahnschrift ships with Windows 10 and later; GDI substitutes a sans serif without it.
 				font = CreateFontW(-size, 0, 0, 0, item.bold ? FW_SEMIBOLD : FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-					CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+					CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_SWISS, item.face == 1 ? L"Bahnschrift SemiBold Condensed" : L"Segoe UI");
 			}
 			SelectObject(dc, font);
 			SetTextColor(dc, to_colorref(item.color));
