@@ -102,8 +102,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - Do not write C++ through shell heredocs or Python string replacement: `\n` and `\0` escapes became real
   line breaks and NUL bytes. Use the file write/edit tools for source files.
 - The command permission check sometimes returns no verdict; the same command usually passes on a retry.
-- Without the headset (no SteamVR session) the debug build runs the level at 4-10 fps; the game then misses
-  the mod's short key taps (holster draws send an 80 ms key), so `holster` reports "no switch". Check weapon
-  switches in the headset or a Release build, not with `fakehand` on a slow monitor run (2026-11-12, #49).
+- Weapon switches did not happen on a headset-less debug run (2026-11-12, #49; level at 4-16 fps, Ghidra busy
+  beside it): `holster` showed `failed=1..6` and the log `holsters: secondary: no switch` (03:32-03:33), and a
+  150 ms pad Y did not switch either; snap-turn flicks of 250 ms were also missed, while a held stick walked.
+  Cause not established (short inputs at low fps, or no secondary in that checkpoint). Check weapon switches
+  in the headset, not with `fakehand` on such a run.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

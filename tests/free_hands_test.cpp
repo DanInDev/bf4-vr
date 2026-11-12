@@ -284,8 +284,6 @@ void test_sling()
 	expect(r.dropped && !r.slung && near(r.position.y, g.floor_y + floor.config().lie_height), "sling off: on the floor");
 }
 
-// The off hand picks the dropped gun up by its pistol grip (#38): it holds and fires it; letting go drops
-// it again, and the gun hand can pick it up from there.
 // #49: with the hand empty (the selected gun on the sling or the floor), gripping at that gun's own holster
 // takes it into the hand there and then, wherever the gun hangs; held, it stays.
 void test_holster_take()
@@ -338,8 +336,52 @@ void test_holster_take()
 	g.grip = true;
 	r = floor.update(g);
 	expect(r.event == free_hands_event::picked_up && !r.dropped, "from the floor as well");
+	// Letting go after the take drops it again, as any held gun.
+	g.holster_take = false;
+	expect(steps_to_drop(floor, g) > 0, "let go after the take: it drops as before");
 }
 
+// #49: drawing another weapon in one held grab. The grip is pressed at the holster (claimed there: busy),
+// the hand leaves the zone with the grip still closed, and the game's switch lands ~0.5 s later.
+void test_held_through_switch()
+{
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		const bool start_empty = pass == 1;
+		free_hands hands;
+		free_hands_frame f = holding();
+		hands.update(f);
+		if (start_empty)
+		{
+			steps_to_drop(hands, f); // the hand was empty: the old gun on the floor
+		}
+		f.grip = false;
+		hands.update(f);
+		f.grip = true;
+		f.busy = true; // at the holster: the press belongs to the draw
+		for (int i = 0; i < 4; ++i)
+		{
+			hands.update(f);
+		}
+		f.busy = false; // out of the zone, grip still held, the switch not yet done
+		for (int i = 0; i < 6; ++i)
+		{
+			hands.update(f);
+		}
+		f.weapon_changed = true;
+		free_hands_result r = hands.update(f);
+		f.weapon_changed = false;
+		for (int i = 0; i < 20; ++i)
+		{
+			r = hands.update(f);
+		}
+		expect(!r.dropped && r.event == free_hands_event::none,
+			start_empty ? "empty hand: the drawn weapon stays while the grip is held" : "gun in hand: the drawn weapon stays while the grip is held");
+	}
+}
+
+// The off hand picks the dropped gun up by its pistol grip (#38): it holds and fires it; letting go drops
+// it again, and the gun hand can pick it up from there.
 void test_off_hand_pickup()
 {
 	free_hands hands;
@@ -390,6 +432,7 @@ int main()
 	test_sling();
 	test_off_hand_pickup();
 	test_holster_take();
+	test_held_through_switch();
 	test_drop_and_pick_up();
 	test_regrip_and_busy();
 	test_reset_cases();
