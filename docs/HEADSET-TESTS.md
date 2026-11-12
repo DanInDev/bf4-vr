@@ -100,6 +100,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HUD-8 | open | Toggle `hud_show_main`, `hud_show_minimap`, `hud_show_ammo`, `hud_show_bottom` and both `hud_mode`s | Each piece goes and returns at once, nothing else changes | #26 | |
 | HUD-9 | open | HUD size and distance (`hud_width` 1.3, `hud_distance` 1.5; try 1.1 and 1.5) | Comfortable to read; no HUD burnt into the world, no black or flickering HUD | #3 | |
 | HUD-10 | done | HUD as a sharp flat layer ahead | | #3 | 2026-10-25: "really cool, I see it way in front of me" |
+| HUD-11 | open | Kill points and hit markers (#51): shoot an enemy with the HUD on the body (default); then switch HUD > Score pop-ups and HUD > Hit markers on | Off by default: no points, awards or hit marker anywhere, nothing far below you. Switched on: they come back (still placed by the body HUD; a proper placement is open in #51) | #51 | 2026-11-12: monitor: both default 0, the HUD hook hides crosshair, hit markers and score at their source (`hidden_mask=0x23`) |
 
 ## Sights and shots
 
