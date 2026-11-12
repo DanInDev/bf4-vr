@@ -154,11 +154,12 @@ namespace bfvr::core
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));
 			body::set_arm_shape(store.real("arm_length", 1.15f), store.real("shoulder_width", 0.0f));
 			{
-				// #46: the body zones and the shoulders' height scale with the calibrated height (1.78 m: as laid out).
-				const float height = store.real("body_height", 0.0f);
-				const float scale = height > 0.0f ? height / body::calibration::reference{}.stature : 1.0f;
-				body::set_body_scale(scale);
-				weapon::set_body_scale(scale);
+				// #46, #50: the body zones and the shoulders follow the height (1.78 m: as laid out); a measure
+				// set by hand (not 0) wins over the height.
+				const body::body_size size = body::size_for({ store.real("body_height", 0.0f), store.real("shoulder_drop", 0.0f),
+					store.real("chest_depth", 0.0f), store.real("hip_drop", 0.0f) });
+				body::set_body_size(size);
+				weapon::set_body_size(size);
 			}
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_torso_follow(store.boolean("torso_follow", true));

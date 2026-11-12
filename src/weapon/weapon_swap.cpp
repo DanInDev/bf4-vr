@@ -114,7 +114,7 @@ namespace bfvr::weapon
 		}
 
 		std::atomic<bool> enabled{ true };
-		std::atomic<float> body_scale{ 1.0f }; // #46
+		std::atomic<body::body_size> body_size_now{ body::body_size{} }; // #46, #50
 		std::atomic<bool> grip_claimed{};
 		std::atomic<bool> off_grip_claimed{};
 		std::atomic<float> published_body_yaw{};
@@ -430,9 +430,9 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
-	void set_body_scale(float scale)
+	void set_body_size(const body::body_size& size)
 	{
-		body_scale = std::isfinite(scale) && scale > 0.5f && scale < 1.5f ? scale : 1.0f;
+		body_size_now = size;
 	}
 
 	void set_squad_signal(bool on)
@@ -649,7 +649,7 @@ namespace bfvr::weapon
 		// While a grenade is in the off hand, the gun hand's grip pulls its pin, never draws.
 		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
 		frame.left_handed = input::left_handed();
-		frame.body_scale = body_scale.load(std::memory_order_relaxed);
+		frame.size = body_size_now.load(std::memory_order_relaxed);
 		frame.off_hand_valid = points.hand_valid[0] && now - points.at < points_max_age_ms;
 		frame.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
 		frame.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
@@ -743,7 +743,7 @@ namespace bfvr::weapon
 			const float* o = head.eyes[0].orientation;
 			yaw = std::atan2(2.0f * (o[0] * o[2] + o[1] * o[3]), 1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
 		}
-		point = body_point(centre, yaw, offset, input::left_handed(), body_scale.load(std::memory_order_relaxed));
+		point = body_point(centre, yaw, offset, input::left_handed(), body_size_now.load(std::memory_order_relaxed));
 		return true;
 	}
 

@@ -70,10 +70,11 @@ namespace bfvr::weapon
 		};
 		for (const holster_zone& zone : config_.zones)
 		{
-			// #46: laid out for the reference body; scaled with the calibrated one.
-			const float x = zone.offset.x * side * frame.body_scale; // toward the gun side
-			const float z = zone.offset.z * frame.body_scale;        // back
-			const v3 at{ frame.head.x + x * c + z * s, frame.head.y + zone.offset.y * frame.body_scale, frame.head.z - x * s + z * c };
+			// #46, #50: laid out for the reference body; fitted to the player's.
+			const v3 sized = sized_offset(zone.offset, frame.size);
+			const float x = sized.x * side; // toward the gun side
+			const float z = sized.z;        // back
+			const v3 at{ frame.head.x + x * c + z * s, frame.head.y + sized.y, frame.head.z - x * s + z * c };
 			result.centres[index] = at;
 			result.radii[index++] = zone.radius;
 			if (gun_hand)

@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "body/body_calibration.hpp"
+#include "body/body_size.hpp"
 
 using namespace bfvr::body;
 using namespace bfvr::body::calibration;
@@ -83,9 +84,10 @@ namespace
 	void test_hold()
 	{
 		t_pose detector;
-		expect(hold(detector, pose(1.6f), 0.5f) == t_pose::state::holding && detector.progress() > 0.4f && detector.progress() < 0.6f, "half a second: holding, half way");
+		expect(hold(detector, pose(1.6f), 1.0f) == t_pose::state::holding && detector.progress() > 0.4f && detector.progress() < 0.6f, "a second: holding, half way");
 		expect(detector.update(pose(1.6f, false)) == t_pose::state::waiting && detector.progress() == 0.0f, "letting go starts over");
-		expect(hold(detector, pose(1.6f), 1.1f) == t_pose::state::done, "a second held: done");
+		expect(hold(detector, pose(1.6f), 1.5f) == t_pose::state::holding, "#50: one and a half seconds is not enough");
+		expect(hold(detector, pose(1.6f), 0.6f) == t_pose::state::done, "two seconds held: done");
 		expect(detector.update(pose(0.5f, false)) == t_pose::state::done, "done stays done");
 
 		// Moving into the pose: the hold starts again where the hands came to rest.
@@ -93,24 +95,57 @@ namespace
 		hold(moving, pose(1.4f), 0.6f);
 		const t_pose::state after_move = moving.update(pose(1.6f));
 		expect(after_move == t_pose::state::holding && moving.progress() < 0.05f, "a hand moving 10 cm restarts the hold");
-		expect(hold(moving, pose(1.6f), 1.1f) == t_pose::state::done && near(moving.result().span, 1.6f), "measured where it stopped");
+		expect(hold(moving, pose(1.6f), 2.1f) == t_pose::state::done && near(moving.result().span, 1.6f), "measured where it stopped");
 	}
 
 	void test_measurement()
 	{
 		t_pose with_floor;
-		hold(with_floor, pose(1.6f, true, 1.67f), 1.1f);
+		hold(with_floor, pose(1.6f, true, 1.67f), 2.1f);
 		const measurement& m = with_floor.result();
 		expect(m.valid && m.from_floor && near(m.eye_height, 1.67f) && near(m.stature, 1.78f), "from the floor: eyes 1.67 m, stature 1.78 m");
 		expect(near(m.standing_head_y, -1.6f + 1.67f), "the standing head height in LOCAL (the crouch reference)");
 
 		t_pose no_floor;
-		hold(no_floor, pose(1.6f, true, 1.67f, false), 1.1f);
+		hold(no_floor, pose(1.6f, true, 1.67f, false), 2.1f);
 		expect(no_floor.result().valid && !no_floor.result().from_floor && near(no_floor.result().stature, 1.78f), "no floor: stature from the span (fingertips 9 cm past the grips)");
 
+		// #50: the owner's two runs, 2026-11-12: the floor read 1.86 m, then 1.97 m; the span (1.65 m between
+		// the grips, 1.83 m from the span) stayed. Within 10 cm the floor is trusted; past it the span wins.
+		t_pose good_floor;
+		hold(good_floor, pose(1.65f, true, 1.75f), 2.1f);
+		expect(good_floor.result().from_floor && near(good_floor.result().stature, 1.86f), "floor 1.86 m, span 1.83 m: the floor");
+		t_pose bad_floor;
+		hold(bad_floor, pose(1.65f, true, 1.86f), 2.1f);
+		expect(!bad_floor.result().from_floor && bad_floor.result().floor_doubted && near(bad_floor.result().stature, 1.83f), "floor 1.97 m, span 1.83 m: the span, floor doubted");
+
 		t_pose odd;
-		sample far_floor = pose(1.6f, true, 3.5f);
-		expect(hold(odd, far_floor, 1.1f) != t_pose::state::done, "a 3.6 m person (a floor far off) is not taken");
+		hold(odd, pose(1.6f, true, 3.5f), 2.1f);
+		expect(odd.result().valid && odd.result().floor_doubted && near(odd.result().stature, 1.78f), "a floor far off (a 3.6 m person): the span's 1.78 m instead");
+		t_pose tiny;
+		expect(hold(tiny, pose(0.9f, true, 1.67f, false), 2.1f) != t_pose::state::done, "grips 0.9 m apart: not a T-pose, nothing measured");
+	}
+
+	void test_confirmation()
+	{
+		expect(!needs_confirmation(0.0f, 1.97f), "nothing stored yet: taken");
+		expect(!needs_confirmation(1.86f, 1.90f), "4 cm off: taken");
+		expect(needs_confirmation(1.86f, 1.97f), "11 cm off: needs a second T-pose");
+		expect(needs_confirmation(1.86f, 1.80f), "6 cm shorter: needs a second T-pose");
+	}
+
+	void test_size()
+	{
+		const body_size standard = size_for({});
+		expect(near(standard.scale, 1.0f) && near(standard.shoulder_drop, 0.22f) && near(standard.chest_depth, 0.10f) && near(standard.hip_drop, 0.75f),
+			"not calibrated: the reference layout");
+		const body_size tall = size_for({ 1.958f });
+		expect(near(tall.scale, 1.1f) && near(tall.shoulder_drop, 0.242f) && near(tall.hip_drop, 0.825f), "1.958 m: every measure 10 % larger");
+		const body_size manual = size_for({ 1.958f, 0.20f, 0.14f, 0.70f });
+		expect(near(manual.scale, 1.1f) && near(manual.shoulder_drop, 0.20f) && near(manual.chest_depth, 0.14f) && near(manual.hip_drop, 0.70f),
+			"measures set by hand win over the height");
+		const body_size odd = size_for({ 1.958f, 0.9f, 0.01f, 2.0f });
+		expect(near(odd.shoulder_drop, 0.242f) && near(odd.chest_depth, 0.11f) && near(odd.hip_drop, 0.825f), "values outside a body's range: from the height");
 	}
 
 	void test_shape()
@@ -147,6 +182,8 @@ int main()
 	test_pose_rules();
 	test_hold();
 	test_measurement();
+	test_confirmation();
+	test_size();
 	test_shape();
 	if (failures)
 	{
