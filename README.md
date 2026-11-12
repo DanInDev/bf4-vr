@@ -106,7 +106,7 @@ Run it again (`python -E -P tools\body_maps.py`) after changing either.
 | Right trigger · left trigger | RT · LT | Fire · aim |
 | Right grip · left grip | RB · LB | as bound in BF4 |
 | A · B (right) | A · B | Jump · crouch |
-| X · Y (left) | X · Y | Reload · switch weapon |
+| X · Y (left) | X · D-pad down | The game's menu · fire mode (weapons change at the holsters, not by a button) |
 | Left menu (≡) | Start | Pause menu (short press). **Hold it** for the bf-vr settings panel: point with either controller, trigger clicks, Save writes `bfvr.ini` |
 | Both stick clicks, held ~0.5 s | (none) | Opens or closes the bf-vr settings panel too (SteamVR can take the ≡ button for its dashboard). A single stick click reaches the game 0.1 s late |
 

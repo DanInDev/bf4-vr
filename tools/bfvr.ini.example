@@ -213,6 +213,11 @@ x_menu = 1
 # bolt sounds play where they are found (#30).
 reload_sounds = 1
 grenade_throw_scale = 1.5
+# Research only (Advanced page): aim = head lets the view aim the gun (the game's own way) and
+# gun_pose = animated draws the game's hip pose turned by the controller; tools/sight_probe.py needs
+# both to read the game's own sight pose. Play with controller / aim.
+aim = controller
+gun_pose = aim
 # Left stick forward walks where your head faces (head), where the gun points (gun), or along the
 # body like the game does (body; turning in the room then walks the old way).
 move_direction = head
