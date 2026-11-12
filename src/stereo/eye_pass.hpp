@@ -47,6 +47,11 @@ namespace bfvr::stereo
 	std::uint64_t eye_pass_pairs();
 	// One status line: eye_frames, eye_pairs, eye_rejected, eye_abandoned, eye_ms (last extra render).
 	std::string eye_pass_report();
+	// sight_reticle (#39): where the gun's sight line points in the rendered eye's view space, as x / -z and
+	// y / -z; the game's reticle quad is drawn there instead of on the view's axis. valid: a sight is at an eye.
+	void set_reticle_view(bool valid, float tan_x, float tan_y);
+	// Pipe "reticle [<tan x> <tan y>|off]": state and counters; research: hold the reticle at an offset.
+	std::string reticle_command(const std::string& argument);
 
 	// Half the vertical FOV the gun pass was last drawn with (pair rendering sees its constant block):
 	// 22.5 degrees at the hip, narrower while the game aims down the sights; fallback when not seen

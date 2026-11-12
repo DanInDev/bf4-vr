@@ -63,6 +63,7 @@ namespace bfvr::settings
 			{ "sight_dot_size", "Weapon", "Aiming", "Red dot size", "Degrees", "" },
 			{ "sight_dot_reach", "Weapon", "Aiming", "Red dot eye tolerance", "cm off the sight line", "" },
 			{ "sight_zoom_mesh", "Weapon", "Aiming", "Sights live at your eye", "The game's lens and reticle, without its aim", "" },
+			{ "sight_reticle", "Weapon", "Aiming", "Reticle on the sight (experiment)", "Not working yet", "" },
 			{ "sight_dot_eyes", "Weapon", "Aiming", "Red dot shown to", "The sighting eye, or both", "" },
 			{ "sight_dot_test", "Weapon", "Aiming", "Red dot test", "Always on, both eyes", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },

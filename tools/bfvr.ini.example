@@ -323,6 +323,9 @@ sight_dot_reach = 2
 # the optic's own reticle) without the game aiming: no slower walk, no zoom. Works from the weapon's
 # data, for every gun and optic.
 sight_zoom_mesh = 1
+# Experiment, not working yet: the game's reticle quad drawn through a viewport moved onto the sight
+# line while a sight is at your eye. Leave it at 0.
+sight_reticle = 0
 sight_dot_test = 0
 # sighting = only the eye behind the sight sees the dot; both = one layer for both eyes (try it if the
 # dot never shows at one eye).

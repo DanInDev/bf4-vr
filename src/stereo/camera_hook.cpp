@@ -16,6 +16,7 @@
 #include "control/control_pipe.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/shot_origin.hpp"
+#include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
@@ -551,6 +552,20 @@ namespace bfvr::stereo
 				}
 				apply_eye_pose(params, eye_pose);
 				scope_on_view_copy(game_fov_y, eye_pose, head);
+				{
+					// sight_reticle: the sight line in this view's axes (x right, y up, -z ahead), for the game's reticle.
+					float line[3]{};
+					bool valid = weapon::sight_at_eye_direction(line);
+					const float* q = eye_pose.orientation;
+					// v = conj(q) * line: rotate by the inverse of the eye's orientation.
+					const float ux = -q[0], uy = -q[1], uz = -q[2], w = q[3];
+					const float cx = uy * line[2] - uz * line[1], cy = uz * line[0] - ux * line[2], cz = ux * line[1] - uy * line[0];
+					const float vx = line[0] + 2.0f * (w * cx + uy * cz - uz * cy);
+					const float vy = line[1] + 2.0f * (w * cy + uz * cx - ux * cz);
+					const float vz = line[2] + 2.0f * (w * cz + ux * cy - uy * cx);
+					valid = valid && vz < -0.5f; // within 60 degrees of the view's axis
+					set_reticle_view(valid, valid ? vx / -vz : 0.0f, valid ? vy / -vz : 0.0f);
+				}
 
 				tag.stereo = true;
 				tag.eye = eye;

@@ -51,6 +51,10 @@ namespace bfvr::weapon
 		float max_ahead{};
 	};
 	sight_dot_line latest_sight_dot_line();
+	// sight_reticle (#39): while a sight is at an eye, the sight line's direction (OpenXR LOCAL, unit), for
+	// the game's own reticle to be drawn along it (stereo/eye_pass). False: leave the reticle to the game.
+	void set_sight_reticle(bool on);
+	bool sight_at_eye_direction(float (&direction)[3]);
 	// sight_dot_reach: how far off the sight line (metres) an eye still sees the dot.
 	void set_sight_dot_reach(float metres);
 }

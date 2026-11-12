@@ -566,6 +566,32 @@ target when the factor goes to 0 (learned per weapon, like the magnification), o
 reference and state. Needs a per-draw constant override in `stereo/eye_pass` (today blocks are patched
 when bound, by layout).
 
+**Headset 2026-11-12 evening (owner):** the holo sight's reticle seen for the first time; it follows the
+head and does not stay in the optic.
+
+**Moving the reticle by its viewport: tried, not working (`sight_reticle`, off by default; pipe `reticle`).**
+Release build, SCAR-H, another game session (other shader pointers). The frame's last two draws, both in
+the final target with stencil reference 2 and the same depth-stencil state: **18 indices** from the gun's
+own index buffer (start 6471) and **6 indices** (the quad found before). The rule "6 indices, stencil
+enabled, reference 2" matches about ten draws a frame, not one. What the right eye's image shows:
+
+| Head | Viewport of the matched draws | Seen |
+| --- | --- | --- |
+| straight, eye on the line | unmoved | ring and three dots in the window |
+| straight | +0.02 / +0.01 and +0.03 / 0 (tan) | **the ring moves** (up/right, cut by the window's edge); **the three dots stay** |
+| turned 8 degrees, eye on the line | unmoved | window empty (as before) |
+| turned 8 degrees | +0.1405 (onto the window, the mod's own value) | window still empty |
+| turned 8 degrees | **-0.1405** | **the whole reticle, ring and dots, uncut, on the wall at the view's centre** |
+| turned 8 degrees, left eye on the line, first eye's image, no shift | | window empty: the game's own render does it too |
+
+So the dots are the 18-index draw (not matched, not moved), the ring is among the 6-index ones, and the
+picture is not "a sprite on the view's axis cut to the lens by stencil". The last row but one says that
+with the head turned the ring moved by -8 degrees lands on the view's centre, where the dots are, and
+both then show uncut on the bare wall; unmoved or moved the other way nothing shows. Not understood. To
+do before any more code: the depth-stencil state's description (stencil function and depth function) and
+the two draws' constants in both head poses, and which draw of the zoom mesh writes the mask
+(`meshprobe` has the state pointers only; `eyeprobe` the constants).
+
 **The stray piece in the second eye** came and went between captures of the same pose in the Release
 build (a dark piece right of the gun in one, none in the next two); in the debug build at 4 fps it was a
 full second sight. Not explained. The per-view blocks of a dumped frame (`eyeprobe`) are of two cameras

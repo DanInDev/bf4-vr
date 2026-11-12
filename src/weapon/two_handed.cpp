@@ -51,6 +51,9 @@ namespace bfvr::weapon
 		constexpr float sight_leave_hold_seconds = 0.3f;
 		sight_ads_latch sight_latch;
 		sight_ads_latch mesh_latch; // sight_zoom_mesh: a sight at an eye, whatever the game's aim does
+		bool eye_line_valid{};      // sight_reticle: a sight is at an eye and its line is fresh
+		float eye_line[3]{};        // that line's direction, OpenXR LOCAL
+		std::atomic<bool> sight_reticle{}; // live setting sight_reticle (experiment, off)
 		// sight_dot: how far off the sight line an eye still sees the dot (live setting sight_dot_reach; the
 		// lens is about 1.5 cm in radius, a hand-held headset eye needs a little more).
 		std::atomic<float> sight_dot_lens_radius{ 0.02f };
@@ -332,7 +335,9 @@ namespace bfvr::weapon
 			}
 			// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
 			stay = stay || ticks - last_trigger_at < 400;
-			set_sight_at_eye(mesh_latch.update(enter, stay, seconds, sight_leave_hold_seconds));
+			eye_line_valid = mesh_latch.update(enter, stay, seconds, sight_leave_hold_seconds);
+			set_sight_at_eye(eye_line_valid);
+			std::copy(std::begin(barrel), std::end(barrel), eye_line);
 			// A clear holo alone needs no game aim once the hip is as accurate as ADS (hip_accuracy 1): the
 			// game then draws no reticle of its own over ours and walks at full speed.
 			const sight_state sight = read_sight_state();
@@ -378,6 +383,8 @@ namespace bfvr::weapon
 		}
 		if (!(sight_line && head.valid))
 		{
+			// No fresh line: the reticle goes back to the game's place at once, the zoom mesh after the hold.
+			eye_line_valid = false;
 			set_sight_at_eye(mesh_latch.update(false, false, seconds, sight_leave_hold_seconds));
 		}
 		if (aiming != sight_aiming)
@@ -391,6 +398,18 @@ namespace bfvr::weapon
 	void set_sight_ads(bool on)
 	{
 		sight_ads = on;
+	}
+
+	void set_sight_reticle(bool on)
+	{
+		sight_reticle = on;
+	}
+
+	bool sight_at_eye_direction(float (&direction)[3])
+	{
+		const std::lock_guard guard(lock_);
+		std::copy(std::begin(eye_line), std::end(eye_line), direction);
+		return eye_line_valid && sight_reticle.load(std::memory_order_relaxed);
 	}
 
 	void set_sight_dot_reach(float metres)

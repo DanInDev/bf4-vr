@@ -588,6 +588,7 @@ namespace bfvr::control
 			}
 			if (command == "eyepoison") return stereo::set_eye_poison(argument);
 			if (command == "eyehide") return stereo::set_eye_hide(argument);
+			if (command == "reticle") return stereo::reticle_command(argument);
 			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
 			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
 			if (command == "meshprobe") return stereo::extra_mesh::probe(argument);

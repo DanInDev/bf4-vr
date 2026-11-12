@@ -116,7 +116,7 @@ one of the two meshes not getting the second eye's shift.
 
 State 2026-11-12 evening: step 1 is built (`weapon/zoom_mesh`, `sight_zoom_mesh`; the factor is plain data,
 0 shows the zoom mesh at the hip; monitor-checked on the SCAR-H, the AK-12 not yet). Step 3's draw is
-found (one 6-index quad, stencil ref 2); moving it is not built. Step 2 is intermittent and unexplained.
+found only in part: an 18-index draw (the dots) and 6-index draws (the ring); moving them by the viewport was tried and does not work yet (`sight_reticle`, off; the table in the notes). Step 2 is intermittent and unexplained.
 Evidence: `re/notes/weapon.md` "The zoom mesh at the hip".
 
 Work order:

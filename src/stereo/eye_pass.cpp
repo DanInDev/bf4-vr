@@ -891,6 +891,37 @@ namespace bfvr::stereo
 			return index >= skip_from.load(std::memory_order_relaxed) && index < skip_to.load(std::memory_order_relaxed);
 		}
 
+		// sight_reticle (#39): the game draws an optic's reticle as one quad on the view's axis (6 indices,
+		// stencil reference 2, the frame's last draws; re/notes/weapon.md). Drawn through a viewport moved by
+		// the angle between the view's axis and the sight line it sits on the sight instead, the same in both
+		// eyes (collimated); the stencil still cuts it to the lens.
+		constexpr UINT reticle_indices = 6;
+		constexpr UINT reticle_stencil = 2;
+		std::atomic<bool> reticle_valid{};
+		std::atomic<float> reticle_tan[2]{};     // the sight line in the rendered eye's view space: x/-z, y/-z
+		std::atomic<int> reticle_forced{};       // research: 1 = reticle_forced_tan instead
+		std::atomic<float> reticle_forced_tan[2]{};
+		std::atomic<std::uint64_t> reticle_draws{};
+		std::atomic<std::uint64_t> reticle_moved{};
+
+		bool reticle_draw(ID3D11DeviceContext* c, UINT count)
+		{
+			if (!in_eye_render || scope_rendering || count != reticle_indices)
+			{
+				return false;
+			}
+			ComPtr<ID3D11DepthStencilState> state;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&state, &reference);
+			if (!state || reference != reticle_stencil)
+			{
+				return false;
+			}
+			D3D11_DEPTH_STENCIL_DESC desc{};
+			state->GetDesc(&desc);
+			return desc.StencilEnable != FALSE;
+		}
+
 		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
 		void STDMETHODCALLTYPE draw_indexed_detour(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
 		{
@@ -901,6 +932,29 @@ namespace bfvr::stereo
 			if (probing.load(std::memory_order_relaxed) && probe_bindings.size() < 20000)
 			{
 				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
+			}
+			if (reticle_draw(c, count))
+			{
+				++reticle_draws;
+				const bool forced = reticle_forced.load(std::memory_order_relaxed) != 0;
+				const float tx = forced ? reticle_forced_tan[0].load(std::memory_order_relaxed) : reticle_tan[0].load(std::memory_order_relaxed);
+				const float ty = forced ? reticle_forced_tan[1].load(std::memory_order_relaxed) : reticle_tan[1].load(std::memory_order_relaxed);
+				D3D11_VIEWPORT viewport{};
+				UINT viewports = 1;
+				c->RSGetViewports(&viewports, &viewport);
+				if ((forced || reticle_valid.load(std::memory_order_relaxed)) && viewports == 1 && projection_sx > 0.0f && projection_sy > 0.0f
+					&& std::fabs(tx) < 1.5f && std::fabs(ty) < 1.5f)
+				{
+					D3D11_VIEWPORT moved = viewport;
+					moved.TopLeftX += tx * projection_sx * 0.5f * viewport.Width;
+					moved.TopLeftY -= ty * projection_sy * 0.5f * viewport.Height;
+					c->RSSetViewports(1, &moved);
+					original_draw_indexed(c, count, start, base);
+					c->RSSetViewports(1, &viewport);
+					++reticle_moved;
+					extra_mesh::after_draw(c, count, start, base, 1);
+					return;
+				}
 			}
 			original_draw_indexed(c, count, start, base);
 			extra_mesh::after_draw(c, count, start, base, 1);
@@ -1807,6 +1861,32 @@ namespace bfvr::stereo
 			return fallback;
 		}
 		return std::atan(1.0f / y);
+	}
+
+	void set_reticle_view(bool valid, float tan_x, float tan_y)
+	{
+		reticle_tan[0] = tan_x;
+		reticle_tan[1] = tan_y;
+		reticle_valid = valid;
+	}
+
+	std::string reticle_command(const std::string& argument)
+	{
+		float tx = 0.0f, ty = 0.0f;
+		if (argument == "off")
+		{
+			reticle_forced = 0;
+		}
+		else if (sscanf_s(argument.c_str(), "%f %f", &tx, &ty) == 2)
+		{
+			reticle_forced_tan[0] = tx;
+			reticle_forced_tan[1] = ty;
+			reticle_forced = 1;
+		}
+		char text[256];
+		std::snprintf(text, sizeof(text), "reticle valid=%d tan=(%.4f %.4f) forced=%d (%.4f %.4f) draws=%llu moved=%llu", reticle_valid.load() ? 1 : 0, reticle_tan[0].load(),
+			reticle_tan[1].load(), reticle_forced.load(), reticle_forced_tan[0].load(), reticle_forced_tan[1].load(), reticle_draws.load(), reticle_moved.load());
+		return text;
 	}
 
 	std::string eye_pass_report()
