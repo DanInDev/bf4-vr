@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 
 #include <MinHook.h>
 
@@ -238,6 +239,20 @@ namespace bfvr::stereo
 		}
 
 		// Game thread, once per head-tracked copy: the body camera (world rows before the eye pose).
+		// #53: where the head put the view this frame (pipe lean). Head: eyes' midpoint in LOCAL (x right,
+		// y up, z back of the body, since the body camera's rows are the LOCAL axes); body: the soldier's
+		// camera position in the world before the head pose; view: the rendered eye's position after it.
+		struct lean_sample
+		{
+			bool valid{};
+			int eye{};
+			float head[3]{};
+			float body[3]{};
+			float view[3]{};
+		};
+		std::mutex lean_lock;
+		lean_sample lean_last;
+
 		void track_body_motion(const float* world)
 		{
 			static LARGE_INTEGER last{};
@@ -543,6 +558,16 @@ namespace bfvr::stereo
 				}
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
+				lean_sample lean;
+				{
+					const float* body_rows = reinterpret_cast<const float*>(params + transform);
+					const pose centre = eye_math::centre_pose(head);
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						lean.head[axis] = centre.position[axis];
+						lean.body[axis] = body_rows[12 + axis];
+					}
+				}
 				// Only the rendered views turn: hands, gun and body are placed in tracking space, and the
 				// compositor gets this same pose, so the picture stays where it belongs.
 				if (tilted.tilt != 0.0f)
@@ -551,6 +576,17 @@ namespace bfvr::stereo
 				}
 				apply_eye_pose(params, eye_pose);
 				scope_on_view_copy(game_fov_y, eye_pose, head);
+				{
+					const float* view_rows = reinterpret_cast<const float*>(params + transform);
+					for (int axis = 0; axis < 3; ++axis)
+					{
+						lean.view[axis] = view_rows[12 + axis];
+					}
+					lean.eye = eye;
+					lean.valid = true;
+					const std::lock_guard guard(lean_lock);
+					lean_last = lean;
+				}
 
 				tag.stereo = true;
 				tag.eye = eye;
@@ -925,6 +961,29 @@ namespace bfvr::stereo
 			}
 		}
 		return std::string("stereo_render=") + (pair_render.load() ? "pair" : "aer");
+	}
+
+	std::string lean_report()
+	{
+		lean_sample lean;
+		{
+			const std::lock_guard guard(lean_lock);
+			lean = lean_last;
+		}
+		if (!lean.valid)
+		{
+			return "lean: no head-tracked frame yet";
+		}
+		const float forward = -lean.head[2], right = lean.head[0];
+		const float from_origin = std::hypot(forward, right);
+		const float dx = lean.view[0] - lean.body[0], dy = lean.view[1] - lean.body[1], dz = lean.view[2] - lean.body[2];
+		char text[512];
+		std::snprintf(text, sizeof(text),
+			"lean: head from the session origin forward=%.3f right=%.3f up=%.3f (horizontal %.3f m)\n"
+			"view (%s eye) from the soldier's camera: horizontal %.3f m, up %.3f m; soldier camera at %.2f %.2f %.2f%s",
+			forward, right, lean.head[1], from_origin, lean.eye == 0 ? "left" : "right", std::hypot(dx, dz), dy, lean.body[0], lean.body[1], lean.body[2],
+			from_origin > 0.5f ? "\nnote: the head is over 0.5 m from the session origin, so the view sits that far from the soldier (recenter the headset)" : "");
+		return text;
 	}
 
 	void body_motion(float& yaw_rate, float& speed)

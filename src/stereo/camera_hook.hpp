@@ -97,6 +97,10 @@ namespace bfvr::stereo
 	// Drives the comfort vignette (#10).
 	void body_motion(float& yaw_rate, float& speed);
 
+	// Pipe "lean" (#53): the head's offset from the session origin (OpenXR LOCAL, in the body's axes)
+	// and how far the rendered view sits from the soldier's own camera, from the last head-tracked frame.
+	std::string lean_report();
+
 	// How the hook re-aimed the first-person camera this frame (controller aim): turned by yaw radians
 	// about soldier up (atan2(look.x, look.z) sense) and levelled, instead of the game's aimer yaw and
 	// pitch. The arm IK must place the hands in this rendered frame. active = false: the game's own.

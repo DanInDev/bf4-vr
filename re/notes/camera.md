@@ -142,3 +142,20 @@ rows, before the eye pose and controller aim turn them).
   unchanged (camera joint, which carries soldier_look, times `body - game_yaw`). Monitor, fake head and
   hands fixed: gun and hands stay put in the image through two snaps each way, and the chest looking down
   too. Before the fix they swung left with each snap.
+
+## The head's room-scale offset and walls (2026-11-12, code reading, #53)
+
+Read from `src/stereo/camera_hook.cpp`, `src/stereo/eye_math.cpp`, `src/xr/theater.cpp`; not yet measured live.
+
+- The eye pose comes from OpenXR LOCAL space (`theater.cpp` creates LOCAL, VIEW and STAGE spaces; only LOCAL feeds the
+  eyes) and `eye_math::compose_pose` adds its position, in the body camera's axes, onto the game camera every frame.
+  Nothing clamps it, fades it or recenters it: the view sits wherever the head is relative to where the session's LOCAL
+  origin was set (session start or the runtime's recenter), however far that is, through walls included.
+- The soldier is never moved by the head. The drawn body hangs from the head (body/torso tracks yaw only), but the game's
+  collision capsule stays at the soldier's own position.
+- So a lean out of a window is limited by (1) how close the capsule lets the soldier get to the wall plus how far the
+  player really leans, or (2) an offset from the LOCAL origin (standing behind it puts the whole view behind the soldier).
+  Which one the owner hit on 2026-11-12 needs the headset: pipe `lean` (branch `research/lean-report`) prints the head's
+  offset from the origin and the view's distance from the soldier's camera.
+- Fix directions: room-scale following (the soldier walks to keep under the head when the way is free; the view leans
+  past the capsule up to a limit when it is not), or only a fade past a lean limit if (1) turns out small.
