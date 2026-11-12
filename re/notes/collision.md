@@ -1,0 +1,51 @@
+# Soldier collision and walls (#53)
+
+Monitor run 2026-11-12, 23:38-23:50: BF4 campaign, Baku checkpoint ("Get Grenade Launcher"), the
+owner's deployed Release test build (research = 1), no headset (theater waiting for one). The soldier
+was walked with the pipe's virtual pad; the feet position comes from the first-person rig
+(`ClientSoldierEntity+0x1E8` -> `+0x90` LinearTransform, translation at `+0xC0`).
+
+## Where the radius lives
+
+- `typeinfo_dump.py --class CharacterPhysicsData`: `+0x48 PhysicalRadius` (Float32), beside `Mass`
+  (`+0x40`), `MaxAscendAngle` (`+0x44`), `Poses` (`+0x18`, per stance: `EyePosition`,
+  `CollisionBoxMinExpand`/`MaxExpand`, `Height`, `CollisionType`) and `AutoPushAwayFromWallsInProne`.
+- Live chain: local soldier `[0x14230F260]` -> `+0x30` SoldierEntityData -> `+0x118`
+  CharacterPhysicsData -> `+0x48` radius = **0.35** (Mass 100.00, MaxAscendAngle 50.00). After a
+  checkpoint restart the new soldier object pointed at the **same** data asset (`0x16892F4B0`).
+- No copy of 0.35 sat in CharacterPhysicsEntity (`soldier+0x1B8`, 0x2A0 bytes), the
+  BFClientSoldierPhysicsComponent (`+0x148`) or the soldier itself: the live shape is probably inside
+  the physics engine.
+
+## Wall test (raw)
+
+Same path both times: from the checkpoint spawn, stick forward 3 s, then 1.5 s, into an inside corner.
+
+```
+r = 0.35 (default)
+start                              feet -435.669  397.490 -649.687
+pushed forward                     feet -433.172  397.999 -639.967   moved 10.035 m
+pushed again                       feet -431.576  397.881 -637.690   moved 2.781 m
+another push                                                          moved 0.017 m   (stopped)
+poke radius 0.10 (live)            -> a push moved 0.005 m, then 0.001 m          (no effect)
+
+checkpoint restart, radius still 0.10
+start                              feet -435.669  397.490 -649.687
+pushed forward                     feet -433.313  398.124 -639.725   moved 10.236 m
+pushed again                       feet -431.579  397.852 -637.358   moved 2.934 m
+another push                                                          moved 0.004 m   (stopped)
+```
+
+- With 0.10 the soldier stopped **0.33 m further into the corner** (z -637.690 -> -637.358).
+- The radius is read when the soldier spawns: a live write did nothing, a checkpoint restart applied it.
+- Restored to 0.35 and the game closed afterwards; the deployed DLL and bfvr.ini were unchanged
+  (hashes compared with backups).
+
+## For the mod
+
+- A setting can write the radius into the data asset as soon as the soldier is known. It then applies
+  from the next spawn: a checkpoint restart, a death, the next level's soldier if the asset is
+  written again there. The first spawn of a level keeps 0.35 unless the write happens before it (or
+  the code that reads `+0x48` at spawn is hooked: not found yet).
+- Smaller radii also let the soldier stand closer to doors, props and companions; how far to go needs
+  the headset (lean out of a window with 0.15-0.20).
