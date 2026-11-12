@@ -102,10 +102,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - Do not write C++ through shell heredocs or Python string replacement: `\n` and `\0` escapes became real
   line breaks and NUL bytes. Use the file write/edit tools for source files.
 - The command permission check sometimes returns no verdict; the same command usually passes on a retry.
-- Weapon switches did not happen on a headset-less debug run (2026-11-12, #49; level at 4-16 fps, Ghidra busy
-  beside it): `holster` showed `failed=1..6` and the log `holsters: secondary: no switch` (03:32-03:33), and a
-  150 ms pad Y did not switch either; snap-turn flicks of 250 ms were also missed, while a held stick walked.
-  Cause not established (short inputs at low fps, or no secondary in that checkpoint). Check weapon switches
-  in the headset, not with `fakehand` on such a run.
+- Unverified (2026-11-12, #49): on a headset-less debug run (level at 4-16 fps, Ghidra busy beside it) the
+  hip holster's switch never happened (`holster`: `failed=1..6`, log `holsters: secondary: no switch`), while a
+  held stick walked. Cause not established; do not judge weapon switches from such a run.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

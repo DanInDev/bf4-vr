@@ -698,7 +698,7 @@ namespace bfvr::weapon
 		if (result.draw != holster::none)
 		{
 			const slot_state slot = read_slot();
-			switch (draw_for(slot.valid && already(result.draw, slot), dropped_now.load()))
+			switch (draw_for(slot.valid && already(result.draw, slot), dropped_now.load() && last_slung))
 			{
 			case draw_action::switch_weapon:
 				request(result.draw, now);
@@ -706,7 +706,7 @@ namespace bfvr::weapon
 			case draw_action::take_into_hand:
 				holster_take = true;
 				last_result = "taken from its holster";
-				log::write("holsters: %s taken from its holster (it was out of the hand)", holster_name(result.draw));
+				log::write("holsters: %s taken from its holster (it hung on the sling)", holster_name(result.draw));
 				break;
 			case draw_action::none:
 				last_result = "already in hand";

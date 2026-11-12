@@ -318,7 +318,14 @@ void test_holster_take()
 		r = hands.update(f);
 	}
 	expect(!r.dropped && r.event == free_hands_event::none, "held while the grip stays closed");
-	// From the floor too (sling off), and a busy grip never takes it.
+	// Letting go after the take puts it back on the sling, as any held gun.
+	expect(steps_to_drop(hands, f) > 0 && hands.update(f).slung, "let go after the take: back on the sling");
+	// A busy grip (a grenade pin, the panel) never takes it.
+	f.grip = true;
+	f.holster_take = true;
+	f.busy = true;
+	expect(hands.update(f).dropped, "a busy grip does not take it");
+	// Only off the sling: a gun lying on the floor (sling off) stays there; it is picked up where it lies.
 	free_hands floor;
 	free_hands_frame g = holding();
 	floor.update(g);
@@ -328,17 +335,8 @@ void test_holster_take()
 	}
 	g.grip = true;
 	g.holster_take = true;
-	g.busy = true;
-	expect(floor.update(g).dropped, "a busy grip (a grenade pin, the panel) does not take it");
-	g.busy = false;
-	g.grip = false;
-	floor.update(g);
-	g.grip = true;
 	r = floor.update(g);
-	expect(r.event == free_hands_event::picked_up && !r.dropped, "from the floor as well");
-	// Letting go after the take drops it again, as any held gun.
-	g.holster_take = false;
-	expect(steps_to_drop(floor, g) > 0, "let go after the take: it drops as before");
+	expect(r.dropped && r.event == free_hands_event::none, "a gun on the floor is not recalled by its holster");
 }
 
 // #49: drawing another weapon in one held grab. The grip is pressed at the holster (claimed there: busy),
