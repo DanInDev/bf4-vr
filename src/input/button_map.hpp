@@ -49,7 +49,8 @@ namespace bfvr::input
 
 	struct button_map
 	{
-		pad_button target[quest_button_count]{ pad_button::a, pad_button::b, pad_button::x, pad_button::y,
+		// #48: Y gives the fire mode; weapons change by the holster gesture, not a button.
+		pad_button target[quest_button_count]{ pad_button::a, pad_button::b, pad_button::x, pad_button::dpad_down,
 			pad_button::left_stick, pad_button::right_stick, pad_button::start };
 		bool operator==(const button_map&) const = default;
 	};
@@ -58,6 +59,9 @@ namespace bfvr::input
 	std::uint16_t xinput_bit(pad_button button);
 	// The pad buttons pressed by the held Quest buttons.
 	std::uint16_t pad_buttons(const button_map& map, const bool (&held)[quest_button_count]);
+	// Left-handed (#9): A with X, B with Y and the stick clicks trade places before the mapping, so a
+	// binding follows the role, not the physical button. The menu button stays.
+	void mirror_held(bool (&held)[quest_button_count]);
 
 	// Setting names and values: bind_a ... bind_menu, values "a", "dpad_up", "none" ...
 	std::string_view setting_name(quest_button button);

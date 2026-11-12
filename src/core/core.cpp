@@ -132,8 +132,8 @@ namespace bfvr::core
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
 			}
 			input::set_neutral_pitch(store.boolean("neutral_pitch", false));
-			input::set_controller_aim(true);
-			body::set_gun_on_ray(true);
+			input::set_controller_aim(store.text("aim", "controller") == "controller");
+			body::set_gun_on_ray(store.text("gun_pose", "aim") != "animated");
 			const std::string move = store.text("move_direction", "head");
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
@@ -265,7 +265,7 @@ namespace bfvr::core
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::physical_pad_report() + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
-				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0") + " held_grenade_frames=" + std::to_string(vr.held_grenade_frames) + " sight_dot_frames=" + std::to_string(vr.sight_dot_frames)
+				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0") + " sight_dot_frames=" + std::to_string(vr.sight_dot_frames)
 				+ "\nxr_focus session=" + (vr.session_state_name ? vr.session_state_name : "-") + " input_focus=" + (vr.input_focus ? "1" : "0")
 				+ " focus_losses=" + std::to_string(vr.focus_losses) + " unfocused_s=" + std::to_string(static_cast<int>(vr.unfocused_seconds))
 				+ (vr.session_state_name && !vr.input_focus && std::strcmp(vr.session_state_name, "VISIBLE") == 0 ? " (SteamVR has the controllers)" : "");

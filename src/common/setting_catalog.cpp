@@ -67,7 +67,9 @@ namespace bfvr::settings
 			{ "use_reach", "Weapon", "Hands and melee", "Reach to use", "Off hand ahead + grip: pick up, doors", "" },
 			{ "melee_gesture", "Weapon", "Hands and melee", "Stab by thrusting", "A quick push of the gun hand", "" },
 			{ "squad_signal", "Weapon", "Hands and melee", "Squad order by hand", "Off hand up above your eyes + grip", "" },
-			{ "aim_convergence", "Weapon", "Aiming", "Aim convergence", "Metres where shots meet the barrel line", "", true },
+			{ "aim", "Weapon", "Aiming", "Aim with", "Research: the gun hand, or the view", "controller=Controller|head=Head", true },
+			{ "gun_pose", "Weapon", "Aiming", "Gun pose", "Research: on the controller ray, or the game's", "aim=On the ray|animated=Animated", true },
+			{ "aim_convergence","Weapon", "Aiming", "Aim convergence", "Metres where shots meet the barrel line", "", true },
 			{ "knife_pitch", "Weapon", "Hands and melee", "Knife angle", "Degrees the blade is raised", "", true },
 			{ "knife_yaw", "Weapon", "Hands and melee", "Knife turn", "Degrees turned left or right", "", true },
 			{ "knife_roll", "Weapon", "Hands and melee", "Knife roll", "Degrees rolled about the blade", "", true },
@@ -96,7 +98,7 @@ namespace bfvr::settings
 			{ "hud_ammo_width", "HUD", "Placement", "Ammo counter size", "Metres beside the gun", "", true },
 
 			// Controls
-			{ "controls_preset", "Controls", "Buttons", "Button layout", "A preset, or your own below", "default=Default|jump_on_b=Jump on B|fire_mode_on_y=Fire mode on Y|custom=Custom" },
+			{ "controls_preset", "Controls", "Buttons", "Button layout", "A preset, or your own below", "default=Default|jump_on_b=Jump on B|custom=Custom" },
 			{ "bind_a", "Controls", "Buttons", "Right A", "", "" },
 			{ "bind_b", "Controls", "Buttons", "Right B", "", "" },
 			{ "bind_x", "Controls", "Buttons", "Left X", "", "" },

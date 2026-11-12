@@ -107,8 +107,9 @@ physical_stance = 0
 # clicks) and swaps the hand roles (gun arm, aim, ammo gesture; minimap on the right forearm).
 dominant_hand = right
 # Controller mapping: which pad button each Quest button presses (the game and the mod both follow it).
-# controls_preset = default | jump_on_b (A reloads, B jumps) | fire_mode_on_y (X switches weapon, Y
-# fire mode) | custom; choosing a preset writes the bind_ lines, changing one of them makes it custom.
+# controls_preset = default | jump_on_b (A reloads, B jumps) | custom; choosing a preset writes the
+# bind_ lines, changing one of them makes it custom. Weapons change at the holsters (#48): no preset
+# puts the game's weapon switch (y) on a button; Y gives the fire mode.
 # bind_* values: a b x y lb rb left_stick right_stick start back dpad_up dpad_down dpad_left dpad_right
 # none. Pad meanings: a jump, b reload/magazine release, x the game's menu, y switch weapon, lb grenade,
 # left_stick sprint, right_stick melee, start pause (held: the bf-vr panel), dpad_up laser/light/
@@ -118,7 +119,7 @@ controls_preset = default
 bind_a = a
 bind_b = b
 bind_x = x
-bind_y = y
+bind_y = dpad_down
 bind_left_stick = left_stick
 bind_right_stick = right_stick
 bind_menu = start

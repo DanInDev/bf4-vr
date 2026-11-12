@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "common/setting_catalog.hpp"
 #include "common/settings_store.hpp"
@@ -419,8 +420,7 @@ int main(int argc, char** argv)
 	// An old bfvr.ini still names them: they are not registered, so loading skips them.
 	for (const char* removed : { "two_handed", "two_hand_mode", "arm_reach", "body_shoulders", "finger_poses", "gun_life_size",
 			 "gun_fov_life_size", "steady_walk", "reticle_depth", "extra_meshes", "magazine_snap", "palm_reload", "game_sounds",
-			 "free_hand_reload", "grenade_model", "grenade_mesh", "pouch_models", "holsters", "knife_grip", "aim", "gun_pose",
-			 "aim_with_body", "shots_from_gun", "shot_line", "pause_flat", "focus_notice" })
+			 "free_hand_reload", "grenade_model", "grenade_mesh", "pouch_models", "holsters", "knife_grip", "aim_with_body", "shots_from_gun", "shot_line", "pause_flat", "focus_notice" })
 	{
 		if (settings::global().definition_of(removed) || settings::presentation_of(removed))
 		{
@@ -429,8 +429,11 @@ int main(int argc, char** argv)
 		}
 	}
 	{
-		const auto old_ini = [](const std::string& name) -> std::optional<std::string> {
-			return name == "holsters" || name == "two_hand_mode" ? std::optional<std::string>{ "0" } : std::nullopt;
+		// An old bfvr.ini that switched two of them off: the loader never asks for them, and warns about nothing.
+		std::vector<std::string> asked;
+		const auto old_ini = [&](const std::string& name) -> std::optional<std::string> {
+			asked.push_back(name);
+			return name == "holsters" || name == "two_hand_mode" ? std::optional<std::string>{ name == "holsters" ? "0" : "soft" } : std::nullopt;
 		};
 		settings::registry fresh;
 		for (const auto& item : settings::live_definitions())
@@ -438,7 +441,9 @@ int main(int argc, char** argv)
 			fresh.add(item);
 		}
 		expect(fresh.load(old_ini).empty(), "an old bfvr.ini with removed keys loads without warnings");
-		expect(fresh.boolean("holsters", true) && fresh.text("two_hand_mode", "lock") == "lock", "removed keys read as their fixed value");
+		expect(!asked.empty() && std::find(asked.begin(), asked.end(), "holsters") == asked.end()
+				&& std::find(asked.begin(), asked.end(), "two_hand_mode") == asked.end(),
+			"removed keys in an old bfvr.ini are never read");
 	}
 	expect(default_pages(settings::global()).front().title == "View", "no start-up page in the game's own panel");
 	{

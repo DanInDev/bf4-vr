@@ -343,9 +343,14 @@ namespace bfvr::xr
 		if (held(squeezes[0], left_grip_held_)) buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;
 		if (held(squeezes[1], right_grip_held_)) buttons |= XINPUT_GAMEPAD_RIGHT_SHOULDER;
 		// The face buttons, stick clicks and menu go through the controller mapping (input/button_map),
-		// on the physical buttons: the left-handed mirror below still swaps the roles afterwards.
-		const bool held[input::quest_button_count]{ read_bool(a_), read_bool(b_), read_bool(x_), read_bool(y_),
+		// left-handed with the roles swapped first, so a binding follows the role (the mirror below then
+		// swaps only the sticks, triggers and grips).
+		bool held[input::quest_button_count]{ read_bool(a_), read_bool(b_), read_bool(x_), read_bool(y_),
 			read_bool(left_stick_click_), read_bool(right_stick_click_), read_bool(start_) };
+		if (input::left_handed())
+		{
+			input::mirror_held(held);
+		}
 		buttons |= input::pad_buttons(input::current_button_map(), held);
 		pad.buttons = buttons;
 		return input::left_handed() ? input::mirrored(pad) : pad;

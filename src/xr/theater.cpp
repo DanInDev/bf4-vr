@@ -41,7 +41,6 @@
 #include "stereo/tracking.hpp"
 #include "body/arm_ik.hpp"
 #include "body/arm_pose.hpp"
-#include "ui/held_grenade.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/reticle.hpp"
 #include "ui/vignette.hpp"
@@ -847,9 +846,6 @@ namespace bfvr::xr
 		bool sight_dot_shown{}; // this frame: the aim reticle stays off (the sight has its dot)
 		std::atomic<std::uint64_t> sight_dot_layers{}; // frames with a sight dot submitted (pipe status)
 		cpu_overlay ring_overlay[2]{ { "grab zone" }, { "grab zone (hand inside)" } };
-		cpu_overlay grenade_overlay[2]{ { "held grenade" }, { "held grenade (armed)" } };
-		static constexpr std::uint32_t grenade_pixels_size = 128;
-		std::atomic<std::uint64_t> grenade_layers{}; // frames the held grenade was submitted (pipe status)
 		std::uint32_t max_layers{ 16 }; // the runtime's limit (OpenXR guarantees 16); more fails the frame
 		static constexpr std::uint32_t ring_pixels_size = 128;
 		ui::vignette comfort_vignette;
@@ -1219,7 +1215,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || !head.valid || !weapon::aim_point(point)
+			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
 				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;
@@ -2411,10 +2407,6 @@ namespace bfvr::xr
 			{
 				destroy_overlay(overlay);
 			}
-			for (cpu_overlay& overlay : grenade_overlay)
-			{
-				destroy_overlay(overlay);
-			}
 			destroy_pointer_swapchain();
 			if (stage_space != XR_NULL_HANDLE)
 			{
@@ -2594,6 +2586,6 @@ namespace bfvr::xr
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
 			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
 			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
-			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.grenade_layers.load(), s.sight_dot_layers.load() };
+			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.sight_dot_layers.load() };
 	}
 }

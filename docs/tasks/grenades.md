@@ -82,8 +82,10 @@ forward and up.
 throw, so the compositor shows one. `ui/held_grenade` paints a shaded M67 (body, yellow band, fuse, lever,
 and the pin ring until the pin is pulled) into a 128 px texture. It is a quad 11 cm wide at the off hand's palm
 (`weapon_points.palm[0]`). The quad faces the eye: a lit sphere looks the same from any side. Its roll keeps the
-fuse along the off hand's aim pose axis (0, 1, -0.4), as seen from the eye. Setting `grenade_model`
-(default on); pipe `status` counts `held_grenade_frames`. It is an overlay, so the fingers never cover it.
+fuse along the off hand's aim pose axis (0, 1, -0.4), as seen from the eye. It is an overlay, so the fingers
+never cover it. **Removed (#48, 2026-11-12):** the game's own 3D grenade (`stereo/extra_mesh`) replaced this
+stand-in; the theater no longer draws it and its settings `grenade_model` / `grenade_mesh` are gone. The
+engine-free `ui/held_grenade` texture and placement stay, with their test, for a future flat fallback.
 The texture and placement are unit-tested (`held_grenade`); how it looks in the hand is a headset row.
 
 **Not done / for the headset:** feel of the belt position, pin distance, throw threshold and scale;
