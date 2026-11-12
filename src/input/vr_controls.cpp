@@ -14,6 +14,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "input/move_steer.hpp"
 #include "input/right_stick.hpp"
 #include "stereo/tracking.hpp"
 
@@ -120,6 +121,12 @@ namespace bfvr::input
 		std::atomic<std::uint64_t> turns{};
 		std::atomic<move_reference> move_from{ move_reference::head };
 		std::atomic<float> move_rotation{};
+		// #52: sprint and vault toward the view (XInput thread writes, game thread reads).
+		std::atomic<bool> sprint_steer_on{ true };
+		move_steer steer;
+		LARGE_INTEGER steer_last{};
+		std::atomic<bool> steering{};
+		std::atomic<float> steering_yaw{};
 
 		// Yaw of a pose's forward (-z) in LOCAL, positive to the left; 0 when it points straight up/down.
 		float yaw_left(const stereo::pose& p)
@@ -282,11 +289,43 @@ namespace bfvr::input
 		}
 		const move_reference reference = move_from.load(std::memory_order_relaxed);
 		float angle = 0.0f;
+		bool steered = false;
 		if (reference != move_reference::body)
 		{
 			const stereo::head_sample head = stereo::latest_head_sample();
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
-			if (reference == move_reference::head && head.valid)
+			float body{};
+			if (reference == move_reference::head && head.valid && sprint_steer_on.load(std::memory_order_relaxed) && body_yaw_now(body))
+			{
+				// #52: the stick turned from the head into the soldier's frame (its aimer), and the soldier
+				// asked to face the move direction while sprinting or vaulting.
+				LARGE_INTEGER counter{}, frequency{};
+				QueryPerformanceCounter(&counter);
+				QueryPerformanceFrequency(&frequency);
+				steer_input in;
+				in.seconds = steer_last.QuadPart ? std::fmin(static_cast<float>(counter.QuadPart - steer_last.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+				steer_last = counter;
+				in.x = pad.left_x / 32767.0f;
+				in.y = pad.left_y / 32767.0f;
+				in.head_yaw = body + yaw_left(head.eyes[0]);
+				float aimer_yaw_now{}, aimer_pitch_now{};
+				in.soldier_yaw = aim_angles(aimer_yaw_now, aimer_pitch_now) ? -aimer_yaw_now : body; // camera yaw = -aimer yaw
+				in.sprint_click = (pad.buttons & XINPUT_GAMEPAD_LEFT_THUMB) != 0;
+				in.jump = (pad.buttons & XINPUT_GAMEPAD_A) != 0;
+				in.fire = pad.right_trigger > 128;
+				const steer_output out = steer.update(in);
+				const auto axis = [](float v) { return static_cast<std::int16_t>(std::lround(std::fmax(-1.0f, std::fmin(1.0f, v)) * 32767.0f)); };
+				pad.left_x = axis(out.x);
+				pad.left_y = axis(out.y);
+				steering_yaw = out.yaw;
+				if (steering.exchange(out.steer) != out.steer)
+				{
+					log::write("sprint steer: %s (yaw %.1f deg, %s)", out.steer ? "on" : "off", out.yaw * 57.29578f, out.sprinting ? "sprint" : out.steer ? "vault" : "-");
+				}
+				move_rotation = wrap_angle(in.head_yaw - in.soldier_yaw);
+				steered = true;
+			}
+			else if (reference == move_reference::head && head.valid)
 			{
 				angle = yaw_left(head.eyes[0]);
 			}
@@ -295,7 +334,15 @@ namespace bfvr::input
 				angle = yaw_left(hands.aim[1]);
 			}
 		}
-		move_rotation = angle;
+		if (!steered)
+		{
+			move_rotation = angle;
+			if (steering.exchange(false))
+			{
+				steer.reset();
+				log::write("sprint steer: off (not steering)");
+			}
+		}
 		if (angle != 0.0f)
 		{
 			// Stick x right, y forward: turning the frame left by angle turns the stick vector the same way.
@@ -480,6 +527,17 @@ namespace bfvr::input
 		return read(local_soldier() + 0x140, component) && component && read(component + 0x20, health) && std::isfinite(health);
 	}
 
+	void set_sprint_steer(bool enabled)
+	{
+		sprint_steer_on = enabled;
+	}
+
+	bool sprint_steer_yaw(float& yaw)
+	{
+		yaw = steering_yaw.load(std::memory_order_relaxed);
+		return sprint_steer_on.load(std::memory_order_relaxed) && steering.load(std::memory_order_relaxed) && std::isfinite(yaw);
+	}
+
 	void set_move_reference(move_reference reference)
 	{
 		move_from = reference;
@@ -532,6 +590,8 @@ namespace bfvr::input
 	}
 #else
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
+	void set_sprint_steer(bool) {}
+	bool sprint_steer_yaw(float&) { return false; }
 	void set_game_buttons(bool, bool, bool) {}
 	void set_item_left_trigger(bool) {}
 	void set_sight_aim(bool) {}

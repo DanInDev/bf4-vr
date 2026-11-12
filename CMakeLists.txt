@@ -105,6 +105,7 @@ add_library(bfvr_runtime STATIC
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
+	src/input/move_steer.cpp
 	src/safety/mp_guard.cpp
 	src/body/arm_ik.cpp
 	src/body/arm_pose.cpp
@@ -213,6 +214,8 @@ if(BFVR_BUILD_TESTS)
 	# Right-stick turn/stance state machine; exits non-zero on failure.
 	add_executable(bfvr_physical_stance_test tests/physical_stance_test.cpp src/input/physical_stance.cpp)
 	target_link_libraries(bfvr_physical_stance_test PRIVATE bfvr_common)
+	add_executable(bfvr_move_steer_test tests/move_steer_test.cpp src/input/move_steer.cpp)
+	target_link_libraries(bfvr_move_steer_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
 	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
 	# Where the shot line meets the scene, from the depth (the green dot's distance).
@@ -311,6 +314,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME settings COMMAND bfvr_settings_test)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
+	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME aim_depth COMMAND bfvr_aim_depth_test)

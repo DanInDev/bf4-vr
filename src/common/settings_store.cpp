@@ -107,6 +107,7 @@ namespace bfvr::settings
 			{ "scope_zoom", kind::real, 0.5f, 4.0f, 0.1f, "1", "", "scope magnification times the game's own (1 = the game's: the magnifier 1.7x)" },
 			{ "aim_convergence", kind::real, 2.0f, 100.0f, 1.0f, "25", "", "shots meet the barrel line this far away when the barrel points at nothing (the sky), metres" },
 			{ "move_direction", kind::choice, 0, 0, 0, "head", "head|gun|body", "left stick forward walks where your head faces, where the gun points, or along the body (the game's own way)" },
+			{ "sprint_steer", kind::boolean, 0, 0, 0, "1", "", "with move_direction = head: a sprint (left stick click, stick forward) or a forward jump turns the soldier, not the view, towards where you go, so the game sprints and vaults (#52)" },
 			{ "neutral_pitch", kind::boolean, 0, 0, 0, "0", "", "hold the game's aim pitch at 0: only the head pitches the view (level horizon)" },
 			{ "stance_flicks", kind::boolean, 0, 0, 0, "1", "", "right stick up/down changes stance (right_stick = turn)" },
 			{ "physical_stance", kind::boolean, 0, 0, 0, "0", "", "crouch or lie down in the room and the soldier does too; off when playing seated" },

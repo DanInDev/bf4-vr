@@ -221,6 +221,11 @@ gun_pose = aim
 # Left stick forward walks where your head faces (head), where the gun points (gun), or along the
 # body like the game does (body; turning in the room then walks the old way).
 move_direction = head
+# Sprint and vault where you look (#52, with move_direction = head): click the left stick with the stick
+# forward to sprint, or jump while pushing forward to vault; the soldier (not the view) turns to where
+# you go, so the game gets the straight push it needs. The gun is lowered in a sprint anyway; firing,
+# letting go of the stick or pushing more than 60 degrees aside ends it.
+sprint_steer = 1
 # The gun aims with the gun-hand controller: bullets leave the drawn gun along its barrel and land on
 # its sight's dot; the game's own aim stays with the body. Off hand + grip on the handguard holds the
 # gun with both hands, the barrel on the line between them (pipe `twohand`).

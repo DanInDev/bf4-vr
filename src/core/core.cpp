@@ -136,6 +136,7 @@ namespace bfvr::core
 			body::set_gun_on_ray(store.text("gun_pose", "aim") != "animated");
 			const std::string move = store.text("move_direction", "head");
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
+			input::set_sprint_steer(store.boolean("sprint_steer", true));
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(true);
