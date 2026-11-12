@@ -78,7 +78,7 @@ namespace bfvr::settings
 			{ "recoil", kind::real, 0.0f, 3.0f, 0.1f, "1", "", "the drawn gun kicks per shot by the gun's own recoil data (muzzle up and sideways, back along the barrel; softer two-handed), 0 = off; with shot_line = gun the shots follow the kick" },
 			{ "melee_gesture", kind::boolean, 0, 0, 0, "1", "", "a quick forward thrust of the gun hand is the game's melee (knife stab)" },
 			{ "knife_grip", kind::boolean, 0, 0, 0, "1", "", "with the knife out, the blade points where the gun-hand controller points (off: the game's knife-hand pose turned by the controller)" },
-			{ "knife_pitch", kind::real, -90.0f, 90.0f, 5.0f, "30", "", "knife_grip: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
+			{ "knife_pitch", kind::real, -180.0f, 180.0f, 5.0f, "30", "", "knife_grip: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
 			{ "knife_yaw", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "knife_grip: degrees the held knife is turned about the controller's up (+ = to the right)" },
 			{ "knife_roll", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "knife_grip: degrees the held knife is rolled about the controller ray (+ = clockwise seen from behind)" },
 			{ "use_reach", kind::boolean, 0, 0, 0, "1", "", "reach out ahead with the off hand (away from the gun) and squeeze its grip: the game's use (pick up, doors, prompts)" },
