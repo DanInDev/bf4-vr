@@ -18,6 +18,7 @@ namespace bfvr::weapon
 		bool enabled{};
 		bool gun_in_hand{};   // a primary or secondary is drawn (the only items that can drop)
 		bool weapon_changed{}; // a different weapon is now in hand
+		bool holster_take{};  // #49: the gun hand gripped at this gun's own holster: dropped or slung, it comes to the hand
 		bool hand_valid{};
 		v3 gun_hand;          // the gun hand's palm (grip point)
 		bool grip{};          // gun-hand grip held

@@ -131,7 +131,8 @@ namespace bfvr::weapon
 		}
 		const float dx = frame.gun_hand.x - position_.x, dy = frame.gun_hand.y - position_.y, dz = frame.gun_hand.z - position_.z;
 		const bool near = frame.hand_valid && std::sqrt(dx * dx + dy * dy + dz * dz) < (slung_ ? config_.sling_reach : config_.pickup_reach);
-		if (result.event == free_hands_event::none && pressed && near && !frame.busy)
+		// #49: the holster saw its own press (a frame earlier): the grip only has to be still closed.
+		if (result.event == free_hands_event::none && ((pressed && near) || (frame.holster_take && frame.grip)) && !frame.busy)
 		{
 			dropped_ = false;
 			slung_ = false;

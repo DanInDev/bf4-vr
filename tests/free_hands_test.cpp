@@ -286,6 +286,60 @@ void test_sling()
 
 // The off hand picks the dropped gun up by its pistol grip (#38): it holds and fires it; letting go drops
 // it again, and the gun hand can pick it up from there.
+// #49: with the hand empty (the selected gun on the sling or the floor), gripping at that gun's own holster
+// takes it into the hand there and then, wherever the gun hangs; held, it stays.
+void test_holster_take()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.sling = true;
+	f.sling_valid = true;
+	f.sling_at = { 0.1f, -0.5f, -0.12f };
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r;
+	for (int i = 0; i < 40 && r.event != free_hands_event::dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.dropped && r.slung, "let go: on the sling");
+	f.gun_hand = { 0.2f, 0.05f, 0.15f }; // over the shoulder, far from the sling
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.dropped && r.event == free_hands_event::none, "a grip far from the sling alone does not take it");
+	f.grip = false;
+	hands.update(f);
+	f.grip = true;
+	f.holster_take = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.slung && !r.block_fire, "a grip at its holster takes it into the hand");
+	f.holster_take = false;
+	f.gun_hand = { 0.2f, -0.3f, -0.3f }; // pulled out in front, grip held
+	for (int i = 0; i < 20; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(!r.dropped && r.event == free_hands_event::none, "held while the grip stays closed");
+	// From the floor too (sling off), and a busy grip never takes it.
+	free_hands floor;
+	free_hands_frame g = holding();
+	floor.update(g);
+	g.grip = false;
+	for (int i = 0; i < 40 && !floor.update(g).dropped; ++i)
+	{
+	}
+	g.grip = true;
+	g.holster_take = true;
+	g.busy = true;
+	expect(floor.update(g).dropped, "a busy grip (a grenade pin, the panel) does not take it");
+	g.busy = false;
+	g.grip = false;
+	floor.update(g);
+	g.grip = true;
+	r = floor.update(g);
+	expect(r.event == free_hands_event::picked_up && !r.dropped, "from the floor as well");
+}
+
 void test_off_hand_pickup()
 {
 	free_hands hands;
@@ -335,6 +389,7 @@ int main()
 {
 	test_sling();
 	test_off_hand_pickup();
+	test_holster_take();
 	test_drop_and_pick_up();
 	test_regrip_and_busy();
 	test_reset_cases();

@@ -157,6 +157,7 @@ namespace bfvr::weapon
 		bool last_grip_in_reach{};
 		float last_dropped_at[3]{};
 		bool last_slung{};
+		bool holster_take{}; // #49: the gun hand gripped at the out-of-hand selected weapon's holster (next frame's free hands)
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
 		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
@@ -558,7 +559,10 @@ namespace bfvr::weapon
 			drop.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 			drop.grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 			// The grip pulling a grenade pin, drawing from a holster or clicking the panel is not a release.
-			drop.busy = grenade_in_hand() || grip_claimed.load() || ui::vr_panel_view().open || reload_claims_free_hand();
+			// #49: a grip at the selected weapon's own holster takes that weapon (the claim is its own).
+			drop.holster_take = holster_take;
+			holster_take = false;
+			drop.busy = grenade_in_hand() || (grip_claimed.load() && !drop.holster_take) || ui::vr_panel_view().open || reload_claims_free_hand();
 			drop.floor_y = points.floor_y;
 			// #38: the off hand on the handguard keeps the gun when the gun hand lets go.
 			drop.off_holds = off_hand_holds_gun();
@@ -693,7 +697,21 @@ namespace bfvr::weapon
 		off_grip_claimed = result.off_zone != holster::none;
 		if (result.draw != holster::none)
 		{
-			request(result.draw, now);
+			const slot_state slot = read_slot();
+			switch (draw_for(slot.valid && already(result.draw, slot), dropped_now.load()))
+			{
+			case draw_action::switch_weapon:
+				request(result.draw, now);
+				break;
+			case draw_action::take_into_hand:
+				holster_take = true;
+				last_result = "taken from its holster";
+				log::write("holsters: %s taken from its holster (it was out of the hand)", holster_name(result.draw));
+				break;
+			case draw_action::none:
+				last_result = "already in hand";
+				break;
+			}
 		}
 #endif
 	}

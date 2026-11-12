@@ -89,4 +89,15 @@ namespace bfvr::weapon
 	};
 
 	const char* holster_name(holster which);
+
+	// #49: what a grip at a holster does. Another weapon: the game switches to it. The weapon already
+	// selected but out of the hand (on the sling or the floor, free hands): it comes to the hand at once.
+	// Already in the hand: nothing.
+	enum class draw_action
+	{
+		none,
+		switch_weapon,
+		take_into_hand,
+	};
+	draw_action draw_for(bool already_selected, bool out_of_hand);
 }

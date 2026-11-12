@@ -119,4 +119,13 @@ namespace bfvr::weapon
 		}
 		return "?";
 	}
+
+	draw_action draw_for(bool already_selected, bool out_of_hand)
+	{
+		if (!already_selected)
+		{
+			return draw_action::switch_weapon;
+		}
+		return out_of_hand ? draw_action::take_into_hand : draw_action::none;
+	}
 }

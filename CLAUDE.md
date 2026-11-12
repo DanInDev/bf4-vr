@@ -102,5 +102,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - Do not write C++ through shell heredocs or Python string replacement: `\n` and `\0` escapes became real
   line breaks and NUL bytes. Use the file write/edit tools for source files.
 - The command permission check sometimes returns no verdict; the same command usually passes on a retry.
+- Without the headset (no SteamVR session) the debug build runs the level at 4-10 fps; the game then misses
+  the mod's short key taps (holster draws send an 80 ms key), so `holster` reports "no switch". Check weapon
+  switches in the headset or a Release build, not with `fakehand` on a slow monitor run (2026-11-12, #49).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
