@@ -2191,12 +2191,19 @@ namespace bfvr::body
 					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load(), holster_knife_at[1].load(), holster_knife_at[2].load() });
 				// As in the hand (edit_arms: the blade along the controller's ray after knife_pitch), with that ray
 				// turned straight down (-90 degrees about x) and facing ahead with the body.
+				// The whole in-hand turn (knife_yaw, knife_roll, knife_pitch, edit_arms) so the blade lies along the
+				// downward ray with any tuning: with the pitch alone the owner's 145/-15/170 laid it sideways
+				// (monitor 2026-11-13).
 				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
 				const float pitch_half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
+				const float turn_half = -0.5f * knife_yaw.load(std::memory_order_relaxed);
+				const float roll_half = -0.5f * knife_roll.load(std::memory_order_relaxed);
 				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
 				const ik::quat down{ -0.70710678f, 0.0f, 0.0f, 0.70710678f };
 				const ik::quat level{ std::sin(pitch_half), 0, 0, std::cos(pitch_half) };
-				sheath.rotation = ik::normalize(frame * body_yaw * down * level * ik::quat{ 0, 0, 1, 0 });
+				const ik::quat turn{ 0, std::sin(turn_half), 0, std::cos(turn_half) };
+				const ik::quat roll{ 0, 0, std::sin(roll_half), std::cos(roll_half) };
+				sheath.rotation = ik::normalize(frame * body_yaw * down * turn * roll * level * ik::quat{ 0, 0, 1, 0 });
 				ik::bone_transform root = ik::compose(ik::inverse(local[0]), sheath);
 				root.scale = 1.0f;
 				float matrix[12];

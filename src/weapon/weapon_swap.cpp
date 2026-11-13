@@ -353,7 +353,7 @@ namespace bfvr::weapon
 				capture_attempts = 0;
 				press_capture_key(grenade ? grenade_key : knife_key, now);
 				grenade_capture = capture_stage::to_grenade;
-				capture_deadline = now + 2000;
+				capture_deadline = now + 4000; // slow frames: the knife came out after more than 2 s at 9 fps
 				log::write("%s capture: selecting the game's %s (from slot %d)", em::item_name(capture_item), em::item_name(capture_item), capture_from);
 				break;
 			}
@@ -368,9 +368,13 @@ namespace bfvr::weapon
 				}
 				else if (now > capture_deadline)
 				{
+					// The game may still switch late (the knife took longer than 2 s at 9 fps, 2026-11-13, and then
+					// stayed out): ask for the gun again either way; if it never left, that ends at once.
 					capture_result = capture_item == stereo::extra_mesh::captured::knife ? "the game did not select its knife" : "the game did not select its grenade";
-					grenade_capture = capture_stage::idle;
-					log::write("%s capture: %s", stereo::extra_mesh::item_name(capture_item), capture_result);
+					log::write("%s capture: %s; back to slot %d", stereo::extra_mesh::item_name(capture_item), capture_result, capture_from);
+					press_capture_key(gun_key(capture_from), now);
+					grenade_capture = capture_stage::back;
+					capture_deadline = now + 1200;
 				}
 				break;
 			}

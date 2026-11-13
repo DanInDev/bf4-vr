@@ -548,6 +548,19 @@ namespace bfvr::stereo::extra_mesh
 		std::mutex summary_lock;
 		std::string capture_summary; // the last capture's draws, for the pipe
 
+		// Render thread: an index buffer of the captured primary (#58), i.e. the rifle's own meshes.
+		bool primary_mesh(ID3D11Buffer* index_buffer)
+		{
+			for (const grenade_draw& rifle : captured_items[static_cast<int>(captured::primary)])
+			{
+				if (rifle.index_buffer.Get() == index_buffer)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
 		void get_views(ID3D11DeviceContext* context, bool pixel, ComPtr<ID3D11ShaderResourceView> (&out)[grenade_views])
 		{
 			ID3D11ShaderResourceView* views[grenade_views]{};
@@ -1131,12 +1144,16 @@ namespace bfvr::stereo::extra_mesh
 			}
 			++palettes_read;
 			unsigned tags = 0;
+			bool gun_mark = false;
 			for (int e = 0; e < palette::entries; ++e)
 			{
 				const float* entry = palette_data + e * palette::floats_per_entry;
 				tags |= palette::tagged(entry, magazine_tag) ? magazine_bit : grenade_entry(entry) ? grenade_bit : 0u;
-				capture_saw_gun = capture_saw_gun || (capturing_render && gun_entry(entry));
+				gun_mark = gun_mark || (capturing_render && gun_entry(entry));
 			}
+			// #41: the gun's mark on a mesh of the captured primary is the rifle still drawn during the switch; its
+			// draws are left out of the capture (finish_capture), so it does not spoil the whole capture.
+			capture_saw_gun = capture_saw_gun || (gun_mark && !primary_mesh(ib.Get()));
 			if (!known && known_meshes.size() < 512)
 			{
 				known_meshes.push_back({ ib.Get(), start_index, index_count, tags });
