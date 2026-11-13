@@ -71,8 +71,15 @@ itself** (the owner's report "after a respawn it automatically reloads itself").
   35 cm of a pickup, or of a hand at least 50 cm below the head over it (up to 1.2 m above, 50 cm around),
   holds R until the weapon in hand changes, the grip opens or 2 s pass, and only for a pickup within its
   radius of the head. These are the BF3 single-player mod's approved magnetic-take numbers (ideas only).
-  The off hand's use reach (E) stays off meanwhile. Unit test `weapon_pickup`. **Not yet run in the game:**
-  restarting would have lost the save with the AK at the soldier's feet.
+  The off hand's use reach (E) stays off meanwhile. Unit test `weapon_pickup`.
+- **Monitor, bundle build (2026-11-13 21:10):** the checkpoint kept the fight's 11 drops (census 11, usable 11,
+  scan 219 ms every 1.5 s). The LOCAL conversion matches the world: the mod's nearest pickup to the right palm
+  1.32 m, the world distance from the right wrist 1.33 m. The fake off hand lowered over the AK-12 (0.62 m from it,
+  0.9 m below the head) and squeezed: `pickup: take by the off hand (R held), 11 pickups near`, `pickup: taken`
+  0.35 s later, R up, `U_AK12` in slot 1 and in hand, physical reload on it (29 + 1). A squeeze 1.24 m from any
+  pickup: no R, the magazine untouched.
+- Test pitfall: `fakehand`'s positions are in OpenXR LOCAL, turned against the game's camera by the body yaw.
+  Find the axes first: place the hand at three points and read `arms` (`goal=` is the world position).
 - The BF3 mod instead hooks the game's interaction update and calls its own take for the gripped gun; that
   would pick the exact gun when two lie together (here the game picks the one it offers). Later, if needed.
 
