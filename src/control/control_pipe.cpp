@@ -562,7 +562,7 @@ namespace bfvr::control
 			const std::string command = line.substr(0, space);
 			const std::string argument = space == std::string::npos ? std::string() : line.substr(space + 1);
 
-			if (command == "status") return status();
+			if (command == "status") return status() + (safety::mod_disabled() ? "\nmod disabled (not a campaign level)" : "\nmod enabled");
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",

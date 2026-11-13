@@ -12,6 +12,7 @@
 
 #include "common/log.hpp"
 #include "input/gamepad.hpp"
+#include "safety/mp_rules.hpp"
 
 namespace bfvr::safety
 {
@@ -41,24 +42,31 @@ namespace bfvr::safety
 				&& done == sizeof(value);
 		}
 
-		std::string lower(std::string text)
-		{
-			for (char& c : text)
-			{
-				c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-			}
-			return text;
-		}
+		// BF3 1147186 (x86): ClientGameContext* global; +0x10 the current level, level+0x68 its path
+		// ("Levels/SP_Earthquake/SP_Earthquake"). Found and read live on 2026-11-11
+		// (bf3-vr re/notes/guard.md). No multiplayer flag is known there: the path and the command
+		// line decide.
+		constexpr std::uint32_t bf3_game_context_global = 0x02380B58;
 
 		level_info loaded_level()
 		{
 			level_info info;
-			std::uint64_t context = 0, level = 0, data = 0, path = 0;
+			std::uint64_t path = 0;
+#if defined(_M_X64)
+			std::uint64_t context = 0, level = 0, data = 0;
 			if (!read(game_context_global, context) || !read(context + 0x28, level) || !read(level + 0x38, data) || !read(data + 0x10, path)
 				|| !read(data + 0xa0, info.is_multiplayer))
 			{
 				return {};
 			}
+#else
+			std::uint32_t context = 0, level = 0, text_pointer = 0;
+			if (!read(bf3_game_context_global, context) || !read(context + 0x10, level) || !read(level + 0x68, text_pointer))
+			{
+				return {};
+			}
+			path = text_pointer;
+#endif
 			// Read only up to the end of the string's page: a full-size read would fail on a string
 			// near an uncommitted page and the level would go unchecked.
 			char text[128]{};
@@ -74,17 +82,6 @@ namespace bfvr::safety
 			return info;
 		}
 
-		bool campaign_level(const std::string& path)
-		{
-			return lower(path).rfind("levels/sp/", 0) == 0;
-		}
-
-		// The front end is the menu level shared with multiplayer; its IsMultiplayer flag is set.
-		bool front_end(const std::string& path)
-		{
-			return lower(path) == "levels/frontend/frontend";
-		}
-
 		void disable(const char* reason, const std::string& path)
 		{
 			disabled = true;
@@ -94,11 +91,41 @@ namespace bfvr::safety
 				MH_StatusToString(status));
 		}
 
+#if !defined(_M_X64)
+		// The BF3 addresses hold for one build only. On any other image the level could not be read and
+		// the guard would see "no level" for ever, so the mod is refused instead.
+		bool known_bf3_build()
+		{
+			constexpr std::uint32_t bf3_1147186_timestamp = 0x511C9356;
+			const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+			std::uint32_t pe = 0, timestamp = 0;
+			return read(base + 0x3C, pe) && read(base + pe + 8, timestamp) && timestamp == bf3_1147186_timestamp;
+		}
+#endif
+
 		DWORD WINAPI guard_thread(LPVOID)
 		{
 			std::string last_path;
+#if !defined(_M_X64)
+			if (!known_bf3_build())
+			{
+				disable("not Battlefield 3 build 1147186: the level cannot be checked", {});
+			}
+			bool context_seen = false;
+#endif
 			for (;;)
 			{
+#if !defined(_M_X64)
+				if (!disabled && !context_seen)
+				{
+					std::uint32_t context = 0;
+					if (read(bf3_game_context_global, context) && context != 0)
+					{
+						context_seen = true;
+						log::write("safety: level guard running (game context %08X)", context);
+					}
+				}
+#endif
 				if (disabled)
 				{
 					// A hook installed late (e.g. a wait-for-decryption thread) must not stay enabled.
@@ -107,23 +134,21 @@ namespace bfvr::safety
 					continue;
 				}
 				const level_info level = loaded_level();
-				campaign_active = !level.path.empty() && campaign_level(level.path) && level.is_multiplayer == 0;
-				if (!level.path.empty())
+				const level_kind kind = judge_level(built_game(), level.path);
+				campaign_active = kind == level_kind::campaign && level.is_multiplayer == 0;
+				if (kind != level_kind::none)
 				{
 					if (level.path != last_path)
 					{
 						log::write("safety: level %s (multiplayer flag %u)", level.path.c_str(), level.is_multiplayer);
 						last_path = level.path;
 					}
-					if (front_end(level.path))
-					{
-						// Menus are allowed; joining a server loads a non-campaign level next.
-					}
-					else if (!campaign_level(level.path))
+					// Menus are allowed; joining a server loads a non-campaign level next.
+					if (kind == level_kind::forbidden)
 					{
 						disable("level is not a campaign level", level.path);
 					}
-					else if (level.is_multiplayer != 0)
+					else if (kind == level_kind::campaign && level.is_multiplayer != 0)
 					{
 						disable("campaign level data is marked multiplayer", level.path);
 					}
@@ -135,23 +160,16 @@ namespace bfvr::safety
 
 	bool command_line_allows_mod()
 	{
-		const std::string line = lower(GetCommandLineA());
-		for (const char* marker : { "state_connecttogameid", "state_claimreservation", "-webmode mp" })
+		if (const char* reason = command_line_refusal(built_game(), GetCommandLineA()))
 		{
-			if (line.find(marker) != std::string::npos)
-			{
-				log::write("safety: multiplayer command line (%s); the mod stays off", marker);
-				return false;
-			}
+			log::write("safety: %s; the mod stays off", reason);
+			return false;
 		}
 		return true;
 	}
 
 	void start_multiplayer_guard()
 	{
-#if !defined(_M_X64)
-		log::write("safety: level guard targets BF4 x64 only; not running");
-#else
 		const HANDLE thread = CreateThread(nullptr, 0, &guard_thread, nullptr, 0, nullptr);
 		if (thread)
 		{
@@ -162,7 +180,6 @@ namespace bfvr::safety
 			// Without the guard the mod must not run at all.
 			disable("guard thread could not start", {});
 		}
-#endif
 	}
 
 	bool mod_disabled()

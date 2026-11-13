@@ -126,10 +126,11 @@ MinHook and the OpenXR loader are fetched by CMake. Presets: `bf4` (x64, the pro
 ### What the `bf3` preset is
 
 Both presets compile the same sources. All BF4 knowledge sits behind `#if defined(_M_X64)`, so the
-32-bit build is the engine-free part only: loader, settings, Present and XInput hooks, the flat
-theater screen and the control pipe. It has no camera, arms, HUD layer or weapon features, and
-**no level guard** (only the command-line check). Battlefield 3 work continues in its own
-repository, `bf3-vr`; the preset stays here so the shared code keeps building for x86.
+32-bit build is the engine-free part: loader, settings, Present and XInput hooks, the flat theater
+screen and the control pipe. It has no camera, arms, HUD layer or weapon features. Its one piece of
+Battlefield 3 knowledge is the multiplayer guard (`safety/`): the command line must ask for single
+player, the exe must be build 1147186, and the loaded level is read every 250 ms. The research for
+Battlefield 3 lives in its own repository, `bf3-vr`.
 
 ## Known debts
 

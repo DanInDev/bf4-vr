@@ -51,3 +51,11 @@ refuses to start on a multiplayer command line (`State_ConnectToGameId`, `State_
 MinHook hook for the rest of the process and blocks the pipe's commands except `status`.
 Verified in single-player only: front end and campaign allowed; a deliberate false trip disabled all
 hooks (theater idle) as intended.
+
+Battlefield 3 (32-bit build, 2026-11-11): the rules are in `src/safety/mp_rules.cpp` with the unit
+test `mp_rules`. The mod starts only when the command line asks for single player (`-webMode SP`,
+and `levelmode="sp"` when a level mode is given); co-op and matchmaking requests are refused for
+both games. The exe must be build 1147186, otherwise the mod disables itself, because the level
+could not be read. Allowed levels: `Levels/Web_Loading/Web_Loading`, `Levels/FrontEnd/FrontEnd`
+and `Levels/SP_*`. `pipe status` ends with `mod enabled` or `mod disabled (...)`. Verified in the
+campaign only (bf3-vr `re/notes/guard.md`); no co-op lobby or server was entered.
