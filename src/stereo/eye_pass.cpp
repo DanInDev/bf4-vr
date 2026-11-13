@@ -19,6 +19,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <d3dcompiler.h>
 #include <MinHook.h>
 
 #include "common/log.hpp"
@@ -126,6 +127,7 @@ namespace bfvr::stereo
 			const std::uint8_t* cpu{};
 			UINT size{};
 			ULONGLONG last_map{};
+			unsigned eye_discards{}; // maps with DISCARD since the current eye render began (#39 stray draws)
 		};
 		constexpr ULONGLONG arena_idle_ms = 1000;
 		std::mutex arena_lock;
@@ -257,7 +259,17 @@ namespace bfvr::stereo
 			}
 		}
 
-		void note_map(ID3D11Resource* resource, void* data)
+		// #39: second-eye bindings of an arena block after this render discarded the arena, which a copy made
+		// before the discard would have answered with another block (the stray gun pieces); discard_fix keys
+		// them apart (pipe eyefix).
+		std::atomic<std::uint64_t> stale_after_discard{};
+		std::atomic<bool> discard_fix{ true };
+		// Research (#39, stray gun pieces in the second eye): arena maps with DISCARD inside each eye render.
+		std::atomic<std::uint64_t> arena_discards_eye1{};
+		std::atomic<std::uint64_t> arena_discards_eye2{};
+		bool in_eye_render{}; // render thread: inside one of the eye renders
+
+		bool note_map(ID3D11Resource* resource, void* data, bool discard)
 		{
 			const std::lock_guard guard(arena_lock);
 			for (int i = 0; i < arena_count; ++i)
@@ -266,14 +278,15 @@ namespace bfvr::stereo
 				{
 					arenas[i].cpu = static_cast<const std::uint8_t*>(data);
 					arenas[i].last_map = GetTickCount64();
-					return;
+					arenas[i].eye_discards += discard && in_eye_render ? 1u : 0u;
+					return true;
 				}
 			}
 			D3D11_RESOURCE_DIMENSION dimension{};
 			resource->GetType(&dimension);
 			if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
 			{
-				return;
+				return false;
 			}
 			D3D11_BUFFER_DESC desc{};
 			static_cast<ID3D11Buffer*>(resource)->GetDesc(&desc);
@@ -295,6 +308,18 @@ namespace bfvr::stereo
 				}
 				arenas[slot_index] = { resource, static_cast<const std::uint8_t*>(data), desc.ByteWidth, GetTickCount64() };
 				log::write("eye pass: constant arena %p, %u bytes", static_cast<void*>(resource), desc.ByteWidth);
+				return true;
+			}
+			return false;
+		}
+
+		// The start of an eye render: no arena discarded in it yet.
+		void reset_eye_discards()
+		{
+			const std::lock_guard guard(arena_lock);
+			for (int i = 0; i < arena_count; ++i)
+			{
+				arenas[i].eye_discards = 0;
 			}
 		}
 
@@ -303,7 +328,11 @@ namespace bfvr::stereo
 			const HRESULT hr = original_map(c, r, s, type, flags, m);
 			if (SUCCEEDED(hr) && m && r && (type == D3D11_MAP_WRITE_NO_OVERWRITE || type == D3D11_MAP_WRITE_DISCARD))
 			{
-				note_map(r, m->pData);
+				const bool arena = note_map(r, m->pData, type == D3D11_MAP_WRITE_DISCARD);
+				if (arena && type == D3D11_MAP_WRITE_DISCARD && in_eye_render)
+				{
+					++(patching ? arena_discards_eye2 : arena_discards_eye1);
+				}
 			}
 			return hr;
 		}
@@ -616,7 +645,26 @@ namespace bfvr::stereo
 			{
 				return ~0u;
 			}
-			const std::uint64_t key = block_key(buffer, first);
+			// #39: after this render discarded the arena, an offset holds a block written since then, not the one the
+			// first eye bound there: the copies made before (prepared from the first eye, or cached earlier in this
+			// render) must not answer it. The discards are part of the key (none: the prepared keys).
+			unsigned discards = 0;
+			{
+				const std::lock_guard guard(arena_lock);
+				for (int i = 0; i < arena_count; ++i)
+				{
+					if (arenas[i].buffer.Get() == buffer)
+					{
+						discards = arenas[i].eye_discards;
+					}
+				}
+			}
+			const std::uint64_t plain_key = block_key(buffer, first);
+			if (discards && patched_blocks.count(plain_key))
+			{
+				++stale_after_discard;
+			}
+			const std::uint64_t key = discard_fix.load(std::memory_order_relaxed) ? plain_key ^ (static_cast<std::uint64_t>(discards & 0xf) << 60) : plain_key;
 			if (const auto found = patched_blocks.find(key); found != patched_blocks.end())
 			{
 				return found->second;
@@ -788,7 +836,6 @@ namespace bfvr::stereo
 		constexpr int hide_shader_count = 64;
 		std::atomic<std::uintptr_t> hide_shaders[hide_shader_count]{};
 		std::atomic<bool> hide_plain{};
-		bool in_eye_render{}; // render thread: inside one of the eye renders
 		struct plain_draw
 		{
 			std::uintptr_t shader{};
@@ -891,6 +938,550 @@ namespace bfvr::stereo
 			return index >= skip_from.load(std::memory_order_relaxed) && index < skip_to.load(std::memory_order_relaxed);
 		}
 
+		// sight_reticle (#39): with the zoom mesh shown the game draws an optic's reticle as one quad at the lens
+		// (6 indices, stencil reference 2, the frame's last draw), and its pixel shader places the picture by
+		// the pixel's position times the inverse screen size of the per-view block: at the screen's centre.
+		// So the reticle follows the head. Drawn with a copy of that block whose inverse size puts the anchor
+		// on the sight line, it stays on the sight, the same in both eyes (re/notes/weapon.md).
+		constexpr UINT reticle_indices = 6;
+		constexpr UINT reticle_stencil = 2;
+		std::atomic<bool> reticle_valid{};
+		std::atomic<float> reticle_tan[2]{};     // the sight line in the rendered eye's view space: x/-z, y/-z
+		std::atomic<int> reticle_forced{};       // research: 1 = reticle_forced_tan instead
+		std::atomic<float> reticle_forced_tan[2]{};
+		std::atomic<std::uint64_t> reticle_draws{};
+		std::atomic<std::uint64_t> reticle_moved{};
+
+		// Research (pipe "reticle dump <file>"): every indexed draw of one first-eye render that has the
+		// stencil test on, with its depth-stencil, blend, scissor and viewport state.
+		std::atomic<int> state_dump{}; // 1 = armed, 2 = collecting, 3 = done
+		std::mutex state_dump_lock;
+		std::vector<std::string> state_dump_lines;
+		UINT state_dump_index{};
+
+		void begin_state_dump()
+		{
+			int armed = 1;
+			if (state_dump.compare_exchange_strong(armed, 2))
+			{
+				const std::lock_guard guard(state_dump_lock);
+				state_dump_lines.clear();
+				state_dump_index = 0;
+			}
+		}
+
+		void end_state_dump()
+		{
+			int running = 2;
+			state_dump.compare_exchange_strong(running, 3);
+		}
+
+		void dump_draw_state(ID3D11DeviceContext* c, UINT count, UINT start)
+		{
+			if (state_dump.load(std::memory_order_relaxed) != 2 || !in_eye_render)
+			{
+				return;
+			}
+			const UINT index = state_dump_index++;
+			ComPtr<ID3D11DepthStencilState> state;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&state, &reference);
+			D3D11_DEPTH_STENCIL_DESC d{};
+			if (state)
+			{
+				state->GetDesc(&d);
+			}
+			if (!state || !d.StencilEnable)
+			{
+				return;
+			}
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT mask = 0;
+			c->OMGetBlendState(&blend, factor, &mask);
+			D3D11_BLEND_DESC b{};
+			if (blend)
+			{
+				blend->GetDesc(&b);
+			}
+			ComPtr<ID3D11RasterizerState> raster;
+			c->RSGetState(&raster);
+			D3D11_RASTERIZER_DESC r{};
+			if (raster)
+			{
+				raster->GetDesc(&r);
+			}
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			c->RSGetViewports(&viewports, &viewport);
+			D3D11_RECT scissor{};
+			UINT scissors = 1;
+			c->RSGetScissorRects(&scissors, &scissor);
+			ComPtr<ID3D11PixelShader> shader;
+			c->PSGetShader(&shader, nullptr, nullptr);
+			ComPtr<ID3D11RenderTargetView> target;
+			ComPtr<ID3D11DepthStencilView> depth;
+			c->OMGetRenderTargets(1, &target, &depth);
+			char text[512];
+			std::snprintf(text, sizeof(text),
+				"%u idx %u start %u ps %p rtv %p dsv %p | ref %u depth en %d write %d func %d | stencil rmask %02x wmask %02x front func %d pass %d fail %d zfail %d back func %d pass %d"
+				" | blend %d src %d dst %d op %d wm %x | cull %d scissor %d (%ld %ld %ld %ld) | vp %.0f %.0f %.0f %.0f z %.3f %.3f",
+				index, count, start, static_cast<void*>(shader.Get()), static_cast<void*>(target.Get()), static_cast<void*>(depth.Get()), reference, d.DepthEnable ? 1 : 0,
+				static_cast<int>(d.DepthWriteMask), static_cast<int>(d.DepthFunc), d.StencilReadMask, d.StencilWriteMask, static_cast<int>(d.FrontFace.StencilFunc),
+				static_cast<int>(d.FrontFace.StencilPassOp), static_cast<int>(d.FrontFace.StencilFailOp), static_cast<int>(d.FrontFace.StencilDepthFailOp),
+				static_cast<int>(d.BackFace.StencilFunc), static_cast<int>(d.BackFace.StencilPassOp), b.RenderTarget[0].BlendEnable ? 1 : 0,
+				static_cast<int>(b.RenderTarget[0].SrcBlend), static_cast<int>(b.RenderTarget[0].DestBlend), static_cast<int>(b.RenderTarget[0].BlendOp),
+				static_cast<unsigned>(b.RenderTarget[0].RenderTargetWriteMask), static_cast<int>(r.CullMode), r.ScissorEnable ? 1 : 0, scissor.left, scissor.top, scissor.right,
+				scissor.bottom, viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height, viewport.MinDepth, viewport.MaxDepth);
+			const std::lock_guard guard(state_dump_lock);
+			if (state_dump_lines.size() < 4000)
+			{
+				state_dump_lines.emplace_back(text);
+			}
+		}
+
+		// The reticle's quad: 6 indices, blended, colour written, no depth write, stencil reference 2.
+		bool reticle_draw(ID3D11DeviceContext* c, UINT count)
+		{
+			if (!in_eye_render || scope_rendering || count != reticle_indices)
+			{
+				return false;
+			}
+			ComPtr<ID3D11DepthStencilState> state;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&state, &reference);
+			if (!state || reference != reticle_stencil)
+			{
+				return false;
+			}
+			D3D11_DEPTH_STENCIL_DESC desc{};
+			state->GetDesc(&desc);
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT sample_mask = 0;
+			c->OMGetBlendState(&blend, factor, &sample_mask);
+			if (!desc.StencilEnable || desc.DepthWriteMask != D3D11_DEPTH_WRITE_MASK_ZERO || !blend)
+			{
+				return false;
+			}
+			D3D11_BLEND_DESC blending{};
+			blend->GetDesc(&blending);
+			return blending.RenderTarget[0].BlendEnable && blending.RenderTarget[0].RenderTargetWriteMask != 0;
+		}
+
+		// The quad drawn with its own copy of the per-view block (VS and PS slot 2) in which the inverse
+		// screen size (+0x18, +0x1C) puts the picture's anchor, 0.5 / inverse, on the sight line.
+		constexpr UINT per_view_slot = 2;
+		constexpr UINT per_view_bytes = 512;
+		constexpr UINT inverse_size_offset = 0x18;
+		ComPtr<ID3D11Buffer> reticle_block;  // the copy
+		ComPtr<ID3D11Buffer> reticle_values; // the two floats, as a copy source
+
+		bool draw_reticle_anchored(ID3D11DeviceContext* c, UINT count, UINT start, INT base, float tx, float ty)
+		{
+			ComPtr<ID3D11DeviceContext1> c1;
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			c->RSGetViewports(&viewports, &viewport);
+			if (FAILED(c->QueryInterface(IID_PPV_ARGS(&c1))) || viewports != 1 || viewport.Width < 16.0f || viewport.Height < 16.0f
+				|| !original_vs_set_constant_buffers1 || !original_ps_set_constant_buffers1)
+			{
+				return false;
+			}
+			ComPtr<ID3D11Buffer> vs_buffer, ps_buffer;
+			UINT vs_first = 0, vs_count = 0, ps_first = 0, ps_count = 0;
+			c1->VSGetConstantBuffers1(per_view_slot, 1, &vs_buffer, &vs_first, &vs_count);
+			c1->PSGetConstantBuffers1(per_view_slot, 1, &ps_buffer, &ps_first, &ps_count);
+			if (!ps_buffer || ps_count * 16 < per_view_bytes)
+			{
+				return false;
+			}
+			D3D11_BUFFER_DESC source{};
+			ps_buffer->GetDesc(&source);
+			if (ps_first * 16 + per_view_bytes > source.ByteWidth)
+			{
+				return false;
+			}
+			if (!reticle_block || !reticle_values)
+			{
+				ComPtr<ID3D11Device> device;
+				c->GetDevice(&device);
+				D3D11_BUFFER_DESC desc{};
+				desc.ByteWidth = per_view_bytes;
+				desc.Usage = D3D11_USAGE_DEFAULT;
+				desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+				D3D11_BUFFER_DESC values = desc;
+				values.ByteWidth = 16;
+				values.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+				if (FAILED(device->CreateBuffer(&desc, nullptr, &reticle_block)) || FAILED(device->CreateBuffer(&values, nullptr, &reticle_values)))
+				{
+					reticle_block.Reset();
+					reticle_values.Reset();
+					return false;
+				}
+			}
+			// The anchor moves by the sight line's place on screen: x right, y down.
+			const float dx = tx * projection_sx * 0.5f * viewport.Width;
+			const float dy = -ty * projection_sy * 0.5f * viewport.Height;
+			const float inverse[4]{ 1.0f / std::fmax(viewport.Width + 2.0f * dx, 16.0f), 1.0f / std::fmax(viewport.Height + 2.0f * dy, 16.0f), 0.0f, 0.0f };
+			c->UpdateSubresource(reticle_values.Get(), 0, nullptr, inverse, 0, 0);
+			const UINT from = ps_first * 16;
+			const D3D11_BOX head{ from, 0, 0, from + inverse_size_offset, 1, 1 };
+			const D3D11_BOX two{ 0, 0, 0, 8, 1, 1 };
+			const D3D11_BOX tail{ from + inverse_size_offset + 8, 0, 0, from + per_view_bytes, 1, 1 };
+			c->CopySubresourceRegion(reticle_block.Get(), 0, 0, 0, 0, ps_buffer.Get(), 0, &head);
+			c->CopySubresourceRegion(reticle_block.Get(), 0, inverse_size_offset, 0, 0, reticle_values.Get(), 0, &two);
+			c->CopySubresourceRegion(reticle_block.Get(), 0, inverse_size_offset + 8, 0, 0, ps_buffer.Get(), 0, &tail);
+			ID3D11Buffer* own = reticle_block.Get();
+			const UINT zero = 0, whole = per_view_bytes / 16;
+			const bool same = vs_buffer.Get() == ps_buffer.Get() && vs_first == ps_first;
+			original_ps_set_constant_buffers1(c, per_view_slot, 1, &own, &zero, &whole);
+			if (same)
+			{
+				original_vs_set_constant_buffers1(c, per_view_slot, 1, &own, &zero, &whole);
+			}
+			original_draw_indexed(c, count, start, base);
+			ID3D11Buffer* ps_back = ps_buffer.Get();
+			original_ps_set_constant_buffers1(c, per_view_slot, 1, &ps_back, &ps_first, &ps_count);
+			if (same)
+			{
+				ID3D11Buffer* vs_back = vs_buffer.Get();
+				original_vs_set_constant_buffers1(c, per_view_slot, 1, &vs_back, &vs_first, &vs_count);
+			}
+			return true;
+		}
+
+		// #39 step 3 (setting scope_in_frame): the magnifier's picture drawn in the game's frame at its lens, just
+		// before the game's reticle quad, with that quad's stencil test (the lens mask: reference 2), so the glass
+		// cuts it and it sits where each eye's own image has the optic. Before, an OpenXR quad showed it, composited
+		// apart from the frame (11-20 degrees off in the right eye in the headset, 2026-11-12).
+		std::atomic<bool> scope_in_frame_on{ true };
+		std::mutex lens_eye_lock;
+		pose lens_eye;            // the first eye as this frame renders it (camera_hook), OpenXR LOCAL
+		bool lens_eye_valid{};
+		std::atomic<std::uint64_t> lens_draws{};
+		std::atomic<std::uint64_t> lens_skipped{};
+		// Research (pipe lensfix <dx eye 1> <dx eye 2>): metres added to each eye's view x; and what the last
+		// draw of each eye used, for the report.
+		std::atomic<float> lens_extra_dx[2]{};
+		std::mutex lens_debug_lock;
+		float lens_debug_eye[2][3]{};
+		float lens_debug_centre[2][4]{}; // the lens centre in view space, and its ndc x
+		float lens_debug_quad[3]{};
+		const char lens_shader[] = R"(
+cbuffer corners : register(b0) { float4 clip[4]; };
+Texture2D picture : register(t0);
+SamplerState linear_clamp : register(s0);
+struct v2p { float4 position : SV_Position; float2 uv : TEXCOORD0; };
+v2p vs(uint id : SV_VertexID)
+{
+	v2p o;
+	o.position = clip[id];
+	o.uv = float2(id & 1, id >> 1);
+	return o;
+}
+float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
+)";
+		struct lens_resources
+		{
+			ComPtr<ID3D11Device> device;
+			ComPtr<ID3D11VertexShader> vs;
+			ComPtr<ID3D11PixelShader> ps;
+			ComPtr<ID3D11Buffer> corners;
+			ComPtr<ID3D11SamplerState> sampler;
+			ComPtr<ID3D11BlendState> blend;
+			ComPtr<ID3D11RasterizerState> raster;
+			ID3D11Resource* target{};
+			ComPtr<ID3D11RenderTargetView> target_view;
+			ID3D11Texture2D* texture{};
+			ComPtr<ID3D11ShaderResourceView> view;
+			bool failed{};
+		} lens;
+
+		bool lens_pipeline(ID3D11DeviceContext* c)
+		{
+			ComPtr<ID3D11Device> device;
+			c->GetDevice(&device);
+			if (lens.failed || !device)
+			{
+				return false;
+			}
+			if (lens.device.Get() == device.Get() && lens.ps)
+			{
+				return true;
+			}
+			lens = {};
+			lens.device = device;
+			ComPtr<ID3DBlob> vs, ps, messages;
+			if (FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &vs, &messages))
+				|| FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &ps, &messages)))
+			{
+				log::write("eye pass: lens shader failed: %s", messages ? static_cast<const char*>(messages->GetBufferPointer()) : "");
+				lens.failed = true;
+				return false;
+			}
+			D3D11_BUFFER_DESC buffer{};
+			buffer.ByteWidth = 16 * 16; // VSSetConstantBuffers1 binds whole multiples of 16 constants
+			buffer.Usage = D3D11_USAGE_DEFAULT;
+			buffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			D3D11_SAMPLER_DESC sampler{};
+			sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+			sampler.MaxLOD = D3D11_FLOAT32_MAX;
+			D3D11_BLEND_DESC blend{};
+			blend.RenderTarget[0].BlendEnable = TRUE; // the picture is premultiplied (scope_compose)
+			blend.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+			blend.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+			blend.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+			blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+			blend.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+			blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_RED | D3D11_COLOR_WRITE_ENABLE_GREEN | D3D11_COLOR_WRITE_ENABLE_BLUE;
+			D3D11_RASTERIZER_DESC raster{};
+			raster.FillMode = D3D11_FILL_SOLID;
+			raster.CullMode = D3D11_CULL_NONE;
+			raster.DepthClipEnable = FALSE;
+			if (FAILED(device->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, &lens.vs))
+				|| FAILED(device->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, &lens.ps))
+				|| FAILED(device->CreateBuffer(&buffer, nullptr, &lens.corners)) || FAILED(device->CreateSamplerState(&sampler, &lens.sampler))
+				|| FAILED(device->CreateBlendState(&blend, &lens.blend)) || FAILED(device->CreateRasterizerState(&raster, &lens.raster)))
+			{
+				log::write("eye pass: lens pipeline failed");
+				lens.failed = true;
+				return false;
+			}
+			return true;
+		}
+
+		// v = conjugate(q) * (p - origin): a LOCAL point in the axes of a view at origin with orientation q.
+		void to_view(const pose& eye, const float (&p)[3], float (&v)[3])
+		{
+			const float d[3]{ p[0] - eye.position[0], p[1] - eye.position[1], p[2] - eye.position[2] };
+			const float* q = eye.orientation;
+			const float ux = -q[0], uy = -q[1], uz = -q[2], w = q[3];
+			const float cx = uy * d[2] - uz * d[1], cy = uz * d[0] - ux * d[2], cz = ux * d[1] - uy * d[0];
+			v[0] = d[0] + 2.0f * (w * cx + uy * cz - uz * cy);
+			v[1] = d[1] + 2.0f * (w * cy + uz * cx - ux * cz);
+			v[2] = d[2] + 2.0f * (w * cz + ux * cy - uy * cx);
+		}
+
+		void rotate_by(const float (&q)[4], const float (&v)[3], float (&out)[3])
+		{
+			const float cx = q[1] * v[2] - q[2] * v[1], cy = q[2] * v[0] - q[0] * v[2], cz = q[0] * v[1] - q[1] * v[0];
+			out[0] = v[0] + 2.0f * (q[3] * cx + q[1] * cz - q[2] * cy);
+			out[1] = v[1] + 2.0f * (q[3] * cy + q[2] * cx - q[0] * cz);
+			out[2] = v[2] + 2.0f * (q[3] * cz + q[0] * cy - q[1] * cx);
+		}
+
+		// Render thread, right after an eye render (which: 0 first, 1 second), before its image is copied out: the
+		// picture onto that image. True when it was drawn.
+		bool draw_lens_picture(ID3D11DeviceContext* c, int which)
+		{
+			if (!c || !scope_in_frame_on.load(std::memory_order_relaxed) || !original_draw || projection_sx <= 0.0f || projection_sy <= 0.0f)
+			{
+				return false;
+			}
+			const scope_image lens_image = latest_scope_image();
+			if (!lens_image.texture || GetTickCount64() - lens_image.at > 200)
+			{
+				return false;
+			}
+			pose eye;
+			{
+				const std::lock_guard guard(lens_eye_lock);
+				if (!lens_eye_valid)
+				{
+					return false;
+				}
+				eye = lens_eye;
+			}
+			// The lens's corners (the image top along the lens's up), in this eye's view; the second eye's camera is the
+			// first one moved right by the eye shift.
+			float right[3]{}, up[3]{};
+			const float x_axis[3]{ 1.0f, 0.0f, 0.0f }, y_axis[3]{ 0.0f, 1.0f, 0.0f };
+			const float(&q)[4] = lens_image.quad.orientation;
+			rotate_by(q, x_axis, right);
+			rotate_by(q, y_axis, up);
+			const float half = 0.5f * lens_image.quad_size;
+			const float sides[4][2]{ { -1.0f, 1.0f }, { 1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } };
+			const float eye_shift = (which == 1 ? block_shift() : 0.0f) - lens_extra_dx[which].load(std::memory_order_relaxed);
+			{
+				float centre[3]{};
+				to_view(eye, lens_image.quad.position, centre);
+				centre[0] -= eye_shift;
+				const std::lock_guard guard(lens_debug_lock);
+				std::memcpy(lens_debug_eye[which], eye.position, sizeof(lens_debug_eye[which]));
+				std::memcpy(lens_debug_centre[which], centre, sizeof(centre));
+				lens_debug_centre[which][3] = centre[2] < -0.01f ? projection_sx * centre[0] / -centre[2] : 0.0f;
+				std::memcpy(lens_debug_quad, lens_image.quad.position, sizeof(lens_debug_quad));
+			}
+			float clip[16][4]{}; // the 4 corners, padded to the 16 constants a binding takes
+			for (int k = 0; k < 4; ++k)
+			{
+				float corner[3]{}, v[3]{};
+				for (int i = 0; i < 3; ++i)
+				{
+					corner[i] = lens_image.quad.position[i] + (sides[k][0] * right[i] + sides[k][1] * up[i]) * half;
+				}
+				to_view(eye, corner, v);
+				v[0] -= eye_shift;
+				if (v[2] > -0.01f)
+				{
+					++lens_skipped;
+					return false;
+				}
+				clip[k][0] = projection_sx * v[0];
+				clip[k][1] = projection_sy * v[1];
+				clip[k][2] = 0.5f * -v[2];
+				clip[k][3] = -v[2];
+			}
+			if (!lens_pipeline(c))
+			{
+				return false;
+			}
+			if (lens.texture != lens_image.texture)
+			{
+				lens.view.Reset();
+				lens.texture = lens_image.texture;
+				if (FAILED(lens.device->CreateShaderResourceView(lens_image.texture, nullptr, &lens.view)))
+				{
+					lens.texture = nullptr;
+					return false;
+				}
+			}
+			// Onto the eye's finished image (tonemapped, as the scope picture is): the back buffer, whole.
+			ID3D11Resource* const target = back_buffer.load();
+			if (!target)
+			{
+				return false;
+			}
+			if (lens.target != target)
+			{
+				lens.target_view.Reset();
+				lens.target = target;
+				if (FAILED(lens.device->CreateRenderTargetView(target, nullptr, &lens.target_view)))
+				{
+					lens.target = nullptr;
+					return false;
+				}
+			}
+			ComPtr<ID3D11Texture2D> target_texture;
+			D3D11_TEXTURE2D_DESC target_desc{};
+			if (FAILED(target->QueryInterface(IID_PPV_ARGS(&target_texture))))
+			{
+				return false;
+			}
+			target_texture->GetDesc(&target_desc);
+			// The game's state, put back afterwards.
+			ComPtr<ID3D11RenderTargetView> old_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+			ComPtr<ID3D11DepthStencilView> old_depth_view;
+			{
+				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				ID3D11DepthStencilView* depth_view = nullptr;
+				c->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, &depth_view);
+				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+				{
+					old_targets[i].Attach(targets[i]);
+				}
+				old_depth_view.Attach(depth_view);
+			}
+			D3D11_VIEWPORT old_viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
+			UINT viewport_count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+			c->RSGetViewports(&viewport_count, old_viewports);
+			ComPtr<ID3D11DepthStencilState> depth;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&depth, &reference);
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT sample_mask = 0;
+			c->OMGetBlendState(&blend, factor, &sample_mask);
+			ComPtr<ID3D11RasterizerState> raster;
+			c->RSGetState(&raster);
+			D3D11_PRIMITIVE_TOPOLOGY topology{};
+			c->IAGetPrimitiveTopology(&topology);
+			ComPtr<ID3D11InputLayout> layout;
+			c->IAGetInputLayout(&layout);
+			ComPtr<ID3D11VertexShader> vs;
+			ComPtr<ID3D11PixelShader> ps;
+			c->VSGetShader(&vs, nullptr, nullptr);
+			c->PSGetShader(&ps, nullptr, nullptr);
+			ComPtr<ID3D11DeviceContext1> c1;
+			if (FAILED(c->QueryInterface(IID_PPV_ARGS(&c1))))
+			{
+				return false;
+			}
+			ComPtr<ID3D11Buffer> vs_cb, ps_cb;
+			UINT vs_first = 0, vs_count = 0, ps_first = 0, ps_count = 0;
+			c1->VSGetConstantBuffers1(0, 1, &vs_cb, &vs_first, &vs_count);
+			c1->PSGetConstantBuffers1(0, 1, &ps_cb, &ps_first, &ps_count);
+			ComPtr<ID3D11ShaderResourceView> srv;
+			c->PSGetShaderResources(0, 1, &srv);
+			ComPtr<ID3D11SamplerState> sampler;
+			c->PSGetSamplers(0, 1, &sampler);
+
+			c->UpdateSubresource(lens.corners.Get(), 0, nullptr, clip, 0, 0);
+			c->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			c->IASetInputLayout(nullptr);
+			c->VSSetShader(lens.vs.Get(), nullptr, 0);
+			c->PSSetShader(lens.ps.Get(), nullptr, 0);
+			ID3D11Buffer* corners = lens.corners.Get();
+			const UINT zero = 0, sixteen = 16;
+			original_vs_set_constant_buffers1(c, 0, 1, &corners, &zero, &sixteen);
+			ID3D11ShaderResourceView* view = lens.view.Get();
+			c->PSSetShaderResources(0, 1, &view);
+			ID3D11SamplerState* linear = lens.sampler.Get();
+			c->PSSetSamplers(0, 1, &linear);
+			ID3D11RenderTargetView* own_target = lens.target_view.Get();
+			c->OMSetRenderTargets(1, &own_target, nullptr);
+			const D3D11_VIEWPORT whole{ 0.0f, 0.0f, static_cast<float>(target_desc.Width), static_cast<float>(target_desc.Height), 0.0f, 1.0f };
+			c->RSSetViewports(1, &whole);
+			c->OMSetBlendState(lens.blend.Get(), nullptr, 0xffffffff);
+			c->OMSetDepthStencilState(nullptr, 0);
+			c->RSSetState(lens.raster.Get());
+			original_draw(c, 4, 0);
+			++lens_draws;
+			{
+				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+				{
+					targets[i] = old_targets[i].Get();
+				}
+				c->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, old_depth_view.Get());
+			}
+			c->RSSetViewports(viewport_count, old_viewports);
+
+			c->IASetPrimitiveTopology(topology);
+			c->IASetInputLayout(layout.Get());
+			c->VSSetShader(vs.Get(), nullptr, 0);
+			c->PSSetShader(ps.Get(), nullptr, 0);
+			ID3D11Buffer* back_vs = vs_cb.Get();
+			ID3D11Buffer* back_ps = ps_cb.Get();
+			if (vs_count)
+			{
+				original_vs_set_constant_buffers1(c, 0, 1, &back_vs, &vs_first, &vs_count);
+			}
+			else
+			{
+				original_vs_set_constant_buffers1(c, 0, 1, &back_vs, nullptr, nullptr);
+			}
+			if (ps_count)
+			{
+				original_ps_set_constant_buffers1(c, 0, 1, &back_ps, &ps_first, &ps_count);
+			}
+			else
+			{
+				original_ps_set_constant_buffers1(c, 0, 1, &back_ps, nullptr, nullptr);
+			}
+			ID3D11ShaderResourceView* back_srv = srv.Get();
+			c->PSSetShaderResources(0, 1, &back_srv);
+			ID3D11SamplerState* back_sampler = sampler.Get();
+			c->PSSetSamplers(0, 1, &back_sampler);
+			c->OMSetBlendState(blend.Get(), factor, sample_mask);
+			c->OMSetDepthStencilState(depth.Get(), reference);
+			c->RSSetState(raster.Get());
+			return true;
+		}
+
 		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
 		void STDMETHODCALLTYPE draw_indexed_detour(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
 		{
@@ -902,9 +1493,25 @@ namespace bfvr::stereo
 			{
 				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
 			}
+			dump_draw_state(c, count, start);
+			if (reticle_draw(c, count))
+			{
+				++reticle_draws;
+				const bool forced = reticle_forced.load(std::memory_order_relaxed) != 0;
+				const float tx = forced ? reticle_forced_tan[0].load(std::memory_order_relaxed) : reticle_tan[0].load(std::memory_order_relaxed);
+				const float ty = forced ? reticle_forced_tan[1].load(std::memory_order_relaxed) : reticle_tan[1].load(std::memory_order_relaxed);
+				if ((forced || reticle_valid.load(std::memory_order_relaxed)) && projection_sx > 0.0f && projection_sy > 0.0f && std::fabs(tx) < 1.5f && std::fabs(ty) < 1.5f
+					&& draw_reticle_anchored(c, count, start, base, tx, ty))
+				{
+					++reticle_moved;
+					extra_mesh::after_draw(c, count, start, base, 1);
+					return;
+				}
+			}
 			original_draw_indexed(c, count, start, base);
 			extra_mesh::after_draw(c, count, start, base, 1);
 		}
+
 
 		void STDMETHODCALLTYPE draw_indexed_instanced_detour(ID3D11DeviceContext* c, UINT count, UINT instances, UINT start, INT base, UINT first)
 		{
@@ -1437,9 +2044,12 @@ namespace bfvr::stereo
 				const std::lock_guard guard(plain_lock);
 				plain_draws.clear();
 			}
+			begin_state_dump();
+			reset_eye_discards();
 			in_eye_render = true;
 			original_per_view_render(renderer, slot, context);
 			in_eye_render = false;
+			end_state_dump();
 			{
 				const std::lock_guard guard(plain_lock);
 				plain_draws_last = plain_draws;
@@ -1453,6 +2063,7 @@ namespace bfvr::stereo
 			collecting = false;
 			probing = false;
 			pair.rendered(0, frame);
+			draw_lens_picture(eye_context.Get(), 0);
 			copy_eye(image);
 			if (probe)
 			{
@@ -1544,6 +2155,7 @@ namespace bfvr::stereo
 				begin_eye_foveation();
 			}
 			extra_mesh::begin_render(1);
+			reset_eye_discards();
 			in_eye_render = true;
 			original_per_view_render(renderer, slot, context);
 			in_eye_render = false;
@@ -1560,6 +2172,7 @@ namespace bfvr::stereo
 				frame_foreground_y = 0.0f;
 			}
 			probing = false;
+			draw_lens_picture(eye_context.Get(), 1);
 			copy_eye(image_second);
 			if (probe_second)
 			{
@@ -1736,6 +2349,15 @@ namespace bfvr::stereo
 		return "eyeskip " + std::to_string(from) + ".." + std::to_string(to) + " (last eye-2 draw count " + std::to_string(eye2_draws) + ")";
 	}
 
+	std::string set_discard_fix(int on)
+	{
+		if (on == 0 || on == 1)
+		{
+			discard_fix = on == 1;
+		}
+		return "eyefix discard_fix=" + std::to_string(discard_fix.load() ? 1 : 0) + " stale_after_discard=" + std::to_string(stale_after_discard.load());
+	}
+
 	std::string set_eye_hide(const std::string& shaders)
 	{
 		if (shaders == "list")
@@ -1809,15 +2431,113 @@ namespace bfvr::stereo
 		return std::atan(1.0f / y);
 	}
 
+	void set_reticle_view(bool valid, float tan_x, float tan_y)
+	{
+		reticle_tan[0] = tan_x;
+		reticle_tan[1] = tan_y;
+		reticle_valid = valid;
+	}
+
+	void set_lens_eye(const pose& first_eye)
+	{
+		const std::lock_guard guard(lens_eye_lock);
+		lens_eye = first_eye;
+		lens_eye_valid = true;
+	}
+
+	void set_scope_in_frame(bool on)
+	{
+		scope_in_frame_on = on;
+	}
+
+	bool scope_drawn_in_frame()
+	{
+		static std::uint64_t seen = 0;
+		static ULONGLONG changed_at = 0;
+		const std::uint64_t now_draws = lens_draws.load(std::memory_order_relaxed);
+		const ULONGLONG now = GetTickCount64();
+		if (now_draws != seen)
+		{
+			seen = now_draws;
+			changed_at = now;
+		}
+		return scope_in_frame_on.load(std::memory_order_relaxed) && now - changed_at < 200;
+	}
+
+	std::string lens_report()
+	{
+		char text[640];
+		const std::lock_guard guard(lens_debug_lock);
+		std::snprintf(text, sizeof(text),
+			"scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
+			"  eye1 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f\n  eye2 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f",
+			scope_in_frame_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_draws.load()), static_cast<unsigned long long>(lens_skipped.load()),
+			eye_shift_metres.load(), lens_extra_dx[0].load(), lens_extra_dx[1].load(), lens_debug_quad[0], lens_debug_quad[1], lens_debug_quad[2],
+			lens_debug_eye[0][0], lens_debug_eye[0][1], lens_debug_eye[0][2], lens_debug_centre[0][0], lens_debug_centre[0][1], lens_debug_centre[0][2],
+			lens_debug_centre[0][3], lens_debug_eye[1][0], lens_debug_eye[1][1], lens_debug_eye[1][2], lens_debug_centre[1][0], lens_debug_centre[1][1],
+			lens_debug_centre[1][2], lens_debug_centre[1][3]);
+		return text;
+	}
+
+	std::string set_lens_fix(float dx1, float dx2)
+	{
+		lens_extra_dx[0] = dx1;
+		lens_extra_dx[1] = dx2;
+		return lens_report();
+	}
+
+	std::string reticle_command(const std::string& argument)
+	{
+		float tx = 0.0f, ty = 0.0f;
+		if (argument.rfind("dump ", 0) == 0)
+		{
+			// One first-eye render's stencil-tested draws, written to the file.
+			state_dump = 1;
+			for (int waited = 0; waited < 40 && state_dump.load() != 3; ++waited)
+			{
+				Sleep(50);
+			}
+			const bool done = state_dump.exchange(0) == 3;
+			const std::lock_guard guard(state_dump_lock);
+			FILE* file{};
+			if (!done || fopen_s(&file, argument.substr(5).c_str(), "w") != 0 || !file)
+			{
+				return done ? "reticle dump: cannot write the file" : "reticle dump: no eye render within 2 s";
+			}
+			for (const std::string& line : state_dump_lines)
+			{
+				std::fprintf(file, "%s\n", line.c_str());
+			}
+			std::fclose(file);
+			return "reticle dump: " + std::to_string(state_dump_lines.size()) + " stencil-tested draws of " + std::to_string(state_dump_index) + " indexed draws";
+		}
+		if (argument == "off")
+		{
+			reticle_forced = 0;
+		}
+		else if (sscanf_s(argument.c_str(), "%f %f", &tx, &ty) == 2)
+		{
+			reticle_forced_tan[0] = tx;
+			reticle_forced_tan[1] = ty;
+			reticle_forced = 1;
+		}
+		char text[256];
+		std::snprintf(text, sizeof(text), "reticle valid=%d tan=(%.4f %.4f) forced=%d (%.4f %.4f) draws=%llu moved=%llu", reticle_valid.load() ? 1 : 0, reticle_tan[0].load(),
+			reticle_tan[1].load(), reticle_forced.load(), reticle_forced_tan[0].load(), reticle_forced_tan[1].load(), reticle_draws.load(), reticle_moved.load());
+		return text;
+	}
+
 	std::string eye_pass_report()
 	{
-		char text[768];
+		char text[1024];
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
 			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
-			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us)",
+			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us) "
+			"arena_discards eye1=%llu eye2=%llu stale_after_discard=%llu discard_fix=%d",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
 			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
-			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load());
+			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load(),
+			arena_discards_eye1.load(), arena_discards_eye2.load(), stale_after_discard.load(), discard_fix.load() ? 1 : 0);
 		return text;
 	}
 

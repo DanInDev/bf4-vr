@@ -259,9 +259,9 @@ namespace bfvr::body
 			return ik::normalize(ik::quat{ a.x + (s * b.x - a.x) * t, a.y + (s * b.y - a.y) * t, a.z + (s * b.z - a.z) * t, a.w + (s * b.w - a.w) * t });
 		}
 		std::atomic<bool> knife_in_hand{};
-		std::atomic<float> knife_pitch{ 0.5235988f }; // radians, live setting knife_pitch
-		std::atomic<float> knife_yaw{};               // radians, live setting knife_yaw (headset 2026-11-10: the knife sat turned)
-		std::atomic<float> knife_roll{};              // radians, live setting knife_roll
+		std::atomic<float> knife_pitch{ 2.5307274f }; // radians (145 degrees, headset 2026-11-12), live setting knife_pitch
+		std::atomic<float> knife_yaw{ -0.2617994f };  // radians (-15 degrees), live setting knife_yaw (headset 2026-11-10: the knife sat turned)
+		std::atomic<float> knife_roll{ 2.9670597f };  // radians (170 degrees), live setting knife_roll
 		ik::vec3 pole_direction[2]; // elbow hint from the shoulder, OpenXR camera axes
 		check_report last_check;
 		arm_report last_arms[2];
@@ -819,7 +819,11 @@ namespace bfvr::body
 						geometry.sight_direction = ik::normalize(geometry.sight_direction * keep + forward * (1.0f - keep));
 						geometry.sight_eye = geometry.sight_eye * keep + eye.position * (1.0f - keep);
 						geometry.has_sight = true;
-						if (geometry.aiming_since >= 0.0 && now - geometry.aiming_since > ads_settle_seconds)
+						// Only a camera that really sits behind the optic is the game's ADS (not the hip pose while
+						// the game ignores the aim button).
+						const bool on_optic = rig.optic < 0
+							|| ik::ads_eye_behind_optic(eye.position - ik::compose(to_gun, ik::model_of(local, rig.parents, rig.optic)).position);
+						if (geometry.aiming_since >= 0.0 && now - geometry.aiming_since > ads_settle_seconds && on_optic)
 						{
 							const float ads_keep = geometry.has_ads_sight ? 0.9f : 0.0f;
 							geometry.ads_direction = ik::normalize(geometry.ads_direction * ads_keep + forward * (1.0f - ads_keep));

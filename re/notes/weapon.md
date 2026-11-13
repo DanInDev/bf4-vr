@@ -430,6 +430,328 @@ is a holo (EOTech, clear at the hip, no game reticle there). With `hip_accuracy`
 leaves the game's aim alone: no game reticle over the dot and full walking speed. Monitor: AK-12
 aims (`aiming=1`), SCAR-H does not (`aiming=0`, dot shown), SCAR-H with `hip_accuracy 0` aims again.
 
+## Why the headset never aimed: the two-handed hold ate the aim button (2026-11-12, #39)
+
+Read from the headset marks of 2026-11-11 (`bfvr_marks`, their `twohand` / `scope` sections), then
+reproduced on the monitor. Every headset mark had `held=1` (the gun in both hands); every earlier
+monitor check used one fake hand.
+
+- **Cause 1.** `weapon::filter_two_hand_pad` zeroes the pad's LT while the off hand holds the handguard (its
+  trigger is the accessory toggle). It ran after `input::for_game`, which had set LT to 255 for `sight_ads`.
+  So with both hands on the gun the game never aimed: lens black, `game_fov=45`, zoom level in use 0, no
+  magnifier picture, while the mod reported `aiming=1`.
+- **Cause 2.** `body/arm_pose` trusted that report: 0.5 s later it stored the hip pose's camera as the
+  "ADS sight line" (`from_ads=1`, `eye_from_optic=(0.076 0.050 -0.223)`, 1.4 deg right). The line jumped
+  7.6 cm to the left: the dot was gated on a line beside the optic, shots and the green dot followed
+  it, and the left eye (2.4 cm from the wrong line) held the latch. Marks 2-4 show exactly these values.
+- **Fix.** The sight aim's LT goes in after the two-handed filter (`input::with_sight_aim`, order in
+  `hooks/xinput_hook.cpp`); `game_aiming` answers from the pad the game finally gets
+  (`input::note_game_pad`); an ADS sample counts only with the camera behind the optic on its axis
+  (`body::ik::ads_eye_behind_optic`, unit-tested with both guns' values and the hip pose).
+
+Monitor, AK-12, fake head 6.4 cm, right hand (0.054, -0.166, -0.3), left (-0.024, -0.158, -0.60), pad
+`300` (both grips; `free_hands 0`, else the fake gun hand without a grip slings the gun):
+
+| Hold | Before (main 40ce38c) | After |
+| --- | --- | --- |
+| One hand (`200`) | `game_fov=40 current=1`, eye_from_optic (0.000 0.035 -0.159), eyes 6.5/0.1 cm, `dot_seen=0/1` | same |
+| Both hands (`300`) | `game_fov=45 current=0`, eye_from_optic **(0.077 0.051 -0.222)**, eyes 2.4/8.0 cm, `dot_seen=0/0` | `game_fov=40 current=1`, (0.001 0.035 -0.159), eyes 6.5/0.1, `dot_seen=0/1`; `eyeshot2`: lens clear |
+| Both hands, magnifier in | (not run) | `game_fov=27 magnification=1.725 active=1 eye=1 current=2` |
+| Both hands, eye 1.9 cm off | | `dot_seen=0/1` (`sight_dot_reach` 2 cm) |
+
+**The SCAR-H's dot is not explained by this.** Mark 1 (SCAR, right eye 0.9 cm off the correct line) had
+`dot_seen=0/1`: the layer was submitted to the right eye and still not seen. Not verifiable on the
+monitor (no compositor). Changed on suspicion: the dot was 0.3 degrees of plain red (core ~3 px) in a
+red room, now 0.6 with a near-white middle; `sight_dot_reach` (cm, default 2) replaces the fixed 1.5 cm;
+`sight_dot_test` shows it to both eyes wherever the gun is, to tell "layer not shown" (single-eye quads
+have never been confirmed in the headset: the scope picture uses them too) from "shown but missed".
+Needs the headset with a VR View capture.
+
+**Headset 2026-11-12 (8 marks, VR View captured ~1 s after each mark; VR View shows the left eye).**
+All two-handed (`held=1`). What the marks and captures show, before the user's own verdict:
+
+- The game now aims with the AK-12 in both hands: marks 3-5 and 8 `game_fov=40 current=1`,
+  `eye_from_optic=(0.001 0.035 -0.159)`; marks 6-7 the magnifier `game_fov=27 magnification=1.725 active=1`.
+  `sight_dot_frames` rose from 1509 to 8666 over five minutes (997 in four the day before).
+- **The single-eye dot layer is shown by the compositor**: mark 8 (left eye 0.3 cm off the line,
+  `dot_seen=1/0`) has the red dot in VR View, beside the red dot sight's clear lens, about 50 px (~5-6
+  degrees) left of the lens centre. Marks 1-6 had the right eye on the sight (`dot_seen=0/1`), which
+  VR View cannot show.
+- **The magnifier picture is shown too** (mark 7, left eye), but about a lens diameter down-left of the
+  drawn magnifier housing, and larger than the housing's rear lens (picture ~100 px across, drawn lens ~60).
+- Both offsets point at lead 2 of the brief (the drawn optic is not where the mod's points say), but one
+  delayed capture each is weak: tapping both stick clicks jolts the gun and the scope picture is a few
+  frames old. Settings in that session that scale the picture against LOCAL: `gun_scale 1.1`,
+  `ipd_scale 1.15`. Next: a pipe report of the optic's and the dot's projected pixel per eye to compare
+  with `eyeshot` off-axis, and a capture without the stick tap (`pipe mark` + `vrview-shot` from the PC).
+- `changes` went 2 -> 21 in five minutes (11 by mark 3, steady through marks 3-5).
+
+**The user's verdict on that run:** the AK-12 with the magnifier works as intended, best at the left
+eye, with a white glitch at the bottom of the view; the AK-12's red dot alone shows a dot and circle
+that are not centred and sometimes partly cut off (that is the game's own reticle, drawn at the view's
+centre and masked by the lens: it shows now that the game really aims); the SCAR-H's holo: no change, no dot.
+
+What follows from it:
+
+- The SCAR-H's dot went to the right eye in both sessions (`dot_seen=0/1`) and was never seen; the only dot
+  ever seen in a capture was a left-eye one. Whether SteamVR shows `XR_EYE_VISIBILITY_RIGHT` quads through
+  Steam Link is therefore open. `sight_dot_eyes = both` draws one quad for both eyes (no single-eye layer)
+  to decide it; VR View can also be switched to the right eye or both.
+- `ipd_scale` (1.15 in that session) moves the rendered eyes apart, 0.5 cm each: the sight checks now use
+  the rendered eye (`stereo::rendered_eye_position`), since that is where the drawn lens is seen from.
+  Monitor with `ipd_scale 1.15`: `eyes off_line_cm=7.0/0.4` (was 6.5/0.1 with the runtime's eyes).
+- Monitor, right eye on the line, magnifier in, two-handed: at the hip the eye looks into the magnifier
+  (in line, lens dark where the scope quad goes). **In the game's ADS the right eye's image has a ring
+  and mount about 210 px right of the sight and a second piece of the gun at the bottom right** (`eyeshot2`),
+  where the left eye's image has the gun: parts of the gun are drawn at the first eye's place in the
+  second eye while the game aims through the magnifier. Not followed up; a candidate for "best at the
+  left eye". The white glitch at the bottom did not show on the monitor (asked for a mark next time).
+  With the scope render on, two dark slivers appear on the wall below the gun and the window's glare changes.
+
+**Second headset run, 2026-11-12 (12 marks, VR View on both eyes).** User: the green dot now turns red;
+the grab rings got in the way (off from mark 9).
+
+- **The red dot on the wall is the SCAR's laser** (`U_SCAR-H_TargetPointer`), not the mod's dot: it is in
+  the marks' own game image too. It marks the game's aim (the body, `aim_with_body`), not the drawn barrel:
+  on the monitor with the head turned 30 degrees it sits at the view's centre, 30 degrees from the barrel.
+  It misled the first reading of these captures.
+- **The mod's dot is shown by the compositor**, in both eye images, with `sight_dot_test 1` and
+  `sight_dot_eyes both` (marks 8-12; the AK-12 has no laser, so its single red spot is the mod's). It is
+  about 2 px in VR View's 830 px eye image. "The green dot turns red" is that test mode: the dot is
+  always on, so the green one hides. With `sighting` and no test (marks 2-3) the captures, taken ~1.3 s
+  after the tap, show no mod dot: undecided whether a right-eye-only quad is shown.
+- **The mod's layers sit 15-20 degrees off the drawn optic in the right eye's image**: mark 7, same
+  composited frame, the magnifier picture is ~11 degrees right and ~13 below the drawn magnifier (and has
+  a white wedge at its lower edge: the "white glitch"); marks 10 and 12 have the dot the same way off the
+  SCAR window and the AK sight. Run 1's mark 7 (left eye) had the picture down-left by as much.
+- **Not reproduced on the monitor**: with the right eye on the sight line the SCAR's window is drawn where
+  the barrel points with the head turned 30 degrees (32.3 seen, 30 x gun_scale 1.1 expected), pitched 25
+  down (27.5 seen) and rolled 30 (centred), `ipd_scale 1.15`. `gun_scale` does move the drawn optic 10 %
+  further from the view's centre than the mod's point (2.3 degrees at 30 off axis).
+- So either the hold moved between the tap and the capture, or the layers lead the picture while the gun
+  moves (quads use the newest pose, the eye images are frames older), or something only a real head
+  sample has. Next: `grab_debug` now draws a small ring where the mod takes the lens to be
+  (`grab_slot::sight_lens`, green while an eye sees the dot): held still in the headset it must sit on
+  the optic. The capture script now keeps VR View frames from before each mark.
+
+Test pitfalls: `pad` buttons replace the grips, so a fake gun hand needs `200` held or the gun is slung
+(`free_hands`); `ctest` has only debug presets (`bf4-debug`, `bf3-debug`).
+
+**Third headset run, 2026-11-12 night (no marks, VR View closed), `gun_scale` and `ipd_scale` 1.** User: no
+large change; the AK's ring still shows to the right of the gun; no red dot but the mod's own (also at the
+hip: `sight_dot_test` was left on and is saved as 1 in `bfvr.ini`, with `sight_dot_eyes both`); grab
+distances felt off with the sizes at 1. Whether the lens ring sat on the optic was not reported
+(`grab_debug` was saved off).
+
+**Zoom meshes (typeinfo, static, 2026-11-12).** `WeaponMesh1p` has `Mesh` and `MeshZoom`;
+`WeaponSocketObjectData` has `Used1p` / `Used1pZoom`; `WeaponStateData +0x48 ZoomMeshTransitionFactor`,
+`+0x50 ZoomInOutMeshTransitionFactors`; `SocketData +0xD4 HideByZoomTransition`. The game swaps the weapon's
+and each attachment's mesh part-way through its zoom. That would be the AK lens's two states and the
+general switch for every optic. Not followed live yet; plan in `docs/tasks/sights-ads.md`
+("Direction from 2026-11-12").
+
+## The zoom mesh at the hip: one data field for every weapon (2026-11-12, monitor, #39)
+
+Build: the deployed `test/headset-48-49` debug build (4 fps without SteamVR), SCAR-H with the EOTech,
+fake head, right eye on the sight line (`eyes off_line_cm=6.4/0.0`), `aiming=0`, `game_fov=45.00`
+throughout: the game never aimed.
+
+| `WeaponStateData.ZoomMeshTransitionFactor` (SCAR-H state 0, `0x1777dc750` that session) | Right eye's image (`eyeshot2`) |
+| --- | --- |
+| 1.0 (the data's value) | Window clear, **no reticle** (only the laser's spot through it) |
+| **0.0** (`pipe poke`) | **The game's holo reticle in the window** (ring arcs and three dots), and a **second copy of the sight about 250 px to the right** |
+| 0.0, left eye (`eyeshot`) | One gun, no copy |
+| 0.0, head turned 8 degrees, right eye still on the line | Window empty again, the copy still to the right |
+
+So:
+
+1. **The switch is data and is read live.** With the factor at 0 the game shows its zoom mesh (the optic's
+   lens state and its own reticle art) without aiming: no LT held, no slower walk, no FOV change. The
+   same field exists for every weapon (`SoldierWeaponData +0x88` `WeaponStates`), so nothing is keyed on a
+   gun or an optic. `weapon/hip_accuracy` already patches weapon data the same way (keep originals, write
+   back at off).
+2. **The copy is the second eye's bug**, and is what the owner saw as "the ring to the right of the gun":
+   with the zoom mesh shown, one of the two meshes is drawn at the first eye's place in the second eye
+   (not in the first eye's own image). It also shows in the game's own ADS (2026-11-12, AK-12 magnifier).
+   To find: which draws those are (`meshprobe` with the factor at 0) and why `eye_pass` does not move their
+   per-view block.
+3. **The reticle still follows the view's centre**: 8 degrees of head turn empty the window. Needs the
+   reticle's placement (the zoom mesh's lens draw and its constants).
+
+Not checked: the AK-12 (not carried in this checkpoint state; its black lens should be the hip mesh and
+clear the same way), a factor between 0 and 1, the per-zoom-level `ZoomInOutMeshTransitionFactors`
+(empty arrays on the SCAR-H), and whether other soldiers share the data asset.
+
+**In the mod (`weapon/zoom_mesh`, setting `sight_zoom_mesh`, default on).** While an eye is behind the
+sight (the same 3 cm / 5 cm + 0.3 s latch as `sight_ads`, but whatever the game's aim does) the factor of
+every state of every carried weapon is 0; the data's values are kept and written back afterwards, and
+only where our value still stands. Pipe `zoommesh [0..1|off]` reports and, for research, holds a value.
+Release build, SCAR-H, right eye on the line, the game not aiming:
+
+```
+(gun away)   zoom_mesh=1 at_eye=0 forced=-1.00 patched=0 writes=0
+(eye on line) eyes off_line_cm=6.4/0.0 ... aiming=0 ; scope game_fov=45.00 ...
+             zoom_mesh=1 at_eye=1 forced=-1.00 patched=4 writes=4
+             00000001787D7240 factor 0.00 (game 1.00)   (+3 more)
+(gun away)   zoom_mesh=1 at_eye=0 forced=-1.00 patched=0 writes=4
+```
+
+`eyeshot2` with the eye on the line: the holo's ring and three dots in the window.
+
+**The reticle is one draw.** `meshprobe` with the factor held at 1 and at 0 (same pose): the frames differ
+in three skinned draws of 276 / 72 / 36 indices (the lens parts, other index buffers), two static ones of
+7200 / 1260 and the frame's last draw: **6 indices** (a quad), VS `...6846F8`, PS `...183A78`, into the
+final 2160 target, depth-stencil state shared with the zoom mesh's static parts, **stencil ref 2**, its
+per-view block (32 constants) in the late constant buffer. `eyehide` with that pixel shader removes the
+reticle and nothing else (the 2026-11-10 note "not one draw" was the AK-12 in the game's ADS; not
+rechecked). So the reticle is a quad on the view's axis, cut to the lens by stencil.
+
+Plan for the placement (not built): for that draw only, in each eye's render, a view turned so that its
+forward axis is the sight line as that eye sees it, and without the second eye's shift, so the reticle
+is collimated. The draw is to be recognised without names: it is what the frame gains in the final
+target when the factor goes to 0 (learned per weapon, like the magnification), or by its stencil
+reference and state. Needs a per-draw constant override in `stereo/eye_pass` (today blocks are patched
+when bound, by layout).
+
+**Headset 2026-11-12 evening (owner):** the holo sight's reticle seen for the first time; it follows the
+head and does not stay in the optic.
+
+**The reticle on the sight line (`sight_reticle`, default on; `stereo/eye_pass`, pipe `reticle`).**
+Release build, SCAR-H, zoom mesh shown, fake head.
+
+How the game draws it (pipe `reticle dump`, 413 stencil-tested draws of ~640 indexed in a first-eye render):
+
+- A late pass of three blended draws without depth write, all "stencil reference 2, read mask F0, function
+  GREATER_EQUAL, pass REPLACE, depth LESS_EQUAL" (the state of 347 other draws: no lens mask): 150 and 18
+  indices from the gun's own index buffer (the holo's glass; the 18-index one is the tinted octagon) and
+  the **6-index quad: the whole reticle, ring and dots**. A second 6-index quad earlier in the frame
+  writes no colour.
+- The quad sits at the lens, rigid with the gun. Its picture does not: the pixel shader takes the
+  pixel's position times the per-view block's **inverse screen size (`+0x18`, `+0x1C`; `+0x10` / `+0x14`
+  are the size)** and anchors the reticle where that is 0.5, the screen's centre. Hence "it follows the
+  head": 8 degrees of head turn put the picture beside the quad.
+
+How that was found (head turned 8 degrees, eye on the line, the window 141 px right of the centre):
+
+| Change | Seen |
+| --- | --- |
+| none | window empty |
+| the quad's viewport moved -141 px | the whole reticle, uncut, on the wall at the screen's centre |
+| the 18-index draw's viewport moved | a dark octagon moves: the glass, not the dots |
+| the quad drawn without stencil test, without depth test, without both | window still empty: no test hides it |
+| view rows of every per-view block turned +-8 degrees (second eye) | nothing for the reticle (other draws break) |
+| screen width times 1.13 or 0.885 | nothing |
+| **inverse width times 0.885** | **the reticle in the window** |
+
+The fix: for a draw that is "6 indices, stencil reference 2, blended, colour written, no depth write",
+in both eye renders, the per-view block bound to PS (and VS) slot 2 is copied on the GPU into a buffer of
+the mod's (the game's buffer cannot be read on the CPU during the first eye), the two inverse-size floats
+are replaced by `1 / (width + 2 dx)` and `1 / (height + 2 dy)` with (dx, dy) the sight line's place on
+screen from `weapon/two_handed` (the line in the rendered eye's view space, `camera_hook`), the quad is
+drawn and the game's binding restored. The same anchor in both eyes: collimated.
+
+```
+straight R: eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.0000 0.0000)
+yaw8 R:     eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(0.1405 -0.0000)
+yaw8 L:     eyes off_line_cm=0.0/6.3 | reticle valid=1 tan=(0.1405 0.0000)
+yaw-8 R:    eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.1405 -0.0000)
+pitch-6 R:  eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(-0.0000 0.1051)
+pitch+6 R:  eyes off_line_cm=6.4/0.0 | reticle valid=1 tan=(0.0000 -0.1051)
+reticle ... draws=7691 moved=7465
+```
+
+In all six the ring and dots sit in the window (`eyeshot` / `eyeshot2`).
+
+Limits: moving the anchor through the inverse size also scales the picture on that axis by
+`1 / (1 + 2 dx / width)`: at 8 degrees the ring is about 13 % wider or narrower. The rule is the SCAR-H
+holo's; other optics may draw their reticle with another index count (the AK-12's and scopes unchecked).
+An earlier reading in this file, "the reticle is not one draw" (2026-11-10), was wrong for this optic.
+
+**The stray piece in the second eye** came and went between captures of the same pose in the Release
+build (a dark piece right of the gun in one, none in the next two); in the debug build at 4 fps it was a
+full second sight. Not explained. The per-view blocks of a dumped frame (`eyeprobe`) are of two cameras
+only, the world's and the first-person one in soldier space, re-uploaded many times late in the frame.
+
+Test pitfall: a relative path given to `eyeshot` is written from the game's drive root (`E:\`).
+
+## In-frame lens, step 0 (2026-11-13, monitor, Release, `fix/sights-in-frame`, #39)
+
+Brief: `docs/tasks/in-frame-lens.md`. The saved checkpoint now carries only the SCAR-H (`slot_probe.py`:
+0 `U_SCAR-H`, 6 `U_M67`, 7 `U_Knife`, 8 `U_SP_Visor`), so the AK-12's lens and the magnifier were not checked.
+
+**Fake hold with the right eye on the SCAR-H's sight line** (`free_hands 0`, `fakehead 0.064`):
+`fakehand 0 0 -0.003 -0.189 -0.60 0.075 -0.197 -0.3` gives `eyes off_line_cm=6.4/0.0 along_cm=-13.2`;
+`... -0.70 ... -0.4` puts the gun 10 cm further out (along -23.2). The AK-12 hold above (`-0.024 -0.158 -0.60
+0.054 -0.166 -0.3`) leaves the SCAR's line 3.8 cm from the right eye.
+
+**The holo reticle is collimated** (`sight_zoom_mesh` and `sight_reticle` on). Eye fixed, gun moved sideways
+by 0, 0.7 and 1.4 cm (`eyeshot2`, window cropped): the ring and dots stay at the same pixel while the window
+slides left, as through a real holo. At 1.4 cm the dots are drawn just outside the window's inner edge, on the
+housing: the stencil-2 lens mask reaches past the glass.
+
+**The second eye's first-person draws change between frames.** With the gun, head and hands fixed, the lower
+half of 6 `eyeshot` / `eyeshot2` captures (120x120 downscale, mean absolute difference against the first):
+
+| Case | Left eye | Right eye |
+| --- | --- | --- |
+| Zoom mesh and reticle on, along -13 cm | 0.1 0.1 0.1 0.1 0.1 | 4.3 4.4 0.2 2.1 4.3 |
+| `sight_zoom_mesh 0`, `sight_reticle 0` | | 0.1 0.1 4.4 0.1 0.1 |
+| On, gun 10 cm further out (along -23 cm) | | 7.1 5.8 1.8 2.0 0.3 and 1.8 x5 |
+
+The odd right-eye frames show a **second holo housing about 165 px right of the real one**, the gun body
+drawn dark (unlit) instead of lit, or the hands in another place. It also happens with the zoom mesh and the
+reticle fix off and with the gun 23 cm from the eye, so it is the eye pass, not the sights or the near
+plane. This is the "ring to the right of the gun" and probably part of "best at the left eye".
+
+**Lead: constant arenas are discarded during the eye renders.** A research counter (`eyepass`:
+`arena_discards eye1= eye2=`, maps with `D3D11_MAP_WRITE_DISCARD` of a known arena while `in_eye_render`)
+reads about **2 per first-eye render and 1 per second-eye render**, every frame (9401 frames: 18799 / 18415).
+The first eye's blocks come from `begin_readback`, a `CopyResource` of each arena queued **before** the first
+eye's draws. A block the first eye binds after a mid-render discard sits in the renamed arena, while the
+read-back holds the pre-discard data at the same offset. `prepare_eye_blocks` then patches the wrong data, and
+the second eye draws that piece with another camera (or another view's block). Which blocks fall after the
+discard varies with how full the arena is, so it would come and go. **Not proven:** the next step is to count
+first-eye bindings made after a discard of their arena, and to fix by copying such blocks at bind time on the
+GPU (`CopySubresourceRegion` of the block from the arena into the mod's buffer, ordered in the command stream),
+or by keying `patched_blocks` with an arena generation. The check is the table above: the right eye as steady
+as the left (all values <= 0.2).
+
+Test pitfall: `tools\pipe.ps1` takes the command's argument as one string: `pipe key "32 150"`, not `pipe key 32 150`.
+
+**Steps 1 and 2 (2026-11-13 evening, Release, the red room again, the AK-12 now in the save):**
+
+- **Stale second-eye lookups exist:** a new counter (`eyepass` `stale_after_discard`) counts second-eye binds that
+  a copy made before an arena discard would answer: 637 in about 5 s, 4169 over a session. `eye_pass` now keys
+  second-eye lookups by the arena's discards in this render (`discard_fix`, pipe `eyefix 0|1`, on by default),
+  so such a bind takes the late path (the block as written now). Cost: none measurable (eye pass 1.36 ms,
+  GPU 4.6 / 4.6 ms per eye). **The stray did not show in either mode here** (6 shots each, AK-12 and SCAR-H,
+  lower-half differences 0.1-0.3): not proven to be the cause, kept because a pre-discard copy is wrong by
+  construction.
+- **The AK-12's lens without the game's aim:** with `sight_zoom_mesh` on and `sight_ads 0` (`aiming=0`) the lens is
+  clear with the red dot, as in the game's ADS. The dot is the game's reticle re-anchored by `sight_reticle` and it
+  is collimated: gun moved 0 / 0.6 / 1.1 cm off the eye, the dot stays at the same pixel (2 px) while the lens
+  slides, the rim cutting it at 1.1 cm. So the AK-12 needs no game ADS either; `hip_accuracy` keeps the accuracy.
+- **The magnifier (selected 2, type 2) with the zoom mesh:** the game hides the magnifier's mesh and shows the red
+  dot's lens unmagnified (its own ADS magnifies by the camera's FOV, 27 degrees, which the mod does not use). Our
+  scope render runs at the hip (1.725x, `scope_images` flowing) but is an OpenXR quad. With the zoom mesh off the
+  lens is black and the magnifier's ring shows to the right of the sight in the right eye. Once, with the zoom mesh
+  on, the first right-eye capture after flipping it in also had that ring: intermittent again.
+- **Step 3, built (`scope_in_frame`, on by default):** the composed scope picture (round, premultiplied, with
+  its dot) is drawn into each eye's finished image right after that eye's render, before it is copied out: a
+  quad at the lens's LOCAL pose (the one the OpenXR quad used), seen from that eye (the first eye's pose from
+  `camera_hook`, the second moved right by the eye shift), projected with `projection_sx/sy` as the reticle
+  fix does. The theater leaves its scope quad out while it is drawn (`scope_drawn_in_frame`).
+  - Monitor, AK-12 magnifier at the right eye, `sight_ads 0`: the magnified wall fills the lens in the right
+    eye and sits on the magnifier housing in the left eye, at the scene's own brightness. 93.2 fps with it,
+    93.8 without; the scope render 1.26 ms of GPU.
+  - Dead ends on the way: drawn at the reticle quad's draw (inside the eye render) the picture came out nearly
+    white (the frame is not tonemapped there); and the reticle's stencil state (reference 2, read mask F0,
+    GREATER_EQUAL) is not a lens mask, it passes the world too. `VSSetConstantBuffers1` needs a multiple of 16
+    constants: with 4 the binding was ignored and nothing showed.
+  - Open: no occlusion (the housing does not cover the picture's edge; the quad is the lens's size); the left
+    eye has the game's own stray lens picture left of the optic while the magnifier is selected (not the mod's:
+    it did not move with `lensfix`); the picture is one frame old.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

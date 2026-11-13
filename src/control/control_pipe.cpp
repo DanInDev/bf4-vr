@@ -42,6 +42,7 @@
 #include "weapon/hip_accuracy.hpp"
 #include "weapon/server_soldier.hpp"
 #include "weapon/weapon_pickup.hpp"
+#include "weapon/zoom_mesh.hpp"
 #include "weapon/sight_state.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
@@ -578,9 +579,16 @@ namespace bfvr::control
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
-			if (command == "scope") return stereo::scope_report();
+			if (command == "scope") return stereo::scope_report() + "\n" + stereo::lens_report();
+			if (command == "lensfix")
+			{
+				float dx1 = 0.0f, dx2 = 0.0f;
+				sscanf_s(argument.c_str(), "%f %f", &dx1, &dx2);
+				return stereo::set_lens_fix(dx1, dx2);
+			}
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
+			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;
@@ -589,6 +597,7 @@ namespace bfvr::control
 			}
 			if (command == "eyepoison") return stereo::set_eye_poison(argument);
 			if (command == "eyehide") return stereo::set_eye_hide(argument);
+			if (command == "reticle") return stereo::reticle_command(argument);
 			if (command == "eyeprobe") return stereo::probe_eye_pass(argument);
 			if (command == "eyeprobe2") return stereo::probe_eye_pass(argument, true);
 			if (command == "meshprobe") return stereo::extra_mesh::probe(argument);
@@ -862,6 +871,7 @@ namespace bfvr::control
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
 			if (command == "serversoldier") return weapon::server_soldier_report();
 			if (command == "pickup") return weapon::weapon_pickup_report();
+			if (command == "zoommesh") return weapon::zoom_mesh_command(argument);
 			if (command == "calibrate") return ui::body_calibration_command(argument);
 			if (command == "sightstate") return weapon::sight_state_report();
 			if (command == "motion")
@@ -948,21 +958,26 @@ namespace bfvr::control
 				// An optional second number turns the head left by that many degrees, a third moves it up
 				// (metres, negative: crouching; physical stance tests), a fourth pitches it (degrees, up positive).
 				stereo::head_sample head;
-				float ipd = 0.0f, yaw = 0.0f, height = 0.0f, pitch = 0.0f;
-				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f %f", &ipd, &yaw, &height, &pitch) >= 1 && ipd > 0.0f && ipd < 0.1f;
+				// A fifth number rolls it (degrees, positive: the head tilts to its right, as at a gun's stock);
+				// the eyes turn about the head's centre.
+				float ipd = 0.0f, yaw = 0.0f, height = 0.0f, pitch = 0.0f, roll = 0.0f;
+				head.valid = argument != "off" && sscanf_s(argument.c_str(), "%f %f %f %f %f", &ipd, &yaw, &height, &pitch, &roll) >= 1 && ipd > 0.0f && ipd < 0.1f;
 				const float half = yaw * 3.14159265f / 360.0f;
 				const float tilt = pitch * 3.14159265f / 360.0f;
+				const float lean = -roll * 3.14159265f / 360.0f; // about +z: negative tilts to the right
+				// yaw about +y, then pitch about the turned x axis, then roll about the view axis: q = yaw * pitch * roll.
+				const float yp[4]{ std::cos(half) * std::sin(tilt), std::sin(half) * std::cos(tilt), -std::sin(half) * std::sin(tilt), std::cos(half) * std::cos(tilt) };
+				const float q[4]{ yp[0] * std::cos(lean) + yp[1] * std::sin(lean), yp[1] * std::cos(lean) - yp[0] * std::sin(lean),
+					yp[2] * std::cos(lean) + yp[3] * std::sin(lean), yp[3] * std::cos(lean) - yp[2] * std::sin(lean) };
+				// The head's right: q applied to +x.
+				const float right[3]{ 1 - 2 * (q[1] * q[1] + q[2] * q[2]), 2 * (q[0] * q[1] + q[2] * q[3]), 2 * (q[0] * q[2] - q[1] * q[3]) };
 				for (int eye = 0; eye < 2; ++eye)
 				{
 					const float side = eye == 0 ? -0.5f * ipd : 0.5f * ipd;
-					// yaw about +y, then pitch about the turned x axis: q = yaw * pitch.
-					head.eyes[eye].orientation[0] = std::cos(half) * std::sin(tilt);
-					head.eyes[eye].orientation[1] = std::sin(half) * std::cos(tilt);
-					head.eyes[eye].orientation[2] = -std::sin(half) * std::sin(tilt);
-					head.eyes[eye].orientation[3] = std::cos(half) * std::cos(tilt);
-					head.eyes[eye].position[0] = side * std::cos(2 * half);
-					head.eyes[eye].position[1] = height;
-					head.eyes[eye].position[2] = -side * std::sin(2 * half);
+					std::copy(std::begin(q), std::end(q), head.eyes[eye].orientation);
+					head.eyes[eye].position[0] = side * right[0];
+					head.eyes[eye].position[1] = height + side * right[1];
+					head.eyes[eye].position[2] = side * right[2];
 				}
 				head.fovs[0] = { -0.942f, 0.698f, 0.768f, -0.890f };
 				head.fovs[1] = { -0.698f, 0.942f, 0.768f, -0.890f };

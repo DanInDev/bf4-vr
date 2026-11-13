@@ -35,6 +35,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/zoom_mesh.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/shot_origin.hpp"
@@ -180,8 +181,8 @@ namespace bfvr::core
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
-			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
-			body::set_knife_turn(store.real("knife_yaw", 0.0f), store.real("knife_roll", 0.0f));
+			body::set_knife_pitch(store.real("knife_pitch", 145.0f));
+			body::set_knife_turn(store.real("knife_yaw", -15.0f), store.real("knife_roll", 170.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			body::set_grenade_mesh(store.boolean("grenade_mesh", true) && store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
@@ -193,7 +194,11 @@ namespace bfvr::core
 			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
 			weapon::set_aim_with_body(store.boolean("aim_with_body", true));
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
+			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
+			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
+			weapon::set_sight_reticle(store.boolean("sight_reticle", true));
+			stereo::set_scope_in_frame(store.boolean("scope_in_frame", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
 				bool shown[32]{};
@@ -230,6 +235,7 @@ namespace bfvr::core
 			weapon::update_hip_accuracy();
 			weapon::update_physical_grenades();
 			weapon::update_two_handed();
+			weapon::update_zoom_mesh();
 			ui::update_body_calibration();
 			ui::update_vr_panel();
 			weapon::update_weapon_swap();
