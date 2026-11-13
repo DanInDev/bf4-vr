@@ -66,6 +66,7 @@ namespace bfvr::settings
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "" },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
+			{ "magazine_flight", "Weapon", "Reloading", "Thrown magazines fly", "They keep your hand's speed and land on the floor", "" },
 			{ "extra_meshes", "Weapon", "Reloading", "Second magazine", "The gun keeps its own while you hold a new one", "" },
 			{ "free_hand_reload", "Weapon", "Reloading", "Reload with the free hand", "Gun in the left hand: the right changes magazines", "" },
 			{ "magazine_snap", "Weapon", "Reloading", "Hand snaps onto the magazine", "The game's grip, before you squeeze", "" },

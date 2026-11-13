@@ -161,6 +161,7 @@ namespace bfvr::weapon
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
 		std::atomic<bool> free_hand_reload{ true }; // live setting free_hand_reload (#38)
+		std::atomic<bool> magazine_flight_on{ true }; // live setting magazine_flight (#47)
 		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
@@ -417,6 +418,11 @@ namespace bfvr::weapon
 		free_hand_reload = enabled;
 	}
 
+	void set_magazine_flight(bool enabled)
+	{
+		magazine_flight_on = enabled;
+	}
+
 	bool reload_claims_free_hand()
 	{
 		return active.load(std::memory_order_relaxed) && claims_free_hand.load(std::memory_order_relaxed);
@@ -585,6 +591,8 @@ namespace bfvr::weapon
 		frame.held_rotation = q(points.held_rotation);
 		frame.held_tilt = points.held_tilt;
 		frame.palming = palming.load(std::memory_order_relaxed) && !swapped;
+		frame.throw_flight = magazine_flight_on.load(std::memory_order_relaxed);
+		frame.floor_valid = stereo::latest_floor(frame.floor_y);
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = swapped ? (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 : grip && !accessory_busy.load(std::memory_order_relaxed);
 		// The free gun hand's grip near the pistol grip takes the gun back (free hands): when the hand is

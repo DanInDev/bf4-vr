@@ -94,6 +94,7 @@ namespace bfvr::settings
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "game_sounds", kind::boolean, 0, 0, 0, "1", "", "reload sounds: the game's own magazine-out, magazine-in and bolt sounds where the gun's are found (assault rifles)" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
+			{ "magazine_flight", kind::boolean, 0, 0, 0, "1", "", "a magazine you let go or toss flies on with your hand's speed, tumbles and comes to rest on the floor for a few seconds (off: it just drops away); the AK quick reload knocks the old one out (#47)" },
 			{ "extra_meshes", kind::boolean, 0, 0, 0, "1", "", "a second magazine (a new one held while one sits in the gun, the caught one while palming, one falling) drawn as a copy of the game's own magazine; off: the gun's magazine moves to the hand" },
 			{ "free_hand_reload", kind::boolean, 0, 0, 0, "1", "", "physical reload, free hands: while the left hand holds the gun, the right hand changes magazines too (0: it only racks)" },
 			{ "magazine_snap", kind::boolean, 0, 0, 0, "1", "", "physical reload: the open off hand near the seated magazine snaps onto it with the game's magazine grip, so taking it does not jump (#40)" },

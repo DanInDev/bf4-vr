@@ -142,6 +142,9 @@ bind_menu = start
 reload = physical
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
+# A magazine let go or tossed flies on with the hand's speed, tumbles and rests on the floor a few seconds
+# (needs the headset's floor; without one it just drops away). The AK quick reload knocks the old one out (#47).
+magazine_flight = 1
 # Physical reload, AR (SCAR-H): palm magazines. Bring a new magazine to the magwell while one is in the
 # gun: it turns aside in the hand (a tick). B drops the old one into the same hand; turn the hand back
 # until the new one lines up and it seats. The old one stays in the hand: let go at the pouch to keep its

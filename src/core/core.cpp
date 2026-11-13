@@ -141,6 +141,7 @@ namespace bfvr::core
 			weapon::set_palm_reload(store.boolean("palm_reload", true));
 			weapon::set_magazine_snapping(store.boolean("magazine_snap", true));
 			weapon::set_free_hand_reload(store.boolean("free_hand_reload", true));
+			weapon::set_magazine_flight(store.boolean("magazine_flight", true));
 			body::set_extra_meshes(store.boolean("extra_meshes", true));
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true) && store.boolean("game_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
