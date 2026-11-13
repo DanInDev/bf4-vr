@@ -1792,6 +1792,8 @@ namespace bfvr::xr
 		// #34: the off-hand grip pressed again backs out of a menu over the level (Escape).
 		input::menu_back menu_back_gesture;
 		ULONGLONG escape_release_at{};
+		ULONGLONG done_release_at{};
+		ULONGLONG laser_paused_until{};
 		// #34 diagnostics (status): the laser on the flat screen.
 		std::atomic<std::uint64_t> pointer_frames{}, pointer_no_hand{}, pointer_misses{}, pointer_hits{};
 		std::atomic<float> pointer_last_u{}, pointer_last_v{};
@@ -1922,7 +1924,7 @@ namespace bfvr::xr
 				pointer_last_u = hit.u;
 				pointer_last_v = hit.v;
 			}
-			if (hit.hit)
+			if (hit.hit && GetTickCount64() >= laser_paused_until)
 			{
 				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
 			}
@@ -2355,10 +2357,25 @@ namespace bfvr::xr
 				constexpr std::uint16_t off_grip = 0x0100; // XINPUT_GAMEPAD_LEFT_SHOULDER
 				const ULONGLONG now = GetTickCount64();
 				const bool enabled = settings::global().boolean("menu_grip_back", true) && !ui::vr_panel_view().open;
-				if (menu_back_gesture.update(ui_on_screen && enabled, (input::latest().buttons & off_grip) != 0) && hooks::press_game_key(VK_ESCAPE, true))
+				const input::menu_back::action back = menu_back_gesture.update(ui_on_screen && enabled, (input::latest().buttons & off_grip) != 0, now);
+				if (back == input::menu_back::action::escape && hooks::press_game_key(VK_ESCAPE, true))
 				{
 					escape_release_at = now + 80;
 					log::write("theater: off-hand grip in a menu: Escape");
+				}
+				else if (back == input::menu_back::action::click_done)
+				{
+					// The stash ignores Escape: press its Done button (moved there, pressed, released next frame).
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, false);
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, true);
+					done_release_at = now + 60;
+					laser_paused_until = now + 200; // the laser must not move the cursor off Done mid-click
+					log::write("theater: off-hand grip in a menu: still up after Escape, clicking Done");
+				}
+				if (done_release_at && now >= done_release_at)
+				{
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, false);
+					done_release_at = 0;
 				}
 				if (escape_release_at && now >= escape_release_at)
 				{

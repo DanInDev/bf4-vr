@@ -568,3 +568,20 @@ and the tabs would not have flipped: the laser most likely never hit the screen 
 `pipe status` now has a line for the next headset run (branch `fix/crate-pointer`):
 `menu_pointer frames=.. no_hand=.. misses=.. hits=.. hand=.. last_uv=u,v cursor front=.. behind=.. clicks=.. active=0|1`.
 Marks save the status, so a mark in the stash menu shows which stage fails.
+
+### Closing the stash (2026-11-13, monitor, #34)
+
+Same checkpoint, stash open, both slots chosen by pointer clicks (C4 -> Gadget Two, M320 -> Gadget One):
+
+| Input | Result |
+| --- | --- |
+| pipe `key 1B` (Escape through the Raw Input keyboard) | stash stays open |
+| pad B (`pad 0 0 0 0 150 2000`) | stays open |
+| a real Escape key (`tools\game.ps1 keys -Keys Esc`, BF4 in front) | stays open |
+| pointer click on Done (0.648, 0.736) | closes; the soldier carries the M320, objective "Make an Exit" |
+| pause menu (pad Start), then pipe `key 1B` | resumes the game |
+
+So the stash has no back action: only Done closes it. The off-hand grip gesture (`input/menu_back`) sends Escape and,
+if a menu is still up 500 ms later, clicks Done; the laser is kept off the cursor for 200 ms meanwhile. One observation:
+the first pointer click after the stash opened (on C4) switched the slot tab to Gadget Two and filled nothing; the next
+clicks behaved. Not explained yet.
