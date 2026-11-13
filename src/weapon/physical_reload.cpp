@@ -214,7 +214,7 @@ namespace bfvr::weapon
 			case reload_event::magazine_stowed: return "magazine_stowed";
 			case reload_event::magazine_taken: return "magazine_taken";
 			case reload_event::magazine_in: return "magazine_in";
-			case reload_event::flicked_in: return "flicked_in";
+			case reload_event::flicked_out: return "flicked_out";
 			case reload_event::chambered: return "chambered";
 			case reload_event::racked_empty: return "racked_empty";
 			case reload_event::round_ejected: return "round_ejected";
@@ -235,9 +235,9 @@ namespace bfvr::weapon
 			{
 			case reload_event::magazine_taken:
 			case reload_event::magazine_stowed: play(cue::cloth); break;
-			case reload_event::magazine_in:
-			case reload_event::flicked_in: play(cue::magazine_in); break;
+			case reload_event::magazine_in: play(cue::magazine_in); break;
 			case reload_event::magazine_out:
+			case reload_event::flicked_out:
 			case reload_event::magazine_palmed: play(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
@@ -256,11 +256,11 @@ namespace bfvr::weapon
 			case reload_event::dry_fire: input::haptic(1 - reloading_hand, input::pulses::click); break;
 			case reload_event::bolt_locked: input::haptic(1 - reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_out:
+			case reload_event::flicked_out:
 			case reload_event::magazine_palmed:
 			case reload_event::magazine_taken: input::haptic(reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_stowed: input::haptic(reloading_hand, input::pulses::tick); break;
 			case reload_event::magazine_in:
-			case reload_event::flicked_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
 			case reload_event::round_ejected:

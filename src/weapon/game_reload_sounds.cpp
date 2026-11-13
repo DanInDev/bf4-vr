@@ -20,11 +20,11 @@ namespace bfvr::weapon
 		switch (event)
 		{
 		case reload_event::magazine_out:
+		case reload_event::flicked_out: // the AK's old magazine knocked out (#47); the new one's seat follows as magazine_in
 		case reload_event::magazine_palmed:
 			cues[0] = { reload_sound::magazine_out, 0 };
 			return 1;
 		case reload_event::magazine_in:
-		case reload_event::flicked_in:
 			cues[0] = { reload_sound::magazine_in, 0 };
 			cues[1] = { reload_sound::magazine_seat, 350 };
 			return 2;

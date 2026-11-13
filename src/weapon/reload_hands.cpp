@@ -312,11 +312,15 @@ namespace bfvr::weapon
 			{
 				insert_armed_ = true;
 			}
-			if (frame.grip && insert_armed_ && held_at_magwell)
+			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
+			if (frame.grip && insert_armed_ && held_at_magwell && seat_pause_ <= 0.0f)
 			{
 				const reload_event event = gun.insert();
-				if (event == reload_event::flicked_in)
+				if (event == reload_event::flicked_out)
 				{
+					// #47, two steps: the old magazine flies first; the new one, still in the hand, seats a
+					// moment later if the hand keeps it at the magwell.
+					seat_pause_ = config_.flick_seat_delay;
 					// AK quick reload: the new magazine knocks the old one out of the magwell, downward out of the
 					// gun, carrying the sideways part of the hand's swing (the push itself goes up into the well).
 					const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
