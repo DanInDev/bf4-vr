@@ -133,8 +133,9 @@ drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
-# A magazine let go or tossed flies on with the hand's speed, tumbles and rests on the floor a few seconds
-# (needs the headset's floor; without one it just drops away). The AK quick reload knocks the old one out (#47).
+# A magazine let go or tossed flies on with the hand's speed, tumbles, bounces and tips onto a side on the
+# level's real ground (the game's own ray cast, #61; the headset's or the soldier's floor until that answers),
+# lies 30 s and goes only while you are not looking. The AK quick reload knocks the old one out (#47).
 magazine_flight = 1
 # The game's accessory toggle (D-pad up: magnifier, variable zoom, light, laser):
 #   trigger  hold the gun with both hands (off hand + grip on the handguard), press the off-hand trigger

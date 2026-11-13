@@ -15,6 +15,7 @@
 
 #include "common/config.hpp"
 #include "control/control_pipe.hpp"
+#include "physics/ray_cast.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/shot_origin.hpp"
 #include "weapon/two_handed.hpp"
@@ -503,6 +504,7 @@ namespace bfvr::stereo
 			copy_thread = GetCurrentThreadId();
 			input::apply_view_turn();
 			control::on_game_thread();
+			physics::ray_cast_on_game_thread();
 			weapon::game_reload_sounds_on_game_thread();
 			const std::uint64_t index = ++copies;
 			if (index % 64 == 0)

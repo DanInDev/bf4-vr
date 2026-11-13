@@ -1,5 +1,6 @@
 #pragma once
 
+#include "physics/loose_body.hpp"
 #include "weapon/magazine_flight.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/vec.hpp"
@@ -52,6 +53,17 @@ namespace bfvr::weapon
 		bool throw_flight{ true };
 		bool floor_valid{};
 		float floor_y{};
+		// #61: with the game's world and its ground, a discarded magazine is a rigid body on the level's real
+		// ground (physics/loose_body), lying 30 s and going only unseen; floor_y is then its fallback under
+		// ground not known yet. local = rotate(world_to_local, world - world_origin). Without them: the flight
+		// above.
+		bool has_world{};
+		v3 world_origin;
+		q4 world_to_local;
+		physics::ground_source* ground{};
+		bool has_view{};      // the head (LOCAL): a lying magazine never goes while looked at
+		v3 view_position;
+		v3 view_forward;
 	};
 
 	enum class magazine_draw
@@ -106,6 +118,8 @@ namespace bfvr::weapon
 		float palm_misalign_degrees{}; // caught: the new magazine's lean about the barrel from the catch pose
 		float palm_off_degrees{};      // caught: its whole angle from the catch pose
 		v3 palm_gap;                   // caught: its top less the magwell
+		bool loose{};         // a discarded magazine is in the world (flying or lying)
+		bool loose_resting{}; // #61: lying on the ground
 	};
 
 	struct hand_config
@@ -155,6 +169,9 @@ namespace bfvr::weapon
 		float palm_seat_reach{ 0.08f };
 		float palm_align_degrees{ 15.0f };
 		float palm_max_degrees{ 45.0f }; // and its whole angle from the catch pose stays within this
+		// #61: the magazine as a box (Wep_Root axes, from its top down): half width, length and depth.
+		v3 magazine_half{ 0.015f, 0.095f, 0.04f };
+		float seen_degrees{ 55.0f }; // within this of the view's centre counts as seen
 	};
 
 	// A held magazine (its top, the Wep_Mag origin, and rotation) turned by angle radians about the barrel
@@ -192,6 +209,8 @@ namespace bfvr::weapon
 		bool insert_armed_{};
 		q4 held_relative_; // the held magazine's rotation relative to the gun hand
 		magazine_flight flight_;
+		physics::loose_body loose_; // #61: on the real ground (world)
+		bool loose_on_{};
 		float seat_pause_{}; // AK two-step reload: seconds until the new magazine may seat after the flick
 		// Smoothed velocities of the off hand's palm and the magwell (#47: a released magazine keeps them).
 		bool have_last_{};

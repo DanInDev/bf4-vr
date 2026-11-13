@@ -177,6 +177,9 @@ add_library(bfvr_runtime STATIC
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
 	src/weapon/magazine_flight.cpp
+	src/physics/loose_body.cpp
+	src/physics/ground_cache.cpp
+	src/physics/ray_cast.cpp
 	src/weapon/shot_frame.cpp
 	src/weapon/shot_origin.cpp
 	src/weapon/game_reload_sounds.cpp
@@ -277,9 +280,13 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
 	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
+	add_executable(bfvr_loose_body_test tests/loose_body_test.cpp src/physics/loose_body.cpp)
+	target_link_libraries(bfvr_loose_body_test PRIVATE bfvr_common)
+	add_executable(bfvr_ground_cache_test tests/ground_cache_test.cpp src/physics/ground_cache.cpp src/physics/loose_body.cpp)
+	target_link_libraries(bfvr_ground_cache_test PRIVATE bfvr_common)
 	add_executable(bfvr_magazine_flight_test tests/magazine_flight_test.cpp src/weapon/magazine_flight.cpp)
 	target_link_libraries(bfvr_magazine_flight_test PRIVATE bfvr_common)
-	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/magazine_flight.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp)
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp)
 	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
 
 	# Two-handed grip and the converged shot direction; exits non-zero on failure.
@@ -380,6 +387,8 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)
+	add_test(NAME loose_body COMMAND bfvr_loose_body_test)
+	add_test(NAME ground_cache COMMAND bfvr_ground_cache_test)
 	add_test(NAME magazine_flight COMMAND bfvr_magazine_flight_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME body_calibration COMMAND bfvr_body_calibration_test)

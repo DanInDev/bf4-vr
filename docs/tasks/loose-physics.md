@@ -17,6 +17,14 @@ written down in `re/notes/`.
 
 ## Where it stands
 
+- **2026-11-14, branch `physics/ray-ground`:** steps 2 and 3 written, gate green, **not yet run in the game**.
+  - The ray query `0x140986CA0` and the client world `[0x142668F90]` were found statically (`re/notes/physics.md`).
+  - `physics/ray_cast` casts the rays on the game thread behind a byte check; pipe `raycast`.
+  - `physics/ground_cache` holds 4 cm columns (test `ground_cache`).
+  - `physics/loose_body` is the rigid box (test `loose_body`).
+  - The reload's discarded magazine uses the loose body in world space (test `reload` `test_hands_loose_on_ground`).
+  - Next: the monitor check in `re/notes/physics.md`, then step 4 (the dropped gun).
+
 - **Branch `weapon/magazine-flight` (this branch), #47 parts 1 and 2:** built, gate green, not merged, **never
   tried in the headset**. It is 20 h older than `main`.
   - `weapon/magazine_flight` (engine-free, unit test `magazine_flight`): a released magazine leaves with the hand's

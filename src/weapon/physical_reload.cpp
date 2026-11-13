@@ -18,6 +18,8 @@
 #include "common/log.hpp"
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
+#include "physics/ray_cast.hpp"
+#include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -606,6 +608,27 @@ namespace bfvr::weapon
 		frame.palming = palming.load(std::memory_order_relaxed) && !swapped;
 		frame.throw_flight = magazine_flight_on.load(std::memory_order_relaxed);
 		frame.floor_valid = stereo::latest_floor(frame.floor_y);
+		if (!frame.floor_valid && points.has_floor)
+		{
+			frame.floor_valid = true; // no STAGE floor: the soldier's own ground
+			frame.floor_y = points.floor_y;
+		}
+		// #61: discarded magazines on the level's real ground (the game's ray cast), in the game's world.
+		frame.has_world = points.valid;
+		frame.world_origin = v(points.world_origin);
+		frame.world_to_local = q(points.world_to_local);
+		frame.ground = &physics::level_ground();
+		{
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (head.valid)
+			{
+				const stereo::pose centre = stereo::eye_math::centre_pose(head);
+				const float* o = centre.orientation;
+				frame.has_view = true;
+				frame.view_position = { centre.position[0], centre.position[1], centre.position[2] };
+				frame.view_forward = { -2.0f * (o[0] * o[2] + o[3] * o[1]), -2.0f * (o[1] * o[2] - o[3] * o[0]), -(1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1])) };
+			}
+		}
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = swapped ? (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 : grip && !accessory_busy.load(std::memory_order_relaxed);
 		// The free gun hand's grip near the pistol grip takes the gun back (free hands): when the hand is

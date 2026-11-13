@@ -15,6 +15,7 @@
 
 #include "body/arm_pose.hpp"
 #include "body/soldier_radius.hpp"
+#include "physics/ray_cast.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
@@ -589,6 +590,7 @@ namespace bfvr::control
 			}
 			if (command == "lean") return stereo::lean_report();
 			if (command == "radius") return body::soldier_radius_report();
+			if (command == "raycast") return physics::raycast_command(argument);
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));
