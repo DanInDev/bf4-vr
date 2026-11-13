@@ -46,6 +46,24 @@ It runs on a Meta Quest 3 through Steam Link and SteamVR, with your own copy of 
 ## Screenshots
 
 <p align="center">
+  <img src="docs/img/showcase/slideshow.webp" alt="A slideshow of headset captures from the Baku level: aiming through the holographic sight over a sunlit street, the skyline from a balcony, a magazine in the hand, a courtyard" width="100%">
+  <br><sub>Captured in the headset, Baku (Quest 3, 2026-11-13)</sub>
+</p>
+
+<table>
+  <tr>
+    <td><img src="docs/img/showcase/holo-street.jpg" alt="Aiming through the holographic sight at a sunlit street, its reticle in the window"></td>
+    <td><img src="docs/img/showcase/balcony-skyline.jpg" alt="Both hands on the rifle on a balcony, the city skyline and the sun ahead"></td>
+    <td><img src="docs/img/showcase/street-towers.jpg" alt="The rifle at a window, the street and the towers beyond"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/showcase/hand-reload.jpg" alt="A new magazine in the left hand during a reload by hand"></td>
+    <td><img src="docs/img/showcase/sunlit-room.jpg" alt="The rifle in both hands in a sunlit room"></td>
+    <td><img src="docs/img/showcase/courtyard-holo.jpg" alt="The holographic sight raised over a courtyard, a squadmate beside"></td>
+  </tr>
+</table>
+
+<p align="center">
   <img src="docs/img/showcase/both-eyes.jpg" alt="The picture for each eye, side by side, with a scoped rifle in the hands" width="100%">
   <br><sub>A picture for each eye, rendered from the same game frame</sub>
 </p>
