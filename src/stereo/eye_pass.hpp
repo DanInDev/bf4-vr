@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <string>
 
+#include "stereo/tracking.hpp"
+
 namespace bfvr::stereo
 {
 	// Pair rendering (stereo_render = pair, the default): both eyes from one game frame
@@ -53,6 +55,16 @@ namespace bfvr::stereo
 	// sight_reticle (#39): where the gun's sight line points in the rendered eye's view space, as x / -z and
 	// y / -z; the game's reticle quad is drawn there instead of on the view's axis. valid: a sight is at an eye.
 	void set_reticle_view(bool valid, float tan_x, float tan_y);
+	// scope_in_frame (#39): the magnifier's picture drawn in the game's frame at its lens, masked by the game's
+	// lens stencil, instead of an OpenXR quad. Camera hook: the first eye this frame renders (OpenXR LOCAL).
+	void set_lens_eye(const pose& first_eye);
+	void set_scope_in_frame(bool on);
+	// The picture went into the frame within the last 200 ms (the theater then leaves its quad out).
+	bool scope_drawn_in_frame();
+	// Pipe "scope": the in-frame lens counters.
+	std::string lens_report();
+	// Research (pipe lensfix <dx1> <dx2>): metres added to each eye's view x for the in-frame lens.
+	std::string set_lens_fix(float dx1, float dx2);
 	// Pipe "reticle [<tan x> <tan y>|off]": state and counters; research: hold the reticle at an offset.
 	std::string reticle_command(const std::string& argument);
 

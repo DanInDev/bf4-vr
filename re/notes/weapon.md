@@ -689,8 +689,21 @@ Test pitfall: `tools\pipe.ps1` takes the command's argument as one string: `pipe
   scope render runs at the hip (1.725x, `scope_images` flowing) but is an OpenXR quad. With the zoom mesh off the
   lens is black and the magnifier's ring shows to the right of the sight in the right eye. Once, with the zoom mesh
   on, the first right-eye capture after flipping it in also had that ring: intermittent again.
-- Next (brief step 3): draw the scope render's picture inside the lens mask (stencil 2, where the reticle quad is
-  drawn) with a pixel shader sampling it by direction, before the reticle; then the magnifier's quad can go.
+- **Step 3, built (`scope_in_frame`, on by default):** the composed scope picture (round, premultiplied, with
+  its dot) is drawn into each eye's finished image right after that eye's render, before it is copied out: a
+  quad at the lens's LOCAL pose (the one the OpenXR quad used), seen from that eye (the first eye's pose from
+  `camera_hook`, the second moved right by the eye shift), projected with `projection_sx/sy` as the reticle
+  fix does. The theater leaves its scope quad out while it is drawn (`scope_drawn_in_frame`).
+  - Monitor, AK-12 magnifier at the right eye, `sight_ads 0`: the magnified wall fills the lens in the right
+    eye and sits on the magnifier housing in the left eye, at the scene's own brightness. 93.2 fps with it,
+    93.8 without; the scope render 1.26 ms of GPU.
+  - Dead ends on the way: drawn at the reticle quad's draw (inside the eye render) the picture came out nearly
+    white (the frame is not tonemapped there); and the reticle's stencil state (reference 2, read mask F0,
+    GREATER_EQUAL) is not a lens mask, it passes the world too. `VSSetConstantBuffers1` needs a multiple of 16
+    constants: with 4 the binding was ignored and nothing showed.
+  - Open: no occlusion (the housing does not cover the picture's edge; the quad is the lens's size); the left
+    eye has the game's own stray lens picture left of the optic while the magnifier is selected (not the mod's:
+    it did not move with `lensfix`); the picture is one frame old.
 
 ## Open
 

@@ -68,6 +68,7 @@ namespace bfvr::settings
 			{ "sight_dot_test", "Weapon", "Aiming", "Red dot test", "Always on, both eyes", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
+			{ "scope_in_frame", "Weapon", "Aiming", "Scope picture in the glass", "Drawn into the game's image, not a layer", "" },
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "" },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },

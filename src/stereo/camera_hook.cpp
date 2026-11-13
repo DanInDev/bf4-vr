@@ -551,6 +551,7 @@ namespace bfvr::stereo
 					eye_pose = eye_math::pitched(eye_pose, tilted.tilt);
 				}
 				apply_eye_pose(params, eye_pose);
+				set_lens_eye(eye_pose);
 				scope_on_view_copy(game_fov_y, eye_pose, head);
 				{
 					// sight_reticle: the sight line in this view's axes (x right, y up, -z ahead), for the game's reticle.

@@ -1113,7 +1113,8 @@ namespace bfvr::xr
 		void add_scope_layer(XrCompositionLayerQuad& scope_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
 			const stereo::scope_image image = stereo::latest_scope_image();
-			if (!scope_visible() || layer_count >= max_layers)
+			// scope_in_frame: the picture is in the game's frame at the lens already.
+			if (!scope_visible() || layer_count >= max_layers || stereo::scope_drawn_in_frame())
 			{
 				return;
 			}

@@ -133,6 +133,7 @@ namespace bfvr::settings
 			{ "sight_dot_eyes", kind::choice, 0, 0, 0, "sighting", "sighting|both", "who sees the red dot: only the eye behind the sight (like a real one), or both eyes (one layer for both; a check for headsets that do not show single-eye layers)" },
 			{ "sight_dot_test", kind::boolean, 0, 0, 0, "0", "", "test: the red dot shown to both eyes wherever the gun is held (checks that the headset shows the dot layer at all)" },
 			{ "scope", kind::boolean, 0, 0, 0, "1", "", "magnifying sights (the AK-12's flip magnifier): while aiming, the lens shows the world magnified (one more render)" },
+			{ "scope_in_frame", kind::boolean, 0, 0, 0, "1", "", "the magnified picture is drawn into the game's own image inside the optic's glass (it then sits on the optic in both eyes); 0 = a separate headset layer as before" },
 			{ "scope_zoom", kind::real, 0.5f, 4.0f, 0.1f, "1", "", "scope magnification times the game's own (1 = the game's: the magnifier 1.7x)" },
 			{ "aim_convergence", kind::real, 2.0f, 100.0f, 1.0f, "25", "", "aim = controller: shots meet the barrel line this far away, metres (bullets leave the game camera, not the gun)" },
 			{ "move_direction", kind::choice, 0, 0, 0, "head", "head|gun|body", "left stick forward walks where your head faces, where the gun points, or along the body (the game's own way)" },

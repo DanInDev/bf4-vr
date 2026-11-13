@@ -33,6 +33,12 @@ ours is needed for them.
 
 ## Plan from here
 
+State 2026-11-13 evening: step 1 (second-eye lookups keyed by arena discards) built, the stray not reproduced
+in this scene; step 2 done on the monitor (the AK-12's lens clear and collimated without the game's aim; the
+magnifier is hidden by the zoom mesh and not magnified); step 3 built (`scope_in_frame`): the picture drawn
+into each eye's finished image at the lens, verified in both eyes on the monitor. Details in
+`re/notes/weapon.md` "In-frame lens, step 0" and "Steps 1 and 2".
+
 1. **Fix the second eye's stray first-person draws** (step 0 finding, `re/notes/weapon.md`).
    - The right eye draws the gun and optic differently from frame to frame: a second housing about 165 px to the right,
      an unlit gun body. The zoom mesh and reticle are not involved.

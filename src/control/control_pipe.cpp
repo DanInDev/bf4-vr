@@ -577,7 +577,13 @@ namespace bfvr::control
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
-			if (command == "scope") return stereo::scope_report();
+			if (command == "scope") return stereo::scope_report() + "\n" + stereo::lens_report();
+			if (command == "lensfix")
+			{
+				float dx1 = 0.0f, dx2 = 0.0f;
+				sscanf_s(argument.c_str(), "%f %f", &dx1, &dx2);
+				return stereo::set_lens_fix(dx1, dx2);
+			}
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));

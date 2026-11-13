@@ -343,6 +343,9 @@ hip_accuracy = 1
 # magnification (the magnifier: 1.7x).
 scope = 1
 scope_zoom = 1
+# The magnified picture drawn into the game's own image inside the optic's glass (the game's lens mask cuts
+# it), so it sits on the optic in both eyes; 0 = the separate headset layer used before.
+scope_in_frame = 1
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
 aim_convergence = 25
