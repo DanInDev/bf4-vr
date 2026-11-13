@@ -686,6 +686,86 @@ namespace
 		expect(falling_at(r, at_now) && close(at_now.x, hand.x, 1e-3f), "flight off: straight down");
 	}
 
+	// #61: with the game's world and a ground, a tossed magazine is a rigid body on that ground: it lands on a
+	// raised step it was tossed onto (not the STAGE floor), lies there long after the old 4 s while looked at,
+	// and goes once not looked at after 30 s. The world here is LOCAL shifted by 100 m and turned 90 degrees.
+	class step_ground : public bfvr::physics::ground_source
+	{
+	public:
+		float floor{}, step{}, step_from_x{};
+		bfvr::physics::ground_plane below(const v3& p) override
+		{
+			return { bfvr::physics::ground_plane::kind::plane, { p.x, p.x > step_from_x ? step : floor, p.z }, { 0, 1, 0 } };
+		}
+	};
+
+	void test_hands_loose_on_ground()
+	{
+		const v3 origin{ 100.0f, 50.0f, -20.0f };
+		const q4 to_local{ 0.0f, 0.7071068f, 0.0f, 0.7071068f }; // 90 degrees about y
+		step_ground ground;
+		const auto world_frame = [&](v3 hand, bool grip, bool looking)
+		{
+			hand_frame f = at(hand, grip);
+			f.has_world = true;
+			f.world_origin = origin;
+			f.world_to_local = to_local;
+			f.ground = &ground;
+			f.floor_valid = true;
+			f.floor_y = -1.6f;
+			f.has_view = true;
+			f.view_position = { 0.0f, 0.0f, 0.0f };
+			f.view_forward = looking ? v3{ 0.0f, -1.0f, -0.3f } : v3{ 0.0f, 1.0f, 0.0f };
+			return f;
+		};
+		// The world's floor is the STAGE floor's height; the step covers the world beyond x = 99.5 at 0.6 m higher.
+		ground.floor = origin.y - 1.6f;
+		ground.step = origin.y - 1.0f;
+		ground.step_from_x = 1e9f;
+		reload gun(ar);
+		gun.load(16, 30);
+		reload_hands hands(flat_hold());
+		hands.update(gun, world_frame(chest, true, true));
+		v3 hand = away;
+		for (int i = 0; i < 30; ++i)
+		{
+			hands.update(gun, world_frame(hand, true, true));
+		}
+		hand_result r = hands.update(gun, world_frame(hand, false, true));
+		expect(has(r, reload_event::magazine_dropped) && r.loose, "ground: let go, it is in the world");
+		for (int i = 0; i < 180 && !r.loose_resting; ++i)
+		{
+			r = hands.update(gun, world_frame(hand, false, true));
+		}
+		v3 lying{};
+		expect(r.loose_resting && falling_at(r, lying), "ground: comes to rest within 2 s, drawn");
+		expect(lying.y > -1.6f && lying.y < -1.6f + 0.1f, "ground: lies on the floor under it, in LOCAL");
+		for (int i = 0; i < 90 * 40; ++i)
+		{
+			r = hands.update(gun, world_frame(hand, false, true));
+		}
+		expect(r.loose && falling_at(r, lying), "ground: still there after 40 s while looked at");
+		r = hands.update(gun, world_frame(hand, false, false));
+		expect(!r.loose, "ground: gone once not looked at");
+
+		// On a raised step: the ground under it, not the STAGE floor.
+		ground.step_from_x = -1e9f; // the whole world is the step
+		reload gun2(ar);
+		gun2.load(16, 30);
+		reload_hands hands2(flat_hold());
+		hands2.update(gun2, world_frame(chest, true, true));
+		for (int i = 0; i < 30; ++i)
+		{
+			hands2.update(gun2, world_frame(hand, true, true));
+		}
+		r = hands2.update(gun2, world_frame(hand, false, true));
+		for (int i = 0; i < 180 && !r.loose_resting; ++i)
+		{
+			r = hands2.update(gun2, world_frame(hand, false, true));
+		}
+		expect(r.loose_resting && falling_at(r, lying) && lying.y > -1.0f && lying.y < -1.0f + 0.1f, "step: lies on the step, 60 cm above the STAGE floor");
+	}
+
 	void test_hands_flick()
 	{
 		reload gun(ak, { false });
@@ -1499,6 +1579,7 @@ int main()
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();
 	test_hands_toss();
+	test_hands_loose_on_ground();
 	test_accessory_touch();
 	test_grenade_throw();
 	test_grenade_either_hand();

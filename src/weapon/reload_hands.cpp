@@ -129,6 +129,27 @@ namespace bfvr::weapon
 
 	void reload_hands::start_fall(v3 from, q4 rotation, v3 velocity, const hand_frame& frame)
 	{
+		flight_.stop();
+		loose_on_ = false;
+		if (frame.throw_flight && frame.has_world && frame.ground)
+		{
+			// #61: a rigid box in the world. Its tumble: end over end across the throw, faster the faster it goes.
+			const q4 to_world = conjugate(normalize(frame.world_to_local));
+			const v3 world_velocity = rotate(to_world, velocity);
+			const float horizontal = std::sqrt(world_velocity.x * world_velocity.x + world_velocity.z * world_velocity.z);
+			const float speed = std::sqrt(dot(world_velocity, world_velocity));
+			const v3 across = horizontal > 0.05f ? v3{ world_velocity.z / horizontal, 0.0f, -world_velocity.x / horizontal } : v3{ 1.0f, 0.0f, 0.0f };
+			const v3 spin = across * std::fmin(14.0f, 4.0f * speed);
+			// The box hangs from the magazine's top along the gun's -y, as it sits in the gun.
+			const q4 seated = frame.has_root ? multiply(conjugate(frame.root_rotation), frame.magazine_rotation) : q4{};
+			physics::loose_shape shape;
+			shape.axes = conjugate(normalize(seated));
+			shape.half = config_.magazine_half;
+			shape.centre = rotate(shape.axes, { 0.0f, -config_.magazine_half.y, 0.0f });
+			loose_.start(frame.world_origin + rotate(to_world, from), multiply(to_world, rotation), world_velocity, spin, shape);
+			loose_on_ = true;
+			return;
+		}
 		flight_config flight;
 		flight.fallback_seconds = config_.fall_seconds;
 		flight_ = magazine_flight(flight);
@@ -517,13 +538,51 @@ namespace bfvr::weapon
 			result.magazine_position = frame.magwell + v3{ 0, -50.0f, 0 };
 			result.magazine_rotation = frame.magazine_rotation;
 		}
-		const bool falling = flight_.active() && flight_.update(frame.seconds);
+		bool falling = false;
+		v3 fall_position;
+		q4 fall_rotation;
+		if (loose_on_ && frame.has_world && frame.ground)
+		{
+			// #61: on the level's ground; the STAGE floor (or the soldier's) under ground not known yet.
+			const q4 to_local = normalize(frame.world_to_local);
+			const auto local_of = [&](v3 world) { return rotate(to_local, world - frame.world_origin); };
+			const v3 local = local_of(loose_.centre());
+			float fallback = NAN;
+			if (frame.floor_valid)
+			{
+				fallback = (frame.world_origin + rotate(conjugate(to_local), { local.x, frame.floor_y, local.z })).y;
+			}
+			bool seen = false;
+			if (frame.has_view)
+			{
+				const v3 to = local - frame.view_position;
+				const float far = std::sqrt(dot(to, to));
+				const float forward = std::sqrt(dot(frame.view_forward, frame.view_forward));
+				seen = far < 0.3f || (far < 40.0f && forward > 1e-4f && dot(to, frame.view_forward) / (far * forward) > std::cos(config_.seen_degrees * 0.017453293f));
+			}
+			loose_on_ = loose_.update(frame.seconds, *frame.ground, fallback, seen);
+			falling = loose_on_;
+			fall_position = local_of(loose_.pose_position());
+			fall_rotation = multiply(to_local, loose_.pose_rotation());
+			result.loose_resting = loose_on_ && loose_.resting();
+		}
+		else if (loose_on_)
+		{
+			// No world this frame (a weapon switch): it waits, not drawn.
+		}
+		else
+		{
+			falling = flight_.active() && flight_.update(frame.seconds);
+			fall_position = flight_.position();
+			fall_rotation = flight_.rotation();
+		}
+		result.loose = falling;
 		if (falling && result.draw == magazine_draw::hidden)
 		{
 			// The rig's one magazine mesh, when nothing else needs it.
 			result.draw = magazine_draw::falling;
-			result.magazine_position = flight_.position();
-			result.magazine_rotation = flight_.rotation();
+			result.magazine_position = fall_position;
+			result.magazine_rotation = fall_rotation;
 		}
 		// The second magazine (a copy of the game's draw where available): with one in the gun and one in the
 		// hand, whichever the rig's mesh does not show; the caught one while palming; one falling while the
@@ -543,8 +602,8 @@ namespace bfvr::weapon
 		else if (falling && result.draw != magazine_draw::falling)
 		{
 			result.extra = hand_result::extra_magazine::falling;
-			result.extra_position = flight_.position();
-			result.extra_rotation = flight_.rotation();
+			result.extra_position = fall_position;
+			result.extra_rotation = fall_rotation;
 		}
 		return result;
 	}
