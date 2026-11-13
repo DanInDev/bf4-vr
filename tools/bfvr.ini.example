@@ -345,6 +345,10 @@ knife_pitch = 30
 # its ray (+ = clockwise seen from behind). Tune them on the panel (Weapon > Hands and melee).
 knife_yaw = 0
 knife_roll = 0
+# Weapons from the ground (#54): grip a weapon lying there with either free hand, or reach down over it and
+# grip, and the game takes it (its pickup, R held while the hand squeezes). Only near a weapon the game
+# offers: R is also reload.
+weapon_pickup = 1
 # Use (pick up, doors, prompts; the game's E): reach the off hand out ahead, away from the gun and
 # below the eyes, and squeeze its grip. With physical reload the pad's own use (X) is not reachable.
 use_reach = 1

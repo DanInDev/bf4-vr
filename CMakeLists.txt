@@ -171,6 +171,8 @@ add_library(bfvr_runtime STATIC
 	src/weapon/hip_accuracy_math.cpp
 	src/weapon/server_soldier.cpp
 	src/weapon/server_soldier_math.cpp
+	src/weapon/weapon_pickup.cpp
+	src/weapon/weapon_pickup_math.cpp
 	src/weapon/sight_state.cpp
 	src/weapon/optics.cpp
 	src/weapon/weapon_swap.cpp
@@ -250,6 +252,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_hip_accuracy_test PRIVATE bfvr_common)
 	add_executable(bfvr_server_soldier_test tests/server_soldier_test.cpp src/weapon/server_soldier_math.cpp)
 	target_link_libraries(bfvr_server_soldier_test PRIVATE bfvr_common)
+	add_executable(bfvr_weapon_pickup_test tests/weapon_pickup_test.cpp src/weapon/weapon_pickup_math.cpp)
+	target_link_libraries(bfvr_weapon_pickup_test PRIVATE bfvr_common)
 	add_executable(bfvr_optics_test tests/optics_test.cpp src/weapon/optics.cpp)
 	target_link_libraries(bfvr_optics_test PRIVATE bfvr_common)
 
@@ -326,6 +330,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME body_calibration COMMAND bfvr_body_calibration_test)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
 	add_test(NAME server_soldier COMMAND bfvr_server_soldier_test)
+	add_test(NAME weapon_pickup COMMAND bfvr_weapon_pickup_test)
 	add_test(NAME optics COMMAND bfvr_optics_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)

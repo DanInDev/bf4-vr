@@ -82,6 +82,7 @@ namespace bfvr::settings
 			{ "holsters", "Weapon", "Hands and melee", "Holsters on the body", "Shoulder, hip, chest and belt", "" },
 			{ "free_hands", "Weapon", "Hands and melee", "Free hands", "Let go and the gun drops; grip to pick up", "" },
 			{ "sling", "Weapon", "Hands and melee", "Gun on a sling", "With free hands: it hangs at your belly", "" },
+			{ "weapon_pickup", "Weapon", "Hands and melee", "Grab weapons from the ground", "Either hand: grip it or reach down over it", "" },
 			{ "use_reach", "Weapon", "Hands and melee", "Reach to use", "Off hand ahead + grip: pick up, doors", "" },
 			{ "melee_gesture", "Weapon", "Hands and melee", "Stab by thrusting", "A quick push of the gun hand", "" },
 			{ "knife_grip", "Weapon", "Hands and melee", "Knife follows the controller", "The blade points where you point", "" },

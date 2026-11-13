@@ -55,6 +55,27 @@ itself** (the owner's report "after a respawn it automatically reloads itself").
   `server soldier: ...177C752D0 (static table)` and `reload: U_SCAR-H slot 0 AR`. 19 shots emptied the
   SCAR-H, the bolt locked, the game's magazine stayed at the 2 spare rounds and did not reload in 10 s.
 
+## Weapons from the ground (#54, 2026-11-13, live, Baku after the fight)
+
+- **Hold R takes it.** Standing 0.69 m from a dropped AK-12 the game showed "[R] HOLD TO PICKUP AK-12";
+  `pipe key "52 1500"` (R through the game's Raw Input, BF4 not in front) put `U_AK12` in slot 1 and in hand.
+  The SCAR-H stayed in slot 0. `ConceptPickUp` and `ConceptReload` are both R: R near no pickup is a reload.
+- **The picked-up AK-12 came empty** (`reload: U_AK12 slot 1 AK, capacity 30, gun 0`): the game reloaded it
+  by itself within 2 s of the take (2 -> 31, the mod took its rounds) before physical reload could hold it.
+  Open: a picked-up gun with rounds keeps them; an empty one gets this one game reload.
+- **Census:** `ClientPickupEntity` (vtable `0x141E5FD70`) found by a heap scan, 11 after the fight; each one's
+  `PickupEntityData` at `+0x30` (InteractionRadius 2.5, AllowPickup 1) and position at `[+0x140] +0x30`.
+- **In the mod (`weapon/weapon_pickup`, setting `weapon_pickup`, pipe `pickup`):** the census every 1.5 s in
+  the background; each frame the pickups go to OpenXR LOCAL with the rig's own transform (`weapon_points`
+  `world_origin` / `world_to_local`, the one every gun point uses). A fresh squeeze of a free hand within
+  35 cm of a pickup, or of a hand at least 50 cm below the head over it (up to 1.2 m above, 50 cm around),
+  holds R until the weapon in hand changes, the grip opens or 2 s pass, and only for a pickup within its
+  radius of the head. These are the BF3 single-player mod's approved magnetic-take numbers (ideas only).
+  The off hand's use reach (E) stays off meanwhile. Unit test `weapon_pickup`. **Not yet run in the game:**
+  restarting would have lost the save with the AK at the soldier's feet.
+- The BF3 mod instead hooks the game's interaction update and calls its own take for the gripped gun; that
+  would pick the exact gun when two lie together (here the game picks the one it offers). Later, if needed.
+
 ## Consequences for the physical reload
 
 - Write only the server weapon; read shots back from it (the game counts down from what we wrote).

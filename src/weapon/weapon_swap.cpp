@@ -33,6 +33,7 @@
 #include "weapon/physical_reload.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/use_reach.hpp"
+#include "weapon/weapon_pickup.hpp"
 
 namespace bfvr::weapon
 {
@@ -506,7 +507,30 @@ namespace bfvr::weapon
 		{
 			signal_raised = false;
 		}
-		if (use_enabled.load(std::memory_order_relaxed))
+		// #54: a weapon on the ground taken by either hand (R held). While it holds R the off hand's use reach
+		// (E) stays off: both read the off-hand grip near the ground.
+		bool picking = false;
+		{
+			static int pickup_last_slot = -1;
+			static char pickup_last_name[48]{};
+			const bool weapon_changed = held.valid
+				&& (held.current != pickup_last_slot || std::strncmp(held.name, pickup_last_name, sizeof(pickup_last_name)) != 0);
+			pickup_last_slot = held.current;
+			std::memcpy(pickup_last_name, held.name, sizeof(pickup_last_name));
+			const bool panel = ui::vr_panel_view().open;
+			const bool gun_out = held.valid && held.current >= 0 && held.current <= 1 && std::strstr(held.name, "Knife") == nullptr;
+			const bool busy[2]{
+				grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || off_grip_claimed.load() || signal_raised.load() || panel
+					|| hooks::game_pointer_active(),
+				grenade_in_hand() || grip_claimed.load() || reload_claims_free_hand() || panel
+					|| (gun_out && !off_hand_now.load() && (!free_hands_on.load(std::memory_order_relaxed) || !gun_dropped())),
+			};
+			const float head_at[3]{ head.x, head.y, head.z };
+			const ULONGLONG buttons = input::latest().buttons;
+			picking = update_weapon_pickup(points, now - points.at < points_max_age_ms, head_valid, head_at, (buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0,
+				(buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0, busy, weapon_changed, seconds);
+		}
+		if (use_enabled.load(std::memory_order_relaxed) && !picking)
 		{
 			use_frame reach;
 			reach.head_valid = head_valid;

@@ -1266,6 +1266,13 @@ namespace bfvr::body
 			const ik::quat magazine_rotation_xr = to_xr * magazine.rotation;
 			points.valid = true;
 			points.at = GetTickCount64();
+			points.world_origin[0] = origin.x;
+			points.world_origin[1] = origin.y;
+			points.world_origin[2] = origin.z;
+			points.world_to_local[0] = to_xr.x;
+			points.world_to_local[1] = to_xr.y;
+			points.world_to_local[2] = to_xr.z;
+			points.world_to_local[3] = to_xr.w;
 			points.has_floor = rig.ground >= 0;
 			if (points.has_floor)
 			{

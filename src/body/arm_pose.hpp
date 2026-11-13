@@ -103,6 +103,10 @@ namespace bfvr::body
 		// The soldier's ground (the rig's AITrajectory bone) as a height in OpenXR LOCAL.
 		bool has_floor{};
 		float floor_y{};
+		// The game's world (the rig's model space) to OpenXR LOCAL, as every point above: local =
+		// rotate(world_to_local, world - world_origin) (#54: pickups lie in the world).
+		float world_origin[3]{};
+		float world_to_local[4]{ 0, 0, 0, 1 };
 	};
 	weapon_points latest_weapon_points();
 

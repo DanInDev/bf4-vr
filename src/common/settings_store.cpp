@@ -81,6 +81,7 @@ namespace bfvr::settings
 			{ "knife_pitch", kind::real, -90.0f, 90.0f, 5.0f, "30", "", "knife_grip: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
 			{ "knife_yaw", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "knife_grip: degrees the held knife is turned about the controller's up (+ = to the right)" },
 			{ "knife_roll", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "knife_grip: degrees the held knife is rolled about the controller ray (+ = clockwise seen from behind)" },
+			{ "weapon_pickup", kind::boolean, 0, 0, 0, "1", "", "grip a weapon lying on the ground with either hand (or reach down over it) to take it: the game's pickup (R held while the hand squeezes)" },
 			{ "use_reach", kind::boolean, 0, 0, 0, "1", "", "reach out ahead with the off hand (away from the gun) and squeeze its grip: the game's use (pick up, doors, prompts)" },
 			{ "sling", kind::boolean, 0, 0, 0, "1", "", "with free_hands: a gun let go by both hands hangs on its sling at your belly (follows you, grip it there) instead of dropping to the floor" },
 			{ "free_hands", kind::boolean, 0, 0, 0, "1", "", "hold the gun with the gun-hand grip: let go and it drops to the floor below your hand (no firing); reach down and grip to pick it up" },

@@ -47,6 +47,7 @@
 #include "ui/body_calibration_flow.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
+#include "weapon/weapon_pickup.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/theater.hpp"
@@ -173,6 +174,7 @@ namespace bfvr::core
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(store.boolean("knife_grip", true));
 			weapon::set_use_reach(store.boolean("use_reach", true));
+			weapon::set_weapon_pickup(store.boolean("weapon_pickup", true));
 			weapon::set_free_hands(store.boolean("free_hands", true));
 			weapon::set_sling(store.boolean("sling", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
