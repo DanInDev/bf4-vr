@@ -26,12 +26,19 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `integrate/2026-11-13`, **Release**, deployed 2026-11-13 late; the main checkout is on that branch, so
-the launcher's Update mod installs the same build. It holds every open branch: `main` (#54 pickup, respawn
-fixes), the afternoon bundle (#48, #49, #55, #56, #57, #58, #41), the sights (#39, BF3-style lens), thrown
-magazines (#47), the calibration screen (#50), crate grip close (#34), room to the walls (#53), sprint where
-you look (#52), HUD feedback off (#51) and the BF3 guard (#42). Tap both stick clicks (a mark) whenever
-something looks off. Broad checks first; the rows named give the details.
+Build: `test/headset-2026-11-14` = `main` + grip lock (`weapon/grip-lock`) + the physics (`physics/ray-ground`),
+**Release**, deployed 2026-11-14; the main checkout is on that branch, so the launcher's Update mod installs the
+same build. New in it, check these first (a mark, both stick clicks, whenever something looks off):
+
+A. **Grip lock (GUN-20):** with an empty gun, bring a fresh magazine up under the magwell. Within about 10 cm
+   it snaps upright onto the magwell and your drawn hand jumps onto it with the game's grip. It only goes in
+   when you push up; your hand stays on it until you open the grip. Pull an AK magazine out by hand: it slides
+   straight down first. Weapon > Reloading > Magazines lock onto the gun off: the old behaviour, to compare.
+B. **Magazines on the real ground (GUN-21):** drop and toss used magazines on flat floor, rubble, stairs, a
+   crate: each lands on what is there, bounces, tips onto a side and lies.
+C. **They lie 30 s (GUN-22):** look at one for half a minute; it is gone only after you look away.
+
+Then the earlier list, from the 2026-11-13 build (all of it is in this build too):
 
 1. **Calibration screen (BODY-1):** `body_calibration = always` in your ini, so the full-width screen comes
    up after the level loads. Follow it (T-pose, both triggers, two seconds): height reported and saved,
@@ -141,7 +148,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | GUN-17 | open | Kill an enemy, walk to the gun he drops and grip it with the off hand (or reach down over it and grip); then let your own gun hang and take one with the gun hand; `weapon_pickup` (Weapon > Hands and melee > Grab weapons from the ground) off to compare | A tick, and the game swaps the gun in within about a second (the same as holding R over it); the new gun reloads by hand like your own. Never a reload from gripping near the ground without a gun there | #54 | 2026-11-13: monitor (bundle build): the fake off hand lowered over a dropped AK-12 and squeezed: taken 0.35 s later into slot 1, physical reload on it; a squeeze away from any gun pressed nothing. Earlier: R held 1.5 s over the AK took it (the game not even in front) |
 | GUN-18 | open | Die (a grenade at your feet) and play on after the respawn: reload by hand, throw a grenade, fire the magazine empty | Physical reload and grenades work as before the death; an empty gun waits for your reload (no automatic one) | | 2026-11-13: monitor: after a grenade death the new soldier was found by itself; 19 shots emptied the SCAR-H, bolt locked, no game reload in 10 s |
 | GUN-19 | open | Thrown magazines (#47, `magazine_flight`): take a magazine, toss it sideways and let it go; drop one with the release button while moving the gun; on the AK-12 do a quick reload | The tossed magazine flies on the way your hand moved, tumbles, lands on the floor with a small bounce and lies there ~4 s; the dropped one falls with the gun's motion; on the AK-12 the old magazine is knocked out downward first and the new one seats a moment later (two steps), with a magazine-out sound then the seat | #47 | Unit tests `magazine_flight` and `reload` (toss) green; the floor needs the headset (without one it drops away as before) |
-| GUN-20 | open | Grip lock (`grip_lock`, Weapon > Reloading > Magazines lock onto the gun): bring a fresh magazine up under the magwell, push it in; then pull a magazine out by hand (AK) and look at the hand; then palm on the SCAR as before | Within a few cm it snaps upright onto the magwell and your drawn hand jumps onto it with the game's grip (fingers wrapped, not floating); it goes in only when you push up; seated, the hand stays on it until you open your grip; pulled out it slides straight down the well before it comes free. Off on the panel: the old loose zip-in, to compare | | |
+| GUN-20 | open | Grip lock (`grip_lock`, Weapon > Reloading > Magazines lock onto the gun): bring a fresh magazine up under the magwell, push it in; then pull a magazine out by hand (AK) and look at the hand; then palm on the SCAR as before | Within a few cm it snaps upright onto the magwell and your drawn hand jumps onto it with the game's grip (fingers wrapped, not floating); it goes in only when you push up; seated, the hand stays on it until you open your grip; pulled out it slides straight down the well before it comes free. Off on the panel: the old loose zip-in, to compare | | 2026-11-14 monitor (fake hands, SCAR-H, empty gun): locked on 7 cm below the magwell (`guided=1`, lock 1.00), seated when pushed up, hand stayed on it while gripping, let go on opening. A 6 cm catch / 45 degrees missed a natural fist hold (2-11 cm off): now 10 cm / 50 degrees |
 | GUN-21 | open | Magazines on the real ground (#61): drop and toss used magazines on flat ground, on stairs, onto a crate or car roof, and down a slope | Each lands on what is there (not floating at your feet height, not sunk into it), bounces once or twice, tips onto a flat side and lies; on stairs it stays on the step it hit | | |
 | GUN-22 | open | Magazines lie 30 s (#61): drop one, look at it for half a minute, then look away and back | It is still there while you look; after 30 s it is gone only once you looked away (never vanishes in view) | | |
 | GUN-14 | done | Hold the gun with your finger resting on the trigger, then pull; `trigger_press` (Weapon > Trigger pull to fire) 0.45 / 0.65 to compare | Resting never fires; a deliberate pull fires at about half way, letting go a little stops it | | 2026-11-09 headset: fine (no unwanted shots reported).; earlier: 2026-11-05: the gun kept firing: a resting finger read 26-47 % and every value reached the game. Now all or nothing past 55 % (released below 45 %), unit-tested |
