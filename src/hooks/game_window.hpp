@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 namespace bfvr::hooks
 {
 	// Owns what the game sees of its window (subclassed window procedure plus a few user32 hooks).
@@ -28,6 +30,8 @@ namespace bfvr::hooks
 	// is the click, so the triggers are kept from the game's pad (#34: in the gadget stash the pad's
 	// triggers switch the slot tabs, and each laser click flipped the tab instead of choosing an item).
 	bool game_pointer_active();
+	// #34 diagnostics (status): cursor deliveries with the game in front / behind, clicks, active now.
+	std::string game_pointer_report();
 
 	// A key press or release for the game (virtual-key code), through its Raw Input keyboard: a posted
 	// WM_INPUT answered by the GetRawInputData hook. Works without focus. false without a game window.

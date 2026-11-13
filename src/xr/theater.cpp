@@ -30,6 +30,7 @@
 #include "hooks/game_window.hpp"
 #include "input/gestures.hpp"
 #include "input/handedness.hpp"
+#include "input/menu_back.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
@@ -1867,6 +1868,14 @@ namespace bfvr::xr
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
+		// #34: the off-hand grip pressed again backs out of a menu over the level (Escape).
+		input::menu_back menu_back_gesture;
+		ULONGLONG escape_release_at{};
+		ULONGLONG done_release_at{};
+		ULONGLONG laser_paused_until{};
+		// #34 diagnostics (status): the laser on the flat screen.
+		std::atomic<std::uint64_t> pointer_frames{}, pointer_no_hand{}, pointer_misses{}, pointer_hits{};
+		std::atomic<float> pointer_last_u{}, pointer_last_v{};
 		bool menu_shown{};
 		// A menu over a level (pause, crates) is shown in front of where the head looked when it came
 		// up: at a crate the player faces the crate, not where tracking started (#34).
@@ -1971,9 +1980,11 @@ namespace bfvr::xr
 			{
 				pointer_hand = triggers[0] ? 0 : 1;
 			}
+			++pointer_frames;
 			const stereo::hand_sample hands = stereo::latest_hand_sample();
 			if (!hands.valid[pointer_hand])
 			{
+				++pointer_no_hand;
 				return;
 			}
 			input::quad_target screen;
@@ -1982,7 +1993,17 @@ namespace bfvr::xr
 			screen.height = height;
 			const input::pointer_hit hit = input::point_at(hands.aim[pointer_hand], screen);
 			place_pointer_visual(hands.aim[pointer_hand], hit);
-			if (hit.hit)
+			if (!hit.hit)
+			{
+				++pointer_misses;
+			}
+			else
+			{
+				++pointer_hits;
+				pointer_last_u = hit.u;
+				pointer_last_v = hit.v;
+			}
+			if (hit.hit && GetTickCount64() >= laser_paused_until)
 			{
 				hooks::point_game_cursor(hit.u, hit.v, triggers[pointer_hand]);
 			}
@@ -2409,6 +2430,38 @@ namespace bfvr::xr
 				}
 				log::write("theater: %s", ui_on_screen ? "menu over the level: flat screen (in front of the head)" : "back to the level: stereo");
 			}
+			{
+				// #34: off-hand grip again = Escape while the menu is up (the game layout's left shoulder is the
+				// off hand's grip for either dominant hand).
+				constexpr std::uint16_t off_grip = 0x0100; // XINPUT_GAMEPAD_LEFT_SHOULDER
+				const ULONGLONG now = GetTickCount64();
+				const bool enabled = settings::global().boolean("menu_grip_back", true) && !ui::vr_panel_view().open;
+				const input::menu_back::action back = menu_back_gesture.update(ui_on_screen && enabled, (input::latest().buttons & off_grip) != 0, now);
+				if (back == input::menu_back::action::escape && hooks::press_game_key(VK_ESCAPE, true))
+				{
+					escape_release_at = now + 80;
+					log::write("theater: off-hand grip in a menu: Escape");
+				}
+				else if (back == input::menu_back::action::click_done)
+				{
+					// The stash ignores Escape: press its Done button (moved there, pressed, released next frame).
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, false);
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, true);
+					done_release_at = now + 60;
+					laser_paused_until = now + 200; // the laser must not move the cursor off Done mid-click
+					log::write("theater: off-hand grip in a menu: still up after Escape, clicking Done");
+				}
+				if (done_release_at && now >= done_release_at)
+				{
+					hooks::point_game_cursor(input::menu_done_u, input::menu_done_v, false);
+					done_release_at = 0;
+				}
+				if (escape_release_at && now >= escape_release_at)
+				{
+					hooks::press_game_key(VK_ESCAPE, false);
+					escape_release_at = 0;
+				}
+			}
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1] && !ui_on_screen;
 			enter("copy to swap chain");
 			if (frame.shouldRender && stereo_frame && copy_eyes_to_swapchain())
@@ -2731,6 +2784,7 @@ namespace bfvr::xr
 		return { phase_name(s.current), s.presents_seen, s.frames_submitted, static_cast<int>(s.session_state),
 			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
 			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
-			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.sight_dot_layers.load() };
+			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.sight_dot_layers.load(),
+			s.pointer_frames.load(), s.pointer_no_hand.load(), s.pointer_misses.load(), s.pointer_hits.load(), s.pointer_hand, s.pointer_last_u.load(), s.pointer_last_v.load() };
 	}
 }

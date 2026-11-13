@@ -27,6 +27,15 @@ namespace bfvr::xr
 		std::uint32_t focus_losses{}; // FOCUSED left for another state
 		double unfocused_seconds{};  // since focus was last lost, while it is still lost
 		std::uint64_t sight_dot_frames{};    // frames that showed the sight's red dot (#39)
+		// #34: the laser on the flat screen (menus over a level): frames it was tested, frames without the
+		// pointing hand tracked, misses and hits, and where the last hit landed (texture coordinates).
+		std::uint64_t pointer_frames{};
+		std::uint64_t pointer_no_hand{};
+		std::uint64_t pointer_misses{};
+		std::uint64_t pointer_hits{};
+		int pointer_hand{};
+		float pointer_u{};
+		float pointer_v{};
 	};
 
 	// The OpenXR side of the mod: the flat virtual screen (menus, cutscenes), the head-tracked
