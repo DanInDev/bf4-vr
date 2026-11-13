@@ -60,6 +60,12 @@ int main()
 	expect(!guard.update(level_one, std::nanf(""), 0.2f).write, "NaN: left alone");
 	expect(guard.asset() == 0, "nothing remembered from a bad read");
 
+	// Only the player's physics asset (the spawn builds AI characters' shapes too).
+	expect(is_player_physics("Gameplay/Soldiers/DefaultSoldierPhysics_SP"), "the player's asset (campaign)");
+	expect(is_player_physics("Gameplay/Soldiers/DefaultSoldierPhysics"), "the same without the _SP suffix");
+	expect(!is_player_physics("Characters/Soldiers/AISoldierPhysics"), "AI soldiers: left alone");
+	expect(!is_player_physics(""), "no name: left alone");
+
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

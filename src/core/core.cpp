@@ -345,6 +345,7 @@ namespace bfvr::core
 			{
 				hooks::install_xinput_hooks();
 				hooks::install_rumble_hook();
+				body::install_soldier_radius_hook();
 				input::install_vr_controls();
 			}
 			return 0;

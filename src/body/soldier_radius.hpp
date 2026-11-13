@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 // The soldier's collision radius (#53, re/notes/collision.md): BF4 keeps the soldier 0.35 m from walls,
 // so with the stick alone the head cannot reach past a window ledge. The radius lives in the level's
@@ -36,10 +37,21 @@ namespace bfvr::body
 		bool written_{};
 	};
 
+	// The spawn builds every character's shapes, AI included (monitor 2026-11-13: "Characters/Soldiers/
+	// AISoldierPhysics" beside the player's "Gameplay/Soldiers/DefaultSoldierPhysics_SP"): only the player's
+	// physics asset is changed, recognised by its asset name.
+	inline bool is_player_physics(std::string_view asset_name)
+	{
+		return asset_name.rfind("Gameplay/Soldiers/DefaultSoldierPhysics", 0) == 0;
+	}
+
 	// Game side (x64; BF3 builds keep the game's radius).
 	void set_soldier_radius(float metres);
 	// Present thread: finds the local soldier's physics data and keeps its radius (twice a second).
 	void update_soldier_radius();
+	// Hooks the spawn's pose shape builder (0x140B412A0, prologue checked) so the radius applies from every
+	// spawn, a level's first included; without it the setting applies after a respawn.
+	bool install_soldier_radius_hook();
 	// Pipe "radius": the asset, the game's value, the current and wanted values.
 	std::string soldier_radius_report();
 }

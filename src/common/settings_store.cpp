@@ -66,7 +66,7 @@ namespace bfvr::settings
 			{ "body_span", kind::real, 0.0f, 2.5f, 0.01f, "0", "", "your arm span, grip to grip, from the calibration, metres (information)" },
 			{ "arm_length", kind::real, 0.8f, 1.5f, 0.05f, "1.15", "", "first-person arms stretched by this (reach)" },
 			{ "hide_legs", kind::boolean, 0, 0, 0, "1", "", "first-person legs hidden (they sit oddly under a tracked head)" },
-			{ "soldier_radius", kind::real, 0.0f, 0.35f, 0.05f, "0", "", "the soldier's collision radius in metres, 0 = the game's 0.35; smaller lets you stand closer to walls and lean out of windows; read when the soldier spawns, so a change applies after a respawn or checkpoint restart (#53)" },
+			{ "soldier_radius", kind::real, 0.0f, 0.35f, 0.05f, "0", "", "the soldier's collision radius in metres, 0 = the game's 0.35; smaller lets you stand closer to walls and lean out of windows; applied when the soldier spawns (a level's first spawn included); a change in a level applies at the next respawn or checkpoint restart (#53)" },
 			{ "torso_hands", kind::boolean, 0, 0, 0, "0", "", "the torso also leans towards two hands held together in front (off: it turns only when the head turns past ~40 degrees, or with the stick)" },
 			{ "torso_follow", kind::boolean, 0, 0, 0, "1", "", "the shoulders turn with your real body (the head past ~40 degrees), not only with the stick" },
 			{ "off_hand_pose", kind::choice, 0, 0, 0, "neutral", "animated|neutral", "the free off hand's wrist: the gun hand's grip mirrored, as you hold the controller, a held magazine upright in the fist (neutral), or the game's handguard hold turned by the controller (animated)" },
