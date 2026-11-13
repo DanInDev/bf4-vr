@@ -2,7 +2,7 @@
 
 Status: **built and partly monitor-verified (2026-11-03), branch `feature/hand-animation`** (on top of
 `test/vr-check-2026-11-03`, not on `main`). Live testing is still open: the game checks below, then the
-headset rows H1-H5 in `docs/HEADSET-TESTS.md`. Off switch: `finger_poses = 0` (panel, Body page).
+headset rows H1-H5 in `docs/HEADSET-TESTS.md`. The `finger_poses` switch was removed in #48: fingers always follow.
 
 Goal: the hands look like they do what you do. Fingers follow the controller. A magazine sits in the
 fist. The charging handle is held and pulled, and the bolt comes back with it. The trigger finger

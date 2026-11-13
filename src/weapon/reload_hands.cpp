@@ -12,6 +12,15 @@ namespace bfvr::weapon
 		float dot(v3 a, v3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 		float distance(v3 a, v3 b) { return std::sqrt(dot(a - b, a - b)); }
 
+		// Distance from p to the segment a..b.
+		float segment_distance(v3 p, v3 a, v3 b)
+		{
+			const v3 ab = b - a;
+			const float length2 = dot(ab, ab);
+			const float t = length2 > 1e-9f ? std::fmax(0.0f, std::fmin(1.0f, dot(p - a, ab) / length2)) : 0.0f;
+			return distance(p, a + ab * t);
+		}
+
 		q4 multiply(q4 a, q4 b)
 		{
 			return { a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
@@ -141,7 +150,8 @@ namespace bfvr::weapon
 		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, { 0, -config_.magazine_grab_drop, 0 }) : frame.magwell;
 		const bool on_handguard = frame.has_root && dot(reach - frame.magwell, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
 		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
-		const float to_chest = valid ? distance(reach, frame.chest) : 1e9f;
+		const float to_chest = !valid ? 1e9f : frame.has_chest_hip ? segment_distance(reach, frame.chest, frame.chest_hip) : distance(reach, frame.chest);
+		const float chest_reach = frame.chest_reach > 0 ? frame.chest_reach : config_.reach_chest;
 		// The charging handle: from the gun frame per variant, else the slide bone.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
@@ -161,7 +171,7 @@ namespace bfvr::weapon
 		// Zones overlap on small guns: the nearest one wins.
 		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
-		const bool near_chest = !frame.handle_only && to_chest < config_.reach_chest;
+		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
 		q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
 		v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
@@ -349,7 +359,9 @@ namespace bfvr::weapon
 			}
 		}
 		result.zone_centre[2] = frame.chest;
-		result.zone_reach[2] = config_.reach_chest;
+		result.zone_reach[2] = chest_reach;
+		result.has_chest_hip = frame.has_chest_hip;
+		result.chest_hip = frame.chest_hip;
 		if (!gun.state().holding && !racking_ && !frame.grip)
 		{
 			result.in_zone = near_handle ? hand_result::zone::handle : near_magwell ? hand_result::zone::magazine

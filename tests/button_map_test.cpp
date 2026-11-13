@@ -67,6 +67,39 @@ int main()
 		expect(matching_preset(item.map) == &item, "preset matches itself");
 		expect(find_preset(item.name) == &item, "preset found by name");
 	}
+	// #48: weapons change by the holster gesture only: no preset puts the game's weapon switch on a button,
+	// and the default Y gives the fire mode (no other Quest button reaches it).
+	for (const preset& item : list)
+	{
+		for (const pad_button target : item.map.target)
+		{
+			expect(target != pad_button::y, "no preset switches weapons by button");
+		}
+	}
+	bool y_held[quest_button_count]{};
+	y_held[static_cast<int>(quest_button::y)] = true;
+	expect(pad_buttons(identity, y_held) == 0x0002, "default: Y is the fire mode (D-pad down)");
+	// Left-handed: the physical buttons trade roles before the mapping, so every binding follows the role
+	// (the left X is the jump a right-hander has on A, the left Y the reload on B), whatever the preset.
+	bool lefty[quest_button_count]{};
+	lefty[static_cast<int>(quest_button::y)] = true;
+	lefty[static_cast<int>(quest_button::left_stick)] = true;
+	mirror_held(lefty);
+	expect(lefty[static_cast<int>(quest_button::b)] && lefty[static_cast<int>(quest_button::right_stick)]
+			&& !lefty[static_cast<int>(quest_button::y)] && !lefty[static_cast<int>(quest_button::left_stick)],
+		"mirror: Y->B, left stick->right stick");
+	mirror_held(lefty);
+	expect(lefty[static_cast<int>(quest_button::y)] && lefty[static_cast<int>(quest_button::left_stick)], "mirror twice is identity");
+	bool lefty_menu[quest_button_count]{};
+	lefty_menu[static_cast<int>(quest_button::menu)] = true;
+	mirror_held(lefty_menu);
+	expect(lefty_menu[static_cast<int>(quest_button::menu)], "the menu button stays (the right one is the runtime's)");
+	{
+		bool left_y[quest_button_count]{};
+		left_y[static_cast<int>(quest_button::y)] = true;
+		mirror_held(left_y);
+		expect(pad_buttons(identity, left_y) == 0x2000, "left-handed, default map: the left Y reloads (B)");
+	}
 	const preset* jump = find_preset("jump_on_b");
 	expect(jump && pad_buttons(jump->map, held) == (0x2000 | 0x1000 | 0x0010), "jump_on_b: A gives B, B gives A");
 	expect(matching_preset(custom) == nullptr, "a custom map matches no preset");

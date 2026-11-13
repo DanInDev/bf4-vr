@@ -11,11 +11,17 @@ draw the weapon kept there. The current weapon is holstered by the switch.
 
 | Holster | Where (body yaw frame, not the head) | Weapon kind |
 | --- | --- | --- |
-| Primary | over the gun-side shoulder, behind the head | primary |
+| Primary | at the sling: belly, gun side, where a let-go rifle hangs (gun hand) | primary |
 | Secondary | gun-side hip | sidearm |
-| Knife | chest, off-hand side | knife |
-| Gadget 1 / 2 | belt, off-hand side, front / back | gadgets |
+| Knife | high chest, off-hand side (cross draw) | knife |
+| Gadget 1 | over the gun-side shoulder (either hand) | gadget (key 3) |
+| Gadget 2 | over the off-side shoulder (either hand) | gadget (key 4) |
+| Magazines | off hand's pouch: a capsule from the low chest down to the off-side hip (`magazine_reach`) | physical reload |
 
+Layout v2 (#57, 2026-11-13; picture `docs/img/grab-zones.svg` from `tools/body_maps.py`). The sling and
+the gun-side hip are 30 cm apart with 14 cm radii; the nearest centre wins, so a reach within 8 cm of
+either always gets that weapon (unit-tested). The primary zone is the gun hand's only; the magazine
+zone's chest end stays 14 cm from the sling centre, so the off hand there is not in it.
 Mirrored for `dominant_hand = left`. Grip claimed in the zones (as reload/grenade gestures).
 
 ## What exists

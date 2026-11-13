@@ -160,7 +160,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
-		std::atomic<bool> free_hand_reload{ true }; // live setting free_hand_reload (#38)
+		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
 		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
@@ -184,6 +184,11 @@ namespace bfvr::weapon
 			int written{ -1 };     // magazine value we last wrote into the game
 			int written_reserve{ -1 };
 		};
+
+		// #56: the held magazine for the HUD (read on the XR thread); stale after a quarter second.
+		std::mutex magazine_view_lock;
+		held_magazine_view magazine_view;
+		ULONGLONG magazine_view_at{};
 
 		std::mutex lock;
 		std::map<int, slot_memory> slots;
@@ -309,7 +314,8 @@ namespace bfvr::weapon
 		float handle_in_gun[3]{};
 		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
 		// hand returns to the controller after the grab with the magazine in it).
-		std::atomic<bool> magazine_snapping{ true }; // live setting magazine_snap
+		std::atomic<bool> magazine_snapping{ true }; // always on since #48 (was magazine_snap)
+		std::atomic<float> magazine_reach{ 0.13f };   // #57: the magazine zone's reach (low chest down to the off-side hip)
 		float snap_weight{};
 		bool snap_ak{};
 
@@ -410,6 +416,11 @@ namespace bfvr::weapon
 	void set_magazine_snapping(bool enabled)
 	{
 		magazine_snapping = enabled;
+	}
+
+	void set_magazine_reach(float metres)
+	{
+		magazine_reach = metres;
 	}
 
 	void set_free_hand_reload(bool enabled)
@@ -569,6 +580,8 @@ namespace bfvr::weapon
 		{
 			frame.chest = { 0.0f, -0.35f, -0.1f };
 		}
+		frame.has_chest_hip = weapon::body_rig_point(weapon::magazine_hip, frame.chest_hip);
+		frame.chest_reach = magazine_reach.load(std::memory_order_relaxed);
 		{
 			// The charging handle: the research override (pipe `reload handle x y z`), the gun's measured point, else the variant's.
 			float point[3]{};
@@ -630,6 +643,15 @@ namespace bfvr::weapon
 				}
 				publish_grab_zone(slots_shown[i], centre, result.zone_reach[i], result.in_zone == zones_shown[i]);
 			}
+			if (result.has_chest_hip)
+			{
+				const float hip[3]{ result.chest_hip.x, result.chest_hip.y, result.chest_hip.z };
+				publish_grab_zone(grab_slot::pouch_hip, hip, result.zone_reach[2], result.in_zone == hand_result::zone::chest);
+			}
+			else
+			{
+				clear_grab_zone(grab_slot::pouch_hip);
+			}
 		}
 		for (int i = 0; i < result.count; ++i)
 		{
@@ -676,6 +698,21 @@ namespace bfvr::weapon
 			body::set_magazine_pose(pose);
 			magazine_detached = true;
 		}
+		{
+			held_magazine_view view;
+			view.held = points.valid && result.draw == magazine_draw::in_hand && gun.state().holding;
+			view.top[0] = result.magazine_position.x;
+			view.top[1] = result.magazine_position.y;
+			view.top[2] = result.magazine_position.z;
+			view.magwell[0] = frame.magwell.x;
+			view.magwell[1] = frame.magwell.y;
+			view.magwell[2] = frame.magwell.z;
+			view.rounds = gun.state().held_rounds;
+			view.capacity = gun.profile().capacity;
+			const std::lock_guard view_guard(magazine_view_lock);
+			magazine_view = view;
+			magazine_view_at = GetTickCount64();
+		}
 
 		// A second magazine (extra meshes, #36): drawn as a copy of the game's own magazine draw.
 		body::extra_magazine_pose extra;
@@ -718,6 +755,14 @@ namespace bfvr::weapon
 	bool reload_engages_off_hand()
 	{
 		return active.load(std::memory_order_relaxed) && hand_engaged.load(std::memory_order_relaxed);
+	}
+
+	held_magazine_view held_magazine()
+	{
+		const std::lock_guard guard(magazine_view_lock);
+		held_magazine_view view = magazine_view;
+		view.held = view.held && GetTickCount64() - magazine_view_at < 250;
+		return view;
 	}
 
 	bool reload_owns_off_hand()

@@ -141,7 +141,7 @@ namespace bfvr::body
 		float rotation[4]{ 0, 0, 0, 1 };
 	};
 	void set_extra_magazine(const extra_magazine_pose& pose);
-	// Live setting extra_meshes: the magazine bone is tagged (scale stereo::extra_mesh::magazine_tag) so
+	// Second magazine (always on since #48, was extra_meshes): the magazine bone is tagged (scale stereo::extra_mesh::magazine_tag) so
 	// its draw can be found.
 	void set_extra_meshes(bool on);
 	// Empty hands (#38, weapon/free_hands): the off hand holds the gun by the handguard; the gun hand is free.
@@ -149,7 +149,7 @@ namespace bfvr::body
 	void set_gun_in_off_hand(bool held, bool by_grip = false);
 	// #38: the free gun hand holds a grenade (its fingers make a fist).
 	void set_gun_hand_fist(bool fist);
-	// Held grenade drawn as the game's own (#36, stereo/extra_mesh). Live setting grenade_mesh with physical
+	// Held grenade drawn as the game's own (#36, stereo/extra_mesh). On with physical
 	// grenades: while weapon/weapon_swap has the game's grenade selected for a capture (set_grenade_weapon) it
 	// is hidden at a tagged pose and captured; while physical_grenade holds one (hand 0 = off, 1 = gun hand)
 	// the capture is drawn in that fist, its pin left out once armed.
@@ -161,8 +161,13 @@ namespace bfvr::body
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw);
 	// #41: the game's knife is the weapon (captured once, hidden for that render), and the knife drawn at its
 	// holster (OpenXR LOCAL, the body's yaw) while it is not.
-	void set_knife_weapon(bool out);
+	// capture_ready: out long enough (#41) that the gun is no longer drawn; only then is it recorded.
+	void set_knife_weapon(bool out, bool capture_ready);
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
+	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
+	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.
+	void set_primary_capture(bool wanted);
+	void set_sling_primary(bool shown, const float (&position)[3], float yaw);
 	// Pipe extramesh: the hold used, and the game's own hold as last seen (Wep_Root in the right fist's frame).
 	std::string grenade_hold_report();
 
@@ -198,7 +203,7 @@ namespace bfvr::body
 	// The drawn wrist for a controller grip pose (0 = left rig arm, 1 = right), OpenXR LOCAL.
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3]);
 
-	// Live setting finger_poses: the fingers follow the controller and what the hands hold
+	// Finger poses (always on since #48, was finger_poses): the fingers follow the controller and what the hands hold
 	// (body/finger_pose); off = as the game animated them.
 	void set_finger_poses(bool enabled);
 	// Live setting off_hand_pose: the off hand, when not on the gun, takes the gun hand's grip mirrored

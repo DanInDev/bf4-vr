@@ -34,9 +34,11 @@ int main()
 	expect(m.connected, "connected kept");
 	expect(m.left_x == 300 && m.left_y == -400 && m.right_x == 100 && m.right_y == -200, "sticks swapped");
 	expect(m.left_trigger == 250 && m.right_trigger == 10, "triggers swapped");
-	expect(m.buttons == (0x4000 | 0x0200 | 0x0080 | 0x0010 | 0x0001), "A->X, LB->RB, LS->RS, Start and D-pad kept");
-	pad.buttons = 0x1000 | 0x4000 | 0x2000; // A + X + B
-	expect(mirrored(pad).buttons == (0x1000 | 0x4000 | 0x8000), "both of a pair stay, B->Y");
+	// Face buttons and stick clicks are mirrored on the Quest buttons before the controller mapping
+	// (input/button_map mirror_held), so the pad keeps them: only the grips (LB/RB) trade places here.
+	expect(m.buttons == (0x1000 | 0x0200 | 0x0040 | 0x0010 | 0x0001), "LB->RB; A, LS, Start and D-pad kept");
+	pad.buttons = 0x0100 | 0x0200 | 0x2000; // LB + RB + B
+	expect(mirrored(pad).buttons == pad.buttons, "both grips stay, B kept");
 	expect(mirrored(mirrored(pad)).buttons == pad.buttons, "mirror twice is identity");
 
 	bfvr::stereo::hand_sample hands;

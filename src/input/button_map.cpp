@@ -1,6 +1,7 @@
 #include "input/button_map.hpp"
 
 #include <atomic>
+#include <utility>
 
 namespace bfvr::input
 {
@@ -54,18 +55,9 @@ namespace bfvr::input
 			return map;
 		}();
 
-		constexpr button_map fire_mode_on_y = []
-		{
-			button_map map;
-			map.target[static_cast<int>(quest_button::y)] = pad_button::dpad_down;
-			map.target[static_cast<int>(quest_button::x)] = pad_button::y;
-			return map;
-		}();
-
 		constexpr preset preset_list[] = {
 			{ "default", "Default", button_map{} },
 			{ "jump_on_b", "Jump on B, reload on A", swapped_ab },
-			{ "fire_mode_on_y", "Weapon on X, fire mode on Y", fire_mode_on_y },
 		};
 
 		// Each target in four bits.
@@ -110,6 +102,16 @@ namespace bfvr::input
 			}
 		}
 		return bits;
+	}
+
+	void mirror_held(bool (&held)[quest_button_count])
+	{
+		const auto swap = [&](quest_button one, quest_button other) {
+			std::swap(held[static_cast<int>(one)], held[static_cast<int>(other)]);
+		};
+		swap(quest_button::a, quest_button::x);
+		swap(quest_button::b, quest_button::y);
+		swap(quest_button::left_stick, quest_button::right_stick);
 	}
 
 	std::string_view setting_name(quest_button button)

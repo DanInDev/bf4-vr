@@ -56,12 +56,21 @@ namespace bfvr::stereo::extra_mesh
 	constexpr float grenade_capture_position[3] = { 0.0f, 1.0f, 0.0f };
 	// The items captured this way: the grenade (#36), and the knife (#41) for its holster. Each keeps its
 	// own capture and copy; one capture runs at a time (the item whose Wep_Root is under the hidden root).
+	// The primary gun (#58) for its sling while another weapon is out: captured whole, magazine included
+	// (no gun mark while it is captured), so the "gun among them" check does not apply to it.
 	enum class captured : int
 	{
 		grenade = 0,
 		knife = 1,
+		primary = 2,
 	};
-	constexpr int item_count = 2;
+	constexpr int item_count = 3;
+	const char* item_name(captured item);
+	// Pose thread: drop the item's capture (the next render clears it) and its attempt count, e.g. a
+	// different primary picked up.
+	void forget_item(captured item);
+	// Capturing renders finished for this item since the last forget (accepted, rejected or empty).
+	std::uint64_t item_capture_attempts(captured item);
 	// Pose thread: this item is the game's weapon, tagged under the hidden root (a capture is wanted).
 	void set_item_capture(captured item, bool wanted);
 	// Pose thread: draw the item's copy with its Wep_Root at matrix (3x4 rows, palette space, scale 1).

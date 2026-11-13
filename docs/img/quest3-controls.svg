@@ -81,7 +81,7 @@
 <text class="bd" x="880" y="574" text-anchor="end">your eye to aim · C4: detonate</text>
 <g class="game"><line class="lead" x1="1122" y1="867" x2="862" y2="702" style="stroke-width:5"/><circle class="dot" cx="1122" cy="867" r="10"/><circle class="dot" cx="862" cy="702" r="7"/></g>
 <text class="bl" x="880" y="720" text-anchor="end">Y</text>
-<text class="bd" x="880" y="774" text-anchor="end">switch weapon</text>
+<text class="bd" x="880" y="774" text-anchor="end">fire mode</text>
 <g class="game"><line class="lead" x1="1321" y1="961" x2="862" y2="882" style="stroke-width:5"/><circle class="dot" cx="1321" cy="961" r="10"/><circle class="dot" cx="862" cy="882" r="7"/></g>
 <text class="bl" x="880" y="900" text-anchor="end">Stick · click</text>
 <text class="bd" x="880" y="954" text-anchor="end">walk where you look</text>

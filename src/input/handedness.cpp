@@ -9,12 +9,10 @@ namespace bfvr::input
 	{
 		std::atomic<bool> left{};
 
-		// XINPUT_GAMEPAD_* pairs that trade places (Xinput.h stays out of the offline tests).
+		// XINPUT_GAMEPAD_* pairs that trade places (Xinput.h stays out of the offline tests). Face buttons and
+		// stick clicks trade places on the Quest buttons, before the controller mapping (button_map mirror_held).
 		constexpr std::uint16_t pairs[][2] = {
-			{ 0x0040, 0x0080 }, // LEFT_THUMB, RIGHT_THUMB
 			{ 0x0100, 0x0200 }, // LEFT_SHOULDER, RIGHT_SHOULDER
-			{ 0x1000, 0x4000 }, // A, X
-			{ 0x2000, 0x8000 }, // B, Y
 		};
 	}
 

@@ -31,6 +31,8 @@
 #include "weapon/melee_gesture.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/sling_primary.hpp"
+#include "weapon/slot_capture_start.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/use_reach.hpp"
 #include "weapon/weapon_pickup.hpp"
@@ -88,6 +90,13 @@ namespace bfvr::weapon
 			return state;
 		}
 
+		// The knife: by its name, or slot 7 with no name yet (right after a level start the knife's name is
+		// still empty when it first comes out, monitor 2026-11-13: "knife -> slot 7 " with no name).
+		bool is_knife(const slot_state& slot)
+		{
+			return std::strstr(slot.name, "Knife") != nullptr || (slot.current == 7 && slot.name[0] == 0);
+		}
+
 		unsigned short key_for(holster which)
 		{
 			switch (which)
@@ -109,7 +118,7 @@ namespace bfvr::weapon
 			{
 			case holster::primary: return slot.current == 0;
 			case holster::secondary: return slot.current == 1;
-			case holster::knife: return std::strstr(slot.name, "Knife") != nullptr;
+			case holster::knife: return is_knife(slot);
 			default: return false;
 			}
 		}
@@ -145,6 +154,10 @@ namespace bfvr::weapon
 		// Free hands (#35).
 		std::atomic<bool> free_hands_on{};
 		std::atomic<bool> sling_on{ true }; // #38: a let-go gun hangs on the sling, not on the floor
+		std::atomic<bool> sling_primary_on{ true }; // #58: the primary drawn on the sling while another weapon is out
+		sling_primary sling_copy;
+		bool sling_copy_was_shown{};
+		bool sling_test_show{}; // research: pipe holster slingtest on|off (lock)
 		std::atomic<bool> dropped_now{};
 		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
 		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
@@ -158,6 +171,7 @@ namespace bfvr::weapon
 		bool last_grip_in_reach{};
 		float last_dropped_at[3]{};
 		bool last_slung{};
+		bool holster_take{}; // #49: the gun hand gripped at the out-of-hand selected weapon's holster (next frame's free hands)
 		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
 		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
@@ -286,9 +300,16 @@ namespace bfvr::weapon
 		};
 		capture_stage grenade_capture{ capture_stage::idle };
 		std::atomic<bool> grenade_capture_requested{};
+		// #41: the same sequence selects the knife for its holster copy; which item this run is for.
+		std::atomic<bool> knife_capture_requested{};
+		stereo::extra_mesh::captured capture_item{ stereo::extra_mesh::captured::grenade };
+		std::atomic<bool> slot_models_at_start{ true };
+		slot_capture_start slot_captures;
+		ULONGLONG knife_out_since{};
 		int capture_from{ -1 };
 		int capture_attempts{};
 		ULONGLONG capture_deadline{};
+		ULONGLONG capture_repress_at{}; // #41: the item's key again if the game has not switched yet
 		unsigned short capture_key{};
 		ULONGLONG capture_key_up{};
 		std::uint64_t capture_count_at{};
@@ -321,7 +342,11 @@ namespace bfvr::weapon
 			switch (grenade_capture)
 			{
 			case capture_stage::idle:
-				if (!grenade_capture_requested.exchange(false))
+			{
+				namespace em = stereo::extra_mesh;
+				const bool grenade = grenade_capture_requested.exchange(false);
+				const bool knife = !grenade && knife_capture_requested.exchange(false);
+				if (!grenade && !knife)
 				{
 					break;
 				}
@@ -330,34 +355,63 @@ namespace bfvr::weapon
 					capture_result = "not now (no gun in hand, or a switch running)";
 					break;
 				}
+				capture_item = grenade ? em::captured::grenade : em::captured::knife;
 				capture_from = held.current;
-				capture_count_at = stereo::extra_mesh::grenade_captures();
+				capture_count_at = em::item_captures(capture_item);
 				capture_attempts = 0;
-				press_capture_key(grenade_key, now);
+				if (grenade)
+				{
+					press_capture_key(grenade_key, now);
+				}
+				else
+				{
+					// The knife through the holster switch (its own resend): our single key 6 was not taken right
+					// after the grenade's round trip, three times in a row, while `holster knife` came in 0.5 s
+					// (monitor 2026-11-13).
+					request(holster::knife, now);
+				}
 				grenade_capture = capture_stage::to_grenade;
-				capture_deadline = now + 2000;
-				log::write("grenade capture: selecting the game's grenade (from slot %d)", capture_from);
+				capture_deadline = now + 4000; // slow frames: the knife came out after more than 2 s at 9 fps
+				capture_repress_at = now + 1200;
+				log::write("%s capture: selecting the game's %s (from slot %d)", em::item_name(capture_item), em::item_name(capture_item), capture_from);
 				break;
+			}
 			case capture_stage::to_grenade:
-				if (held.valid && held.current == 6)
+			{
+				const bool selected = held.valid
+					&& (capture_item == stereo::extra_mesh::captured::knife ? is_knife(held) : held.current == 6);
+				if (selected)
 				{
 					grenade_capture = capture_stage::capturing;
-					capture_deadline = now + 2000;
+					capture_deadline = now + 4000; // the knife waits half a second; a fresh level draws late at 9 fps
+				}
+				else if (capture_item == stereo::extra_mesh::captured::grenade && now >= capture_repress_at && now + 600 < capture_deadline)
+				{
+					// A key the game ignores is sent again, as the holster switch does for the knife.
+					press_capture_key(grenade_key, now);
+					capture_repress_at = now + 1200;
 				}
 				else if (now > capture_deadline)
 				{
-					capture_result = "the game did not select its grenade";
-					grenade_capture = capture_stage::idle;
-					log::write("grenade capture: %s", capture_result);
+					// The game may still switch late (the knife took longer than 2 s at 9 fps, 2026-11-13, and then
+					// stayed out): ask for the gun again either way; if it never left, that ends at once.
+					capture_result = capture_item == stereo::extra_mesh::captured::knife ? "the game did not select its knife" : "the game did not select its grenade";
+					log::write("%s capture: %s; back to slot %d", stereo::extra_mesh::item_name(capture_item), capture_result, capture_from);
+					pending = holster::none; // the knife's holster switch stops resending
+					press_capture_key(gun_key(capture_from), now);
+					grenade_capture = capture_stage::back;
+					capture_deadline = now + 1200;
 				}
 				break;
+			}
 			case capture_stage::capturing:
 			{
-				const bool done = stereo::extra_mesh::grenade_captures() > capture_count_at;
+				const bool done = stereo::extra_mesh::item_captures(capture_item) > capture_count_at;
 				if (done || now > capture_deadline)
 				{
-					capture_result = done ? "captured" : "no grenade draw seen";
-					log::write("grenade capture: %s; back to slot %d", capture_result, capture_from);
+					capture_result = done ? "captured" : capture_item == stereo::extra_mesh::captured::knife ? "no knife draw seen" : "no grenade draw seen";
+					log::write("%s capture: %s; back to slot %d", stereo::extra_mesh::item_name(capture_item), capture_result, capture_from);
+					pending = holster::none; // the knife's holster switch stops resending
 					press_capture_key(gun_key(capture_from), now);
 					grenade_capture = capture_stage::back;
 					capture_deadline = now + 1200;
@@ -440,6 +494,80 @@ namespace bfvr::weapon
 		signal_enabled = on;
 	}
 
+#if defined(_M_X64)
+	namespace
+	{
+		// #58: capture the primary once it has been in hand a moment, and while another weapon is out hang
+		// its copy at the sling (body/arm_pose, stereo/extra_mesh). Called with lock held.
+		void update_sling_primary(const slot_state& held)
+		{
+			namespace em = stereo::extra_mesh;
+			static ULONGLONG last_tick{};
+			const ULONGLONG tick = GetTickCount64();
+			sling_primary_frame frame;
+			frame.enabled = sling_primary_on.load(std::memory_order_relaxed);
+			frame.slot_valid = held.valid;
+			frame.slot = held.current;
+			frame.name = held.name;
+			frame.seconds = last_tick ? std::fmin(static_cast<float>(tick - last_tick) / 1000.0f, 0.1f) : 0.0f;
+			last_tick = tick;
+			frame.captured = em::item_captured(em::captured::primary);
+			frame.attempts = em::item_capture_attempts(em::captured::primary);
+			v3 at{};
+			float yaw{};
+			frame.sling_valid = body_rig_point(sling_point, at) && body_yaw(yaw);
+			frame.test_show = sling_test_show;
+			const sling_primary_result result = sling_copy.update(frame);
+			if (result.forget)
+			{
+				em::forget_item(em::captured::primary);
+				log::write("sling: %s is the primary now; its copy for the sling is taken again", held.name);
+			}
+			body::set_primary_capture(result.capture);
+			const float position[3]{ at.x, at.y, at.z };
+			body::set_sling_primary(result.show, position, yaw);
+			if (result.show != sling_copy_was_shown)
+			{
+				log::write("sling: the primary (%s) %s", sling_copy.primary_name().c_str(), result.show ? "hangs on the sling (another weapon out)" : "off the sling");
+				sling_copy_was_shown = result.show;
+			}
+		}
+
+		// #41: at level start the grenade and the knife are selected for a moment so their copies stand at the
+		// pouch and the holster from the start, not only after the first grab. Called with lock held.
+		void update_slot_captures(const slot_state& held, ULONGLONG now)
+		{
+			namespace em = stereo::extra_mesh;
+			static ULONGLONG last_tick{};
+			slot_capture_frame frame;
+			frame.enabled = slot_models_at_start.load(std::memory_order_relaxed);
+			frame.slot_valid = held.valid;
+			frame.slot = held.current;
+			frame.seconds = last_tick ? std::fmin(static_cast<float>(now - last_tick) / 1000.0f, 0.1f) : 0.0f;
+			last_tick = now;
+			frame.busy = pending != holster::none || key_down || grenade_capture != capture_stage::idle
+				|| grenade_capture_requested.load() || knife_capture_requested.load();
+			frame.primary_pending = held.current == 0 && sling_primary_on.load(std::memory_order_relaxed) && !em::item_captured(em::captured::primary)
+				&& em::item_capture_attempts(em::captured::primary) < sling_primary_config{}.max_attempts;
+			frame.grenade_captured = em::item_captured(em::captured::grenade);
+			frame.knife_captured = em::item_captured(em::captured::knife);
+			switch (slot_captures.update(frame))
+			{
+			case slot_capture_request::grenade:
+				log::write("slot models: the grenade is selected once for its pouch copy");
+				grenade_capture_requested = true;
+				break;
+			case slot_capture_request::knife:
+				log::write("slot models: the knife is selected once for its holster copy");
+				knife_capture_requested = true;
+				break;
+			case slot_capture_request::none:
+				break;
+			}
+		}
+	}
+#endif
+
 	void update_weapon_swap()
 	{
 #if defined(_M_X64)
@@ -447,15 +575,20 @@ namespace bfvr::weapon
 		const ULONGLONG now = GetTickCount64();
 		advance(now);
 		const slot_state held = read_slot();
-		const bool knife_out = held.valid && std::strstr(held.name, "Knife") != nullptr;
+		const bool knife_out = held.valid && is_knife(held);
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && knife_out);
-		// #41: the game's knife out is captured once for its holster (body/arm_pose, stereo/extra_mesh).
-		body::set_knife_weapon(knife_out);
+		// #41: the game's knife out is captured once for its holster (body/arm_pose, stereo/extra_mesh), half a
+		// second after it came out (the gun is no longer drawn by then).
+		knife_out_since = knife_out ? (knife_out_since ? knife_out_since : now) : 0;
+		body::set_knife_weapon(knife_out, knife_out && now - knife_out_since >= 500);
 		// Slots 0 and 1 hold the primary and secondary guns; gadgets, grenades and the knife keep their own hold.
 		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
 		advance_grenade_capture(held, now);
-		body::set_grenade_weapon(held.valid && held.current == 6 && grenade_capture != capture_stage::idle);
+		body::set_grenade_weapon(held.valid && held.current == 6 && grenade_capture != capture_stage::idle
+			&& capture_item == stereo::extra_mesh::captured::grenade);
+		update_sling_primary(held);
+		update_slot_captures(held, now);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
 		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
@@ -582,7 +715,10 @@ namespace bfvr::weapon
 			drop.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 			drop.grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 			// The grip pulling a grenade pin, drawing from a holster or clicking the panel is not a release.
-			drop.busy = grenade_in_hand() || grip_claimed.load() || ui::vr_panel_view().open || reload_claims_free_hand();
+			// #49: a grip at the selected weapon's own holster takes that weapon (the claim is its own).
+			drop.holster_take = holster_take;
+			holster_take = false;
+			drop.busy = grenade_in_hand() || (grip_claimed.load() && !drop.holster_take) || ui::vr_panel_view().open || reload_claims_free_hand();
 			drop.floor_y = points.floor_y;
 			// #38: the off hand on the handguard keeps the gun when the gun hand lets go.
 			drop.off_holds = off_hand_holds_gun();
@@ -686,8 +822,7 @@ namespace bfvr::weapon
 		{
 			constexpr int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
 			const float at[3]{ result.centres[knife_zone].x, result.centres[knife_zone].y, result.centres[knife_zone].z };
-			const bool shown = result.has_centres && !knife_out && zones.body_known() && settings::global().boolean("pouch_models", true)
-				&& settings::global().boolean("grenade_mesh", true);
+			const bool shown = result.has_centres && !knife_out && zones.body_known();
 			body::set_holster_knife(shown, at, zones.body_yaw());
 		}
 		if (grab_debug_enabled() && result.has_centres)
@@ -717,7 +852,22 @@ namespace bfvr::weapon
 		off_grip_claimed = result.off_zone != holster::none;
 		if (result.draw != holster::none)
 		{
-			request(result.draw, now);
+			const slot_state slot = read_slot();
+			switch (draw_for(slot.valid && already(result.draw, slot), dropped_now.load() && last_slung))
+			{
+			case draw_action::switch_weapon:
+				request(result.draw, now);
+				break;
+			case draw_action::take_into_hand:
+				holster_take = true;
+				last_result = "taken from its holster";
+				log::write("holsters: %s taken from its holster (it hung on the sling)", holster_name(result.draw));
+				break;
+			case draw_action::none:
+				// The selected weapon: in the hand, or (free hands) on the floor, picked up where it lies.
+				last_result = dropped_now.load() ? "on the floor (pick it up there)" : "already in hand";
+				break;
+			}
 		}
 #endif
 	}
@@ -792,6 +942,16 @@ namespace bfvr::weapon
 		sling_on = on;
 	}
 
+	void set_sling_show_primary(bool on)
+	{
+		sling_primary_on = on;
+	}
+
+	void set_slot_models_at_start(bool on)
+	{
+		slot_models_at_start = on;
+	}
+
 	bool gun_dropped()
 	{
 		return dropped_now.load(std::memory_order_relaxed);
@@ -857,6 +1017,11 @@ namespace bfvr::weapon
 				give_order(GetTickCount64());
 				return "squad order sent (Q); orders " + std::to_string(orders);
 			}
+			if (argument == "slingtest on" || argument == "slingtest off")
+			{
+				sling_test_show = argument == "slingtest on";
+				return std::string("sling copy test: ") + (sling_test_show ? "shown with the primary in hand too" : "off");
+			}
 			holster which = holster::none;
 			for (const holster h : { holster::primary, holster::secondary, holster::knife, holster::gadget1, holster::gadget2 })
 			{
@@ -867,7 +1032,7 @@ namespace bfvr::weapon
 			}
 			if (which == holster::none)
 			{
-				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2|order]";
+				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2|order|slingtest on|slingtest off]";
 			}
 			request(which, GetTickCount64());
 		}

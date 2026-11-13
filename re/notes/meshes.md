@@ -97,6 +97,18 @@ first grenade taken with `grenade_mesh` on, again for another kind of grenade).
   the captured draw of the same pass (targets, first target's format, blend state) is issued once per
   view with its own state and the magazine draw's per-view and per-object state (the second eye's
   redirected blocks with it); the game's state is restored after.
+- The primary on the sling (#58, 2026-11-13): the same capture as a third item (`captured::primary`), taken
+  a second after the primary is first in hand (`weapon/sling_primary`), with `Wep_Mag` at scale 1 for that
+  render (the magazine is part of the item, so no gun mark and no "seen with the gun" rejection). Up to 48
+  draws per item (was 16; the replay mask is 64-bit). At most 3 capturing renders per gun (each hides it
+  for one frame); a different gun in slot 0 drops the capture (`forget_item`). Drawn after the magazine
+  draws of the gun in hand (the pistol's), at the let-go gun's sling pose; not while the knife is out
+  (no magazine draw to follow).
+- #41 (2026-11-13): the knife is recorded only after it has been out 0.5 s, and any draw from an index buffer of
+  the captured primary is left out of another item's capture (`rifle_draws_dropped` in `extramesh`): the
+  headset's knife capture of 2026-11-11 kept the rifle's 22,461/23,178-index meshes, still drawn during the
+  switch. At level start `weapon/slot_capture_start` selects the grenade, then the knife, once each (setting
+  `slot_models_at_start`), after the gun has been in hand 2.5 s and the primary's own capture is done.
 - Needs a gun drawn (its magazine is the anchor); with none (knife) the theater's flat quad stands in, as
   it does until the first capture. Both eyes checked on the monitor (eye-2 screenshots are sometimes a
   frame behind: a hand or the grenade a few hundred pixels off in a single shot, not in the next).

@@ -284,6 +284,110 @@ void test_sling()
 	expect(r.dropped && !r.slung && near(r.position.y, g.floor_y + floor.config().lie_height), "sling off: on the floor");
 }
 
+// #49: with the hand empty (the selected gun on the sling), gripping at that gun's own holster takes it into
+// the hand there and then; held, it stays. A gun on the floor is not recalled.
+void test_holster_take()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.sling = true;
+	f.sling_valid = true;
+	f.sling_at = { 0.1f, -0.5f, -0.12f };
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r;
+	for (int i = 0; i < 40 && r.event != free_hands_event::dropped; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(r.dropped && r.slung, "let go: on the sling");
+	f.gun_hand = { 0.2f, 0.05f, 0.15f }; // over the shoulder, far from the sling
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.dropped && r.event == free_hands_event::none, "a grip far from the sling alone does not take it");
+	f.grip = false;
+	hands.update(f);
+	// As in the game: frame N, the press at the holster (the holster claims the grip: busy) and no take yet;
+	// frame N+1, the grip still held with no new press, and the holster's take arrives.
+	f.grip = true;
+	f.busy = true;
+	r = hands.update(f);
+	expect(r.dropped && r.event == free_hands_event::none, "frame N: the press belongs to the holster");
+	f.busy = false;
+	f.holster_take = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.slung && !r.block_fire,
+		"frame N+1: the held grip (no second press) takes it into the hand");
+	f.holster_take = false;
+	f.gun_hand = { 0.2f, -0.3f, -0.3f }; // pulled out in front, grip held
+	for (int i = 0; i < 20; ++i)
+	{
+		r = hands.update(f);
+	}
+	expect(!r.dropped && r.event == free_hands_event::none, "held while the grip stays closed");
+	// Letting go after the take puts it back on the sling, as any held gun.
+	expect(steps_to_drop(hands, f) > 0 && hands.update(f).slung, "let go after the take: back on the sling");
+	// A busy grip (a grenade pin, the panel) never takes it.
+	f.grip = true;
+	f.holster_take = true;
+	f.busy = true;
+	expect(hands.update(f).dropped, "a busy grip does not take it");
+	// Only off the sling: a gun lying on the floor (sling off) stays there; it is picked up where it lies.
+	free_hands floor;
+	free_hands_frame g = holding();
+	floor.update(g);
+	g.grip = false;
+	for (int i = 0; i < 40 && !floor.update(g).dropped; ++i)
+	{
+	}
+	g.grip = true;
+	g.busy = true;
+	floor.update(g); // frame N: the press at the holster
+	g.busy = false;
+	g.holster_take = true;
+	r = floor.update(g); // frame N+1: the take
+	expect(r.dropped && r.event == free_hands_event::none, "a gun on the floor is not recalled by its holster");
+}
+
+// #49: drawing another weapon in one held grab. The grip is pressed at the holster (claimed there: busy),
+// the hand leaves the zone with the grip still closed, and the game's switch lands ~0.5 s later.
+void test_held_through_switch()
+{
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		const bool start_empty = pass == 1;
+		free_hands hands;
+		free_hands_frame f = holding();
+		hands.update(f);
+		if (start_empty)
+		{
+			steps_to_drop(hands, f); // the hand was empty: the old gun on the floor
+		}
+		f.grip = false;
+		hands.update(f);
+		f.grip = true;
+		f.busy = true; // at the holster: the press belongs to the draw
+		for (int i = 0; i < 4; ++i)
+		{
+			hands.update(f);
+		}
+		f.busy = false; // out of the zone, grip still held, the switch not yet done
+		for (int i = 0; i < 6; ++i)
+		{
+			hands.update(f);
+		}
+		f.weapon_changed = true;
+		free_hands_result r = hands.update(f);
+		f.weapon_changed = false;
+		for (int i = 0; i < 20; ++i)
+		{
+			r = hands.update(f);
+		}
+		expect(!r.dropped && r.event == free_hands_event::none,
+			start_empty ? "empty hand: the drawn weapon stays while the grip is held" : "gun in hand: the drawn weapon stays while the grip is held");
+	}
+}
+
 // The off hand picks the dropped gun up by its pistol grip (#38): it holds and fires it; letting go drops
 // it again, and the gun hand can pick it up from there.
 void test_off_hand_pickup()
@@ -335,6 +439,8 @@ int main()
 {
 	test_sling();
 	test_off_hand_pickup();
+	test_holster_take();
+	test_held_through_switch();
 	test_drop_and_pick_up();
 	test_regrip_and_busy();
 	test_reset_cases();

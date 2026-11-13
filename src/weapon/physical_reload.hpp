@@ -20,6 +20,8 @@ namespace bfvr::weapon
 	void set_palm_reload(bool enabled);
 	// #40, setting magazine_snap: the open off hand snaps onto the seated magazine with the game's grip.
 	void set_magazine_snapping(bool enabled);
+	// #57: how far from the magazine zone (low chest pouch down to the off-side hip) the off hand grabs or stows.
+	void set_magazine_reach(float metres);
 	// #38: while the off hand carries the gun, the free gun hand changes magazines too (false: it only racks).
 	void set_free_hand_reload(bool enabled);
 	// The free gun hand's grip belongs to the reload this frame (it holds a magazine, racks, or is nearer a
@@ -39,6 +41,18 @@ namespace bfvr::weapon
 	bool reload_owns_off_hand();
 	// Stricter: the off hand holds a magazine or racks (a hand merely inside a reload zone does not count).
 	bool reload_engages_off_hand();
+
+	// #56: the magazine in the off hand (taken from the gun or the pouch), for the magazine check on the
+	// HUD. Positions in OpenXR LOCAL; held is false when nothing is held or the last update is stale.
+	struct held_magazine_view
+	{
+		bool held{};
+		float top[3]{};     // the magazine's top (where it seats)
+		float magwell[3]{}; // the gun's magwell
+		int rounds{};
+		int capacity{};
+	};
+	held_magazine_view held_magazine();
 
 	// Pipe "reload": state and the last events. "reload <event>" (research builds) drives the state
 	// machine directly: fire button grab take letgo stow insert rack.

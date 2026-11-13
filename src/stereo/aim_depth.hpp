@@ -16,7 +16,7 @@ namespace bfvr::stereo
 	// false when off, when nothing was hit or when the reading is older than 300 ms.
 	bool aim_hit_distance(float& distance);
 
-	// Live setting reticle_depth.
+	// The dot on the target (always on since #48; was the setting reticle_depth).
 	void set_aim_depth(bool on);
 
 	// Research (pipe depthprobe): the depth view's and its texture's description.

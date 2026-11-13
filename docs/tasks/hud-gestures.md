@@ -32,12 +32,26 @@ The user's item 5 from 2026-10-26 (their ideas; alternatives below under "Option
 Pure functions plus small state machines over OpenXR LOCAL poses; all thresholds are config fields
 (registry settings later).
 
-- `forearm_glance` (minimap): a point on the forearm (`offset` from the grip pose, 12 cm towards the
-  elbow) within `show_cone` (20°) of the gaze, closer than 0.8 m, and the palm normal (the inner
-  forearm's normal) within 60° of the direction to the eyes. Shows after `dwell` 0.25 s; stays while
-  the point is within `hide_cone` (35°) and the inner side still faces the head; hides 0.3 s after
-  that fails or tracking is lost. Mirrors for the right hand.
-- `gun_inspect` (ammo): a point on the gun within 20° of the gaze, closer than 0.7 m, the gun's side
+- `forearm_glance` (minimap, tightened in #55 so a support arm bracing the gun never shows it): the
+  inner wrist (`offset` from the grip pose, 8 cm towards the elbow) within `show_cone` (20°) of the
+  gaze, closer than `hud_watch_reach` 0.5 m, the head at least `hud_watch_pitch` 25° below the
+  horizon, and the palm normal (the inner forearm's normal) within `hud_watch_facing` 40° of the
+  direction to the eyes. Shows after `hud_watch_dwell` 0.25 s; stays while the point is within
+  `hide_cone` (35°) and the inner side still faces the head; hides 0.3 s after that fails, tracking
+  is lost or the off hand gets busy (on the gun, a magazine, a grenade). Left-handed it is the right
+  wrist, with that controller's palm normal.
+- `gun_inspect`, mag check (#56, `hud_ammo_gesture = magcheck`, the default): the gun rolled upside
+  down (the grip's up axis dotted with world up ≤ cos `hud_magcheck_roll` 120°), the magazine point
+  (8 cm ahead of the grip, 6 cm below) within 20° of the gaze and closer than 0.7 m, steady (as below)
+  for `hud_magcheck_hold` 0.4 s. Shows health, ammo and grenades (the bottom-right HUD block) just past
+  the magazine, turned to the eyes with its top up; stays until the gaze leaves both gun points.
+- `magazine_check` (#56, `hud_magazine_check`, physical reload): a magazine in the off hand (pulled
+  from the gun or taken from the pouch, `weapon::held_magazine()`) whose top is within 25° of the gaze,
+  closer than 0.7 m and at least 15 cm from the magwell (an insert does not show it), for 0.25 s. Shows
+  that magazine's own rounds ("27 / 30", `ui/magazine_label`) on a card beside it, away from the gun;
+  the game's HUD would show only the chambered round then. Gone at once when the magazine goes in,
+  is stowed or dropped.
+- `gun_inspect`, side (#26, `hud_ammo_gesture = side` or `both`): a point on the gun within 20° of the gaze, closer than 0.7 m, the gun's side
   (grip x) facing the eyes (|cos| ≥ 0.6; aiming down the sights is ≈ 0, which keeps ADS from ever
   triggering), and steady: low-passed linear speed ≤ 0.15 m/s and angular speed ≤ 0.6 rad/s. Shows
   after 1 s steady (`progress()` for a fill-up ring); then stays until the gaze leaves `hide_cone`

@@ -119,4 +119,13 @@ namespace bfvr::weapon
 		}
 		return "?";
 	}
+
+	draw_action draw_for(bool already_selected, bool on_sling)
+	{
+		if (!already_selected)
+		{
+			return draw_action::switch_weapon;
+		}
+		return on_sling ? draw_action::take_into_hand : draw_action::none;
+	}
 }

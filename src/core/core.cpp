@@ -118,16 +118,16 @@ namespace bfvr::core
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
 			stereo::set_physical_stance(store.boolean("physical_stance", false));
-			stereo::set_gun_life_size(store.boolean("gun_life_size", true));
-			stereo::set_gun_fov_life_size(store.boolean("gun_fov_life_size", true));
+			// #48: behaviours that once had a setting to compare them with the old one are fixed on.
+			stereo::set_gun_life_size(true);
+			stereo::set_gun_fov_life_size(true);
 			stereo::set_view_crop(store.real("view_crop_h", 1.0f), store.real("view_crop_v", 1.0f));
 			stereo::set_view_crop_bottom(store.real("view_crop_bottom", 0.0f));
-			stereo::set_steady_walk(store.boolean("steady_walk", true));
+			stereo::set_steady_walk(true);
 			stereo::set_ipd_scale(store.real("ipd_scale", 1.0f));
 			body::set_arm_ik(store.boolean("arm_ik", true));
-			const bool reach = store.boolean("arm_reach", true);
-			body::set_arm_stretch(reach ? store.real("arm_stretch", 0.25f) : 0.0f);
-			body::set_shoulder_reach(reach ? store.real("shoulder_reach", 0.12f) : 0.0f);
+			body::set_arm_stretch(store.real("arm_stretch", 0.25f));
+			body::set_shoulder_reach(store.real("shoulder_reach", 0.12f));
 			if (const auto shoulders = store.get("shoulder_offset"))
 			{
 				body::set_shoulder_offset(shoulders->number[0], shoulders->number[1], shoulders->number[2]);
@@ -139,15 +139,16 @@ namespace bfvr::core
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
-			weapon::set_palm_reload(store.boolean("palm_reload", true));
-			weapon::set_magazine_snapping(store.boolean("magazine_snap", true));
-			weapon::set_free_hand_reload(store.boolean("free_hand_reload", true));
-			body::set_extra_meshes(store.boolean("extra_meshes", true));
-			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true) && store.boolean("game_sounds", true));
+			weapon::set_palm_reload(true);
+			weapon::set_magazine_snapping(true);
+			weapon::set_magazine_reach(store.real("magazine_reach", 0.13f));
+			weapon::set_free_hand_reload(true);
+			body::set_extra_meshes(true);
+			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");
-			weapon::set_holsters(store.boolean("holsters", true));
+			weapon::set_holsters(true);
 			weapon::set_grab_debug(store.boolean("grab_debug", false));
 			weapon::set_sounds(store.boolean("reload_sounds", true));
 			hooks::set_physical_pad(store.boolean("physical_pad", true));
@@ -164,34 +165,36 @@ namespace bfvr::core
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_torso_follow(store.boolean("torso_follow", true));
 			body::set_torso_hands(store.boolean("torso_hands", false));
-			body::set_body_shoulders(store.boolean("body_shoulders", true));
-			body::set_finger_poses(store.boolean("finger_poses", true));
+			body::set_body_shoulders(true);
+			body::set_finger_poses(true);
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
 			body::set_rack_grip(store.text("rack_grip", "auto"));
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
-			weapon::set_knife_grip(store.boolean("knife_grip", true));
+			weapon::set_knife_grip(true);
 			weapon::set_use_reach(store.boolean("use_reach", true));
 			weapon::set_weapon_pickup(store.boolean("weapon_pickup", true));
 			weapon::set_free_hands(store.boolean("free_hands", true));
 			weapon::set_sling(store.boolean("sling", true));
+			weapon::set_sling_show_primary(store.boolean("sling_show_primary", true));
+			weapon::set_slot_models_at_start(store.boolean("slot_models_at_start", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
-			body::set_knife_pitch(store.real("knife_pitch", 30.0f));
-			body::set_knife_turn(store.real("knife_yaw", 0.0f), store.real("knife_roll", 0.0f));
+			body::set_knife_pitch(store.real("knife_pitch", 145.0f));
+			body::set_knife_turn(store.real("knife_yaw", -15.0f), store.real("knife_roll", 170.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
-			body::set_grenade_mesh(store.boolean("grenade_mesh", true) && store.text("grenade", "physical") == "physical");
+			body::set_grenade_mesh(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
-			weapon::set_two_handed(store.boolean("two_handed", true));
-			weapon::set_two_hand_lock(store.text("two_hand_mode", "lock") != "soft");
+			weapon::set_two_handed(true);
+			weapon::set_two_hand_lock(true);
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));
-			stereo::set_aim_depth(store.boolean("reticle_depth", true));
-			weapon::set_shot_from_gun(store.text("shot_line", "gun") != "controller");
-			weapon::set_shots_from_gun(store.boolean("shots_from_gun", true));
-			weapon::set_aim_with_body(store.boolean("aim_with_body", true));
+			stereo::set_aim_depth(true);
+			weapon::set_shot_from_gun(true);
+			weapon::set_shots_from_gun(true);
+			weapon::set_aim_with_body(true);
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
 			stereo::set_foveation(store.text("foveation", "light"));
@@ -267,7 +270,7 @@ namespace bfvr::core
 				virtual_pad.offered, virtual_pad.xinput_answers,
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::physical_pad_report() + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
-				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0") + " held_grenade_frames=" + std::to_string(vr.held_grenade_frames) + " sight_dot_frames=" + std::to_string(vr.sight_dot_frames)
+				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0") + " sight_dot_frames=" + std::to_string(vr.sight_dot_frames)
 				+ "\nxr_focus session=" + (vr.session_state_name ? vr.session_state_name : "-") + " input_focus=" + (vr.input_focus ? "1" : "0")
 				+ " focus_losses=" + std::to_string(vr.focus_losses) + " unfocused_s=" + std::to_string(static_cast<int>(vr.unfocused_seconds))
 				+ (vr.session_state_name && !vr.input_focus && std::strcmp(vr.session_state_name, "VISIBLE") == 0 ? " (SteamVR has the controllers)" : "");

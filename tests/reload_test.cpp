@@ -357,6 +357,51 @@ namespace
 		return false;
 	}
 
+	// #57: the magazine zone runs from the low chest pouch down to the off-side hip (a capsule).
+	void test_magazine_zone_to_hip()
+	{
+		const v3 hip{ -0.2f, -0.65f, 0.0f };
+		const auto take_at = [&](v3 hand, float reach)
+		{
+			reload gun(ar);
+			gun.load(11, 60);
+			reload_hands hands(flat_hold());
+			hand_frame open = at(away, false);
+			open.has_chest_hip = true;
+			open.chest_hip = hip;
+			open.chest_reach = reach;
+			hands.update(gun, open);
+			hand_frame grab = at(hand, true);
+			grab.has_chest_hip = true;
+			grab.chest_hip = hip;
+			grab.chest_reach = reach;
+			return has(hands.update(gun, grab), reload_event::magazine_taken);
+		};
+		expect(take_at(chest, 0), "at the chest pouch: a magazine");
+		expect(take_at(hip, 0), "at the off-side hip: a magazine");
+		expect(take_at({ -0.1f, -0.5f, -0.05f }, 0), "halfway down to the hip: a magazine");
+		expect(take_at({ hip.x - 0.1f, hip.y, hip.z + 0.05f }, 0), "a hand's width outside the hip: still within reach");
+		expect(!take_at({ 0.22f, -0.65f, 0.0f }, 0), "the gun-side hip (pistol): no magazine");
+		expect(!take_at({ hip.x, hip.y - 0.2f, hip.z }, 0), "20 cm below the hip: nothing");
+		expect(take_at({ hip.x, hip.y - 0.2f, hip.z }, 0.22f), "a larger magazine_reach takes it there too");
+		// Stowing works along the whole zone as well.
+		reload gun(ar);
+		gun.load(11, 60);
+		reload_hands hands(flat_hold());
+		const auto with_hip = [&](hand_frame f)
+		{
+			f.has_chest_hip = true;
+			f.chest_hip = hip;
+			return f;
+		};
+		hands.update(gun, with_hip(at(away, false)));
+		hands.update(gun, with_hip(at(chest, true)));
+		hands.update(gun, with_hip(at(hip, true)));
+		const hand_result r = hands.update(gun, with_hip(at(hip, false)));
+		expect(has(r, reload_event::magazine_stowed), "let go at the hip stows the magazine");
+		expect(r.has_chest_hip && close(r.chest_hip.y, hip.y) && close(r.zone_reach[2], hand_config{}.reach_chest), "the zone's far end and reach reported for grab_debug");
+	}
+
 	void test_hands_ak()
 	{
 		reload gun(ak);
@@ -808,25 +853,55 @@ namespace
 		holster_frame frame;
 		frame.head_valid = frame.hand_valid = true;
 		holsters h;
-		expect(draw_at(h, frame, { 0.2f, 0.05f, 0.15f }) == holster::primary, "over the right shoulder: primary");
+		// #57 layout: primary at the sling, secondary at the gun-side hip, gadget 1 over the gun-side
+		// shoulder, gadget 2 over the off-side shoulder, knife high on the off-side chest.
+		expect(draw_at(h, frame, sling_point) == holster::primary, "at the sling: primary");
+		expect(draw_at(h, frame, { 0.12f, -0.47f, -0.15f }) == holster::primary, "a little off the sling: primary");
 		expect(draw_at(h, frame, { 0.24f, -0.72f, 0.02f }) == holster::secondary, "right hip: secondary");
 		expect(draw_at(h, frame, { -0.10f, -0.27f, -0.10f }) == holster::knife, "high left chest: knife");
-		expect(draw_at(h, frame, { -0.2f, 0.05f, 0.15f }) == holster::gadget1, "over the left shoulder: gadget 1");
-		expect(draw_at(h, frame, { -0.22f, -0.72f, 0.02f }) == holster::gadget2, "left hip: gadget 2");
+		expect(draw_at(h, frame, { 0.2f, 0.05f, 0.15f }) == holster::gadget1, "over the right shoulder: gadget 1");
+		expect(draw_at(h, frame, { -0.2f, 0.05f, 0.15f }) == holster::gadget2, "over the left shoulder: gadget 2");
+		expect(draw_at(h, frame, { -0.22f, -0.72f, 0.02f }) == holster::none, "left hip: no holster any more (magazines)");
 		expect(draw_at(h, frame, magazine_pouch) == holster::none && draw_at(h, frame, grenade_pouch) == holster::none, "the off hand's pouches are no holsters");
 		expect(draw_at(h, frame, { 0.15f, -0.25f, -0.35f }) == holster::none, "aiming position: nothing");
+		// The pistol and the rifle: 30 cm apart; a reach for the pistol around the hip never draws the rifle.
+		{
+			const v3 hip{ 0.22f, -0.75f, 0.0f };
+			const v3 around[] = { { 0.0f, 0.0f, 0.0f }, { 0.08f, 0.0f, 0.0f }, { 0.0f, -0.08f, 0.0f }, { 0.0f, 0.0f, 0.08f }, { 0.0f, 0.0f, -0.08f },
+				{ -0.05f, 0.05f, 0.0f }, { 0.0f, 0.08f, 0.0f } };
+			bool pistol_only = true;
+			for (const v3& d : around)
+			{
+				pistol_only &= draw_at(h, frame, { hip.x + d.x, hip.y + d.y, hip.z + d.z }) == holster::secondary;
+			}
+			expect(pistol_only, "within 8 cm of the hip: always the pistol");
+			bool rifle_only = true;
+			for (const v3& d : around)
+			{
+				rifle_only &= draw_at(h, frame, { sling_point.x - d.x, sling_point.y - d.y, sling_point.z - d.z }) == holster::primary;
+			}
+			expect(rifle_only, "within 8 cm of the sling: always the rifle");
+		}
 		frame.gun_hand = { 0.15f, -0.25f, -0.35f };
 		frame.gun_grip = true;
 		h.update(frame);
-		frame.gun_hand = { 0.2f, 0.05f, 0.15f };
+		frame.gun_hand = sling_point;
 		expect(h.update(frame).draw == holster::none, "a grip held into the zone does not draw");
 		frame.gun_grip = false;
 		expect(h.update(frame).zone == holster::primary, "zone reported while the hand is there");
+		// #49: a grip at the selected weapon's own holster with the hand empty takes it, not "already in hand".
+		expect(draw_for(false, false) == draw_action::switch_weapon && draw_for(false, true) == draw_action::switch_weapon,
+			"another weapon: switch to it");
+		expect(draw_for(true, true) == draw_action::take_into_hand, "the selected weapon on the sling: into the hand");
+		expect(draw_for(true, false) == draw_action::none, "the selected weapon in the hand or on the floor: nothing");
 
 		holster_frame left = frame;
 		left.left_handed = true;
 		holsters mirrored;
-		expect(draw_at(mirrored, left, { -0.2f, 0.05f, 0.15f }) == holster::primary, "left-handed: primary over the left shoulder");
+		expect(draw_at(mirrored, left, { -sling_point.x, sling_point.y, sling_point.z }) == holster::primary, "left-handed: primary at the sling on the left");
+		expect(draw_at(mirrored, left, { -0.22f, -0.75f, 0.0f }) == holster::secondary, "left-handed: pistol on the left hip");
+		expect(draw_at(mirrored, left, { -0.2f, 0.05f, 0.15f }) == holster::gadget1, "left-handed: gadget 1 over the left shoulder");
+		expect(draw_at(mirrored, left, { 0.2f, 0.05f, 0.15f }) == holster::gadget2, "left-handed: gadget 2 over the right shoulder");
 		expect(draw_at(mirrored, left, { 0.10f, -0.27f, -0.10f }) == holster::knife, "left-handed: knife on the right chest");
 
 		holsters turning;
@@ -841,15 +916,17 @@ namespace
 			turning.update(turn);
 		}
 		expect(std::fabs(turning.body_yaw() - (1.5707963f - 0.6f)) < 1e-4f, "big head turn: body follows to the slack");
-		// Body yaw 0.97 rad (turned left): the primary sits right-back of that body.
+		// Body yaw 0.97 rad (turned left): gadget 1 sits right-back of that body.
 		const float b = turning.body_yaw();
-		const v3 primary{ 0.2f * std::cos(b) + 0.15f * std::sin(b), 0.05f, -0.2f * std::sin(b) + 0.15f * std::cos(b) };
-		expect(draw_at(turning, turn, primary) == holster::primary, "zones turn with the body");
+		const v3 shoulder{ 0.2f * std::cos(b) + 0.15f * std::sin(b), 0.05f, -0.2f * std::sin(b) + 0.15f * std::cos(b) };
+		expect(draw_at(turning, turn, shoulder) == holster::gadget1, "zones turn with the body");
 		// grab_debug rings: the reported centres are where the zones are (turned body, both hands).
 		turn.gun_hand = { 5.0f, 5.0f, 5.0f };
 		const holster_result rings = turning.update(turn);
-		expect(rings.has_centres && std::fabs(rings.centres[0].x - primary.x) < 1e-4f && std::fabs(rings.centres[0].z - primary.z) < 1e-4f
-			&& std::fabs(rings.radii[0] - 0.155f) < 1e-6f, "ring centre and radius of the primary holster");
+		const int gadget1_zone = static_cast<int>(holster::gadget1) - static_cast<int>(holster::primary);
+		expect(rings.has_centres && std::fabs(rings.centres[gadget1_zone].x - shoulder.x) < 1e-4f && std::fabs(rings.centres[gadget1_zone].z - shoulder.z) < 1e-4f
+			&& std::fabs(rings.radii[gadget1_zone] - 0.155f) < 1e-6f, "ring centre and radius of the gun-side shoulder holster");
+		expect(std::fabs(rings.radii[0] - 0.14f) < 1e-6f, "the primary's ring at the sling is 14 cm");
 		holster_frame mirrored_ring = left;
 		mirrored_ring.gun_hand = { 5.0f, 5.0f, 5.0f };
 		holsters mirrored_rings;
@@ -857,7 +934,7 @@ namespace
 		expect(left_rings.has_centres && std::fabs(left_rings.centres[2].x - 0.10f) < 1e-4f, "left-handed: the knife ring on the right chest");
 		holster_frame blind = frame;
 		blind.head_valid = false;
-		expect(draw_at(h, blind, { 0.2f, 0.05f, 0.15f }) == holster::none, "no head tracking: no holsters");
+		expect(draw_at(h, blind, sling_point) == holster::none, "no head tracking: no holsters");
 
 		// The off hand draws the gadgets on its side, and only while it is free.
 		const auto off_draw = [](holsters& zones, holster_frame f, v3 hand, bool busy)
@@ -875,10 +952,11 @@ namespace
 			return drawn;
 		};
 		holsters off;
-		expect(off_draw(off, frame, { -0.2f, 0.05f, 0.15f }, false) == holster::gadget1, "off hand over its shoulder: gadget 1");
-		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, false) == holster::gadget2, "off hand at its hip: gadget 2");
-		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, true) == holster::none, "a busy off hand draws nothing");
-		expect(off_draw(off, frame, { 0.2f, 0.05f, 0.15f }, false) == holster::none, "the primary is the gun hand's");
+		expect(off_draw(off, frame, { -0.2f, 0.05f, 0.15f }, false) == holster::gadget2, "off hand over its shoulder: gadget 2");
+		expect(off_draw(off, frame, { 0.2f, 0.05f, 0.15f }, false) == holster::gadget1, "off hand across to the gun-side shoulder: gadget 1");
+		expect(off_draw(off, frame, { -0.2f, 0.05f, 0.15f }, true) == holster::none, "a busy off hand draws nothing");
+		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, false) == holster::none, "off hand at its hip: magazines, no holster");
+		expect(off_draw(off, frame, sling_point, false) == holster::none, "the primary at the sling is the gun hand's");
 		expect(off_draw(off, frame, { -0.10f, -0.27f, -0.10f }, false) == holster::none, "the knife is the gun hand's (cross draw)");
 
 		// Chest rig: the pouches sit in the body frame, apart from each other and from the off hand's holsters.
@@ -1215,6 +1293,7 @@ int main()
 	test_hand_rules();
 	test_conservation();
 	test_profiles();
+	test_magazine_zone_to_hip();
 	test_hands_ak();
 	test_magazine_snap();
 	test_hands_reach_and_overlap();

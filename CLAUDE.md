@@ -103,5 +103,22 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - Do not write C++ through shell heredocs or Python string replacement: `\n` and `\0` escapes became real
   line breaks and NUL bytes. Use the file write/edit tools for source files.
 - The command permission check sometimes returns no verdict; the same command usually passes on a retry.
+- Unverified (2026-11-12, #49): on a headset-less debug run (level at 4-16 fps, Ghidra busy beside it) the
+  hip holster's switch never happened (`holster`: `failed=1..6`, log `holsters: secondary: no switch`).
+  Cause not established; do not judge weapon switches from such a run.
+- 2026-11-13: `dev-run.ps1 -Resume` stopped at the main menu twice in a row (2160x2160 window, also with
+  `-MenuWaitSeconds 90`), though `menu:`/`level:` lines were printed. Clicking by hand works: pipe `pointer`
+  at (0.254, 0.2556) Campaign tab, (0.306, 0.402) the BF4 Campaign tile, then `pad 0 0 0 0 200 1000` on Resume.
+  Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run. One cause seen: a
+  "connection with EA Online was lost" dialog over the menu eats the first click (its OK: pointer 0.5 0.583).
+- 2026-11-13: weapon switches (holsters, captures, `holster <name>`) only happen while BF4 is the foreground
+  window; with it behind other windows the game ignores the keys ("no switch"). Ask before taking focus.
+  Right after a level start the knife's weapon name is still empty when slot 7 comes up.
+- In pair rendering the first `shot` after a pipe command often shows black arm/gun silhouettes (the other
+  eye's draws): judge from the second and third shot, or `eyeshot`.
+- 2026-11-13 (#57): on the ~10 fps headless debug run a grip at the sling zone took the slung rifle once
+  ("taken from its holster"), then not again in three tries with `zone=primary` reported. A held pad
+  grip is `pad 0 0 0 0 <ms> 0200` (returns at once, the mod holds it); without it free hands lets the
+  gun go to the sling and the reload zones switch off (`dropped=1`).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
