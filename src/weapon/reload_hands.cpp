@@ -215,6 +215,25 @@ namespace bfvr::weapon
 			held_relative_ = multiply(conjugate(frame.gun_rotation), frame.magazine_rotation);
 			insert_armed_ = armed;
 		};
+		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
+		const bool lockable = frame.grip_lock && frame.has_root && valid;
+		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
+		const float rail_depth = dot(held_top - frame.magwell, rail_down);
+		const v3 rail_point = frame.magwell + rail_down * std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
+		const float off_rail = distance(held_top, rail_point);
+		const auto start_pull_out = [&]()
+		{
+			// Taken out of the gun: it slides out along the rail with the locked hand.
+			pulling_out_ = guided_ = lockable && frame.grip;
+		};
+		if (!lockable || !gun.state().holding)
+		{
+			guided_ = pulling_out_ = false;
+		}
+		if (!lockable || !frame.grip || !gun.state().magazine_in || to_magwell > config_.lock_leave)
+		{
+			lock_hold_ = false;
+		}
 
 		// Palming (AR): a new magazine at the magwell of a loaded gun gets ready; the hand leaving ends it.
 		using palm_stage = hand_result::palm_stage;
@@ -251,6 +270,7 @@ namespace bfvr::weapon
 			{
 				start_holding(false);
 				keep_snap_ = true;
+				start_pull_out();
 			}
 			else if (event == reload_event::magazine_dropped)
 			{
@@ -275,6 +295,7 @@ namespace bfvr::weapon
 				{
 					start_holding(false);
 					keep_snap_ = true;
+					start_pull_out();
 				}
 				emit(result, event);
 			}
@@ -323,7 +344,26 @@ namespace bfvr::weapon
 				insert_armed_ = true;
 			}
 			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
-			if (frame.grip && insert_armed_ && held_at_magwell && seat_pause_ <= 0.0f)
+			bool push_home = frame.grip && insert_armed_ && held_at_magwell;
+			if (lockable)
+			{
+				// Locks on near the rail when it is turned roughly as it sits; leaves off the rail, past its end
+				// or let go. Locked, it seats once pushed up to lock_seat_depth.
+				// A loaded AR's magwell is the palming's (tactical reload); an AK's new magazine knocks the old one out.
+				const bool aligned = angle_between(held_rotation, frame.magazine_rotation) < config_.lock_align_degrees;
+				const bool well_free = !gun.state().magazine_in || gun.profile().flick;
+				if (!guided_ && frame.grip && insert_armed_ && aligned && well_free && palm_ == palm_stage::none && rail_depth > -config_.lock_seat_depth && rail_depth < config_.lock_rail
+					&& off_rail < config_.lock_catch)
+				{
+					guided_ = true;
+				}
+				if (guided_ && (!frame.grip || off_rail > config_.lock_leave || rail_depth > config_.lock_rail + config_.lock_seat_depth))
+				{
+					guided_ = pulling_out_ = false;
+				}
+				push_home = guided_ && insert_armed_ && rail_depth <= config_.lock_seat_depth;
+			}
+			if (push_home && seat_pause_ <= 0.0f)
 			{
 				const reload_event event = gun.insert();
 				if (event == reload_event::flicked_out)
@@ -341,8 +381,10 @@ namespace bfvr::weapon
 				{
 					seating_ = true;
 					seat_time_ = 0.0f;
-					seat_from_ = held_top;
-					seat_rotation_ = held_rotation;
+					seat_from_ = guided_ ? rail_point : held_top;
+					seat_rotation_ = guided_ ? frame.magazine_rotation : held_rotation;
+					lock_hold_ = guided_;
+					guided_ = pulling_out_ = false;
 				}
 				emit(result, event);
 			}
@@ -421,7 +463,19 @@ namespace bfvr::weapon
 		result.palm = palm_;
 		result.magazine_tilt = tilt_;
 
-		if (gun.state().holding && valid && !kept_old_)
+		if (gun.state().holding && valid && !kept_old_ && guided_)
+		{
+			// Grip lock: upright on the rail, the hand on it.
+			result.draw = magazine_draw::in_hand;
+			result.magazine_position = rail_point;
+			result.magazine_rotation = frame.magazine_rotation;
+			result.guided = true;
+			result.rail_depth = std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
+			result.hand_lock = 1.0f;
+			result.lock_position = rail_point;
+			result.lock_rotation = frame.magazine_rotation;
+		}
+		else if (gun.state().holding && valid && !kept_old_)
 		{
 			result.draw = magazine_draw::in_hand;
 			result.in_fist = true;
@@ -447,6 +501,13 @@ namespace bfvr::weapon
 				{
 					seating_ = false;
 				}
+			}
+			if (lock_hold_ && valid)
+			{
+				// The locked hand pushes it home and stays on it while the grip is held.
+				result.hand_lock = 1.0f;
+				result.lock_position = result.draw == magazine_draw::in_hand ? result.magazine_position : frame.magwell;
+				result.lock_rotation = result.draw == magazine_draw::in_hand ? result.magazine_rotation : frame.magazine_rotation;
 			}
 		}
 		else

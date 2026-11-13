@@ -133,6 +133,11 @@ drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
+# Grip lock: a magazine brought to the magwell (top within 6 cm of its axis, turned within 45 degrees of
+# how it sits) locks onto a rail along the magwell's axis, upright; the drawn off hand locks onto it with
+# the game's own magazine grip. Push it up to seat it; the hand stays on it while you grip. Pulled out by
+# hand it rides the same rail out. 0 = the older loose behaviour (it zips in from 10 cm).
+grip_lock = 1
 # A magazine let go or tossed flies on with the hand's speed, tumbles and rests on the floor a few seconds
 # (needs the headset's floor; without one it just drops away). The AK quick reload knocks the old one out (#47).
 magazine_flight = 1

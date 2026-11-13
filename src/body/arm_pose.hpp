@@ -230,6 +230,16 @@ namespace bfvr::body
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.
 	void set_magazine_snap(float weight, bool ak);
+	// Grip lock (weapon/physical_reload): the drawn off hand holds the magazine at this pose (its top,
+	// Wep_Mag, and rotation, OpenXR LOCAL) with the game's magazine grip, blended by weight.
+	struct magazine_lock_pose
+	{
+		float weight{};
+		bool ak{};
+		float position[3]{};
+		float rotation[4]{ 0, 0, 0, 1 };
+	};
+	void set_magazine_lock(const magazine_lock_pose& pose);
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).

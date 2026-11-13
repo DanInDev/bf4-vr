@@ -1374,6 +1374,88 @@ namespace
 		}
 		expect(r.draw == magazine_draw::with_gun, "then it is the gun's again");
 	}
+
+	// Grip lock: the held magazine rides the magwell's rail with the hand locked on it, seats only when
+	// pushed home, and the hand stays on it while the grip is held.
+	hand_frame locked_at(v3 hand, bool grip, bool lock = true)
+	{
+		hand_frame frame = at(hand, grip);
+		frame.has_root = true;
+		frame.root = { magwell.x, magwell.y, magwell.z + 0.2f };
+		frame.grip_lock = lock;
+		return frame;
+	}
+
+	void test_grip_lock()
+	{
+		{
+			reload gun(ar);
+			gun.load(0, 60);
+			gun.press_button(false);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(chest, true));
+			const v3 aside{ magwell.x + 0.03f, magwell.y - 0.08f, magwell.z };
+			hand_result r = hands.update(gun, locked_at(aside, true));
+			expect(r.guided && r.count == 0 && r.hand_lock == 1.0f, "lock: 8 cm under the magwell and 3 cm aside it locks on, not yet in");
+			expect(close(r.magazine_position.x, magwell.x) && close(r.lock_position.y, magwell.y - 0.08f, 1e-3f) && !r.in_fist,
+				"lock: drawn upright on the rail, not in the fist");
+			r = hands.update(gun, locked_at({ magwell.x + 0.02f, magwell.y - 0.05f, magwell.z }, true));
+			expect(r.guided && close(r.rail_depth, 0.05f, 1e-3f) && r.count == 0, "lock: rides the rail up");
+			r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.02f, magwell.z }, true));
+			expect(has(r, reload_event::magazine_in) && r.hand_lock == 1.0f, "lock: pushed home it seats, the hand on it");
+			for (int i = 0; i < 20; ++i)
+			{
+				r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.02f, magwell.z }, true));
+			}
+			expect(r.draw == magazine_draw::with_gun && r.hand_lock == 1.0f && close(r.lock_position.y, magwell.y), "lock: seated, the hand stays on it while gripping");
+			r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.02f, magwell.z }, false));
+			expect(r.hand_lock == 0.0f, "lock: the open hand lets go of it");
+		}
+		{
+			reload gun(ar);
+			gun.load(0, 60);
+			gun.press_button(false);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(chest, true));
+			hand_result r = hands.update(gun, locked_at({ magwell.x + 0.03f, magwell.y - 0.06f, magwell.z }, true));
+			expect(r.guided, "leave: locked on first");
+			r = hands.update(gun, locked_at({ magwell.x + 0.2f, magwell.y - 0.06f, magwell.z }, true));
+			expect(!r.guided && r.in_fist && r.hand_lock == 0.0f && r.count == 0, "leave: 20 cm off the rail it is the fist's again");
+		}
+		{
+			reload gun(ar);
+			gun.load(0, 60);
+			gun.press_button(false);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(chest, true));
+			hand_frame turned = locked_at({ magwell.x, magwell.y - 0.05f, magwell.z }, true);
+			turned.off_rotation = { 0.0f, 0.0f, 0.7071068f, 0.7071068f };
+			const hand_result r = hands.update(gun, turned);
+			expect(!r.guided && r.count == 0, "lock: turned 90 degrees it neither locks on nor goes in");
+		}
+		{
+			reload gun(ar);
+			gun.load(0, 60);
+			gun.press_button(false);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(chest, true, false));
+			const hand_result r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.07f, magwell.z }, true, false));
+			expect(has(r, reload_event::magazine_in) && !r.guided && r.hand_lock == 0.0f, "lock off: in at 7 cm as before");
+		}
+		{
+			reload gun(ak);
+			gun.load(30, 60);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(away, false));
+			const v3 on_body{ magwell.x, magwell.y - 0.08f, magwell.z };
+			hand_result r = hands.update(gun, locked_at(on_body, true));
+			expect(has(r, reload_event::magazine_out) && r.guided && r.hand_lock == 1.0f, "pull out: taken by hand it rides the rail out");
+			r = hands.update(gun, locked_at({ magwell.x + 0.02f, magwell.y - 0.02f, magwell.z }, true));
+			expect(r.guided && r.count == 0, "pull out: pushed back up it does not seat again");
+			r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.25f, magwell.z }, true));
+			expect(!r.guided && r.in_fist, "pull out: past the rail's end it is the fist's");
+		}
+	}
 }
 
 // Each physical reload event plays the stage of the game's reload patch matched to it (re/notes/sound.md).
@@ -1428,6 +1510,7 @@ int main()
 	test_grip_before_reload();
 	test_seating();
 	test_hands_palming();
+	test_grip_lock();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

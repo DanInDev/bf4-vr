@@ -372,6 +372,8 @@ namespace bfvr::body
 			ik::quat delta_rotation;
 		};
 		magazine_snap_hold snap_request;
+		// Grip lock (set_magazine_lock): the off hand's goal from a magazine pose in OpenXR LOCAL.
+		magazine_lock_pose lock_request;
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
@@ -761,6 +763,28 @@ namespace bfvr::body
 			}
 		}
 
+		// Grip lock: the off hand's goal where the game's magazine grip holds the magazine at the locked pose
+		// (on the magwell's rail, sliding home, or seated), blended by the lock's weight.
+		void apply_magazine_lock(const ik::bone_transform* local, ik::arm_goal& goal)
+		{
+			const float weight = lock_request.weight;
+			if (weight <= 0.0f || rig.camera < 0)
+			{
+				return;
+			}
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const float* p = lock_request.position;
+			const float* q = lock_request.rotation;
+			const ik::vec3 top = tracking_origin(camera, frame) + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+			const ik::quat rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+			const authored_grip& grip = lock_request.ak ? magazine_grip_ak : magazine_grip_ar;
+			const ik::quat hand = ik::normalize(rotation * ik::conjugate(grip.magazine_rotation));
+			const ik::vec3 wrist = top - ik::rotate(hand, grip.magazine);
+			goal.wrist = goal.wrist + (wrist - goal.wrist) * weight;
+			goal.hand = nlerp(goal.hand, hand, weight);
+		}
+
 		// Called with rig_lock held, before the conversion: the arms reach for the controllers.
 		void edit_arms(ik::bone_transform* local)
 		{
@@ -1134,6 +1158,7 @@ namespace bfvr::body
 				if (hand == 0 && carrier == 1 && gun_placed)
 				{
 					apply_magazine_snap(local, goal);
+					apply_magazine_lock(local, goal);
 				}
 				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
 				// the hand lies along the first, the belt and hip for the default hint.
@@ -1602,6 +1627,12 @@ namespace bfvr::body
 				{
 					// #40: snapping onto the seated magazine, the fingers already take its grip.
 					authored = snap_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+					authored_hand = 0;
+				}
+				else if (lock_request.weight >= 0.5f && rig.thumb_base[0] > 0)
+				{
+					// Grip lock: on the rail, sliding home or held on the seated magazine, the game's grip.
+					authored = lock_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
 					authored_hand = 0;
 				}
 				return;
@@ -2780,6 +2811,13 @@ namespace bfvr::body
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	void set_magazine_lock(const magazine_lock_pose& pose)
+	{
+		const std::lock_guard guard(rig_lock);
+		lock_request = pose;
+		lock_request.weight = std::isfinite(pose.weight) ? std::fmax(0.0f, std::fmin(1.0f, pose.weight)) : 0.0f;
 	}
 
 	void set_magazine_snap(float weight, bool ak)
