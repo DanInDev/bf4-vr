@@ -30,6 +30,7 @@ namespace bfvr::weapon
 	{
 		float settle_seconds{ 2.5f };  // a gun in hand this long before anything is selected
 		float rearm_seconds{ 3.0f };   // no soldier this long (a level load, a death): try again
+		int tries{ 2 };                // per item and level (a fresh level drew the grenade too late once)
 	};
 
 	class slot_capture_start
@@ -42,8 +43,8 @@ namespace bfvr::weapon
 	private:
 		slot_capture_config config_;
 		bool armed_{ true };
-		bool tried_grenade_{};
-		bool tried_knife_{};
+		int tried_grenade_{};
+		int tried_knife_{};
 		float gun_for_{};
 		float invalid_for_{};
 	};

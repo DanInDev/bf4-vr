@@ -89,6 +89,13 @@ namespace bfvr::weapon
 			return state;
 		}
 
+		// The knife: by its name, or slot 7 with no name yet (right after a level start the knife's name is
+		// still empty when it first comes out, monitor 2026-11-13: "knife -> slot 7 " with no name).
+		bool is_knife(const slot_state& slot)
+		{
+			return std::strstr(slot.name, "Knife") != nullptr || (slot.current == 7 && slot.name[0] == 0);
+		}
+
 		unsigned short key_for(holster which)
 		{
 			switch (which)
@@ -110,7 +117,7 @@ namespace bfvr::weapon
 			{
 			case holster::primary: return slot.current == 0;
 			case holster::secondary: return slot.current == 1;
-			case holster::knife: return std::strstr(slot.name, "Knife") != nullptr;
+			case holster::knife: return is_knife(slot);
 			default: return false;
 			}
 		}
@@ -295,13 +302,13 @@ namespace bfvr::weapon
 		// #41: the same sequence selects the knife for its holster copy; which item this run is for.
 		std::atomic<bool> knife_capture_requested{};
 		stereo::extra_mesh::captured capture_item{ stereo::extra_mesh::captured::grenade };
-		constexpr unsigned short knife_key = '6'; // slot 7, the knife
 		std::atomic<bool> slot_models_at_start{ true };
 		slot_capture_start slot_captures;
 		ULONGLONG knife_out_since{};
 		int capture_from{ -1 };
 		int capture_attempts{};
 		ULONGLONG capture_deadline{};
+		ULONGLONG capture_repress_at{}; // #41: the item's key again if the game has not switched yet
 		unsigned short capture_key{};
 		ULONGLONG capture_key_up{};
 		std::uint64_t capture_count_at{};
@@ -351,20 +358,37 @@ namespace bfvr::weapon
 				capture_from = held.current;
 				capture_count_at = em::item_captures(capture_item);
 				capture_attempts = 0;
-				press_capture_key(grenade ? grenade_key : knife_key, now);
+				if (grenade)
+				{
+					press_capture_key(grenade_key, now);
+				}
+				else
+				{
+					// The knife through the holster switch (its own resend): our single key 6 was not taken right
+					// after the grenade's round trip, three times in a row, while `holster knife` came in 0.5 s
+					// (monitor 2026-11-13).
+					request(holster::knife, now);
+				}
 				grenade_capture = capture_stage::to_grenade;
 				capture_deadline = now + 4000; // slow frames: the knife came out after more than 2 s at 9 fps
+				capture_repress_at = now + 1200;
 				log::write("%s capture: selecting the game's %s (from slot %d)", em::item_name(capture_item), em::item_name(capture_item), capture_from);
 				break;
 			}
 			case capture_stage::to_grenade:
 			{
 				const bool selected = held.valid
-					&& (capture_item == stereo::extra_mesh::captured::knife ? std::strstr(held.name, "Knife") != nullptr : held.current == 6);
+					&& (capture_item == stereo::extra_mesh::captured::knife ? is_knife(held) : held.current == 6);
 				if (selected)
 				{
 					grenade_capture = capture_stage::capturing;
-					capture_deadline = now + 2500; // the knife waits half a second before it is recorded
+					capture_deadline = now + 4000; // the knife waits half a second; a fresh level draws late at 9 fps
+				}
+				else if (capture_item == stereo::extra_mesh::captured::grenade && now >= capture_repress_at && now + 600 < capture_deadline)
+				{
+					// A key the game ignores is sent again, as the holster switch does for the knife.
+					press_capture_key(grenade_key, now);
+					capture_repress_at = now + 1200;
 				}
 				else if (now > capture_deadline)
 				{
@@ -372,6 +396,7 @@ namespace bfvr::weapon
 					// stayed out): ask for the gun again either way; if it never left, that ends at once.
 					capture_result = capture_item == stereo::extra_mesh::captured::knife ? "the game did not select its knife" : "the game did not select its grenade";
 					log::write("%s capture: %s; back to slot %d", stereo::extra_mesh::item_name(capture_item), capture_result, capture_from);
+					pending = holster::none; // the knife's holster switch stops resending
 					press_capture_key(gun_key(capture_from), now);
 					grenade_capture = capture_stage::back;
 					capture_deadline = now + 1200;
@@ -385,6 +410,7 @@ namespace bfvr::weapon
 				{
 					capture_result = done ? "captured" : capture_item == stereo::extra_mesh::captured::knife ? "no knife draw seen" : "no grenade draw seen";
 					log::write("%s capture: %s; back to slot %d", stereo::extra_mesh::item_name(capture_item), capture_result, capture_from);
+					pending = holster::none; // the knife's holster switch stops resending
 					press_capture_key(gun_key(capture_from), now);
 					grenade_capture = capture_stage::back;
 					capture_deadline = now + 1200;
@@ -548,7 +574,7 @@ namespace bfvr::weapon
 		const ULONGLONG now = GetTickCount64();
 		advance(now);
 		const slot_state held = read_slot();
-		const bool knife_out = held.valid && std::strstr(held.name, "Knife") != nullptr;
+		const bool knife_out = held.valid && is_knife(held);
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && knife_out);
 		// #41: the game's knife out is captured once for its holster (body/arm_pose, stereo/extra_mesh), half a
 		// second after it came out (the gun is no longer drawn by then).

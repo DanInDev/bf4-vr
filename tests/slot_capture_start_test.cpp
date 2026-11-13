@@ -55,6 +55,12 @@ namespace
 		expect(first_request(s, f, 5.0f, took) == slot_capture_request::knife && took > 2.4f, "then the knife, once the gun is back and settled");
 		f.knife_captured = true;
 		expect(first_request(s, f, 10.0f, took) == slot_capture_request::none && !s.armed(), "both done: nothing more this level");
+		// One that failed is tried again after the other's turn.
+		slot_capture_start retry;
+		slot_capture_frame g = in_level();
+		first_request(retry, g, 5.0f, took); // grenade, not taken
+		g.knife_captured = true;            // the knife's turn is not needed
+		expect(first_request(retry, g, 5.0f, took) == slot_capture_request::grenade, "the grenade a second time");
 	}
 
 	void test_waits()
@@ -83,10 +89,16 @@ namespace
 		slot_capture_start s;
 		float took{};
 		slot_capture_frame f = in_level();
-		// Both tried but neither taken (no grenades left, the game refused): not again in this level.
-		first_request(s, f, 5.0f, took);
-		first_request(s, f, 5.0f, took);
-		expect(first_request(s, f, 10.0f, took) == slot_capture_request::none, "tried once each: no loop of weapon switches");
+		// Neither taken (no grenades left, the game refused): they take turns, two tries each, then stop.
+		const slot_capture_request order[] = { slot_capture_request::grenade, slot_capture_request::knife, slot_capture_request::grenade,
+			slot_capture_request::knife };
+		bool in_turns = true;
+		for (const slot_capture_request wanted : order)
+		{
+			in_turns &= first_request(s, f, 5.0f, took) == wanted;
+		}
+		expect(in_turns, "grenade, knife, grenade, knife");
+		expect(first_request(s, f, 10.0f, took) == slot_capture_request::none, "two tries each: no loop of weapon switches");
 		// A load screen (no soldier for 3 s) arms it again.
 		slot_capture_frame loading = in_level();
 		loading.slot_valid = false;
@@ -102,8 +114,10 @@ namespace
 		expect(first_request(known, have, 5.0f, took) == slot_capture_request::none, "both captured already: no switch at all");
 		// A short gap (a switch reading no slot for a frame) does not re-arm.
 		slot_capture_start brief;
-		first_request(brief, f, 5.0f, took);
-		first_request(brief, f, 5.0f, took);
+		for (int i = 0; i < 4; ++i)
+		{
+			first_request(brief, f, 5.0f, took);
+		}
 		slot_capture_frame gap = in_level();
 		gap.slot_valid = false;
 		brief.update(gap);

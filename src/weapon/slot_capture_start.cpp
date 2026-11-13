@@ -12,7 +12,7 @@ namespace bfvr::weapon
 			if (invalid_for_ >= config_.rearm_seconds)
 			{
 				armed_ = true;
-				tried_grenade_ = tried_knife_ = false;
+				tried_grenade_ = tried_knife_ = 0;
 			}
 			return slot_capture_request::none;
 		}
@@ -29,14 +29,17 @@ namespace bfvr::weapon
 			return slot_capture_request::none;
 		}
 		gun_for_ = 0;
-		if (!frame.grenade_captured && !tried_grenade_)
+		// Grenade and knife take turns, each up to `tries` times, so one that keeps failing does not hold up the other.
+		const bool grenade = !frame.grenade_captured && tried_grenade_ < config_.tries;
+		const bool knife = !frame.knife_captured && tried_knife_ < config_.tries;
+		if (grenade && (!knife || tried_grenade_ <= tried_knife_))
 		{
-			tried_grenade_ = true;
+			++tried_grenade_;
 			return slot_capture_request::grenade;
 		}
-		if (!frame.knife_captured && !tried_knife_)
+		if (knife)
 		{
-			tried_knife_ = true;
+			++tried_knife_;
 			return slot_capture_request::knife;
 		}
 		armed_ = false;

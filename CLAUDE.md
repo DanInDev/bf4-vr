@@ -110,6 +110,9 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   at (0.254, 0.2556) Campaign tab, (0.306, 0.402) the BF4 Campaign tile, then `pad 0 0 0 0 200 1000` on Resume.
   Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run. One cause seen: a
   "connection with EA Online was lost" dialog over the menu eats the first click (its OK: pointer 0.5 0.583).
+- 2026-11-13: weapon switches (holsters, captures, `holster <name>`) only happen while BF4 is the foreground
+  window; with it behind other windows the game ignores the keys ("no switch"). Ask before taking focus.
+  Right after a level start the knife's weapon name is still empty when slot 7 comes up.
 - In pair rendering the first `shot` after a pipe command often shows black arm/gun silhouettes (the other
   eye's draws): judge from the second and third shot, or `eyeshot`.
 - 2026-11-13 (#57): on the ~10 fps headless debug run a grip at the sling zone took the slung rifle once
