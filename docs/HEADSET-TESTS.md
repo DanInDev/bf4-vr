@@ -1,6 +1,6 @@
 # Headset test backlog
 
-Quest 3 via Steam Link, SteamVR OpenXR, RTX 5070. Build: `main`, **Release** (Debug runs at ~14 fps).
+Quest 3 via Steam Link, SteamVR OpenXR, RTX 5070. Build: see the short list below, **Release** (Debug runs at ~14 fps).
 
 All headset checks are in one list. Each check has a fixed ID (`AIM-4`), so feedback can name it:
 "AIM-4 still low by a hand's width, GUN-2 works, HUD-6 already done". After a session I update the
@@ -26,32 +26,28 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `main` with the #34 menu fix, **Release** deployed 2026-11-11 (Update mod in the Release launcher
-installs the same build). Work order: the comment of 2026-11-10 on #21. Tap both stick clicks whenever
+Build: `test/headset-2026-11-13` (#48, #49, #55, #56, #57, #58, #41), **Release**, deployed 2026-11-13; the
+main checkout is on that branch, so the launcher's Update mod installs the same build. Not in it: the
+sights work (#39, `fix/sights-headset`) and the other open branches. Tap both stick clicks whenever
 something looks off.
 
-0. **Body calibration (BODY-1):** when the level loads a notice asks you to stand straight, arms out to
-   the sides, and hold both triggers: hold still for a second. It should report about your height and
-   save it; arms, pouches and holsters then fit you. (Ignore it and nothing changes.)
-1. **Red dot sights (AIM-12):** AK-12, bring its red dot to one eye, then tilt your head a little; the dot
-   stays on target, in that eye only. Then the SCAR's holo: walk while looking through it (full speed,
-   no second reticle).
-2. **Hip fire (AIM-13):** shoot a far wall from the hip without raising the sight: the holes stay tight
-   where the barrel points.
-3. **Magnifier (AIM-14):** AK-12, flip the magnifier in (off-hand trigger while holding two-handed) and look
-   through it: magnified with a dot, the view itself does not zoom, no pumping.
-4. **Magazine snap (GUN-15):** reach slowly for the seated magazine with the open off hand: the hand slides
-   onto it before you squeeze; pull it out (SCAR: squeeze, then B): no jump.
-5. **SCAR palming (GUN-12):** new magazine from the pouch to the magwell, B, look at both magazines and the
-   fingers in your hand, roll back and seat.
-6. **Free hands (FREE-3 to FREE-9):** let go of the gun (sling), pick it up with either hand, hold it in the
-   left and reload with the right.
-7. **Grenade (GRN-4, GRN-5):** take the first grenade with the gun out: no flat picture, the game's sound,
-   then pull the pin (a ring marks it). Afterwards look down at the pouch: a real grenade stands there.
-8. **Knife (GRN-6, HAND-16):** draw the knife from the chest holster once, put it back, look down: the knife
-   stands in the holster. In the hand, note the Knife angle / turn / roll values that look right.
-9. **Gadget stash (CTRL-14):** open it with the left hand, laser-click C4 into Gadget One, M320 into Gadget
-   Two, Done. The tabs no longer flip on each click; afterwards the left stick walks straight.
+1. **Level start (GRN-7, GRN-6):** load the level and keep the rifle in hand ~5 s. A quick switch to the
+   grenade and the knife and back happens once. Then look down: the game's grenade at the pouch (high
+   right chest), the knife in its holster (high left chest) with your hold, not a rifle, without grabbing.
+2. **Grab zones v2 (GUN-16, FREE-10):** let the rifle hang; take it back by grabbing it at the sling
+   (belly, right). Pistol from the right hip (none in the Baku save), gadget 1 over the right shoulder,
+   gadget 2 over the left. Magazines from the belly and from the left hip, without looking.
+3. **Mag check (HUD-13):** roll the rifle upside down and look at the magazine: health, ammo and grenades
+   appear in about half a second, the right way up. Aiming, reloading and holstering never show them.
+4. **Magazine in the hand (HUD-14):** pull the magazine (or take one from the pouch) and look at it:
+   "27 / 30" beside it, gone when it goes back in. A normal reload never flashes it.
+5. **Wrist map (HUD-12):** aim two-handed for a while: no minimap. Lower your head, pull the left wrist
+   in and turn its inside up: the map appears.
+6. **Knife in the hand (HAND-16):** draw the knife: it sits as you set it (145 / -15 / 170 are the defaults
+   now).
+7. **Settings and holsters (CTRL-18):** go through every panel page: no test switches left; Y switches the
+   fire mode, no button changes the weapon.
+8. Needs a save with a sidearm, skip in Baku: **rifle on the sling (FREE-11)** while the pistol is out.
 
 ## Main problems (2026-11-04)
 
@@ -136,7 +132,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | GUN-15 | open | Reach for the seated magazine with the open off hand, slowly from 10 cm (AK-12: squeeze and pull it out; SCAR-H: squeeze, then B) | From about 10 cm the hand slides onto the magazine with the game's grip (fingers round it) before you squeeze; taking it does not jump: it slides out with your hand and the hand catches up with the controller by ~10 cm out | #40 | 2026-11-10: monitor: snap 0 / 0.5 / 1 at 15 / 7.5 / 3 cm; AK grabbed with the magazine's top exactly at the magwell, 3 cm out after a 3 cm pull; SCAR snapped through the squeeze, B dropped it into the hand at the magwell |
 | GUN-13 | open | Second magazine: with a magazine in the AK, take a new one from the pouch and look at the gun; flick the old one out with the new one; SCAR palming (GUN-12) | The gun keeps its magazine while you hold the new one; the flicked one falls from the magwell; while palming the caught one sits in your fist. Both look like the game's own (lit, behind your fingers) | #36 | 2026-11-05: monitor: AK-12 new magazine in hand with the old one drawn in the gun (Release, 128 fps either way) |
 | GUN-14 | done | Hold the gun with your finger resting on the trigger, then pull; `trigger_press` (Weapon > Trigger pull to fire) 0.45 / 0.65 to compare | Resting never fires; a deliberate pull fires at about half way, letting go a little stops it | | 2026-11-09 headset: fine (no unwanted shots reported).; earlier: 2026-11-05: the gun kept firing: a resting finger read 26-47 % and every value reached the game. Now all or nothing past 55 % (released below 45 %), unit-tested |
-| GUN-12 | open | Grab zones v2 (#57), without looking, 10 tries each: rifle from the sling (belly, right), pistol from the right hip, gadget 1 over the right shoulder, gadget 2 over the left shoulder, magazines from the belly and from the left hip | Never the wrong item; a reach for the pistol never brings the rifle; `grab_debug = 1` rings sit where you reach (`magazine_reach`) | #57 | |
+| GUN-16 | open | Grab zones v2 (#57), without looking, 10 tries each: rifle from the sling (belly, right), pistol from the right hip, gadget 1 over the right shoulder, gadget 2 over the left shoulder, magazines from the belly and from the left hip | Never the wrong item; a reach for the pistol never brings the rifle; `grab_debug = 1` rings sit where you reach (`magazine_reach`) | #57 | |
 | GUN-6 | done | (layout before #57) Chest rig (grab-zones.svg): gun hand over the right shoulder (primary), right hip (secondary), high left chest (knife); either hand over the left shoulder / left hip (gadgets, after the stash) | Each drawn on the first try; looking down at a pouch doesn't move it | #14 |  2026-11-04: works (all but grenades: GRN-2) |
 | GUN-7 | open | While holding two-handed: grab a magazine, then a grenade | Each releases the two-handed hold cleanly | #29 | |
 | GUN-8 | open | Holding two-handed, pull the off-hand trigger (gun with a laser, light or magnifier) | Toggles once per press; no zoom from that trigger; grabbing the handguard never toggles | #29 | |
@@ -153,7 +149,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | FREE-8 | open | Gun in the left hand by the grip (FREE-6): put the right hand on the handguard and grip, aim, let go with the right | A left-handed two-handed hold: the barrel on the line between the hands, the right hand drawn on the handguard; letting go with the right leaves it in the left hand | #38 | 2026-11-09: monitor: held, steering the right hand 12 cm swung the barrel 20 degrees, released |
 | FREE-9 | open | Gun in the left hand (by the handguard, then by the grip): with the right hand take the magazine out, drop it, take a new one from the pouch, seat it, rack; then take the gun back at its pistol grip | The right fist holds the magazine like the left does; the gun stays in the left hand throughout; a grip near the magazine reloads, a grip at the pistol grip takes the gun back | #38 | 2026-11-09: monitor: both carries: out, pouch, in (30), rack ejected a round, the left kept the gun; held magazine top 11 cm above the right palm; take-back at the grip after |
 | FREE-11 | open | Rifle on the sling (#58): draw the pistol, look down; walk and turn; then grab the rifle at the sling | The rifle hangs at your belly while the pistol is out (one rifle, its own look), moves with the body, and goes into the hand when grabbed (no second rifle left hanging); note any one-frame blink a second after level start (`sling_show_primary`) | #58 | |
-| FREE-10 | open | Holster grab (#49): let the rifle go so it hangs on the sling, then reach over the shoulder to its holster, squeeze and pull it forward in one motion; then the same at the hip for the pistol and at the chest for the knife, holding the grip until each is out | The rifle comes straight into the hand at the shoulder (no trip to the sling at your chest) and stays while you hold the grip; the pistol and the knife come out in the same motion once the game has switched (~0.5 s), as long as you hold the grip | #49 | 2026-11-12: monitor: rifle on the sling, grip at its holster: "taken from its holster", held while gripping, slung again on release; before the fix the grip there said "already in hand" and nothing came. Drawing another weapon is not checked live: on the headset-less run no weapon switch happened at all (holster or pad Y; cause not established); unit-tested only (grip held through the switch) |
+| FREE-10 | open | Holster grab (#49; with #57 the rifle's holster is the sling itself, GUN-16): let the rifle go so it hangs on the sling, then reach over the shoulder to its holster, squeeze and pull it forward in one motion; then the same at the hip for the pistol and at the chest for the knife, holding the grip until each is out | The rifle comes straight into the hand at the shoulder (no trip to the sling at your chest) and stays while you hold the grip; the pistol and the knife come out in the same motion once the game has switched (~0.5 s), as long as you hold the grip | #49 | 2026-11-12: monitor: rifle on the sling, grip at its holster: "taken from its holster", held while gripping, slung again on release; before the fix the grip there said "already in hand" and nothing came. Drawing another weapon is not checked live: on the headset-less run no weapon switch happened at all (holster or pad Y; cause not established); unit-tested only (grip held through the switch) |
 | CTRL-17 | done | Reach for the gadget stash (or a door, a dropped weapon) with the off hand and grip, without turning your body to it | It opens / uses what the hand reaches for, wherever the gun points (the game's aim stays with the body otherwise, #37) | #37 | 2026-11-10 headset: the stash opens with the left-hand reach. Earlier: 2026-11-09 fix: the use reach is measured at the palm, starts 28 cm ahead (was 40), reaches down to hip height, and only refuses a hand near the gun itself (re/notes/weapon.md). Monitor: a bent-arm reach toward the crates opened the stash. Earlier: 2026-11-09 headset: could not open the gadget stash with the left hand (grip / trigger) (#34, #37).; earlier: 2026-11-09: monitor: the stash opened by reaching while facing ahead |
 
 ## Grenades
