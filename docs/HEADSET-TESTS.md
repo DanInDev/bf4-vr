@@ -32,13 +32,15 @@ the game's image), **Release**, deployed 2026-11-13 evening; the launcher's Upda
 Not in it: the 2026-11-13 afternoon bundle's holster, mag check and settings-cleanup work. Tap both stick
 clicks (a mark) at each sight check; VR View on both eyes if you can.
 
-1. **SCAR-H holo, right eye then left (AIM-12):** the game's own ring and dots in the window, no zoom, normal
-   walk. Turn and tilt your head a little: the reticle stays on the target. Any second sight or dark piece
-   beside the gun in the right eye? Mark it.
-2. **AK-12 red dot (AIM-1, AIM-12):** bring it to either eye: the lens is clear with the red dot in it (no
-   black lens), steady while you hold it there. Then Weapon > Aiming > Aim by raising the gun (`sight_ads`) off
-   and again: it should stay clear without the game aiming (normal walk speed).
-3. **The magnifier picture in the glass (AIM-14, the main check):** flip the magnifier in (off-hand trigger
+1. **SCAR-H holo as a real sight (AIM-12, the main check):** the reticle is now the BF3-style lens (Weapon >
+   Aiming > Real sight lens). Bring the holo close, then hold the gun far out, tilt your head, look at it from
+   off-centre: the ring keeps its real size (about the size of a coin at arm's length, not filling the window),
+   stays upright with the gun when you tilt your head, stays on the target, and the window is clear at any
+   distance. Then Real sight lens off to compare with the old one. Reticle size and brightness are on the
+   same page if they look wrong.
+2. **AK-12 red dot (AIM-1):** the same: a clear lens with its ring and dot at any distance, no black lens,
+   without the game aiming.
+3. **The magnifier picture in the glass (AIM-14):** flip the magnifier in (off-hand trigger
    while holding two-handed) and look through it with the right eye, then the left: the world ~1.7x inside
    the optic, sitting on it in both eyes, no white wedge, no picture floating beside it. Then Weapon > Aiming >
    Scope picture in the glass off: the old headset layer, to compare. Which is better?
