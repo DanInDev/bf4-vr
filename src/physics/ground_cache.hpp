@@ -9,7 +9,9 @@
 #include "physics/loose_body.hpp"
 
 // The level's ground under a point, from rays cast straight down (#61): answered from a cache of 4 cm
-// columns, each for one 1 m band of start heights (a ray from above that band down 50 m). A column not
+// columns, each for one 25 cm band of heights (a ray from just above that band down 50 m). The ray starts
+// close above the point: one that starts inside geometry (a ceiling slab) misses everything below it
+// (monitor 2026-11-14, re/notes/physics.md). A column not
 // known yet is unknown and queued; the game thread casts the queued rays (physics/ray_cast) and answers.
 // Only surfaces facing up count: a steep hit is taken as flat ground at its height. Thread-safe;
 // engine-free; tested by tests/ground_cache_test.cpp.
@@ -26,8 +28,8 @@ namespace bfvr::physics
 	{
 	public:
 		static constexpr float column = 0.04f;
-		static constexpr float band = 1.0f;
-		static constexpr float above = 0.5f;  // the ray starts this far above its band
+		static constexpr float band = 0.25f;
+		static constexpr float above = 0.05f; // the ray starts this far above its band
 		static constexpr float depth = 50.0f; // and looks this far down
 		static constexpr float steepest_normal_y = 0.3f;
 		static constexpr std::size_t most_columns = 20000;

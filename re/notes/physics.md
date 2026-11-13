@@ -1,7 +1,7 @@
 # The game's physics ray cast (#59)
 
 Static analysis 2026-11-14 on `re/dumps/bf4-179547-mem.exe` (REA/Ghidra 12.1.4 and `tools/disasm.py`).
-Not yet called live: the monitor check is below.
+Called live on the monitor 2026-11-14 (below).
 
 ## How it was found
 
@@ -60,9 +60,35 @@ bool 0x140986CA0(world,               // rcx: [0x142668F90] (client)
   that is not needed here. To be confirmed live: no crash over a few thousand rays.
 - BF3: a zero-length ray divides by zero. The mod never casts one shorter than 1 cm.
 
-## Monitor check (to do, needs BF4 running)
+## Monitor check 2026-11-14 (raw)
 
-1. `pipe raycast down`: from the head straight down 3 m. The hit should be about 1.6 m below the eye
-   standing, and about 1.0 m crouched; the normal should be near (0, 1, 0).
-2. `pipe raycast ahead 20` facing a wall: the hit distance should match the picture.
-3. `pipe raycast stats` after a minute of loose magazines: count, misses, microseconds a ray.
+Baku checkpoint, Debug build of `physics/ray-ground`, no headset (`fakehead`, `fakehand`, `pad`), 4-17 fps.
+
+```
+physics: ray query bytes verified
+raycast down            hit at=(-433.800,397.857,-650.605) distance=1.563 normal=(-0.22,0.96,-0.18) fraction=0.521 us=155.9
+raycast ahead 30 (yaw 0)   hit distance=10.435 normal=(0.82,0.00,-0.57) fraction=0.348 us=33.5
+         (yaw 90)          hit distance=4.804  normal=(-0.82,0.00,0.57) fraction=0.160 us=25.9
+         (yaw 180)         hit distance=5.061  normal=(0.57,0.00,0.82)  fraction=0.169 us=27.8
+down rays at z = -647..-642 (from 399.5): hit y=397.490 normal=(0.00,1.00,0.00)   (the feet height in collision.md)
+down ray from y=400.5 at z=-646:  hit y=397.490
+down ray from y=401.0 at z=-646:  miss
+after a magazine was taken and dropped:
+state=1 cast=117 hit=114 faults=0 mean_us=9.3
+ground columns=97 queued=0 asked=97 hits=97 none=0
+```
+
+- The query works as read statically. 10-30 µs a ray (the first 156 µs). `+0x34` is the fraction along
+  the ray (1.563 m of 3 m = 0.521).
+- **Pitfall: a ray that starts inside geometry misses everything**, the floor below included. Seen from
+  y = 401 just above a slab at ~400.9. The ground cache first started its rays up to 1.5 m above the
+  asking point, which indoors can be inside a ceiling. It now starts them at most 30 cm above (25 cm
+  bands, 5 cm above the band).
+- **Magazine:**
+  - taken from the pouch with the fake left hand (pad LB) and let go;
+  - eye screenshots: it lies flat on its side on a rubble slab (not at the soldier's floor height);
+  - still there after 36 s while looked at; gone after turning away (`fakehead` yaw 150) and back.
+- **Pitfall for these tests:**
+  - At 4 fps the rig's points are older than the reload's 250 ms limit, so no grab registers.
+  - With free hands the rifle starts dropped on the sling: take it at the sling first (fake right hand
+    there, pad RB `0200`), then keep RB held (`0300` with LB).

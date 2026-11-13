@@ -32,12 +32,12 @@ int main()
 	ground_cache cache;
 	const v3 at{ 10.013f, 397.6f, -649.71f };
 	expect(cache.below(at).what == ground_plane::kind::unknown, "first ask: unknown");
-	expect(cache.below({ at.x + 0.005f, at.y - 0.1f, at.z }).what == ground_plane::kind::unknown && cache.stats().queued == 1,
-		"same column and band: queued once");
+	expect(cache.below({ at.x + 0.005f, at.y - 0.05f, at.z }).what == ground_plane::kind::unknown && cache.stats().queued == 1,
+		"same column and 25 cm band: queued once");
 	ground_ray rays[8];
 	expect(cache.take_rays(rays, 8) == 1 && cache.stats().queued == 0, "the game thread takes the one ray");
 	const ground_ray& ray = rays[0];
-	expect(ray.from.y > at.y && ray.from.y - at.y <= 1.5f + 1e-3f && near(ray.to.y, ray.from.y - 50.0f), "ray: starts above the point, looks 50 m down");
+	expect(ray.from.y > at.y && ray.from.y - at.y <= 0.3f + 1e-3f && near(ray.to.y, ray.from.y - 50.0f), "ray: starts at most 30 cm above the point (not inside a ceiling), looks 50 m down");
 	expect(std::fabs(ray.from.x - at.x) <= 0.02f + 1e-4f && std::fabs(ray.from.z - at.z) <= 0.02f + 1e-4f && near(ray.from.x, ray.to.x),
 		"ray: straight down the middle of the 4 cm column");
 	expect(cache.below(at).what == ground_plane::kind::unknown && cache.stats().queued == 0, "cast, not answered: not asked again");
