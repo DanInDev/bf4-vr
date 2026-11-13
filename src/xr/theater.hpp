@@ -32,7 +32,7 @@ namespace bfvr::xr
 
 	// The OpenXR side of the mod: the flat virtual screen (menus, cutscenes), the head-tracked
 	// projection layer from the stored eye images, and the quad layers on top (HUD, scope lens,
-	// vignette, reticle, held grenade, settings panel, pointer). docs/ARCHITECTURE.md "One frame".
+	// vignette, reticle, held grenade, settings panel, pointer). docs/architecture/overview.md "One frame".
 	// The OpenXR session uses the game's own D3D11 device. Every call must come
 	// from the thread that presents the swap chain.
 	class theater

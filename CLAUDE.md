@@ -6,8 +6,8 @@ Read those instead of reconstructing history.
 
 ## Start here
 
-- `README.md` status and controls; `docs/ARCHITECTURE.md` modules, start-up and the frame flow;
-  `docs/FROSTBITE.md` how the mod handles the engine (start there for any engine question);
+- `README.md` status and controls; `docs/architecture/` the technical notes: `overview.md` modules, start-up and the frame flow;
+  `engine.md` how the mod handles the engine (start there for any engine question);
   `docs/TOOLING.md` all tools.
 - Battlefield 3 and multiplayer (Venice Unleashed) live in the sibling repository `..\bf3-vr`; BF4's own
   multiplayer research ended in `re/notes/server.md` (code on the branch `re/local-server`).
@@ -20,7 +20,7 @@ Read those instead of reconstructing history.
   start from the brief when the user names one.
 - **Overlord** ([github.com/Aeka0/Overlord](https://github.com/Aeka0/Overlord)) is the quality reference: its
   skeleton, weapon handling and utility interactions (#21). GPLv3: study the design, never copy its code.
-  What was learned from it: `docs/ARCHITECTURE.md` (loader/infrastructure split, verified hooks) and
+  What was learned from it: `docs/architecture/overview.md` (loader/infrastructure split, verified hooks) and
   `docs/tasks/per-eye-rendering.md` ("How Overlord does it": both eyes from one game frame).
 - **Reverse engineering.** The decrypted image comes from `pipe dump re\dumps\bf4-179547-mem.exe` (git-ignored,
   never committed). Quick and enough for single functions: `python -E tools\disasm.py <dump> <address> --full`

@@ -22,7 +22,9 @@ custom-drawn controls in `src/launcher/theme.cpp`; layout after Overlord's launc
 (status and Start), **Setup** (folder, build, install, VR setup) and **Settings** (switches and runtime). It opens
 on Play when the mod is installed, else on Setup. Its icon and the Play backdrop are embedded from
 `assets/launcher/launcher.ico` and `wallpaper.jpg`; after changing `assets/launcher/source/logo.png` or
-`wallpaper.png`, regenerate them with `python -E -P tools\launcher_assets.py` (Pillow):
+`wallpaper.png`, regenerate them with `python -E -P tools\launcher_assets.py` (Pillow), and the README banner
+`docs/img/banner.jpg` with `python -E -P tools\readme_banner.py`. `docs/img/launcher.png` is a capture of the
+launcher's Play page (our own window, never a game screenshot: those stay out of the repository):
 
 | Part | Behaviour |
 | --- | --- |

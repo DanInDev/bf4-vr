@@ -1,7 +1,7 @@
 # Architecture
 
 How the mod is built, as of 2026-11-10 (`main`). How it reads and changes the game engine is in
-[FROSTBITE.md](FROSTBITE.md); addresses are in [`re/symbols/bf4-179547.md`](../re/symbols/bf4-179547.md).
+[engine.md](engine.md); addresses are in [`re/symbols/bf4-179547.md`](../../re/symbols/bf4-179547.md).
 
 ## In one picture
 
@@ -108,7 +108,7 @@ kept as a record and is reachable only through research pipe commands.
 `\\.\pipe\bfvr`, one text command per connection, local clients only (`tools\pipe.ps1`). `status`,
 screenshots, settings and each feature's state report are always available; memory and experiment
 commands (`dump`, `peek`/`poke`, `watch`, `scan`, `fakehead`, `pad`, `eyepass`, …) need
-`research = 1` (the default in Debug builds). The full list is in [TOOLING.md](TOOLING.md).
+`research = 1` (the default in Debug builds). The full list is in [TOOLING.md](../TOOLING.md).
 
 ## Build
 
