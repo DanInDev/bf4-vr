@@ -2,6 +2,17 @@
 
 namespace bfvr::weapon
 {
+	bool keep_server_soldier(bool typed, bool same_client, float distance, float frame_seconds, float& off_seconds)
+	{
+		if (!typed || !same_client)
+		{
+			off_seconds = 0.0f;
+			return false;
+		}
+		off_seconds = distance > drift_metres ? off_seconds + (frame_seconds > 0.0f ? frame_seconds : 0.0f) : 0.0f;
+		return off_seconds <= drift_seconds;
+	}
+
 	std::uint64_t choose_server_soldier(const soldier_candidate* candidates, int count, const float (&client_feet)[3], float tolerance)
 	{
 		std::uint64_t best = 0;

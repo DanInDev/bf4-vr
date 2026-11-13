@@ -56,6 +56,25 @@ int main()
 
 	expect(choose_server_soldier(nullptr, 0, feet, 1.0f) == 0, "no candidates");
 
+	// Keeping it: live, the positions differed by over a metre for moments in a fight.
+	float off = 0.0f;
+	expect(keep_server_soldier(true, true, 1.6f, 0.011f, off), "a 1.6 m lag while moving keeps the soldier");
+	expect(!keep_server_soldier(true, false, 0.0f, 0.011f, off), "a new client soldier (respawn) chooses again");
+	expect(!keep_server_soldier(false, true, 0.0f, 0.011f, off), "a freed object (vtable gone) chooses again");
+	off = 0.0f;
+	bool kept = true;
+	for (int frame = 0; frame < 100 && kept; ++frame) // 1.1 s far off
+	{
+		kept = keep_server_soldier(true, true, 5.0f, 0.011f, off);
+	}
+	expect(kept, "far off for 1.1 s is still kept");
+	for (int frame = 0; frame < 50; ++frame) // 0.55 s more: past drift_seconds
+	{
+		kept = keep_server_soldier(true, true, 5.0f, 0.011f, off);
+	}
+	expect(!kept, "far off for longer than drift_seconds chooses again");
+	expect(keep_server_soldier(true, true, 0.2f, 0.011f, off) && off == 0.0f, "back at the feet resets the count");
+
 	if (failures == 0)
 	{
 		std::printf("server_soldier: all checks passed\n");

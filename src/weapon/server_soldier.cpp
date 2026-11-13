@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <mutex>
 #include <thread>
@@ -39,6 +40,10 @@ namespace bfvr::weapon
 		}
 
 		std::atomic<std::uintptr_t> current{};
+		std::uintptr_t current_client{}; // the client soldier current was found for
+		float off_seconds{};
+		ULONGLONG last_call_ms{};
+		std::mutex choose_lock;          // physical reload and grenades ask from different threads
 		std::atomic<int> found_by{};        // 0 none, 1 kept, 2 static table, 3 heap scan
 		std::atomic<std::uint64_t> changes{}, lookups{}, scans{}, misses{};
 		std::atomic<ULONGLONG> last_scan_at{};
@@ -46,9 +51,9 @@ namespace bfvr::weapon
 		std::mutex finds_lock;
 		std::vector<std::uintptr_t> scan_finds;
 
-		bool feet_of_client(float (&feet)[3])
+		bool feet_of_client(std::uintptr_t& soldier, float (&feet)[3])
 		{
-			std::uintptr_t soldier{}, rig{};
+			std::uintptr_t rig{};
 			return read(local_soldier_global, soldier) && soldier && read(soldier + client_animatable, rig) && rig && read(rig + client_feet, feet);
 		}
 
@@ -133,16 +138,28 @@ namespace bfvr::weapon
 	{
 		++lookups;
 		float feet[3]{};
-		if (!feet_of_client(feet))
+		std::uintptr_t client{};
+		if (!feet_of_client(client, feet))
 		{
 			return 0;
 		}
+		const std::lock_guard choosing(choose_lock);
+		const ULONGLONG now = GetTickCount64();
+		const float seconds = last_call_ms ? static_cast<float>(now - last_call_ms) / 1000.0f : 0.0f;
+		last_call_ms = now;
 		const std::uintptr_t kept = current.load();
 		if (kept)
 		{
 			const soldier_candidate c = candidate(kept);
-			if (choose_server_soldier(&c, 1, feet, tolerance_m) == static_cast<std::uint64_t>(kept))
+			float distance = 1e9f;
+			if (c.placed)
 			{
+				const float dx = c.position[0] - feet[0], dy = c.position[1] - feet[1], dz = c.position[2] - feet[2];
+				distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+			}
+			if (keep_server_soldier(c.typed, client == current_client, distance, seconds, off_seconds))
+			{
+				found_by = 1;
 				return kept;
 			}
 		}
@@ -176,6 +193,8 @@ namespace bfvr::weapon
 				request_scan();
 			}
 		}
+		current_client = chosen ? client : 0;
+		off_seconds = 0.0f;
 		if (chosen != kept)
 		{
 			current = chosen;
