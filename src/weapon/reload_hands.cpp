@@ -251,7 +251,7 @@ namespace bfvr::weapon
 		{
 			guided_ = pulling_out_ = false;
 		}
-		if (!lockable || !frame.grip || !gun.state().magazine_in || to_magwell > config_.lock_leave)
+		if (!lockable || !frame.grip || !gun.state().magazine_in || distance(reach, frame.magwell) > config_.lock_leave)
 		{
 			lock_hold_ = false;
 		}
@@ -371,8 +371,13 @@ namespace bfvr::weapon
 				// Locks on near the rail when it is turned roughly as it sits; leaves off the rail, past its end
 				// or let go. Locked, it seats once pushed up to lock_seat_depth.
 				// A loaded AR's magwell is the palming's (tactical reload); an AK's new magazine knocks the old one out.
-				const bool aligned = angle_between(held_rotation, frame.magazine_rotation) < config_.lock_align_degrees;
+				const float align = angle_between(held_rotation, frame.magazine_rotation);
+				const bool aligned = align < config_.lock_align_degrees;
+				result.rail_probe_depth = rail_depth;
+				result.rail_probe_off = off_rail;
+				result.rail_probe_degrees = align;
 				const bool well_free = !gun.state().magazine_in || gun.profile().flick;
+				result.rail_probe_flags = (frame.grip ? 1 : 0) | (insert_armed_ ? 2 : 0) | (well_free ? 4 : 0) | (aligned ? 8 : 0);
 				if (!guided_ && frame.grip && insert_armed_ && aligned && well_free && palm_ == palm_stage::none && rail_depth > -config_.lock_seat_depth && rail_depth < config_.lock_rail
 					&& off_rail < config_.lock_catch)
 				{
@@ -381,7 +386,9 @@ namespace bfvr::weapon
 				if (guided_ && (!frame.grip || off_rail > config_.lock_leave || rail_depth > config_.lock_rail + config_.lock_seat_depth))
 				{
 					guided_ = pulling_out_ = false;
+					result.rail_probe_flags |= 32;
 				}
+				result.rail_probe_flags |= guided_ ? 16 : 0;
 				push_home = guided_ && insert_armed_ && rail_depth <= config_.lock_seat_depth;
 			}
 			if (push_home && seat_pause_ <= 0.0f)

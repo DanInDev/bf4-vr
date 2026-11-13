@@ -1535,6 +1535,17 @@ namespace
 			r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.25f, magwell.z }, true));
 			expect(!r.guided && r.in_fist, "pull out: past the rail's end it is the fist's");
 		}
+		{
+			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.
+			reload gun(ak);
+			gun.load(30, 60);
+			reload_hands hands(flat_hold());
+			hands.update(gun, locked_at(chest, true));
+			hand_result r = hands.update(gun, locked_at({ magwell.x + 0.02f, magwell.y - 0.06f, magwell.z }, true));
+			expect(r.guided && (r.rail_probe_flags & 4), "AK loaded: the well counts as free (the flick), it locks on");
+			r = hands.update(gun, locked_at({ magwell.x, magwell.y - 0.02f, magwell.z }, true));
+			expect(has(r, reload_event::flicked_out), "AK loaded: pushed home on the rail, the old one is knocked out");
+		}
 	}
 }
 

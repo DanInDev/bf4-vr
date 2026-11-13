@@ -129,6 +129,12 @@ namespace bfvr::weapon
 		q4 lock_rotation;
 		bool guided{};      // the held magazine rides the magwell's rail
 		float rail_depth{}; // guided: how far below the magwell its top is (metres along the rail)
+		// The held magazine against the rail (for the report): its top's depth below the magwell, its distance
+		// off the rail and its angle from how it sits.
+		float rail_probe_depth{};
+		float rail_probe_off{};
+		float rail_probe_degrees{};
+		int rail_probe_flags{}; // 1 grip, 2 armed, 4 well free, 8 aligned, 16 guided this update, 32 left this update
 		bool loose{};         // a discarded magazine is in the world (flying or lying)
 		bool loose_resting{}; // #61: lying on the ground
 	};
@@ -185,10 +191,10 @@ namespace bfvr::weapon
 		// magazine, locks on; pushed up to within lock_seat_depth of the magwell it seats; more than
 		// lock_leave off the rail, past its end or with the grip open it is free again.
 		float lock_rail{ 0.10f };
-		float lock_catch{ 0.06f };
-		float lock_align_degrees{ 45.0f };
+		float lock_catch{ 0.10f };  // monitor 2026-11-14: the fist's top lands 2-11 cm off the axis for one hand pose
+		float lock_align_degrees{ 50.0f }; // a forward-pointing fist holds it ~30-47 degrees off
 		float lock_seat_depth{ 0.03f };
-		float lock_leave{ 0.12f };
+		float lock_leave{ 0.16f };
 		// #61: the magazine as a box (Wep_Root axes, from its top down): half width, length and depth.
 		v3 magazine_half{ 0.015f, 0.095f, 0.04f };
 		float seen_degrees{ 55.0f }; // within this of the view's centre counts as seen
