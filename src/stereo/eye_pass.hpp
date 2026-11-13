@@ -58,6 +58,12 @@ namespace bfvr::stereo
 	// scope_in_frame (#39): the magnifier's picture drawn in the game's frame at its lens, masked by the game's
 	// lens stencil, instead of an OpenXR quad. Camera hook: the first eye this frame renders (OpenXR LOCAL).
 	void set_lens_eye(const pose& first_eye);
+	// sight_lens (#39, BF3-style lens): camera hook, each view: the gun's sight line and up in the rendered
+	// eye's view space (x right, y up, -z ahead), valid whenever the gun's points are fresh.
+	void set_lens_axes(bool valid, const float (&along)[3], const float (&up)[3]);
+	// Settings sight_lens, sight_lens_fov (the game's ADS view the reticle art is sized for, degrees) and
+	// sight_lens_brightness.
+	void set_sight_lens(bool on, float ads_fov_degrees, float brightness);
 	void set_scope_in_frame(bool on);
 	// The picture went into the frame within the last 200 ms (the theater then leaves its quad out).
 	bool scope_drawn_in_frame();

@@ -197,6 +197,8 @@ namespace bfvr::core
 			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
 			weapon::set_sight_reticle(store.boolean("sight_reticle", true));
 			stereo::set_scope_in_frame(store.boolean("scope_in_frame", true));
+			stereo::set_sight_lens(store.boolean("sight_lens", true), store.real("sight_lens_fov", 40.0f), store.real("sight_lens_brightness", 4.0f));
+			weapon::set_zoom_mesh_always(store.boolean("sight_lens", true));
 			stereo::set_foveation(store.text("foveation", "light"));
 			{
 				bool shown[32]{};
