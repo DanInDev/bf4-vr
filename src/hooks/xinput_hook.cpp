@@ -88,7 +88,8 @@ namespace bfvr::hooks
 					state->Gamepad = {};
 				}
 			}
-			input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())))))));
+			// The sight aim's LT goes in after the two-handed filter, which keeps the off-hand trigger from the game.
+			input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(input::with_sight_aim(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest()))))))));
 			if (hooks::game_pointer_active())
 			{
 				// The laser's trigger clicks the menu; the game's pad must not see it, nor the grips (the
@@ -97,6 +98,7 @@ namespace bfvr::hooks
 				pad.right_trigger = 0;
 				pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
 			}
+			input::note_game_pad(pad);
 			if (!pad.connected)
 			{
 				// The game creates its pad object once at startup and treats a failed first read as

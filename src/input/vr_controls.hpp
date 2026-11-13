@@ -80,6 +80,11 @@ namespace bfvr::input
 	// An eye is behind the gun's sight (weapon/two_handed, sight_ads): the game gets LT held, its aim
 	// down sights (the optic's lens clears, the reticle and ADS accuracy).
 	void set_sight_aim(bool aiming);
+	// The sight aim's LT, applied after the filters that keep the off-hand trigger from the game (the
+	// two-handed hold zeroed it: headset 2026-11-11, the game never aimed while both hands held the gun).
+	gamepad_state with_sight_aim(const gamepad_state& pad);
+	// The pad as the game finally gets it (after every filter): what game_aiming answers from.
+	void note_game_pad(const gamepad_state& pad);
 	// The game is getting its aim button (LT) now: it aims down the sights (or is getting there).
 	bool game_aiming();
 	// The held item uses the left trigger for its own action (the C4's throw), not zoom: it reaches

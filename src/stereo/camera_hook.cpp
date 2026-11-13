@@ -16,11 +16,13 @@
 #include "control/control_pipe.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/shot_origin.hpp"
+#include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/eye_math.hpp"
+#include "body/arm_pose.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/gun_pass_fov.hpp"
 #include "stereo/gun_pass_fov_math.hpp"
@@ -550,7 +552,43 @@ namespace bfvr::stereo
 					eye_pose = eye_math::pitched(eye_pose, tilted.tilt);
 				}
 				apply_eye_pose(params, eye_pose);
+				set_lens_eye(eye_pose);
 				scope_on_view_copy(game_fov_y, eye_pose, head);
+				{
+					// sight_reticle: the sight line in this view's axes (x right, y up, -z ahead), for the game's reticle.
+					float line[3]{};
+					bool valid = weapon::sight_at_eye_direction(line);
+					const float* q = eye_pose.orientation;
+					// v = conj(q) * line: rotate by the inverse of the eye's orientation.
+					const float ux = -q[0], uy = -q[1], uz = -q[2], w = q[3];
+					const float cx = uy * line[2] - uz * line[1], cy = uz * line[0] - ux * line[2], cz = ux * line[1] - uy * line[0];
+					const float vx = line[0] + 2.0f * (w * cx + uy * cz - uz * cy);
+					const float vy = line[1] + 2.0f * (w * cy + uz * cx - ux * cz);
+					const float vz = line[2] + 2.0f * (w * cz + ux * cy - uy * cx);
+					valid = valid && vz < -0.5f; // within 60 degrees of the view's axis
+					set_reticle_view(valid, valid ? vx / -vz : 0.0f, valid ? vy / -vz : 0.0f);
+				}
+				{
+					// sight_lens: the gun's sight line and up in this view's axes, wherever the gun is (not only at an eye).
+					const body::weapon_points points = body::latest_weapon_points();
+					const bool fresh = points.valid && points.has_root && GetTickCount64() - points.at < 250;
+					const auto rotate = [](const float* q, const float (&v)[3], float (&out)[3]) {
+						const float cx = q[1] * v[2] - q[2] * v[1], cy = q[2] * v[0] - q[0] * v[2], cz = q[0] * v[1] - q[1] * v[0];
+						out[0] = v[0] + 2.0f * (q[3] * cx + q[1] * cz - q[2] * cy);
+						out[1] = v[1] + 2.0f * (q[3] * cy + q[2] * cx - q[0] * cz);
+						out[2] = v[2] + 2.0f * (q[3] * cz + q[0] * cy - q[1] * cx);
+					};
+					const float* e = eye_pose.orientation;
+					const float to_view[4]{ -e[0], -e[1], -e[2], e[3] };
+					const float up_root[3]{ 0.0f, 1.0f, 0.0f };
+					const float along_root[3]{ points.sight_direction[0], points.sight_direction[1], points.sight_direction[2] };
+					float along_local[3]{}, up_local[3]{}, along_view[3]{}, up_view[3]{};
+					rotate(points.root_rotation, along_root, along_local);
+					rotate(points.root_rotation, up_root, up_local);
+					rotate(to_view, along_local, along_view);
+					rotate(to_view, up_local, up_view);
+					set_lens_axes(fresh, along_view, up_view);
+				}
 
 				tag.stereo = true;
 				tag.eye = eye;
@@ -813,6 +851,16 @@ namespace bfvr::stereo
 	void set_ipd_scale(float scale)
 	{
 		ipd_scale = std::isfinite(scale) && scale > 0.0f ? std::fmin(std::fmax(scale, 0.5f), 2.0f) : 1.0f;
+	}
+
+	void rendered_eye_position(const head_sample& head, int eye, float (&position)[3])
+	{
+		const float scale = ipd_scale.load(std::memory_order_relaxed);
+		const pose centre = eye_math::centre_pose(head);
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			position[axis] = centre.position[axis] + (head.eyes[eye].position[axis] - centre.position[axis]) * scale;
+		}
 	}
 
 	float current_gun_scale()

@@ -15,6 +15,7 @@
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/aim_depth.hpp"
+#include "stereo/camera_hook.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -23,6 +24,7 @@
 #include "weapon/sight_state.hpp"
 #include "weapon/two_hand.hpp"
 #include "weapon/weapon_swap.hpp"
+#include "weapon/zoom_mesh.hpp"
 
 namespace bfvr::weapon
 {
@@ -48,10 +50,16 @@ namespace bfvr::weapon
 		constexpr float sight_leave_metres = 0.05f;
 		constexpr float sight_leave_hold_seconds = 0.3f;
 		sight_ads_latch sight_latch;
-		// sight_dot: the lens the dot shows through, as the magnifier's rear lens (re/notes/weapon.md).
-		constexpr float sight_dot_lens_radius = 0.015f;
+		sight_ads_latch mesh_latch; // sight_zoom_mesh: a sight at an eye, whatever the game's aim does
+		bool eye_line_valid{};      // sight_reticle: a sight is at an eye and its line is fresh
+		float eye_line[3]{};        // that line's direction, OpenXR LOCAL
+		std::atomic<bool> sight_reticle{ true }; // live setting sight_reticle
+		// sight_dot: how far off the sight line an eye still sees the dot (live setting sight_dot_reach; the
+		// lens is about 1.5 cm in radius, a hand-held headset eye needs a little more).
+		std::atomic<float> sight_dot_lens_radius{ 0.02f };
 		sight_dot_line dot_line;
 		bool dot_seen[2]{}; // report
+		bool dot_seen_last{}; // the previous update's dot_seen, either eye (the lens ring's colour)
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
 		constexpr float sight_min_ahead = 0.05f;      // and at least this far in front of it
 		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
@@ -93,6 +101,8 @@ namespace bfvr::weapon
 			input::set_shot_line(false, none, none);
 			sight_aiming = false;
 			sight_latch.reset();
+			mesh_latch.reset();
+			set_sight_at_eye(false);
 			dot_line = {};
 			dot_seen[0] = dot_seen[1] = false;
 			input::set_sight_aim(false);
@@ -286,6 +296,7 @@ namespace bfvr::weapon
 		}
 		bool aiming = false;
 		dot_line = {};
+		dot_seen_last = dot_seen[0] || dot_seen[1];
 		dot_seen[0] = dot_seen[1] = false;
 		const stereo::head_sample head = stereo::latest_head_sample();
 		if (sight_line && head.valid)
@@ -303,16 +314,30 @@ namespace bfvr::weapon
 				ahead = std::fmax(ahead, to_optic - sight_optic_clearance);
 			}
 			sight_ahead_limit = ahead;
+			if (points.has_optic && grab_debug_enabled())
+			{
+				// grab_debug: a ring where the lens should be drawn. In the headset it must sit on the optic.
+				float lens[3];
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					lens[axis] = start[axis] + barrel[axis] * (ahead + sight_optic_clearance);
+				}
+				publish_grab_zone(grab_slot::sight_lens, lens, sight_dot_lens_radius.load(std::memory_order_relaxed), dot_seen_last);
+			}
 			bool enter = false, stay = false;
 			for (int e = 0; e < 2; ++e)
 			{
-				const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
+				float at[3];
+				stereo::rendered_eye_position(head, e, at);
 				sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
 				enter = enter || eye_behind_sight(at, start, barrel, sight_enter_metres, sight_eye_relief, ahead);
 				stay = stay || eye_behind_sight(at, start, barrel, sight_leave_metres, sight_eye_relief, ahead);
 			}
 			// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
 			stay = stay || ticks - last_trigger_at < 400;
+			eye_line_valid = mesh_latch.update(enter, stay, seconds, sight_leave_hold_seconds);
+			set_sight_at_eye(eye_line_valid);
+			std::copy(std::begin(barrel), std::end(barrel), eye_line);
 			// A clear holo alone needs no game aim once the hip is as accurate as ADS (hip_accuracy 1): the
 			// game then draws no reticle of its own over ours and walks at full speed.
 			const sight_state sight = read_sight_state();
@@ -334,13 +359,15 @@ namespace bfvr::weapon
 				dot_line.valid = true;
 				std::copy(std::begin(start), std::end(start), dot_line.start);
 				std::copy(std::begin(barrel), std::end(barrel), dot_line.direction);
-				dot_line.lens_radius = sight_dot_lens_radius;
+				const float reach = sight_dot_lens_radius.load(std::memory_order_relaxed);
+				dot_line.lens_radius = reach;
 				dot_line.max_behind = sight_eye_relief;
 				dot_line.max_ahead = ahead;
 				for (int e = 0; e < 2; ++e)
 				{
-					const float at[3]{ head.eyes[e].position[0], head.eyes[e].position[1], head.eyes[e].position[2] };
-					dot_seen[e] = sight_dot_for_eye(at, start, barrel, sight_dot_lens_radius, sight_eye_relief, ahead, 1.0f).visible;
+					float at[3];
+					stereo::rendered_eye_position(head, e, at);
+					dot_seen[e] = sight_dot_for_eye(at, start, barrel, reach, sight_eye_relief, ahead, 1.0f).visible;
 				}
 			}
 		}
@@ -354,6 +381,12 @@ namespace bfvr::weapon
 		{
 			sight_latch.reset();
 		}
+		if (!(sight_line && head.valid))
+		{
+			// No fresh line: the reticle goes back to the game's place at once, the zoom mesh after the hold.
+			eye_line_valid = false;
+			set_sight_at_eye(mesh_latch.update(false, false, seconds, sight_leave_hold_seconds));
+		}
 		if (aiming != sight_aiming)
 		{
 			++sight_changes;
@@ -365,6 +398,23 @@ namespace bfvr::weapon
 	void set_sight_ads(bool on)
 	{
 		sight_ads = on;
+	}
+
+	void set_sight_reticle(bool on)
+	{
+		sight_reticle = on;
+	}
+
+	bool sight_at_eye_direction(float (&direction)[3])
+	{
+		const std::lock_guard guard(lock_);
+		std::copy(std::begin(eye_line), std::end(eye_line), direction);
+		return eye_line_valid && sight_reticle.load(std::memory_order_relaxed);
+	}
+
+	void set_sight_dot_reach(float metres)
+	{
+		sight_dot_lens_radius = std::clamp(metres, 0.005f, 0.06f);
 	}
 
 	sight_dot_line latest_sight_dot_line()

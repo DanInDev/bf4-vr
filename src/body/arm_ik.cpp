@@ -68,6 +68,11 @@ namespace bfvr::body::ik
 		return model;
 	}
 
+	bool ads_eye_behind_optic(vec3 eye_from_optic)
+	{
+		return std::fabs(eye_from_optic.x) <= 0.02f && eye_from_optic.y >= 0.0f && eye_from_optic.y <= 0.08f && eye_from_optic.z <= -0.03f && eye_from_optic.z >= -0.40f;
+	}
+
 	bone_transform inverse(const bone_transform& t)
 	{
 		bone_transform result;

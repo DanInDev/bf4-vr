@@ -267,7 +267,22 @@ sight_ads = 1
 # through the lens, aiming or not, like a real reflex sight (the game draws its own reticle at the
 # centre of the view, which only lines up when the head looks exactly down the barrel). sight_dot_size: degrees.
 sight_dot = 1
-sight_dot_size = 0.3
+sight_dot_size = 0.6
+# How far off the sight line (cm) an eye still sees the dot: the lens is about 1.5, more forgives an
+# unsteady hold. sight_dot_test = 1 shows the dot to both eyes wherever the gun is held (a check that
+# the headset shows the dot layer at all).
+sight_dot_reach = 2
+# A sight held to your eye shows the game's own aiming mesh of the gun and its optic (the clear lens and
+# the optic's own reticle) without the game aiming: no slower walk, no zoom. Works from the weapon's
+# data, for every gun and optic.
+sight_zoom_mesh = 1
+# While a sight is at your eye the game's own reticle stays on the sight line when your head turns, the
+# same in both eyes (the game anchors it to the centre of the view, where it leaves the lens).
+sight_reticle = 1
+sight_dot_test = 0
+# sighting = only the eye behind the sight sees the dot; both = one layer for both eyes (try it if the
+# dot never shows at one eye).
+sight_dot_eyes = sighting
 # Hip-fire spread of your weapons (standing, crouched, prone; still and moving): 1 = as tight as aiming
 # down sights, so a sight is accurate without the game's aim; 0 = the game's (3-7 degrees at the hip,
 # 0.2-1.7 aiming). Patches the weapons' GunSwayData in memory; enemies carrying the same gun model may
@@ -281,6 +296,16 @@ hip_accuracy = 1
 # magnification (the magnifier: 1.7x).
 scope = 1
 scope_zoom = 1
+# The magnified picture drawn into the game's own image inside the optic's glass (the game's lens mask cuts
+# it), so it sits on the optic in both eyes; 0 = the separate headset layer used before.
+scope_in_frame = 1
+# Red dots and holos as a real sight (the BF3 single-player mod's lens): the game's reticle art placed by the
+# angle through the glass, so it keeps its true size at any distance, turns with the gun, not your head, and
+# the optic's glass is clear at any distance (the game's aiming mesh is kept shown while a gun is held).
+# sight_lens_fov: the aiming view the art is sized for (40: the EOTech's ring as the real one; more = larger).
+sight_lens = 1
+sight_lens_fov = 40
+sight_lens_brightness = 4
 # When the barrel points at nothing (the sky), shots meet the barrel line this many metres away.
 aim_convergence = 25
 

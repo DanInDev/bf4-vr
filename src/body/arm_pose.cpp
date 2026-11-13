@@ -825,7 +825,11 @@ namespace bfvr::body
 						geometry.sight_direction = ik::normalize(geometry.sight_direction * keep + forward * (1.0f - keep));
 						geometry.sight_eye = geometry.sight_eye * keep + eye.position * (1.0f - keep);
 						geometry.has_sight = true;
-						if (geometry.aiming_since >= 0.0 && now - geometry.aiming_since > ads_settle_seconds)
+						// Only a camera that really sits behind the optic is the game's ADS (not the hip pose while
+						// the game ignores the aim button).
+						const bool on_optic = rig.optic < 0
+							|| ik::ads_eye_behind_optic(eye.position - ik::compose(to_gun, ik::model_of(local, rig.parents, rig.optic)).position);
+						if (geometry.aiming_since >= 0.0 && now - geometry.aiming_since > ads_settle_seconds && on_optic)
 						{
 							const float ads_keep = geometry.has_ads_sight ? 0.9f : 0.0f;
 							geometry.ads_direction = ik::normalize(geometry.ads_direction * ads_keep + forward * (1.0f - ads_keep));
