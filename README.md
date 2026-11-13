@@ -64,16 +64,6 @@ It runs on a Meta Quest 3 through Steam Link and SteamVR, with your own copy of 
 </table>
 
 <p align="center">
-  <img src="docs/img/showcase/both-eyes.jpg" alt="The picture for each eye, side by side, with a scoped rifle in the hands" width="100%">
-  <br><sub>A picture for each eye, rendered from the same game frame</sub>
-</p>
-
-<p align="center">
-  <img src="docs/img/showcase/aiming.jpg" alt="Aiming down a holographic sight with both hands, squadmates in the room" width="70%">
-  <br><sub>Both hands on the rifle, aiming through the sight</sub>
-</p>
-
-<p align="center">
   <img src="docs/img/showcase/settings-panel.jpg" alt="The BF4-VR settings panel inside VR, operated with a laser pointer" width="100%">
   <br><sub>Every setting is reachable from inside VR</sub>
 </p>

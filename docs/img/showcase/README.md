@@ -5,11 +5,9 @@ allowed in the repository ([SAFETY.md](../../SAFETY.md), rule 7); add pictures o
 
 | File | Source (in the git-ignored `re/screenshots/`) | What it shows |
 | --- | --- | --- |
-| `both-eyes.jpg` | `vrview/mark-20261112-003931-11-vrview.png`, the two eye images, cropped above SteamVR's "Marked moment" toast | The picture each eye gets, with the scoped rifle in the hands |
-| `aiming.jpg` | `an-0.png` (headset eye render), cropped to 4:3 | Aiming down the holographic sight with both hands, squadmates in the room |
 | `settings-panel.jpg` | `vrview/mark-20261112-003237-5-vrview.png`, the two eye images | The in-VR settings panel with the laser pointer |
 
-All are web-sized JPEGs (quality 86) with a slight brightness lift (gamma 0.82) for the dark level.
+A web-sized JPEG (quality 86) with a slight brightness lift (gamma 0.82) for the dark level.
 
 Added 2026-11-13 (headset session, Baku, build `test/headset-2026-11-13-sights`), all from the git-ignored
 `re/screenshots/showcase-2026-11-13/`, each a 2160x1620 crop of a 2160x2160 eye image scaled to 1200x900:
