@@ -64,6 +64,12 @@ namespace bfvr::input
 		gun,
 	};
 	void set_move_reference(move_reference reference);
+	// #52 (input/move_steer, live setting sprint_steer): with move_direction = head and controller aim,
+	// a sprint (left stick click with the stick forward) or a forward jump turns the soldier, not the
+	// view, to the move direction, so the game sprints and vaults.
+	void set_sprint_steer(bool enabled);
+	// Game thread: while sprinting or vaulting, the yaw the soldier should face (camera convention).
+	bool sprint_steer_yaw(float& yaw);
 
 	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
 	void set_neutral_pitch(bool enabled);

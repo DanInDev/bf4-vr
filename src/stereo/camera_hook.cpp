@@ -438,7 +438,17 @@ namespace bfvr::stereo
 			// The shot direction in LOCAL space (the two-handed, converged barrel line, else the aim ray
 			// -z), then in world axes (camera local axes = OpenXR axes).
 			float local[3];
-			if (weapon::use_reach_direction(local))
+			float steer_yaw{};
+			if (input::sprint_steer_yaw(steer_yaw))
+			{
+				// #52: sprinting or vaulting: the soldier faces the move direction (the gun is lowered in a
+				// sprint). The world camera keeps the body yaw, so the view does not turn with it.
+				const float turn = steer_yaw - body; // positive to the left
+				local[0] = -std::sin(turn);
+				local[1] = 0.0f;
+				local[2] = -std::cos(turn);
+			}
+			else if (weapon::use_reach_direction(local))
 			{
 				// Reaching to use something: the game's use target is where the hand reaches.
 			}
