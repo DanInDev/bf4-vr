@@ -23,6 +23,7 @@ namespace bfvr::weapon
 			const bool captured = frame.captured && !result.forget;
 			result.capture = frame.enabled && !captured && in_hand_ >= config_.settle_seconds
 				&& (result.forget ? 0 : frame.attempts) < config_.max_attempts;
+			result.show = frame.test_show && frame.enabled && captured && frame.sling_valid;
 			return result;
 		}
 		in_hand_ = 0;

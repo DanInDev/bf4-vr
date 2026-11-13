@@ -19,6 +19,7 @@ namespace bfvr::weapon
 		bool captured{};         // stereo::extra_mesh has a capture of the primary
 		std::uint64_t attempts{}; // capturing renders since the last forget
 		bool sling_valid{};      // the body frame (sling point) is known
+		bool test_show{};        // research (pipe holster slingtest): the copy also while the primary is in hand
 	};
 
 	struct sling_primary_result

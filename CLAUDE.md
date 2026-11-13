@@ -108,7 +108,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-13: `dev-run.ps1 -Resume` stopped at the main menu twice in a row (2160x2160 window, also with
   `-MenuWaitSeconds 90`), though `menu:`/`level:` lines were printed. Clicking by hand works: pipe `pointer`
   at (0.254, 0.2556) Campaign tab, (0.306, 0.402) the BF4 Campaign tile, then `pad 0 0 0 0 200 1000` on Resume.
-  Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run.
+  Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run. One cause seen: a
+  "connection with EA Online was lost" dialog over the menu eats the first click (its OK: pointer 0.5 0.583).
+- In pair rendering the first `shot` after a pipe command often shows black arm/gun silhouettes (the other
+  eye's draws): judge from the second and third shot, or `eyeshot`.
 - 2026-11-13 (#57): on the ~10 fps headless debug run a grip at the sling zone took the slung rifle once
   ("taken from its holster"), then not again in three tries with `zone=primary` reported. A held pad
   grip is `pad 0 0 0 0 <ms> 0200` (returns at once, the mod holds it); without it free hands lets the

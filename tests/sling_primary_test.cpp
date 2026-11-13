@@ -67,6 +67,10 @@ namespace
 		// Back to the rifle: hidden again, no new capture.
 		const sling_primary_result back = s.update(at_slot(0, "U_SCAR-H", true));
 		expect(!back.show && !back.capture && !back.forget, "the rifle back in hand: no copy, no capture");
+		// Research (pipe holster slingtest): the copy beside the rifle in hand, for a monitor check without a switch.
+		sling_primary_frame test = at_slot(0, "U_SCAR-H", true);
+		test.test_show = true;
+		expect(s.update(test).show, "slingtest: the copy also with the rifle in hand");
 		// Knife or grenade out: the copy too (it is drawn where the game's gun magazine is, see the brief).
 		expect(s.update(at_slot(7, "U_Knife", true)).show, "knife out: shown (if anything draws it)");
 	}

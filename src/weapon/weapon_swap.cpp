@@ -148,6 +148,7 @@ namespace bfvr::weapon
 		std::atomic<bool> sling_primary_on{ true }; // #58: the primary drawn on the sling while another weapon is out
 		sling_primary sling_copy;
 		bool sling_copy_was_shown{};
+		bool sling_test_show{}; // research: pipe holster slingtest on|off (lock)
 		std::atomic<bool> dropped_now{};
 		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
 		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
@@ -466,6 +467,7 @@ namespace bfvr::weapon
 			v3 at{};
 			float yaw{};
 			frame.sling_valid = body_rig_point(sling_point, at) && body_yaw(yaw);
+			frame.test_show = sling_test_show;
 			const sling_primary_result result = sling_copy.update(frame);
 			if (result.forget)
 			{
@@ -901,6 +903,11 @@ namespace bfvr::weapon
 				give_order(GetTickCount64());
 				return "squad order sent (Q); orders " + std::to_string(orders);
 			}
+			if (argument == "slingtest on" || argument == "slingtest off")
+			{
+				sling_test_show = argument == "slingtest on";
+				return std::string("sling copy test: ") + (sling_test_show ? "shown with the primary in hand too" : "off");
+			}
 			holster which = holster::none;
 			for (const holster h : { holster::primary, holster::secondary, holster::knife, holster::gadget1, holster::gadget2 })
 			{
@@ -911,7 +918,7 @@ namespace bfvr::weapon
 			}
 			if (which == holster::none)
 			{
-				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2|order]";
+				return "error: usage: holster [primary|secondary|knife|gadget1|gadget2|order|slingtest on|slingtest off]";
 			}
 			request(which, GetTickCount64());
 		}
