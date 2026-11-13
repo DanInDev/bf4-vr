@@ -159,6 +159,10 @@ namespace bfvr::body
 	// holster (OpenXR LOCAL, the body's yaw) while it is not.
 	void set_knife_weapon(bool out);
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
+	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
+	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.
+	void set_primary_capture(bool wanted);
+	void set_sling_primary(bool shown, const float (&position)[3], float yaw);
 	// Pipe extramesh: the hold used, and the game's own hold as last seen (Wep_Root in the right fist's frame).
 	std::string grenade_hold_report();
 

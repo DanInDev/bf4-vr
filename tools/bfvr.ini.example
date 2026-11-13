@@ -290,6 +290,9 @@ free_hands = 1
 # With free hands: a gun let go by both hands hangs on its sling at your belly (it follows you; grip it
 # there). 0 = it drops to the floor as before.
 sling = 1
+# While the pistol or a gadget is out, the rifle still hangs on its sling in 3D (#58): a copy of the game's
+# own rifle, taken once a second after it is first in your hand (it blinks out for one frame then).
+sling_show_primary = 1
 # With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
 # ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
 c4_trigger = 1

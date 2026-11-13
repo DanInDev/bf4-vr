@@ -31,6 +31,7 @@
 #include "weapon/melee_gesture.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
+#include "weapon/sling_primary.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/use_reach.hpp"
 
@@ -144,6 +145,9 @@ namespace bfvr::weapon
 		// Free hands (#35).
 		std::atomic<bool> free_hands_on{};
 		std::atomic<bool> sling_on{ true }; // #38: a let-go gun hangs on the sling, not on the floor
+		std::atomic<bool> sling_primary_on{ true }; // #58: the primary drawn on the sling while another weapon is out
+		sling_primary sling_copy;
+		bool sling_copy_was_shown{};
 		std::atomic<bool> dropped_now{};
 		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
 		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
@@ -440,6 +444,46 @@ namespace bfvr::weapon
 		signal_enabled = on;
 	}
 
+#if defined(_M_X64)
+	namespace
+	{
+		// #58: capture the primary once it has been in hand a moment, and while another weapon is out hang
+		// its copy at the sling (body/arm_pose, stereo/extra_mesh). Called with lock held.
+		void update_sling_primary(const slot_state& held)
+		{
+			namespace em = stereo::extra_mesh;
+			static ULONGLONG last_tick{};
+			const ULONGLONG tick = GetTickCount64();
+			sling_primary_frame frame;
+			frame.enabled = sling_primary_on.load(std::memory_order_relaxed);
+			frame.slot_valid = held.valid;
+			frame.slot = held.current;
+			frame.name = held.name;
+			frame.seconds = last_tick ? std::fmin(static_cast<float>(tick - last_tick) / 1000.0f, 0.1f) : 0.0f;
+			last_tick = tick;
+			frame.captured = em::item_captured(em::captured::primary);
+			frame.attempts = em::item_capture_attempts(em::captured::primary);
+			v3 at{};
+			float yaw{};
+			frame.sling_valid = body_rig_point(sling_point, at) && body_yaw(yaw);
+			const sling_primary_result result = sling_copy.update(frame);
+			if (result.forget)
+			{
+				em::forget_item(em::captured::primary);
+				log::write("sling: %s is the primary now; its copy for the sling is taken again", held.name);
+			}
+			body::set_primary_capture(result.capture);
+			const float position[3]{ at.x, at.y, at.z };
+			body::set_sling_primary(result.show, position, yaw);
+			if (result.show != sling_copy_was_shown)
+			{
+				log::write("sling: the primary (%s) %s", sling_copy.primary_name().c_str(), result.show ? "hangs on the sling (another weapon out)" : "off the sling");
+				sling_copy_was_shown = result.show;
+			}
+		}
+	}
+#endif
+
 	void update_weapon_swap()
 	{
 #if defined(_M_X64)
@@ -456,6 +500,7 @@ namespace bfvr::weapon
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
 		advance_grenade_capture(held, now);
 		body::set_grenade_weapon(held.valid && held.current == 6 && grenade_capture != capture_stage::idle);
+		update_sling_primary(held);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
 		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
 		LARGE_INTEGER counter{}, frequency{};
@@ -784,6 +829,11 @@ namespace bfvr::weapon
 	void set_sling(bool on)
 	{
 		sling_on = on;
+	}
+
+	void set_sling_show_primary(bool on)
+	{
+		sling_primary_on = on;
 	}
 
 	bool gun_dropped()

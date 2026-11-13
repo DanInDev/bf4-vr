@@ -32,6 +32,8 @@ namespace bfvr::weapon
 	void set_free_hands(bool enabled);
 	// Live setting sling (#38): with free hands, a gun let go by both hands hangs at the chest, not on the floor.
 	void set_sling(bool on);
+	// Live setting sling_show_primary (#58): while another weapon is out, the primary hangs on the sling in 3D.
+	void set_sling_show_primary(bool on);
 	// The gun lies on the floor (free hands): no shots, no two-handed hold, no reload on it.
 	bool gun_dropped();
 	// Empty hands (#38): the off hand holds the gun by the handguard; the gun hand is free (no fire).

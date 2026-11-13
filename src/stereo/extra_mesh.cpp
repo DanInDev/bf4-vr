@@ -463,6 +463,9 @@ namespace bfvr::stereo::extra_mesh
 			return a.buffer == b.buffer && a.first == b.first && a.count == b.count;
 		}
 
+		// Draws one captured item may hold: a whole primary gun (#58) is its body, attachments and magazine
+		// in several passes. At most 64 (the replay keeps one bit per draw).
+		constexpr std::size_t max_item_draws = 48;
 		constexpr UINT grenade_vertex_slots = 4;
 		constexpr UINT grenade_views = 16;
 		constexpr UINT max_grenade_block = 256; // constants
@@ -515,7 +518,7 @@ namespace bfvr::stereo::extra_mesh
 		bool capturing_render{};
 		int capturing_item{}; // the item this capturing render records
 		ULONGLONG last_capture{};
-		std::uint32_t replayed[item_count]{}; // bits of captured_items[i] drawn in this render
+		std::uint64_t replayed[item_count]{}; // bits of captured_items[i] drawn in this render (max_item_draws)
 		bool frame_item[item_count]{};
 		bool frame_armed{};
 		float frame_item_matrix[item_count][12]{};
@@ -532,6 +535,8 @@ namespace bfvr::stereo::extra_mesh
 		std::atomic<unsigned> captured_draws[item_count]{};
 		std::atomic<std::uint64_t> grenade_entries_seen{};
 		std::atomic<std::uint64_t> captures[item_count]{};
+		std::atomic<std::uint64_t> capture_attempts[item_count]{};
+		std::atomic<bool> forget_requested[item_count]{};
 		std::atomic<std::uint64_t> item_copies[item_count]{};
 		std::atomic<ULONGLONG> item_drawn_at[item_count]{};
 		// The M67's palette: entry 0 the pin and ring, entry 1 body and spoon (monitor 2026-11-09).
@@ -605,7 +610,7 @@ namespace bfvr::stereo::extra_mesh
 					return;
 				}
 			}
-			if (grenade_capturing.size() >= 16)
+			if (grenade_capturing.size() >= max_item_draws)
 			{
 				return;
 			}
@@ -716,7 +721,9 @@ namespace bfvr::stereo::extra_mesh
 			// left out rather than taken for the gun still drawn (monitor 2026-11-11: every knife capture was
 			// rejected that way).
 			const bool knife = capturing_item == static_cast<int>(captured::knife);
-			bool gun = capture_saw_gun && !knife;
+			// #58: the primary is the gun: its own draws (magazine included) are what is wanted.
+			const bool primary = capturing_item == static_cast<int>(captured::primary);
+			bool gun = capture_saw_gun && !knife && !primary;
 			for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
 			{
 				for (const known_mesh& magazine : magazine_meshes)
@@ -727,7 +734,7 @@ namespace bfvr::stereo::extra_mesh
 					{
 						keep[i] = false;
 					}
-					gun = gun || (keep[i] && seen_with_gun);
+					gun = gun || (keep[i] && seen_with_gun && !primary);
 				}
 			}
 			if (!grenade_capturing.empty())
@@ -758,6 +765,7 @@ namespace bfvr::stereo::extra_mesh
 			}
 			capture_saw_gun = false;
 			last_capture = GetTickCount64(); // also after a rejected or empty one: not every render
+			++capture_attempts[capturing_item];
 			if (gun)
 			{
 				++captures_rejected;
@@ -948,11 +956,11 @@ namespace bfvr::stereo::extra_mesh
 					continue;
 				}
 				const std::vector<grenade_draw>& draws = captured_items[item];
-				for (std::size_t i = 0; i < draws.size() && i < 32; ++i)
+				for (std::size_t i = 0; i < draws.size() && i < max_item_draws; ++i)
 				{
-					if (!(replayed[item] & (1u << i)) && draws[i].pass == pass)
+					if (!(replayed[item] & (1ull << i)) && draws[i].pass == pass)
 					{
-						replayed[item] |= 1u << i;
+						replayed[item] |= 1ull << i;
 						draw_grenade(context, draws[i], item);
 					}
 				}
@@ -986,6 +994,15 @@ namespace bfvr::stereo::extra_mesh
 				replayed[item] = 0;
 			}
 			frame_armed = grenade_request_armed;
+		}
+		for (int item = 0; item < item_count; ++item)
+		{
+			if (forget_requested[item].exchange(false))
+			{
+				captured_items[item].clear();
+				captured_draws[item] = 0;
+				has_capture[item] = false;
+			}
 		}
 		capturing_render = eye == 0 && now - capture_wanted_at.load(std::memory_order_relaxed) < request_stale_ms && now - last_capture > capture_interval_ms;
 		capturing_item = capture_wanted_item.load(std::memory_order_relaxed);
@@ -1217,6 +1234,29 @@ namespace bfvr::stereo::extra_mesh
 		return captures[static_cast<int>(item)].load(std::memory_order_relaxed);
 	}
 
+	const char* item_name(captured item)
+	{
+		switch (item)
+		{
+		case captured::grenade: return "grenade";
+		case captured::knife: return "knife";
+		case captured::primary: return "primary";
+		}
+		return "?";
+	}
+
+	void forget_item(captured item)
+	{
+		const int i = static_cast<int>(item);
+		capture_attempts[i] = 0;
+		forget_requested[i] = true;
+	}
+
+	std::uint64_t item_capture_attempts(captured item)
+	{
+		return capture_attempts[static_cast<int>(item)].load(std::memory_order_relaxed);
+	}
+
 	void set_grenade_capture(bool wanted)
 	{
 		set_item_capture(captured::grenade, wanted);
@@ -1276,16 +1316,16 @@ namespace bfvr::stereo::extra_mesh
 				age = GetTickCount64() - item_request_at[item];
 			}
 			char text[320];
-			std::snprintf(text, sizeof(text), "%s%s_copy=%d armed=%d at=(%.3f %.3f %.3f) age_ms=%llu captured=%d captures=%llu draws=%u copies=%llu",
-				item ? "\n" : "", item == static_cast<int>(captured::grenade) ? "grenade" : "knife", active ? 1 : 0, armed ? 1 : 0, t[0], t[1], t[2],
+			std::snprintf(text, sizeof(text), "%s%s_copy=%d armed=%d at=(%.3f %.3f %.3f) age_ms=%llu captured=%d captures=%llu attempts=%llu draws=%u copies=%llu",
+				item ? "\n" : "", item_name(static_cast<captured>(item)), active ? 1 : 0, armed ? 1 : 0, t[0], t[1], t[2],
 				static_cast<unsigned long long>(age), has_capture[item].load() ? 1 : 0, static_cast<unsigned long long>(captures[item].load()),
-				captured_draws[item].load(), static_cast<unsigned long long>(item_copies[item].load()));
+				static_cast<unsigned long long>(capture_attempts[item].load()), captured_draws[item].load(), static_cast<unsigned long long>(item_copies[item].load()));
 			out += text;
 		}
 		char text[200];
 		std::snprintf(text, sizeof(text), "\nrejected=%llu grenade_entries=%llx pin=%llx capture_wanted=%s %llu ms ago",
 			static_cast<unsigned long long>(captures_rejected.load()), static_cast<unsigned long long>(grenade_entries_seen.load()),
-			static_cast<unsigned long long>(pin_entries.load()), capture_wanted_item.load() == static_cast<int>(captured::grenade) ? "grenade" : "knife",
+			static_cast<unsigned long long>(pin_entries.load()), item_name(static_cast<captured>(capture_wanted_item.load())),
 			static_cast<unsigned long long>(GetTickCount64() - capture_wanted_at.load()));
 		const std::lock_guard guard(summary_lock);
 		return out + text + capture_summary;

@@ -145,6 +145,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/melee_gesture.cpp
 	src/weapon/use_reach.cpp
 	src/weapon/free_hands.cpp
+	src/weapon/sling_primary.cpp
 	src/input/haptics.cpp
 	src/weapon/physical_grenade.cpp
 	src/weapon/physical_reload.cpp
@@ -275,6 +276,8 @@ if(BFVR_BUILD_TESTS)
 	# Free hands (#35): drop on an open grip, pick up by gripping near the dropped gun.
 	add_executable(bfvr_free_hands_test tests/free_hands_test.cpp src/weapon/free_hands.cpp)
 	target_link_libraries(bfvr_free_hands_test PRIVATE bfvr_common)
+	add_executable(bfvr_sling_primary_test tests/sling_primary_test.cpp src/weapon/sling_primary.cpp)
+	target_link_libraries(bfvr_sling_primary_test PRIVATE bfvr_common)
 	# Controller mapping: Quest buttons to pad buttons, presets.
 	add_executable(bfvr_button_map_test tests/button_map_test.cpp)
 	target_link_libraries(bfvr_button_map_test PRIVATE bfvr_common)
@@ -329,6 +332,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
 	add_test(NAME free_hands COMMAND bfvr_free_hands_test)
+	add_test(NAME sling_primary COMMAND bfvr_sling_primary_test)
 	add_test(NAME button_map COMMAND bfvr_button_map_test)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)

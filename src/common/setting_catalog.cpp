@@ -65,6 +65,7 @@ namespace bfvr::settings
 			{ "c4_trigger", "Weapon", "Grenades and gadgets", "C4 with the triggers", "Off hand throws, gun hand detonates", "" },
 			{ "free_hands", "Weapon", "Hands and melee", "Free hands", "Let go and the gun drops; grip to pick up", "" },
 			{ "sling", "Weapon", "Hands and melee", "Gun on a sling", "With free hands: it hangs at your belly", "" },
+			{ "sling_show_primary", "Weapon", "Hands and melee", "Rifle on the sling", "Shown while the pistol is out", "" },
 			{ "use_reach", "Weapon", "Hands and melee", "Reach to use", "Off hand ahead + grip: pick up, doors", "" },
 			{ "melee_gesture", "Weapon", "Hands and melee", "Stab by thrusting", "A quick push of the gun hand", "" },
 			{ "squad_signal", "Weapon", "Hands and melee", "Squad order by hand", "Off hand up above your eyes + grip", "" },

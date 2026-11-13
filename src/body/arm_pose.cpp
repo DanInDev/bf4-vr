@@ -330,6 +330,11 @@ namespace bfvr::body
 		std::atomic<float> holster_knife_at[3]{};
 		std::atomic<float> holster_knife_yaw{};
 		bool knife_capturing{}; // rig_lock: this frame tags the knife for its capture
+		// #58: the primary, captured once in hand, hangs at the sling while another weapon is out.
+		std::atomic<bool> primary_capture_wanted{};
+		std::atomic<bool> sling_primary_shown{};
+		std::atomic<float> sling_primary_at[3]{};
+		std::atomic<float> sling_primary_yaw{};
 		// Wep_Root of a hand grenade in the fist's grasp frame (fingers::grasp: +y out past the index, +z out
 		// through the curled fingers), from the game's own hold of the M67 (pipe extramesh game_hold_in_fist,
 		// 2026-11-09: the right hand drawn by its controller, the game's fingers round the grenade).
@@ -1995,6 +2000,8 @@ namespace bfvr::body
 		// Called with rig_lock held, last before the conversion (extra meshes, #36): the magazine bone gets
 		// its tag scale (set, never multiplied), and the second magazine's transform relative to the drawn
 		// one goes to stereo/extra_mesh, in the bone palette's space (the model pose: the root left out).
+		bool primary_capturing_now();
+
 		void publish_extra_magazine(ik::bone_transform* local)
 		{
 			// The held grenade is drawn after the magazine's draws, so the tag stays on for it too.
@@ -2012,8 +2019,9 @@ namespace bfvr::body
 			// captures all came out "the gun among them", monitor 2026-11-11); a gun still drawn is caught by
 			// the list of magazine meshes seen before.
 			const bool capturing = grenade_mesh_on.load(std::memory_order_relaxed) && grenade_weapon_now.load(std::memory_order_relaxed);
+			// #58: while the primary itself is captured its magazine is part of the item, unmarked.
 			magazine.scale = capturing ? stereo::extra_mesh::capture_magazine_scale
-				: knife_weapon_now.load(std::memory_order_relaxed) ? 1.0f : stereo::extra_mesh::magazine_tag;
+				: knife_weapon_now.load(std::memory_order_relaxed) || primary_capturing_now() ? 1.0f : stereo::extra_mesh::magazine_tag;
 			if (remembered)
 			{
 				magazine_memory.written = magazine;
@@ -2195,6 +2203,53 @@ namespace bfvr::body
 			em::set_item_copy(em::captured::knife, false, nullptr);
 		}
 
+		// #58: this frame hides and tags the primary for its capture (weapon/sling_primary decides when; never
+		// while a grenade or the knife is being captured, never once a capture exists).
+		bool primary_capturing_now()
+		{
+			namespace em = stereo::extra_mesh;
+			return grenade_mesh_on.load(std::memory_order_relaxed) && rig.weapon >= 0 && rig.parents[rig.weapon] >= 0 && rig.bones > 0
+				&& primary_capture_wanted.load(std::memory_order_relaxed) && !grenade_weapon_now.load(std::memory_order_relaxed)
+				&& !knife_weapon_now.load(std::memory_order_relaxed) && !em::item_captured(em::captured::primary);
+		}
+
+		// Called with rig_lock held, after publish_holster_knife (#58): the primary's capture (Wep_Root under
+		// the hidden root for that render, its magazine untagged by publish_extra_magazine), and while
+		// another weapon is out its copy hanging at the sling as the let-go gun does (edit_arms): upright,
+		// barrel 75 degrees down, facing where the body faces.
+		void publish_sling_primary(ik::bone_transform* local)
+		{
+			namespace em = stereo::extra_mesh;
+			const bool on = grenade_mesh_on.load(std::memory_order_relaxed) && rig.weapon >= 0 && rig.parents[rig.weapon] >= 0 && rig.bones > 0;
+			if (primary_capturing_now())
+			{
+				ik::bone_transform hidden;
+				hidden.position = { em::grenade_capture_position[0], em::grenade_capture_position[1], em::grenade_capture_position[2] };
+				hidden.scale = em::grenade_tag;
+				ik::set_model_transform(local, rig.parents, rig.weapon, ik::compose(local[0], hidden));
+				em::set_item_capture(em::captured::primary, true);
+			}
+			if (on && sling_primary_shown.load(std::memory_order_relaxed) && rig.camera >= 0)
+			{
+				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+				const ik::quat frame = camera_frame(camera);
+				ik::bone_transform sling;
+				sling.position = tracking_origin(camera, frame)
+					+ ik::rotate(frame, ik::vec3{ sling_primary_at[0].load(), sling_primary_at[1].load(), sling_primary_at[2].load() });
+				const float half = 0.5f * sling_primary_yaw.load(std::memory_order_relaxed);
+				const ik::quat yaw_turn{ 0, std::sin(half), 0, std::cos(half) };
+				const ik::quat down{ -0.60876143f, 0.0f, 0.0f, 0.79335334f };
+				sling.rotation = ik::normalize(frame * yaw_turn * down * ik::quat{ 0, 1, 0, 0 });
+				ik::bone_transform root = ik::compose(ik::inverse(local[0]), sling);
+				root.scale = 1.0f;
+				float matrix[12];
+				palette_rows(root, matrix);
+				em::set_item_copy(em::captured::primary, true, matrix);
+				return;
+			}
+			em::set_item_copy(em::captured::primary, false, nullptr);
+		}
+
 		// Called with rig_lock held, after the conversion: our forward kinematics against the
 		// engine's model pose, and the numbers for the report.
 		void check_pose(const ik::bone_transform* local, std::uint64_t pose_object)
@@ -2290,6 +2345,7 @@ namespace bfvr::body
 					publish_extra_magazine(local);
 					publish_extra_grenade(local);
 					publish_holster_knife(local);
+					publish_sling_primary(local);
 				}
 			}
 			original_conversion(pose);
@@ -2521,6 +2577,21 @@ namespace bfvr::body
 	void set_knife_weapon(bool out)
 	{
 		knife_weapon_now = out;
+	}
+
+	void set_primary_capture(bool wanted)
+	{
+		primary_capture_wanted = wanted;
+	}
+
+	void set_sling_primary(bool shown, const float (&position)[3], float yaw)
+	{
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			sling_primary_at[axis] = position[axis];
+		}
+		sling_primary_yaw = yaw;
+		sling_primary_shown = shown;
 	}
 
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw)
