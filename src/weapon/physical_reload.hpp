@@ -26,6 +26,8 @@ namespace bfvr::weapon
 	void set_free_hand_reload(bool enabled);
 	// #47, setting magazine_flight: a discarded magazine flies on with the hand's velocity and rests on the floor.
 	void set_magazine_flight(bool enabled);
+	// Setting grip_lock: magazines ride the magwell's rail and the drawn off hand locks onto them.
+	void set_grip_lock(bool enabled);
 	// The free gun hand's grip belongs to the reload this frame (it holds a magazine, racks, or is nearer a
 	// reload zone than the pistol grip): free hands must not take the gun back with it.
 	bool reload_claims_free_hand();

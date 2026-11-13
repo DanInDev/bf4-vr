@@ -52,6 +52,10 @@ namespace bfvr::weapon
 		bool throw_flight{ true };
 		bool floor_valid{};
 		float floor_y{};
+		// Grip lock (setting grip_lock): a magazine near the magwell rides a rail along the magwell's axis
+		// (in and out), drawn upright, and the drawn hand is locked onto it with the game's grip until it
+		// seats or leaves; after seating the hand stays on it while the grip is held. Needs has_root.
+		bool grip_lock{};
 	};
 
 	enum class magazine_draw
@@ -106,6 +110,13 @@ namespace bfvr::weapon
 		float palm_misalign_degrees{}; // caught: the new magazine's lean about the barrel from the catch pose
 		float palm_off_degrees{};      // caught: its whole angle from the catch pose
 		v3 palm_gap;                   // caught: its top less the magwell
+		// Grip lock: the drawn off hand holds the magazine at lock_position / lock_rotation (its top and
+		// rotation, as magazine_position) with the game's magazine grip, at this weight (0 or 1).
+		float hand_lock{};
+		v3 lock_position;
+		q4 lock_rotation;
+		bool guided{};      // the held magazine rides the magwell's rail
+		float rail_depth{}; // guided: how far below the magwell its top is (metres along the rail)
 	};
 
 	struct hand_config
@@ -155,6 +166,15 @@ namespace bfvr::weapon
 		float palm_seat_reach{ 0.08f };
 		float palm_align_degrees{ 15.0f };
 		float palm_max_degrees{ 45.0f }; // and its whole angle from the catch pose stays within this
+		// Grip lock: the rail runs lock_rail below the magwell along the gun's down axis. A held magazine
+		// whose top comes within lock_catch of it, turned within lock_align_degrees of the seated
+		// magazine, locks on; pushed up to within lock_seat_depth of the magwell it seats; more than
+		// lock_leave off the rail, past its end or with the grip open it is free again.
+		float lock_rail{ 0.10f };
+		float lock_catch{ 0.06f };
+		float lock_align_degrees{ 45.0f };
+		float lock_seat_depth{ 0.03f };
+		float lock_leave{ 0.12f };
 	};
 
 	// A held magazine (its top, the Wep_Mag origin, and rotation) turned by angle radians about the barrel
@@ -208,5 +228,8 @@ namespace bfvr::weapon
 		q4 catch_in_gun_;       // the hand's magazine (untilted) relative to the gun at the catch
 		bool kept_old_{};       // palmed in: the hand holds the old magazine (not drawn: the mesh is in the gun)
 		bool keep_snap_{};      // #40: a magazine just pulled out, the hand not yet out of the magazine zone
+		bool guided_{};         // grip lock: the held magazine rides the rail
+		bool pulling_out_{};    // grip lock: guided out of the gun after a grab (not armed to seat)
+		bool lock_hold_{};      // grip lock: seated by the locked hand, the grip still held on it
 	};
 }
