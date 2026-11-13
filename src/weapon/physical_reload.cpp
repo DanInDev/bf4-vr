@@ -24,6 +24,7 @@
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/server_soldier.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/body_rig.hpp"
@@ -58,7 +59,6 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t function_capacity = 0x220; // Ammo.MagazineCapacity (counts the chamber)
 		// Server (single player runs it in-process): local ServerSoldierEntity -> weapons component ->
 		// slot array (same slot index as the client) -> weapon firing object -> ammo.
-		constexpr std::uintptr_t server_soldier_global = static_cast<std::uintptr_t>(0x142311db8ull);
 		constexpr std::uintptr_t server_soldier_weapons = 0x7c0;
 		constexpr std::uintptr_t server_weapon_slots = 0x828;
 		constexpr std::uintptr_t server_firing = 0x200;
@@ -143,7 +143,7 @@ namespace bfvr::weapon
 			read(firing + firing_rumble, weapon.rumble);
 			weapon.recoil = read_recoil(firing, soldier);
 			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
-			if (!read(server_soldier_global, server_soldier) || !read(server_soldier + server_soldier_weapons, server_weapons)
+			if ((server_soldier = player_server_soldier()) == 0 || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
 				|| !read(server_weapon + server_firing, server_ammo) || !read(server_ammo + firing_magazine, weapon.magazine)
 				|| !read(server_ammo + firing_magazine + 4, weapon.reserve))

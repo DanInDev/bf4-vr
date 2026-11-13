@@ -11,7 +11,7 @@ client  [0x14230F260] soldier +0x570 weapons component -> current slot (aim.md) 
           +0x30 SoldierWeaponData +0x90 WeaponFiringData +0x10 FiringFunctionData
                 +0x220 Ammo.MagazineCapacity (31 for the 30-round AK-12: counts the chamber)
           +0x49C0 / +0x49C8 -> two ammo blocks, magazine +0x1A0, reserve +0x1A4   (copies)
-server  [0x142311DB8] ServerSoldierEntity +0x7C0 ServerSoldierWeaponsComponent
+server  player ServerSoldierEntity (weapon/server_soldier: no fixed global, see "The player's server soldier") +0x7C0 ServerSoldierWeaponsComponent
           +0x828 + 8 * slot -> ServerSoldierWeapon (same slot index as the client)
           +0x200 -> weapon firing object: +0x1A0 int32 rounds in the gun, +0x1A4 reserve   (authoritative)
 ```
@@ -35,6 +35,25 @@ server  [0x142311DB8] ServerSoldierEntity +0x7C0 ServerSoldierWeaponsComponent
 | Write 0 into the server weapon | the game reloads by itself within ~4 s: 30/94 (no chambered round) |
 | Write 1 | stays 1 (no reload); the HUD shows "RELOAD" |
 | `bone 131 0 0.3 0` (research) | the magazine mesh moves 0.3 m off the gun on its own |
+
+## The player's server soldier (2026-11-13, live, Baku)
+
+The fixed global `0x142311DB8` used until now is one slot of a static table of spawned soldiers, and the
+player is not always in it. Session 1: the player at `0x142311DB8`. Session 2 (a fresh load): `0x142311DB8`
+null, the player at `0x142311E08`, also at `0x14237F3F0` and `0x1427248B0`. With the slot null the mod saw
+"no magazine weapon in hand": physical reload and physical grenades were off and **the game reloaded by
+itself** (the owner's report "after a respawn it automatically reloads itself").
+
+- `ServerSoldierEntity` vtable `0x141E67BA0` (typeinfo map); four instances in the level (player and squad).
+- `+0x720` (and `+0x730`) Vec3: the soldier's feet. Player 0.00 m from the client soldier's feet
+  (`ClientSoldierEntity +0x1E8` rig, `+0x90 +0x30`); the nearest squadmate 1.53 m.
+- `weapon/server_soldier` checks the last answer every call (vtable and position within 1 m of the client's
+  feet), else the static tables (`0x142311D88 + 0x10 i`, i < 16; `0x14237F390 + 0x20 i`, i < 8; `0x1427248B0`),
+  else a background heap scan for the vtable (at most every 3 s). Unit test `server_soldier`.
+- Live (Release, `fix/server-soldier`): fresh load `server soldier: ...178980C50 (static table)`, reload
+  active, grenades readable (3). A grenade at the feet killed the player; at the respawn the log has
+  `server soldier: ...177C752D0 (static table)` and `reload: U_SCAR-H slot 0 AR`. 19 shots emptied the
+  SCAR-H, the bolt locked, the game's magazine stayed at the 2 spare rounds and did not reload in 10 s.
 
 ## Consequences for the physical reload
 

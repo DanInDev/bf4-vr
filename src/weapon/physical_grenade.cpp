@@ -23,6 +23,7 @@
 #include "weapon/grab_debug.hpp"
 #include "weapon/grenade_hands.hpp"
 #include "weapon/reload_sounds.hpp"
+#include "weapon/server_soldier.hpp"
 #include "weapon/weapon_swap.hpp"
 
 namespace bfvr::weapon
@@ -31,7 +32,6 @@ namespace bfvr::weapon
 	{
 		// BF4 179547 (re/notes/weapon.md "Grenades"). Client weapon slots as for the reload.
 		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull); // x64 only
-		constexpr std::uintptr_t server_soldier_global = static_cast<std::uintptr_t>(0x142311db8ull);
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_begin = 0x890;
 		constexpr std::uintptr_t weapons_end = 0x898;
@@ -101,7 +101,7 @@ namespace bfvr::weapon
 			grenade_weapon found;
 			std::uintptr_t soldier{}, weapons{}, begin{}, end{}, server_soldier{}, server_weapons{};
 			if (!read(local_soldier_global, soldier) || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_begin, begin)
-				|| !read(weapons + weapons_end, end) || !begin || end <= begin || !read(server_soldier_global, server_soldier)
+				|| !read(weapons + weapons_end, end) || !begin || end <= begin || (server_soldier = player_server_soldier()) == 0
 				|| !read(server_soldier + server_soldier_weapons, server_weapons))
 			{
 				return found;

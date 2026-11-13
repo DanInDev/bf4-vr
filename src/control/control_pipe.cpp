@@ -40,6 +40,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/hit_feedback.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/server_soldier.hpp"
 #include "weapon/sight_state.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
@@ -858,6 +859,7 @@ namespace bfvr::control
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
+			if (command == "serversoldier") return weapon::server_soldier_report();
 			if (command == "calibrate") return ui::body_calibration_command(argument);
 			if (command == "sightstate") return weapon::sight_state_report();
 			if (command == "motion")

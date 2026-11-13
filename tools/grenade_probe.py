@@ -19,7 +19,7 @@ from camera_probe import peek  # noqa: E402
 from object_probe import load_vtables  # noqa: E402
 
 SOLDIER_GLOBAL = 0x14230F260
-SERVER_SOLDIER_GLOBAL = 0x142311DB8
+SERVER_SOLDIER_GLOBAL = 0x142311DB8  # one slot of a table, not always the player: pipe serversoldier gives the right one
 
 
 def q(address):
