@@ -37,6 +37,7 @@ namespace bfvr::settings
 			{ "hud_ammo_width", kind::real, 0.05f, 0.3f, 0.01f, "0.12", "", "hud_mode = body: width of the health, ammo and grenade counters at the gun, metres" },
 			{ "hud_ammo_gesture", kind::choice, 0, 0, 0, "magcheck", "magcheck|side|both", "hud_mode = body: how the gun shows health, ammo and grenades: rolled upside down with the magazine looked at, its side turned to you and held a second, or both" },
 			{ "hud_magcheck_roll", kind::real, 90.0f, 180.0f, 5.0f, "120", "", "mag check: degrees the gun is rolled from upright at least" },
+			{ "hud_magazine_check", kind::boolean, 0, 0, 0, "1", "", "a magazine in the off hand (from the gun or the pouch) looked at shows its rounds beside it" },
 			{ "hud_magcheck_hold", kind::real, 0.1f, 1.5f, 0.05f, "0.4", "", "mag check: seconds the gun is held steady before the counters show" },
 			{ "hud_show_main", kind::boolean, 0, 0, 0, "1", "", "HUD layer: everything above the minimap and ammo (markers, objective text, prompts)" },
 			{ "hud_show_minimap", kind::boolean, 0, 0, 0, "1", "", "HUD: minimap" },

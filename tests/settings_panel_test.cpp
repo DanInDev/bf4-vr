@@ -12,6 +12,7 @@
 #include "common/settings_store.hpp"
 #include "ui/menu_button.hpp"
 #include "ui/panel_canvas.hpp"
+#include "ui/magazine_label.hpp"
 #include "ui/settings_panel.hpp"
 
 using namespace bfvr;
@@ -233,6 +234,28 @@ namespace
 		expect(pixel(save.x + 20, save.y + 20) == 0xFFF08A24, "buttons stay opaque");
 	}
 
+	// #56: the held magazine's rounds, keyed see-through around a dimmed card.
+	void test_magazine_label()
+	{
+		expect(magazine_label_color(0, 30) == 0xFF5A4Au && magazine_label_color(10, 30) == 0xFFC24Au && magazine_label_color(11, 30) == 0xF0F4F8u,
+			"empty red, a third amber, else white");
+		const auto items = magazine_label_items(27, 30);
+		expect(has_text(items, "27") && has_text(items, "/ 30"), "count and capacity drawn");
+		expect(!has_text(magazine_label_items(-1, 0), "/"), "no capacity, no slash");
+		std::vector<std::uint32_t> pixels;
+		const std::vector<see_through> keys = { { magazine_label_clear, 0 }, { magazine_label_card, 200 } };
+		expect(rasterise(items, magazine_label_width, magazine_label_height, pixels, keys), "rasterise the label");
+		const auto pixel = [&](int x, int y) { return pixels[static_cast<std::size_t>(y) * magazine_label_width + static_cast<std::size_t>(x)]; };
+		expect(pixel(0, 0) == 0, "outside the rounded card is clear");
+		expect((pixel(magazine_label_width - 30, magazine_label_height - 8) >> 24) == 200, "the card is dimmed see-through");
+		int bright = 0;
+		for (int x = 12; x < 144; ++x)
+		{
+			bright += (pixel(x, magazine_label_height / 2) & 0xFFu) > 0x80u ? 1 : 0;
+		}
+		expect(bright > 5, "the count is drawn");
+	}
+
 	// Writes every page of the real settings as BMPs (path_0.bmp ...), to look at without a headset.
 	void snapshot(const char* path)
 	{
@@ -395,6 +418,7 @@ int main(int argc, char** argv)
 	test_hits_and_clicks();
 	test_scrolling();
 	test_draw_and_raster();
+	test_magazine_label();
 
 	// Every live setting has a name in the catalog and sits on a named page (none under Other).
 	settings::load_global();

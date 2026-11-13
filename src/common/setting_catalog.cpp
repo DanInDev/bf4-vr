@@ -101,6 +101,7 @@ namespace bfvr::settings
 			{ "hud_watch_dwell", "HUD", "Watch glance", "Glance time", "Seconds before the minimap shows", "", true },
 			{ "hud_ammo_width", "HUD", "Placement", "Gun counters size", "Health, ammo, grenades; metres", "", true },
 			{ "hud_ammo_gesture", "HUD", "Placement", "Show ammo by", "Health, ammo and grenades at the gun", "magcheck=Mag check|side=Side of the gun|both=Both" },
+			{ "hud_magazine_check", "HUD", "Shown", "Rounds in a held magazine", "Look at a magazine in your hand", "" },
 			{ "hud_magcheck_roll", "HUD", "Mag check", "Roll", "Degrees upside down at least", "", true },
 			{ "hud_magcheck_hold", "HUD", "Mag check", "Hold time", "Seconds before the counters show", "", true },
 

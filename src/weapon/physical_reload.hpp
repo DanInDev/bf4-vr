@@ -40,6 +40,18 @@ namespace bfvr::weapon
 	// Stricter: the off hand holds a magazine or racks (a hand merely inside a reload zone does not count).
 	bool reload_engages_off_hand();
 
+	// #56: the magazine in the off hand (taken from the gun or the pouch), for the magazine check on the
+	// HUD. Positions in OpenXR LOCAL; held is false when nothing is held or the last update is stale.
+	struct held_magazine_view
+	{
+		bool held{};
+		float top[3]{};     // the magazine's top (where it seats)
+		float magwell[3]{}; // the gun's magwell
+		int rounds{};
+		int capacity{};
+	};
+	held_magazine_view held_magazine();
+
 	// Pipe "reload": state and the last events. "reload <event>" (research builds) drives the state
 	// machine directly: fire button grab take letgo stow insert rack.
 	std::string reload_pipe_command(const std::string& argument);

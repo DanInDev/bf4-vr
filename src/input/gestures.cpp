@@ -176,6 +176,33 @@ namespace bfvr::input::gestures
 		return gaze_angle(head, target) <= config.show_cone && up.y <= config.upside_down;
 	}
 
+	bool magazine_in_view(const pose& head, const float (&top)[3], const float (&magwell)[3], const magazine_check_config& config)
+	{
+		const vec3 point = to_vec(top);
+		return body::ik::length(position_of(head) - point) <= config.max_distance
+			&& body::ik::length(point - to_vec(magwell)) >= config.min_magwell_distance
+			&& gaze_angle(head, top) <= config.show_cone;
+	}
+
+	bool magazine_check::update(const pose& head, bool held, const float (&top)[3], const float (&magwell)[3], float seconds)
+	{
+		if (!held)
+		{
+			reset();
+			return false;
+		}
+		const bool show = magazine_in_view(head, top, magwell, config_);
+		const bool stay = gaze_angle(head, top) <= config_.hide_cone;
+		advance(visible_, timer_, show, stay, config_.dwell, config_.hide_delay, std::max(seconds, 0.0f));
+		return visible_;
+	}
+
+	void magazine_check::reset()
+	{
+		visible_ = false;
+		timer_ = 0;
+	}
+
 	bool gun_inspect::update(const pose& head, const pose& grip, bool tracked, float seconds)
 	{
 		seconds = std::max(seconds, 0.0f);

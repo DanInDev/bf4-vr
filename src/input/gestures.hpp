@@ -90,6 +90,38 @@ namespace bfvr::input::gestures
 	// The instantaneous mag check pose (without steadiness, whatever config.mag_check says).
 	bool gun_in_mag_check_pose(const pose& head, const pose& grip, const gun_inspect_config& config);
 
+	// A magazine in the off hand looked at (#56): pulled from the gun or the pouch and held up to the
+	// eyes, its rounds show beside it. Not near the magwell, so a reload's insert does not show it.
+	struct magazine_check_config
+	{
+		float show_cone{ 0.44f };           // gaze within 25 degrees of the magazine's top
+		float hide_cone{ 0.7f };            // stays within 40 degrees
+		float max_distance{ 0.7f };
+		float min_magwell_distance{ 0.15f }; // the magazine at least this far from the magwell
+		float dwell{ 0.25f };
+		float hide_delay{ 0.3f };
+	};
+
+	// The instantaneous show condition.
+	bool magazine_in_view(const pose& head, const float (&top)[3], const float (&magwell)[3], const magazine_check_config& config);
+
+	class magazine_check
+	{
+	public:
+		explicit magazine_check(const magazine_check_config& config = {}) : config_(config) {}
+		void configure(const magazine_check_config& config) { config_ = config; }
+		const magazine_check_config& config() const { return config_; }
+		// held = false (inserted, stowed, dropped) hides at once.
+		bool update(const pose& head, bool held, const float (&top)[3], const float (&magwell)[3], float seconds);
+		bool visible() const { return visible_; }
+		void reset();
+
+	private:
+		magazine_check_config config_;
+		bool visible_{};
+		float timer_{};
+	};
+
 	class gun_inspect
 	{
 	public:

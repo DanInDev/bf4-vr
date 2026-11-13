@@ -441,6 +441,43 @@ namespace
 		expect(gestures::gun_in_mag_check_pose(head, flipped, left), "left-handed mag check");
 	}
 
+	// #56: a magazine held in the off hand and looked at shows its rounds; not while it goes in.
+	void test_magazine_check()
+	{
+		const gestures::magazine_check_config config;
+		const float top[3]{ -0.08f, 1.30f, -0.30f };     // held up in front of the chest
+		const float magwell[3]{ 0.12f, 1.25f, -0.45f };  // the gun, 28 cm away
+		const pose head = look_at(eyes, { top[0], top[1], top[2] });
+		expect(gestures::magazine_in_view(head, top, magwell, config), "a held magazine looked at is in view");
+		expect(!gestures::magazine_in_view(make_pose(eyes, about_y(1.2f)), top, magwell, config), "looking away is not");
+		const float at_magwell[3]{ 0.10f, 1.22f, -0.42f };
+		expect(!gestures::magazine_in_view(look_at(eyes, { at_magwell[0], at_magwell[1], at_magwell[2] }), at_magwell, magwell, config),
+			"at the magwell (inserting) is not");
+		const float far_top[3]{ -0.1f, 1.0f, -0.65f };
+		expect(!gestures::magazine_in_view(look_at(eyes, { far_top[0], far_top[1], far_top[2] }), far_top, magwell, config), "beyond reach is not");
+
+		gestures::magazine_check detector;
+		int shown = -1;
+		for (int i = 1; i <= 90 && shown < 0; ++i)
+		{
+			if (detector.update(head, true, top, magwell, frame))
+			{
+				shown = i;
+			}
+		}
+		expect(shown > 0 && near(static_cast<float>(shown) * frame, config.dwell, 2 * frame), "shows after the dwell");
+		expect(!detector.update(head, false, top, magwell, frame), "inserted or stowed hides at once");
+		bool shown_unheld = false;
+		for (int i = 0; i < 90; ++i)
+		{
+			shown_unheld |= detector.update(head, false, top, magwell, frame);
+		}
+		expect(!shown_unheld, "no magazine in hand never shows");
+		// Looking down the top from above (head over it, 45 degrees down) counts too.
+		const float below[3]{ 0.0f, 1.25f, -0.35f };
+		expect(gestures::magazine_in_view(look_at(eyes, { below[0], below[1], below[2] }), below, magwell, config), "looking down onto the top");
+	}
+
 	void test_pointer()
 	{
 		quad_target screen;
@@ -497,6 +534,7 @@ int main()
 	test_watch_glance_is_deliberate();
 	test_gun_inspect();
 	test_mag_check();
+	test_magazine_check();
 	test_pointer();
 	if (failures)
 	{
