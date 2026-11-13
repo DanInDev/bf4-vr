@@ -180,6 +180,13 @@ hud_watch_pitch = 25
 hud_watch_reach = 0.5
 hud_watch_facing = 40
 hud_watch_dwell = 0.25
+# Health, ammo and grenades at the gun (hud_mode = body, #56): magcheck = roll the gun upside down (at
+# least hud_magcheck_roll degrees) and look at the magazine, steady for hud_magcheck_hold seconds;
+# side = turn its side to you and hold it a second (#26); both. They stay until you look away.
+hud_ammo_gesture = magcheck
+hud_magcheck_roll = 120
+hud_magcheck_hold = 0.4
+hud_ammo_width = 0.12
 # Body calibration (#46): after a level loads, stand straight, arms out to the sides, and hold both
 # triggers for a second. It measures your height (from the floor, or from the arm span without one) and
 # span, sets body_height, body_span, arm_length and shoulder_width, and saves them here. first = until done

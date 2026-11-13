@@ -530,6 +530,20 @@ namespace
 		const float offset[3] = { 0, 0, 0 };
 		hl::quad watch = hl::on_body(pose{}, offset, to, 0.1f, { 0, 0, 0.2f, 0.1f }, 1.0f);
 		expect(near(watch.height, 0.05f), "on_body height wrong");
+
+		// #56: a gun rolled upside down still gets an upright quad (its y axis up, x horizontal).
+		pose rolled{};
+		rolled.orientation[2] = 1.0f; // 180 degrees about z
+		rolled.orientation[3] = 0.0f;
+		const float below[3] = { 0, -0.06f, -0.08f };
+		const float eye_above[3] = { 0, 0.4f, 0.3f };
+		const hl::quad mag = hl::on_body(rolled, below, eye_above, 0.1f, { 0, 0, 0.2f, 0.1f }, 1.0f);
+		expect(near(mag.placement.position[1], 0.06f) && near(mag.placement.position[2], -0.08f), "on_body offset follows the rolled anchor");
+		float up[3], across[3];
+		const float unit_y[3] = { 0, 1, 0 };
+		hl::rotate(mag.placement.orientation, unit_y, up);
+		hl::rotate(mag.placement.orientation, unit_x, across);
+		expect(up[1] > 0.5f && near(across[1], 0, 1e-3f), "on_body quad upright under a rolled anchor");
 	}
 }
 

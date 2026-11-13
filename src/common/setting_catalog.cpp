@@ -90,7 +90,7 @@ namespace bfvr::settings
 			{ "hud_show_score", "HUD", "Shown", "Score pop-ups", "Points and awards", "" },
 			{ "hud_show_markers", "HUD", "Shown", "World markers", "Squad names and triangles", "" },
 			{ "hud_show_minimap", "HUD", "Shown", "Minimap", "On your forearm", "" },
-			{ "hud_show_ammo", "HUD", "Shown", "Ammo counter", "Beside the gun", "" },
+			{ "hud_show_ammo", "HUD", "Shown", "Health and ammo", "At the gun on a mag check", "" },
 			{ "hud_show_bottom", "HUD", "Shown", "Weapon and stance icons", "At the bottom", "" },
 			{ "hud_show_main", "HUD", "Shown", "Everything else", "Markers, objective text, prompts", "" },
 			{ "hud_marker_distance", "HUD", "Placement", "Marker distance", "Metres, HUD on the body", "", true },
@@ -99,7 +99,10 @@ namespace bfvr::settings
 			{ "hud_watch_reach", "HUD", "Watch glance", "Wrist distance", "Metres from the eyes at most", "", true },
 			{ "hud_watch_facing", "HUD", "Watch glance", "Wrist facing", "Degrees the inner wrist may turn away", "", true },
 			{ "hud_watch_dwell", "HUD", "Watch glance", "Glance time", "Seconds before the minimap shows", "", true },
-			{ "hud_ammo_width", "HUD", "Placement", "Ammo counter size", "Metres beside the gun", "", true },
+			{ "hud_ammo_width", "HUD", "Placement", "Gun counters size", "Health, ammo, grenades; metres", "", true },
+			{ "hud_ammo_gesture", "HUD", "Placement", "Show ammo by", "Health, ammo and grenades at the gun", "magcheck=Mag check|side=Side of the gun|both=Both" },
+			{ "hud_magcheck_roll", "HUD", "Mag check", "Roll", "Degrees upside down at least", "", true },
+			{ "hud_magcheck_hold", "HUD", "Mag check", "Hold time", "Seconds before the counters show", "", true },
 
 			// Controls
 			{ "controls_preset", "Controls", "Buttons", "Button layout", "A preset, or your own below", "default=Default|jump_on_b=Jump on B|custom=Custom" },

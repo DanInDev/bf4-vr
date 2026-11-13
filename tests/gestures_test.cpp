@@ -293,7 +293,8 @@ namespace
 		const vec3 point{ 0.1f, 1.35f, -0.35f };
 		gun_scene scene;
 		scene.head = look_at(eyes, point);
-		scene.inspect = grip_with_point(point, eyes - point, { 1, 0, 0 }, config.offset);
+		// Barrel to the right (grip z to the left), side to the eyes, the top of the gun up.
+		scene.inspect = grip_with_point(point, eyes - point, { -1, 0, 0 }, config.offset);
 		scene.aiming = grip_with_point({ 0, 1.58f, -0.4f }, { 1, 0, 0 }, { 0, 0, 1 }, config.offset);
 		scene.aim_head = make_pose(eyes, {});
 		return scene;
@@ -311,9 +312,18 @@ namespace
 		return -1;
 	}
 
+	// The side inspect alone (#26), as before the mag check (#56).
+	gestures::gun_inspect_config side_only()
+	{
+		gestures::gun_inspect_config config;
+		config.side = true;
+		config.mag_check = false;
+		return config;
+	}
+
 	void test_gun_inspect()
 	{
-		gestures::gun_inspect detector;
+		gestures::gun_inspect detector(side_only());
 		const gun_scene scene = gun(detector.config());
 		expect(gestures::gun_in_inspect_pose(scene.head, scene.inspect, detector.config()), "inspect pose recognised");
 		expect(!gestures::gun_in_inspect_pose(scene.aim_head, scene.aiming, detector.config()), "aiming down the sights is not inspecting");
@@ -373,6 +383,64 @@ namespace
 		expect(detector.progress() == 0, "first tracked frame after a loss is not steady yet");
 	}
 
+	// #56: the gun rolled upside down and the magazine looked at shows health, ammo and grenades.
+	void test_mag_check()
+	{
+		const gestures::gun_inspect_config config;
+		expect(config.mag_check && !config.side, "the mag check is the default, the side inspect off");
+		const vec3 magazine{ 0.05f, 1.30f, -0.35f };
+		const pose head = look_at(eyes, magazine);
+		// Barrel forward (grip -z), rolled 180 degrees about it: grip x to the left, grip y down.
+		const pose flipped = grip_with_point(magazine, { -1, 0, 0 }, { 0, 0, 1 }, config.mag_offset);
+		const pose upright = grip_with_point(magazine, { 1, 0, 0 }, { 0, 0, 1 }, config.mag_offset);
+		const pose canted = grip_with_point(magazine, { 0, -1, 0 }, { 0, 0, 1 }, config.mag_offset);  // rolled 90 degrees
+		const vec3 rolled_45 = body::ik::normalize(vec3{ 1, -1, 0 });
+		const pose reload = grip_with_point(magazine, rolled_45, { 0, 0, 1 }, config.mag_offset); // tilted to see the mag well
+		expect(gestures::gun_in_mag_check_pose(head, flipped, config), "upside-down gun with the magazine in view");
+		expect(!gestures::gun_in_mag_check_pose(head, upright, config), "the same gun upright is no mag check");
+		expect(!gestures::gun_in_mag_check_pose(head, canted, config), "rolled 90 degrees is no mag check");
+		expect(!gestures::gun_in_mag_check_pose(head, reload, config), "tilted 45 degrees for a reload is no mag check");
+		expect(!gestures::gun_in_mag_check_pose(make_pose(eyes, about_y(1.2f)), flipped, config), "looking away is no mag check");
+
+		gestures::gun_inspect detector;
+		const int shown = frames_until(detector, head, flipped, 2.0f, true);
+		expect(shown > 0 && near(static_cast<float>(shown) * frame, config.mag_hold, 3 * frame), "shows after the shorter mag hold");
+		// Rolling the gun back while still looking keeps it; looking away hides it.
+		expect(frames_until(detector, head, upright, 1.0f, false) == -1, "stays while looking at the gun");
+		const int hidden = frames_until(detector, make_pose(eyes, about_y(1.2f)), upright, 1.0f, false);
+		expect(hidden > 0 && near(static_cast<float>(hidden) * frame, config.hide_delay, 2 * frame), "hides after looking away");
+
+		// Aiming, reloading and a canted gun never show it; neither does the side inspect while it is off.
+		const gun_scene scene = gun(side_only());
+		const struct { const pose& head; const pose& grip; const char* what; } never[] = {
+			{ scene.aim_head, scene.aiming, "aiming down the sights never shows" },
+			{ head, upright, "an upright gun looked at never shows" },
+			{ head, canted, "a canted gun never shows" },
+			{ head, reload, "a reload tilt never shows" },
+			{ scene.head, scene.inspect, "the side inspect is off by default" },
+		};
+		for (const auto& pose_case : never)
+		{
+			detector.reset();
+			expect(frames_until(detector, pose_case.head, pose_case.grip, 3.0f, true) == -1, pose_case.what);
+		}
+
+		// Both poses on: the side inspect works again with its own hold.
+		gestures::gun_inspect_config both = config;
+		both.side = true;
+		gestures::gun_inspect both_detector(both);
+		const int side_shown = frames_until(both_detector, scene.head, scene.inspect, 2.0f, true);
+		expect(side_shown > 0 && near(static_cast<float>(side_shown) * frame, both.hold, 3 * frame), "side inspect with both on keeps the 1 s hold");
+		both_detector.reset();
+		const int mag_shown = frames_until(both_detector, head, flipped, 2.0f, true);
+		expect(mag_shown > 0 && near(static_cast<float>(mag_shown) * frame, both.mag_hold, 3 * frame), "mag check with both on keeps the short hold");
+
+		// Left-handed (left controller, x mirrored): the magazine sits on the centre line, so the same pose counts.
+		gestures::gun_inspect_config left = config;
+		left.hand = 0;
+		expect(gestures::gun_in_mag_check_pose(head, flipped, left), "left-handed mag check");
+	}
+
 	void test_pointer()
 	{
 		quad_target screen;
@@ -428,6 +496,7 @@ int main()
 	test_forearm_glance();
 	test_watch_glance_is_deliberate();
 	test_gun_inspect();
+	test_mag_check();
 	test_pointer();
 	if (failures)
 	{

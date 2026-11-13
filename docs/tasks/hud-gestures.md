@@ -40,7 +40,12 @@ Pure functions plus small state machines over OpenXR LOCAL poses; all thresholds
   `hide_cone` (35°) and the inner side still faces the head; hides 0.3 s after that fails, tracking
   is lost or the off hand gets busy (on the gun, a magazine, a grenade). Left-handed it is the right
   wrist, with that controller's palm normal.
-- `gun_inspect` (ammo): a point on the gun within 20° of the gaze, closer than 0.7 m, the gun's side
+- `gun_inspect`, mag check (#56, `hud_ammo_gesture = magcheck`, the default): the gun rolled upside
+  down (the grip's up axis dotted with world up ≤ cos `hud_magcheck_roll` 120°), the magazine point
+  (8 cm ahead of the grip, 6 cm below) within 20° of the gaze and closer than 0.7 m, steady (as below)
+  for `hud_magcheck_hold` 0.4 s. Shows health, ammo and grenades (the bottom-right HUD block) just past
+  the magazine, turned to the eyes with its top up; stays until the gaze leaves both gun points.
+- `gun_inspect`, side (#26, `hud_ammo_gesture = side` or `both`): a point on the gun within 20° of the gaze, closer than 0.7 m, the gun's side
   (grip x) facing the eyes (|cos| ≥ 0.6; aiming down the sights is ≈ 0, which keeps ADS from ever
   triggering), and steady: low-passed linear speed ≤ 0.15 m/s and angular speed ≤ 0.6 rad/s. Shows
   after 1 s steady (`progress()` for a fill-up ring); then stays until the gaze leaves `hide_cone`

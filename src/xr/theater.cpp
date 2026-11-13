@@ -1383,12 +1383,14 @@ namespace bfvr::xr
 		}
 
 		// HUD on the body (hud_mode = body, #26/#27, docs/tasks/hud-gestures.md). The HUD texture is
-		// shown in pieces: everything but the minimap and the ammo counter projected like the eye
-		// images of the frame (markers on their targets), the minimap on the left forearm while it is
-		// glanced at, the ammo counter beside the gun after a steady inspect. Rectangles measured at
+		// shown in pieces: everything but the minimap and the counters projected like the eye
+		// images of the frame (markers on their targets), the minimap on the off-hand wrist on a watch
+		// glance (#55), health, ammo and grenades at the gun on a mag check (#56). Rectangles measured at
 		// 2160x2160 (2026-10-26).
 		static constexpr stereo::hud_layout::uv_rect minimap_rect{ 0.013f, 0.824f, 0.154f, 0.997f };
-		static constexpr stereo::hud_layout::uv_rect ammo_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
+		// #56: the bottom-right block: weapon state bar, ammo and fire mode, grenades, health. Re-measured
+		// 2026-11-13 from a 2160x2160 shot in Baku (panel 0.878..0.993 x 0.912..0.994).
+		static constexpr stereo::hud_layout::uv_rect counters_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
 		// The texture split into four pieces without overlap, each with a hud_show_<piece> toggle (#28):
 		// main = crosshair, markers, objective text; bottom = weapon/stance icons between minimap and ammo.
 		static constexpr stereo::hud_layout::uv_rect upper_rect{ 0.0f, 0.0f, 1.0f, 0.82f };
@@ -1504,10 +1506,25 @@ namespace bfvr::xr
 				const float offset[3] = { left_handed ? -0.03f : 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
 			}
+			// #56: the mag check (gun upside down, magazine looked at) and/or the side inspect (#26).
+			input::gestures::gun_inspect_config inspect = ammo_gesture.config();
+			inspect.hand = left_handed ? 0 : 1;
+			const std::string mode = store.text("hud_ammo_gesture", "magcheck");
+			inspect.mag_check = mode != "side";
+			inspect.side = mode != "magcheck";
+			inspect.upside_down = std::cos(store.real("hud_magcheck_roll", 120.0f) * degrees);
+			inspect.mag_hold = store.real("hud_magcheck_hold", 0.4f);
+			ammo_gesture.configure(inspect);
 			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds) && store.boolean("hud_show_ammo", true))
 			{
-				const float offset[3] = { -0.06f, 0.05f, -0.10f }; // beside the gun's left side
-				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], offset, eye, store.real("hud_ammo_width", 0.10f), ammo_rect, aspect));
+				// Upside down: just past the magazine (grip -y is up then); otherwise beside the gun's left side.
+				// on_body turns the quad to the eyes with its top up, so it never reads upside down.
+				const float* q = hands.grip[1].orientation;
+				const float grip_up_y = 1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2]); // world y of the grip's +y axis
+				const float side_offset[3] = { left_handed ? 0.06f : -0.06f, 0.05f, -0.10f };
+				const float mag_offset[3] = { 0.0f, -0.11f, -0.08f };
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], grip_up_y < 0 ? mag_offset : side_offset, eye,
+					store.real("hud_ammo_width", 0.12f), counters_rect, aspect));
 			}
 			return count;
 		}
