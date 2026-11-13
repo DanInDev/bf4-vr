@@ -161,6 +161,7 @@ add_library(bfvr_runtime STATIC
 	src/ui/panel_canvas.cpp
 	src/ui/reticle.cpp
 	src/ui/held_grenade.cpp
+	src/ui/magazine_label.cpp
 	src/ui/settings_panel.cpp
 	src/ui/vignette.cpp
 	src/ui/hud_widgets.cpp
@@ -252,7 +253,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_optics_test PRIVATE bfvr_common)
 
 	# In-VR settings panel: pages, hit tests, clicks, GDI rasterising; with a path it writes a BMP snapshot.
-	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp)
+	add_executable(bfvr_settings_panel_test tests/settings_panel_test.cpp src/ui/settings_panel.cpp src/ui/panel_canvas.cpp src/ui/menu_button.cpp src/ui/magazine_label.cpp)
 	target_link_libraries(bfvr_settings_panel_test PRIVATE bfvr_common)
 
 	# Comfort vignette strength and texture; exits non-zero on failure.

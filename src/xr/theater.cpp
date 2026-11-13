@@ -29,6 +29,7 @@
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "input/gestures.hpp"
+#include "input/handedness.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
@@ -41,12 +42,15 @@
 #include "stereo/tracking.hpp"
 #include "body/arm_ik.hpp"
 #include "body/arm_pose.hpp"
+#include "ui/magazine_label.hpp"
+#include "ui/panel_canvas.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/reticle.hpp"
 #include "ui/vignette.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
+#include "weapon/physical_reload.hpp"
 #include "weapon/two_hand.hpp"
 #include "weapon/two_handed.hpp"
 #include "xr/controller_actions.hpp"
@@ -1021,6 +1025,67 @@ namespace bfvr::xr
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&notice_quad);
 		}
 
+		// #56: a magazine held in the off hand and looked at shows its rounds beside it.
+		cpu_overlay magazine_overlay{ "magazine count" };
+		int magazine_drawn{ -1 }; // rounds * 1000 + capacity of the uploaded image
+		input::gestures::magazine_check magazine_gesture;
+		LARGE_INTEGER last_magazine_time{};
+
+		void add_magazine_layer(XrCompositionLayerQuad& magazine_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = last_magazine_time.QuadPart
+				? std::fmin(0.1f, static_cast<float>(now.QuadPart - last_magazine_time.QuadPart) / static_cast<float>(frequency.QuadPart)) : 0.0f;
+			last_magazine_time = now;
+			const weapon::held_magazine_view held = weapon::held_magazine();
+			const stereo::head_sample head_sample = stereo::latest_head_sample();
+			const bool on = settings::global().boolean("hud_magazine_check", true) && head_sample.valid;
+			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
+			if (!magazine_gesture.update(head, on && held.held, held.top, held.magwell, seconds)
+				|| !ensure_overlay(magazine_overlay, ui::magazine_label_width, ui::magazine_label_height))
+			{
+				return;
+			}
+			const int key = held.rounds * 1000 + held.capacity;
+			if (key != magazine_drawn)
+			{
+				std::vector<std::uint32_t> pixels;
+				const std::vector<ui::see_through> keys = { { ui::magazine_label_clear, 0 }, { ui::magazine_label_card, 200 } };
+				if (ui::rasterise(ui::magazine_label_items(held.rounds, held.capacity), ui::magazine_label_width, ui::magazine_label_height, pixels, keys))
+				{
+					upload_overlay(magazine_overlay, pixels);
+					magazine_drawn = key;
+				}
+			}
+			if (!magazine_overlay.shown)
+			{
+				return;
+			}
+			// Beside the magazine on the side away from the gun, turned to the eyes with its top up.
+			constexpr float width = 0.08f;
+			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
+			stereo::pose placed = stereo::hud_layout::facing(held.top, eye);
+			const float across[3] = { input::left_handed() ? 1.0f : -1.0f, 0.0f, 0.0f };
+			float side[3];
+			stereo::hud_layout::rotate(placed.orientation, across, side);
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				placed.position[axis] += side[axis] * (0.04f + 0.5f * width);
+			}
+			magazine_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			magazine_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			magazine_quad.space = space;
+			magazine_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			magazine_quad.subImage.swapchain = magazine_overlay.swapchain;
+			magazine_quad.subImage.imageRect.extent = { ui::magazine_label_width, ui::magazine_label_height };
+			magazine_quad.pose.position = { placed.position[0], placed.position[1], placed.position[2] };
+			magazine_quad.pose.orientation = { placed.orientation[0], placed.orientation[1], placed.orientation[2], placed.orientation[3] };
+			magazine_quad.size = { width, width * ui::magazine_label_height / ui::magazine_label_width };
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&magazine_quad);
+		}
+
 		// Magnified sights (stereo/scope): the eye pass's lens picture (premultiplied, round) on a quad at
 		// the lens. Its own swap chain in the image's format, copied once per new image.
 		XrSwapchain scope_swapchain{ XR_NULL_HANDLE };
@@ -1381,12 +1446,14 @@ namespace bfvr::xr
 		}
 
 		// HUD on the body (hud_mode = body, #26/#27, docs/tasks/hud-gestures.md). The HUD texture is
-		// shown in pieces: everything but the minimap and the ammo counter projected like the eye
-		// images of the frame (markers on their targets), the minimap on the left forearm while it is
-		// glanced at, the ammo counter beside the gun after a steady inspect. Rectangles measured at
+		// shown in pieces: everything but the minimap and the counters projected like the eye
+		// images of the frame (markers on their targets), the minimap on the off-hand wrist on a watch
+		// glance (#55), health, ammo and grenades at the gun on a mag check (#56). Rectangles measured at
 		// 2160x2160 (2026-10-26).
 		static constexpr stereo::hud_layout::uv_rect minimap_rect{ 0.013f, 0.824f, 0.154f, 0.997f };
-		static constexpr stereo::hud_layout::uv_rect ammo_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
+		// #56: the bottom-right block: weapon state bar, ammo and fire mode, grenades, health. Re-measured
+		// 2026-11-13 from a 2160x2160 shot in Baku (panel 0.878..0.993 x 0.912..0.994).
+		static constexpr stereo::hud_layout::uv_rect counters_rect{ 0.877f, 0.912f, 0.993f, 0.995f };
 		// The texture split into four pieces without overlap, each with a hud_show_<piece> toggle (#28):
 		// main = crosshair, markers, objective text; bottom = weapon/stance icons between minimap and ammo.
 		static constexpr stereo::hud_layout::uv_rect upper_rect{ 0.0f, 0.0f, 1.0f, 0.82f };
@@ -1484,15 +1551,43 @@ namespace bfvr::xr
 			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
 			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
 			const float aspect = static_cast<float>(hud_swapchain_width) / static_cast<float>(hud_swapchain_height);
-			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds) && store.boolean("hud_show_minimap", true))
+			// #55: a deliberate watch glance only. Hand index 0 is the off hand; left-handed it is the right
+			// controller, whose palm normal is -x.
+			constexpr float degrees = 3.14159265f / 180.0f;
+			const bool left_handed = input::left_handed();
+			input::gestures::forearm_glance_config watch = minimap_gesture.config();
+			watch.hand = left_handed ? 1 : 0;
+			watch.min_head_pitch = store.real("hud_watch_pitch", 25.0f) * degrees;
+			watch.max_distance = store.real("hud_watch_reach", 0.5f);
+			watch.facing = std::cos(store.real("hud_watch_facing", 40.0f) * degrees);
+			watch.dwell = store.real("hud_watch_dwell", 0.25f);
+			minimap_gesture.configure(watch);
+			const bool off_busy = weapon::grenade_in_hand() || weapon::off_hand_at_belt() || weapon::reload_owns_off_hand()
+				|| weapon::off_hand_on_gun() || weapon::off_hand_holds_gun();
+			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds, off_busy) && store.boolean("hud_show_minimap", true))
 			{
-				const float offset[3] = { 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
+				const float offset[3] = { left_handed ? -0.03f : 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
 			}
+			// #56: the mag check (gun upside down, magazine looked at) and/or the side inspect (#26).
+			input::gestures::gun_inspect_config inspect = ammo_gesture.config();
+			inspect.hand = left_handed ? 0 : 1;
+			const std::string mode = store.text("hud_ammo_gesture", "magcheck");
+			inspect.mag_check = mode != "side";
+			inspect.side = mode != "magcheck";
+			inspect.upside_down = std::cos(store.real("hud_magcheck_roll", 120.0f) * degrees);
+			inspect.mag_hold = store.real("hud_magcheck_hold", 0.4f);
+			ammo_gesture.configure(inspect);
 			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds) && store.boolean("hud_show_ammo", true))
 			{
-				const float offset[3] = { -0.06f, 0.05f, -0.10f }; // beside the gun's left side
-				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], offset, eye, store.real("hud_ammo_width", 0.10f), ammo_rect, aspect));
+				// Upside down: just past the magazine (grip -y is up then); otherwise beside the gun's left side.
+				// on_body turns the quad to the eyes with its top up, so it never reads upside down.
+				const float* q = hands.grip[1].orientation;
+				const float grip_up_y = 1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2]); // world y of the grip's +y axis
+				const float side_offset[3] = { left_handed ? 0.06f : -0.06f, 0.05f, -0.10f };
+				const float mag_offset[3] = { 0.0f, -0.11f, -0.08f };
+				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], grip_up_y < 0 ? mag_offset : side_offset, eye,
+					store.real("hud_ammo_width", 0.12f), counters_rect, aspect));
 			}
 			return count;
 		}
@@ -2247,9 +2342,10 @@ namespace bfvr::xr
 			XrCompositionLayerQuad reticle_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			XrCompositionLayerQuad magazine_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad sight_dot_quads[2]{};
-			const XrCompositionLayerBaseHeader* layers[16 + weapon::grab_zone_count]{};
+			const XrCompositionLayerBaseHeader* layers[17 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -2311,6 +2407,7 @@ namespace bfvr::xr
 					}
 				}
 				add_grab_zone_layers(zone_quads, layers, layer_count);
+				add_magazine_layer(magazine_quad, layers, layer_count);
 				add_scope_layer(scope_quad, layers, layer_count);
 				add_sight_dot_layers(sight_dot_quads, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
@@ -2401,6 +2498,8 @@ namespace bfvr::xr
 			destroy_scope_swapchain();
 			destroy_overlay(panel_overlay);
 			destroy_overlay(notice_overlay);
+			destroy_overlay(magazine_overlay);
+			magazine_drawn = -1;
 			destroy_overlay(vignette_overlay);
 			destroy_overlay(reticle_overlay);
 			for (cpu_overlay& overlay : ring_overlay)

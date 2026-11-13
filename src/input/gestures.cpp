@@ -105,11 +105,16 @@ namespace bfvr::input::gestures
 		store(body::ik::rotate(rotation_of(grip), { hand == 1 ? -1.0f : 1.0f, 0, 0 }), out);
 	}
 
+	float head_pitch_down(const pose& head)
+	{
+		return std::asin(std::clamp(-forward(head).y, -1.0f, 1.0f));
+	}
+
 	bool forearm_in_view(const pose& head, const pose& grip, const forearm_glance_config& config)
 	{
 		const vec3 point = point_on(grip, config.offset, config.hand == 1);
 		const vec3 to_eyes = position_of(head) - point;
-		if (body::ik::length(to_eyes) > config.max_distance)
+		if (body::ik::length(to_eyes) > config.max_distance || head_pitch_down(head) < config.min_head_pitch)
 		{
 			return false;
 		}
@@ -120,11 +125,11 @@ namespace bfvr::input::gestures
 		return gaze_angle(head, target) <= config.show_cone && body::ik::dot(to_vec(normal), body::ik::normalize(to_eyes)) >= config.facing;
 	}
 
-	bool forearm_glance::update(const pose& head, const pose& grip, bool tracked, float seconds)
+	bool forearm_glance::update(const pose& head, const pose& grip, bool tracked, float seconds, bool busy)
 	{
 		bool show = false;
 		bool stay = false;
-		if (tracked)
+		if (tracked && !busy)
 		{
 			show = forearm_in_view(head, grip, config_);
 			const vec3 point = point_on(grip, config_.offset, config_.hand == 1);
@@ -158,11 +163,52 @@ namespace bfvr::input::gestures
 		return gaze_angle(head, target) <= config.show_cone && std::fabs(body::ik::dot(side, body::ik::normalize(to_eyes))) >= config.side_facing;
 	}
 
+	bool gun_in_mag_check_pose(const pose& head, const pose& grip, const gun_inspect_config& config)
+	{
+		const vec3 point = point_on(grip, config.mag_offset, config.hand == 0);
+		if (body::ik::length(position_of(head) - point) > config.max_distance)
+		{
+			return false;
+		}
+		float target[3];
+		store(point, target);
+		const vec3 up = body::ik::rotate(rotation_of(grip), { 0, 1, 0 });
+		return gaze_angle(head, target) <= config.show_cone && up.y <= config.upside_down;
+	}
+
+	bool magazine_in_view(const pose& head, const float (&top)[3], const float (&magwell)[3], const magazine_check_config& config)
+	{
+		const vec3 point = to_vec(top);
+		return body::ik::length(position_of(head) - point) <= config.max_distance
+			&& body::ik::length(point - to_vec(magwell)) >= config.min_magwell_distance
+			&& gaze_angle(head, top) <= config.show_cone;
+	}
+
+	bool magazine_check::update(const pose& head, bool held, const float (&top)[3], const float (&magwell)[3], float seconds)
+	{
+		if (!held)
+		{
+			reset();
+			return false;
+		}
+		const bool show = magazine_in_view(head, top, magwell, config_);
+		const bool stay = gaze_angle(head, top) <= config_.hide_cone;
+		advance(visible_, timer_, show, stay, config_.dwell, config_.hide_delay, std::max(seconds, 0.0f));
+		return visible_;
+	}
+
+	void magazine_check::reset()
+	{
+		visible_ = false;
+		timer_ = 0;
+	}
+
 	bool gun_inspect::update(const pose& head, const pose& grip, bool tracked, float seconds)
 	{
 		seconds = std::max(seconds, 0.0f);
 		bool show = false;
 		bool stay = false;
+		float hold = config_.hold;
 		if (tracked)
 		{
 			bool steady = has_last_ && seconds > 0;
@@ -173,10 +219,18 @@ namespace bfvr::input::gestures
 				angular_speed_ += (rotation_angle(grip, last_) / seconds - angular_speed_) * blend;
 				steady = speed_ <= config_.max_speed && angular_speed_ <= config_.max_angular_speed;
 			}
-			show = steady && gun_in_inspect_pose(head, grip, config_);
+			const bool mag = config_.mag_check && gun_in_mag_check_pose(head, grip, config_);
+			const bool side = config_.side && gun_in_inspect_pose(head, grip, config_);
+			show = steady && (mag || side);
+			if (mag)
+			{
+				hold = config_.mag_hold;
+			}
 			float target[3];
 			store(point_on(grip, config_.offset, config_.hand == 0), target);
-			stay = gaze_angle(head, target) <= config_.hide_cone;
+			float magazine[3];
+			store(point_on(grip, config_.mag_offset, config_.hand == 0), magazine);
+			stay = std::min(gaze_angle(head, target), gaze_angle(head, magazine)) <= config_.hide_cone;
 			last_ = grip;
 			has_last_ = true;
 		}
@@ -185,7 +239,7 @@ namespace bfvr::input::gestures
 			has_last_ = false;
 			speed_ = angular_speed_ = 0;
 		}
-		advance(visible_, timer_, show, stay, config_.hold, config_.hide_delay, seconds);
+		advance(visible_, timer_, show, stay, hold, config_.hide_delay, seconds);
 		return visible_;
 	}
 

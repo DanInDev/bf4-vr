@@ -185,6 +185,11 @@ namespace bfvr::weapon
 			int written_reserve{ -1 };
 		};
 
+		// #56: the held magazine for the HUD (read on the XR thread); stale after a quarter second.
+		std::mutex magazine_view_lock;
+		held_magazine_view magazine_view;
+		ULONGLONG magazine_view_at{};
+
 		std::mutex lock;
 		std::map<int, slot_memory> slots;
 		int current_slot{ -1 };
@@ -693,6 +698,21 @@ namespace bfvr::weapon
 			body::set_magazine_pose(pose);
 			magazine_detached = true;
 		}
+		{
+			held_magazine_view view;
+			view.held = points.valid && result.draw == magazine_draw::in_hand && gun.state().holding;
+			view.top[0] = result.magazine_position.x;
+			view.top[1] = result.magazine_position.y;
+			view.top[2] = result.magazine_position.z;
+			view.magwell[0] = frame.magwell.x;
+			view.magwell[1] = frame.magwell.y;
+			view.magwell[2] = frame.magwell.z;
+			view.rounds = gun.state().held_rounds;
+			view.capacity = gun.profile().capacity;
+			const std::lock_guard view_guard(magazine_view_lock);
+			magazine_view = view;
+			magazine_view_at = GetTickCount64();
+		}
 
 		// A second magazine (extra meshes, #36): drawn as a copy of the game's own magazine draw.
 		body::extra_magazine_pose extra;
@@ -735,6 +755,14 @@ namespace bfvr::weapon
 	bool reload_engages_off_hand()
 	{
 		return active.load(std::memory_order_relaxed) && hand_engaged.load(std::memory_order_relaxed);
+	}
+
+	held_magazine_view held_magazine()
+	{
+		const std::lock_guard guard(magazine_view_lock);
+		held_magazine_view view = magazine_view;
+		view.held = view.held && GetTickCount64() - magazine_view_at < 250;
+		return view;
 	}
 
 	bool reload_owns_off_hand()

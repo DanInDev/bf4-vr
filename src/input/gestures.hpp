@@ -21,18 +21,25 @@ namespace bfvr::input::gestures
 	// Unit normal out of the palm (and the inner forearm): +x of the left grip, -x of the right.
 	void palm_normal(const pose& grip, int hand, float (&out)[3]);
 
-	// Looking at the inside of a forearm, like reading a watch worn on the inner wrist.
+	// Looking at the inside of a forearm, like reading a watch worn on the inner wrist (#55): head
+	// pitched down, the wrist pulled in towards the body, the inner wrist turned up to the eyes. A
+	// support arm bracing the gun puts the inner forearm in front of a level head at arm's length, so
+	// the pitch and the distance keep that out.
 	struct forearm_glance_config
 	{
-		int hand{ 0 };                   // 0 = left (the off hand of a right-handed player)
-		float offset[3]{ 0, 0, 0.12f };  // glance point from the grip pose, grip axes, left hand (x mirrored for the right)
+		int hand{ 0 };                   // controller whose axes the grip has: 0 = left, 1 = right (left-handed play)
+		float offset[3]{ 0, 0, 0.08f };  // glance point (inner wrist) from the grip pose, grip axes, left hand (x mirrored for the right)
 		float show_cone{ 0.35f };        // gaze within 20 degrees of the point to show
 		float hide_cone{ 0.61f };        // stays shown within 35 degrees
-		float facing{ 0.5f };            // cos of the largest angle between palm normal and the direction to the eyes (60 degrees)
-		float max_distance{ 0.8f };
+		float facing{ 0.766f };          // cos of the largest angle between palm normal and the direction to the eyes (40 degrees)
+		float max_distance{ 0.5f };
+		float min_head_pitch{ 0.436f };  // radians the head looks below the horizon (25 degrees); 0 = any
 		float dwell{ 0.25f };            // seconds the show condition must hold
 		float hide_delay{ 0.3f };        // seconds outside the stay condition before hiding
 	};
+
+	// How far the head looks below the horizon, radians (negative = above).
+	float head_pitch_down(const pose& head);
 
 	// The instantaneous show condition.
 	bool forearm_in_view(const pose& head, const pose& grip, const forearm_glance_config& config);
@@ -43,8 +50,9 @@ namespace bfvr::input::gestures
 		explicit forearm_glance(const forearm_glance_config& config = {}) : config_(config) {}
 		void configure(const forearm_glance_config& config) { config_ = config; }
 		const forearm_glance_config& config() const { return config_; }
-		// Returns whether the element is shown. tracked = false counts as looking away.
-		bool update(const pose& head, const pose& grip, bool tracked, float seconds);
+		// Returns whether the element is shown. tracked = false counts as looking away; busy (the hand
+		// holds the gun, a magazine or a grenade) never shows and hides after the delay.
+		bool update(const pose& head, const pose& grip, bool tracked, float seconds, bool busy = false);
 		bool visible() const { return visible_; }
 		void reset();
 
@@ -54,11 +62,18 @@ namespace bfvr::input::gestures
 		float timer_{};
 	};
 
-	// Turning the gun to look at its side and holding it steady: shows ammo until you look away.
+	// Looking at the gun and holding it steady: shows health, ammo and grenades until you look away.
+	// Two poses: the mag check (#56), the gun rolled upside down with the magazine looked at, and the
+	// side inspect (#26), the gun's side turned to the eyes.
 	struct gun_inspect_config
 	{
-		int hand{ 1 };                          // gun hand
+		int hand{ 1 };                          // controller whose axes the grip has: 1 = right, 0 = left (left-handed play)
+		bool mag_check{ true };                 // the upside-down pose counts
+		bool side{ false };                     // the side pose counts
 		float offset[3]{ 0, 0.03f, -0.10f };    // point on the gun from the grip pose, grip axes, right hand (x mirrored for the left)
+		float mag_offset[3]{ 0, -0.06f, -0.08f }; // the magazine: ahead of the grip, below the receiver (grip axes)
+		float upside_down{ -0.5f };             // the grip's up axis (+y) dotted with world up at most this (rolled 120 degrees or more)
+		float mag_hold{ 0.4f };                 // seconds steady in the mag check pose before showing
 		float show_cone{ 0.35f };               // gaze within 20 degrees of the gun to start
 		float hide_cone{ 0.7f };                // look further than 40 degrees away to hide
 		float max_distance{ 0.7f };
@@ -66,12 +81,46 @@ namespace bfvr::input::gestures
 		float max_angular_speed{ 0.6f };        // rad/s (about 35 degrees per second) counts as steady
 		float max_speed{ 0.15f };               // m/s
 		float smoothing{ 0.1f };                // seconds; low-pass on both speeds against tracking noise
-		float hold{ 1.0f };                     // seconds steady before showing
+		float hold{ 1.0f };                     // seconds steady in the side pose before showing
 		float hide_delay{ 0.3f };
 	};
 
-	// The instantaneous pose condition (without steadiness).
+	// The instantaneous side pose (without steadiness, whatever config.side says).
 	bool gun_in_inspect_pose(const pose& head, const pose& grip, const gun_inspect_config& config);
+	// The instantaneous mag check pose (without steadiness, whatever config.mag_check says).
+	bool gun_in_mag_check_pose(const pose& head, const pose& grip, const gun_inspect_config& config);
+
+	// A magazine in the off hand looked at (#56): pulled from the gun or the pouch and held up to the
+	// eyes, its rounds show beside it. Not near the magwell, so a reload's insert does not show it.
+	struct magazine_check_config
+	{
+		float show_cone{ 0.44f };           // gaze within 25 degrees of the magazine's top
+		float hide_cone{ 0.7f };            // stays within 40 degrees
+		float max_distance{ 0.7f };
+		float min_magwell_distance{ 0.15f }; // the magazine at least this far from the magwell
+		float dwell{ 0.25f };
+		float hide_delay{ 0.3f };
+	};
+
+	// The instantaneous show condition.
+	bool magazine_in_view(const pose& head, const float (&top)[3], const float (&magwell)[3], const magazine_check_config& config);
+
+	class magazine_check
+	{
+	public:
+		explicit magazine_check(const magazine_check_config& config = {}) : config_(config) {}
+		void configure(const magazine_check_config& config) { config_ = config; }
+		const magazine_check_config& config() const { return config_; }
+		// held = false (inserted, stowed, dropped) hides at once.
+		bool update(const pose& head, bool held, const float (&top)[3], const float (&magwell)[3], float seconds);
+		bool visible() const { return visible_; }
+		void reset();
+
+	private:
+		magazine_check_config config_;
+		bool visible_{};
+		float timer_{};
+	};
 
 	class gun_inspect
 	{
