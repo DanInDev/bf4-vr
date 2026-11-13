@@ -26,67 +26,31 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `test/headset-2026-11-13` (#48, #49, #55, #56, #57, #58, #41), **Release**, deployed 2026-11-13; the
-main checkout is on that branch, so the launcher's Update mod installs the same build. Not in it: the
-sights work (#39, `fix/sights-headset`) and the other open branches. Tap both stick clicks whenever
-something looks off.
+Build: `integrate/2026-11-13`, **Release**, deployed 2026-11-13 late; the main checkout is on that branch, so
+the launcher's Update mod installs the same build. It holds every open branch: `main` (#54 pickup, respawn
+fixes), the afternoon bundle (#48, #49, #55, #56, #57, #58, #41), the sights (#39, BF3-style lens), thrown
+magazines (#47), the calibration screen (#50), crate grip close (#34), room to the walls (#53), sprint where
+you look (#52), HUD feedback off (#51) and the BF3 guard (#42). Tap both stick clicks (a mark) whenever
+something looks off. Broad checks first; the rows named give the details.
 
-1. **Level start (GRN-7, GRN-6):** load the level and keep the rifle in hand ~5 s. A quick switch to the
-   grenade and the knife and back happens once. Then look down: the game's grenade at the pouch (high
-   right chest), the knife in its holster (high left chest) with your hold, not a rifle, without grabbing.
-2. **Grab zones v2 (GUN-16, FREE-10):** let the rifle hang; take it back by grabbing it at the sling
-   (belly, right). Pistol from the right hip (none in the Baku save), gadget 1 over the right shoulder,
-   gadget 2 over the left. Magazines from the belly and from the left hip, without looking.
-3. **Mag check (HUD-13):** roll the rifle upside down and look at the magazine: health, ammo and grenades
-   appear in about half a second, the right way up. Aiming, reloading and holstering never show them.
-4. **Magazine in the hand (HUD-14):** pull the magazine (or take one from the pouch) and look at it:
-   "27 / 30" beside it, gone when it goes back in. A normal reload never flashes it.
-5. **Wrist map (HUD-12):** aim two-handed for a while: no minimap. Lower your head, pull the left wrist
-   in and turn its inside up: the map appears.
-6. **Knife in the hand (HAND-16):** draw the knife: it sits as you set it (145 / -15 / 170 are the defaults
-   now).
-7. **Settings and holsters (CTRL-18):** go through every panel page: no test switches left; Y switches the
-   fire mode, no button changes the weapon.
-8. Needs a save with a sidearm, skip in Baku: **rifle on the sling (FREE-11)** while the pistol is out.
-0. **Body calibration (BODY-1):** when the level loads a notice asks you to stand straight, arms out to
-   the sides, and hold both triggers: hold still for a second. It should report about your height and
-   save it; arms, pouches and holsters then fit you. (Ignore it and nothing changes.)
-**Sights first (branch `fix/sights-headset`, 2026-11-12).** Open SteamVR's VR View (Status window, pop-out
-icon) and note which eye it shows. At each of S1-S6 tap both stick clicks (a mark) and say so; the PC
-side takes the VR View capture (`tools\vrview-shot.ps1`). Hold the gun with both hands, as you normally do.
-
-Result 2026-11-12 (first run): S3 lens clears and S5 magnifier works (best at the left eye, a white
-glitch at the bottom of the view); S3's dot is the game's own, off centre and partly cut off; S2 SCAR:
-no dot; S1 not run. **Next run, only these:** set VR View to both eyes (or the right eye); **S1**;
-then the SCAR at your right eye with Weapon > Red dot shown to = both; a mark when the white glitch shows.
-
-- **S1 Dot layer at all (AIM-12):** panel Weapon > Red dot test on. SCAR-H at the hip, pointed at a wall:
-  is there a red dot with a white middle where the barrel points, in both eyes? Then off again.
-- **S2 SCAR-H holo (AIM-12):** bring the holo to one eye: the dot sits in the window on what the barrel
-  points at, in that eye only; tilt and turn your head a little: it stays on the target.
-- **S3 AK-12 lens (AIM-1, AIM-12):** bring the red dot sight to one eye: the lens clears (no longer
-  black) and stays clear while you hold it there; a red dot in it.
-- **S4 No flicker (AIM-2):** keep the AK at the eye for ten seconds, breathe, shift a little: the lens
-  does not blink between black and clear; lowering the gun turns it black again.
-- **S5 Magnifier (AIM-14):** AK-12, flip the magnifier in (off-hand trigger) and look through: the world
-  ~1.7x with a dot in that eye only, the view itself does not zoom or pump.
-- **S6 Shots (AIM-10, AIM-11, AIM-13):** through the AK's sight and from the hip, a short burst at a
-  far wall: the holes sit on the dot; the green dot still shows at the hip.
-- **S7 Too hard to find?** If the dot comes and goes while you look through the lens, raise Weapon >
-  Red dot eye tolerance (2 -> 3 or 4) and Red dot size, and say which values felt right.
-
-4. **Magazine snap (GUN-15):** reach slowly for the seated magazine with the open off hand: the hand slides
-   onto it before you squeeze; pull it out (SCAR: squeeze, then B): no jump.
-5. **SCAR palming (GUN-12):** new magazine from the pouch to the magwell, B, look at both magazines and the
-   fingers in your hand, roll back and seat.
-6. **Free hands (FREE-3 to FREE-9):** let go of the gun (sling), pick it up with either hand, hold it in the
-   left and reload with the right.
-7. **Grenade (GRN-4, GRN-5):** take the first grenade with the gun out: no flat picture, the game's sound,
-   then pull the pin (a ring marks it). Afterwards look down at the pouch: a real grenade stands there.
-8. **Knife (GRN-6, HAND-16):** draw the knife from the chest holster once, put it back, look down: the knife
-   stands in the holster. In the hand, note the Knife angle / turn / roll values that look right.
-9. **Gadget stash (CTRL-14):** open it with the left hand, laser-click C4 into Gadget One, M320 into Gadget
-   Two, Done. The tabs no longer flip on each click; afterwards the left stick walks straight.
+1. **Calibration screen (BODY-1):** `body_calibration = always` in your ini, so the full-width screen comes
+   up after the level loads. Follow it (T-pose, both triggers, two seconds): height reported and saved,
+   arms and holsters fit. Then the panel's Body > Calibration > Calibrate now: the screen comes back.
+2. **Mag check and the held magazine (HUD-13, HUD-14):** roll the rifle upside down and look at the
+   magazine: health, ammo and grenades. Pull a magazine and look at it: "27 / 30" beside it.
+3. **Holsters and the sling (GUN-16, FREE-10, GRN-6, GRN-7):** let the rifle hang and take it back at the
+   sling; gadgets over the shoulders; magazines from the belly and the left hip; at level start the
+   grenade and the knife stand at their slots.
+4. **Thrown magazines (GUN-19):** toss a used magazine sideways: it flies with your hand's speed and lies
+   on the floor a few seconds. AK-12 quick reload knocks the old one out.
+5. **Sights (AIM-12, AIM-1, AIM-14):** SCAR-H holo and AK-12 red dot as real sights (ring at its real
+   size at any distance, clear glass); the magnifier picture inside the glass in both eyes.
+6. **Moving (CTRL-19, VIEW-16):** sprint and vault go where you look; Body > Room to the walls 0.20 lets
+   you get closer to a window and lean out (from the next spawn).
+7. **Menus and pickups (CTRL-20, GUN-17, CTRL-18):** close the gadget crate with the off-hand grip; grip a
+   dropped enemy gun; the panel has no test switches left.
+8. If there is a fight: **HUD-11** (no score pop-ups or hit markers by default), **GUN-18** (after a death
+   reload, grenades and an empty gun work as before).
 
 ## Main problems (2026-11-04)
 
