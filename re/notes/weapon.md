@@ -671,6 +671,27 @@ as the left (all values <= 0.2).
 
 Test pitfall: `tools\pipe.ps1` takes the command's argument as one string: `pipe key "32 150"`, not `pipe key 32 150`.
 
+**Steps 1 and 2 (2026-11-13 evening, Release, the red room again, the AK-12 now in the save):**
+
+- **Stale second-eye lookups exist:** a new counter (`eyepass` `stale_after_discard`) counts second-eye binds that
+  a copy made before an arena discard would answer: 637 in about 5 s, 4169 over a session. `eye_pass` now keys
+  second-eye lookups by the arena's discards in this render (`discard_fix`, pipe `eyefix 0|1`, on by default),
+  so such a bind takes the late path (the block as written now). Cost: none measurable (eye pass 1.36 ms,
+  GPU 4.6 / 4.6 ms per eye). **The stray did not show in either mode here** (6 shots each, AK-12 and SCAR-H,
+  lower-half differences 0.1-0.3): not proven to be the cause, kept because a pre-discard copy is wrong by
+  construction.
+- **The AK-12's lens without the game's aim:** with `sight_zoom_mesh` on and `sight_ads 0` (`aiming=0`) the lens is
+  clear with the red dot, as in the game's ADS. The dot is the game's reticle re-anchored by `sight_reticle` and it
+  is collimated: gun moved 0 / 0.6 / 1.1 cm off the eye, the dot stays at the same pixel (2 px) while the lens
+  slides, the rim cutting it at 1.1 cm. So the AK-12 needs no game ADS either; `hip_accuracy` keeps the accuracy.
+- **The magnifier (selected 2, type 2) with the zoom mesh:** the game hides the magnifier's mesh and shows the red
+  dot's lens unmagnified (its own ADS magnifies by the camera's FOV, 27 degrees, which the mod does not use). Our
+  scope render runs at the hip (1.725x, `scope_images` flowing) but is an OpenXR quad. With the zoom mesh off the
+  lens is black and the magnifier's ring shows to the right of the sight in the right eye. Once, with the zoom mesh
+  on, the first right-eye capture after flipping it in also had that ring: intermittent again.
+- Next (brief step 3): draw the scope render's picture inside the lens mask (stencil 2, where the reticle quad is
+  drawn) with a pixel shader sampling it by direction, before the reticle; then the magnifier's quad can go.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

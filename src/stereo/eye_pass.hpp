@@ -31,6 +31,9 @@ namespace bfvr::stereo
 	std::string set_eye_poison(const std::string& spec);
 	// Research: indexed draws [from, to) of the second eye are skipped (0 0 = none).
 	std::string set_eye_skip(unsigned from, unsigned to);
+	// Pipe "eyefix [0|1]" (#39): second-eye block lookups keyed by the arena's discards in this render (1, the
+	// default) or not (0, as before: copies made before a discard answered blocks written after it).
+	std::string set_discard_fix(int on);
 	// Research (pipe eyehide): indexed draws with one of these pixel shaders (hex pointers from meshprobe,
 	// up to 4) are skipped in both eyes; "off" clears.
 	std::string set_eye_hide(const std::string& shaders);
