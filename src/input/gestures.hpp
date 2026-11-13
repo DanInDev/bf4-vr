@@ -21,18 +21,25 @@ namespace bfvr::input::gestures
 	// Unit normal out of the palm (and the inner forearm): +x of the left grip, -x of the right.
 	void palm_normal(const pose& grip, int hand, float (&out)[3]);
 
-	// Looking at the inside of a forearm, like reading a watch worn on the inner wrist.
+	// Looking at the inside of a forearm, like reading a watch worn on the inner wrist (#55): head
+	// pitched down, the wrist pulled in towards the body, the inner wrist turned up to the eyes. A
+	// support arm bracing the gun puts the inner forearm in front of a level head at arm's length, so
+	// the pitch and the distance keep that out.
 	struct forearm_glance_config
 	{
-		int hand{ 0 };                   // 0 = left (the off hand of a right-handed player)
-		float offset[3]{ 0, 0, 0.12f };  // glance point from the grip pose, grip axes, left hand (x mirrored for the right)
+		int hand{ 0 };                   // controller whose axes the grip has: 0 = left, 1 = right (left-handed play)
+		float offset[3]{ 0, 0, 0.08f };  // glance point (inner wrist) from the grip pose, grip axes, left hand (x mirrored for the right)
 		float show_cone{ 0.35f };        // gaze within 20 degrees of the point to show
 		float hide_cone{ 0.61f };        // stays shown within 35 degrees
-		float facing{ 0.5f };            // cos of the largest angle between palm normal and the direction to the eyes (60 degrees)
-		float max_distance{ 0.8f };
+		float facing{ 0.766f };          // cos of the largest angle between palm normal and the direction to the eyes (40 degrees)
+		float max_distance{ 0.5f };
+		float min_head_pitch{ 0.436f };  // radians the head looks below the horizon (25 degrees); 0 = any
 		float dwell{ 0.25f };            // seconds the show condition must hold
 		float hide_delay{ 0.3f };        // seconds outside the stay condition before hiding
 	};
+
+	// How far the head looks below the horizon, radians (negative = above).
+	float head_pitch_down(const pose& head);
 
 	// The instantaneous show condition.
 	bool forearm_in_view(const pose& head, const pose& grip, const forearm_glance_config& config);
@@ -43,8 +50,9 @@ namespace bfvr::input::gestures
 		explicit forearm_glance(const forearm_glance_config& config = {}) : config_(config) {}
 		void configure(const forearm_glance_config& config) { config_ = config; }
 		const forearm_glance_config& config() const { return config_; }
-		// Returns whether the element is shown. tracked = false counts as looking away.
-		bool update(const pose& head, const pose& grip, bool tracked, float seconds);
+		// Returns whether the element is shown. tracked = false counts as looking away; busy (the hand
+		// holds the gun, a magazine or a grenade) never shows and hides after the delay.
+		bool update(const pose& head, const pose& grip, bool tracked, float seconds, bool busy = false);
 		bool visible() const { return visible_; }
 		void reset();
 

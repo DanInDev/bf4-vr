@@ -95,6 +95,10 @@ namespace bfvr::settings
 			{ "hud_show_main", "HUD", "Shown", "Everything else", "Markers, objective text, prompts", "" },
 			{ "hud_marker_distance", "HUD", "Placement", "Marker distance", "Metres, HUD on the body", "", true },
 			{ "hud_watch_width", "HUD", "Placement", "Minimap size", "Metres on the forearm", "", true },
+			{ "hud_watch_pitch", "HUD", "Watch glance", "Head down", "Degrees below the horizon to show the minimap", "", true },
+			{ "hud_watch_reach", "HUD", "Watch glance", "Wrist distance", "Metres from the eyes at most", "", true },
+			{ "hud_watch_facing", "HUD", "Watch glance", "Wrist facing", "Degrees the inner wrist may turn away", "", true },
+			{ "hud_watch_dwell", "HUD", "Watch glance", "Glance time", "Seconds before the minimap shows", "", true },
 			{ "hud_ammo_width", "HUD", "Placement", "Ammo counter size", "Metres beside the gun", "", true },
 
 			// Controls

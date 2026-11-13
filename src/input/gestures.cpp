@@ -105,11 +105,16 @@ namespace bfvr::input::gestures
 		store(body::ik::rotate(rotation_of(grip), { hand == 1 ? -1.0f : 1.0f, 0, 0 }), out);
 	}
 
+	float head_pitch_down(const pose& head)
+	{
+		return std::asin(std::clamp(-forward(head).y, -1.0f, 1.0f));
+	}
+
 	bool forearm_in_view(const pose& head, const pose& grip, const forearm_glance_config& config)
 	{
 		const vec3 point = point_on(grip, config.offset, config.hand == 1);
 		const vec3 to_eyes = position_of(head) - point;
-		if (body::ik::length(to_eyes) > config.max_distance)
+		if (body::ik::length(to_eyes) > config.max_distance || head_pitch_down(head) < config.min_head_pitch)
 		{
 			return false;
 		}
@@ -120,11 +125,11 @@ namespace bfvr::input::gestures
 		return gaze_angle(head, target) <= config.show_cone && body::ik::dot(to_vec(normal), body::ik::normalize(to_eyes)) >= config.facing;
 	}
 
-	bool forearm_glance::update(const pose& head, const pose& grip, bool tracked, float seconds)
+	bool forearm_glance::update(const pose& head, const pose& grip, bool tracked, float seconds, bool busy)
 	{
 		bool show = false;
 		bool stay = false;
-		if (tracked)
+		if (tracked && !busy)
 		{
 			show = forearm_in_view(head, grip, config_);
 			const vec3 point = point_on(grip, config_.offset, config_.hand == 1);

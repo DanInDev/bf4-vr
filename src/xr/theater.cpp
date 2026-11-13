@@ -29,6 +29,7 @@
 #include "common/settings_store.hpp"
 #include "hooks/game_window.hpp"
 #include "input/gestures.hpp"
+#include "input/handedness.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
 #include "stereo/eye_math.hpp"
@@ -47,6 +48,7 @@
 #include "ui/vr_panel.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/physical_grenade.hpp"
+#include "weapon/physical_reload.hpp"
 #include "weapon/two_hand.hpp"
 #include "weapon/two_handed.hpp"
 #include "xr/controller_actions.hpp"
@@ -1484,9 +1486,22 @@ namespace bfvr::xr
 			const stereo::pose head = stereo::eye_math::centre_pose(head_sample);
 			const float eye[3] = { head.position[0], head.position[1], head.position[2] };
 			const float aspect = static_cast<float>(hud_swapchain_width) / static_cast<float>(hud_swapchain_height);
-			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds) && store.boolean("hud_show_minimap", true))
+			// #55: a deliberate watch glance only. Hand index 0 is the off hand; left-handed it is the right
+			// controller, whose palm normal is -x.
+			constexpr float degrees = 3.14159265f / 180.0f;
+			const bool left_handed = input::left_handed();
+			input::gestures::forearm_glance_config watch = minimap_gesture.config();
+			watch.hand = left_handed ? 1 : 0;
+			watch.min_head_pitch = store.real("hud_watch_pitch", 25.0f) * degrees;
+			watch.max_distance = store.real("hud_watch_reach", 0.5f);
+			watch.facing = std::cos(store.real("hud_watch_facing", 40.0f) * degrees);
+			watch.dwell = store.real("hud_watch_dwell", 0.25f);
+			minimap_gesture.configure(watch);
+			const bool off_busy = weapon::grenade_in_hand() || weapon::off_hand_at_belt() || weapon::reload_owns_off_hand()
+				|| weapon::off_hand_on_gun() || weapon::off_hand_holds_gun();
+			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds, off_busy) && store.boolean("hud_show_minimap", true))
 			{
-				const float offset[3] = { 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
+				const float offset[3] = { left_handed ? -0.03f : 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
 			}
 			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds) && store.boolean("hud_show_ammo", true))

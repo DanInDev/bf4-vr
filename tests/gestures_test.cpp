@@ -138,9 +138,10 @@ namespace
 		pose back;       // back of the hand towards the eyes
 	};
 
+	// The wrist pulled in to about 40 cm below and ahead of the eyes, the head about 50 degrees down.
 	glance_scene glance(const gestures::forearm_glance_config& config)
 	{
-		const vec3 point{ -0.05f, 1.25f, -0.35f };
+		const vec3 point{ -0.05f, 1.28f, -0.28f };
 		const vec3 to_eyes = eyes - point;
 		const float sign = config.hand == 0 ? 1.0f : -1.0f; // palm normal is +x left, -x right
 		const vec3 elbow = config.hand == 0 ? vec3{ -1, 0, 0 } : vec3{ 1, 0, 0 };
@@ -199,6 +200,84 @@ namespace
 		const glance_scene mirrored = glance(right);
 		expect(gestures::forearm_in_view(mirrored.head, mirrored.watch, right), "right-hand watch pose");
 		expect(!gestures::forearm_in_view(mirrored.head, mirrored.back, right), "right back of the hand");
+	}
+
+	// #55: the minimap only on a deliberate watch glance, never while the support arm braces the gun.
+	void test_watch_glance_is_deliberate()
+	{
+		const gestures::forearm_glance_config config;
+		gestures::forearm_glance_config before = config; // the thresholds before #55
+		before.offset[2] = 0.12f;
+		before.facing = 0.5f;
+		before.max_distance = 0.8f;
+		before.min_head_pitch = 0;
+
+		const pose level = make_pose(eyes, {});
+		expect(near(gestures::head_pitch_down(level), 0), "level head has pitch 0");
+		const glance_scene scene = glance(config);
+		expect(gestures::head_pitch_down(scene.head) > 0.75f, "the glance scene looks about 50 degrees down");
+
+		// Two-handed brace: off hand on the handguard 44 cm ahead and a little low, forearm back to the
+		// elbow, inner forearm turned to a level head looking along the gun.
+		const vec3 handguard{ -0.03f, 1.47f, -0.42f };
+		const vec3 elbow_side{ -0.3f, -0.3f, 1.0f };
+		const pose brace_before = grip_with_point(handguard, eyes - handguard, elbow_side, before.offset);
+		const pose brace = grip_with_point(handguard, eyes - handguard, elbow_side, config.offset);
+		expect(gestures::forearm_in_view(level, brace_before, before), "the old thresholds showed the map on a brace");
+		expect(!gestures::forearm_in_view(level, brace, config), "a brace with a level head does not show");
+		gestures::forearm_glance detector;
+		bool shown = false;
+		for (int i = 0; i < 270; ++i)
+		{
+			shown |= detector.update(level, brace, true, frame);
+		}
+		expect(!shown, "three seconds of bracing never show the map");
+
+		// The same wrist pose with the head level.
+		expect(!gestures::forearm_in_view(level, scene.watch, config), "watch pose with a level head does not show");
+		gestures::forearm_glance_config any_pitch = config;
+		any_pitch.min_head_pitch = 0;
+		expect(gestures::forearm_in_view(level, brace, any_pitch), "pitch 0 turns the pitch check off: the brace counts again");
+
+		// Head down, but the arm stretched out 65 cm.
+		const vec3 far_point = eyes + body::ik::normalize(vec3{ -0.1f, -1.0f, -1.0f }) * 0.65f;
+		const vec3 far_eyes = eyes - far_point;
+		const float offset[3]{ config.offset[0], config.offset[1], config.offset[2] };
+		const pose far_wrist = grip_with_point(far_point, far_eyes, { -1, 0, 0 }, offset);
+		const pose far_head = look_at(eyes, far_point);
+		expect(!gestures::forearm_in_view(far_head, far_wrist, config), "an outstretched arm does not show");
+		gestures::forearm_glance_config long_reach = config;
+		long_reach.max_distance = 0.8f;
+		expect(gestures::forearm_in_view(far_head, far_wrist, long_reach), "the same arm within a longer reach shows");
+
+		// Inner wrist turned 50 degrees away from the eyes: outside 40 degrees, inside the old 60.
+		const vec3 to_eyes = body::ik::normalize(eyes - vec3{ -0.05f, 1.28f, -0.28f });
+		const vec3 side = body::ik::normalize(body::ik::cross(to_eyes, { -1, 0, 0 }));
+		const vec3 turned = to_eyes * std::cos(0.87f) + side * std::sin(0.87f);
+		const pose half_turned = grip_with_point({ -0.05f, 1.28f, -0.28f }, turned, { -1, 0, 0 }, offset);
+		expect(!gestures::forearm_in_view(scene.head, half_turned, config), "wrist turned 50 degrees away does not show");
+		gestures::forearm_glance_config wide = config;
+		wide.facing = 0.5f;
+		expect(gestures::forearm_in_view(scene.head, half_turned, wide), "the same wrist within 60 degrees shows");
+
+		// Busy off hand (gun, magazine, grenade): never shows; shown and then busy hides after the delay.
+		detector.reset();
+		shown = false;
+		for (int i = 0; i < 90; ++i)
+		{
+			shown |= detector.update(scene.head, scene.watch, true, frame, true);
+		}
+		expect(!shown, "a busy off hand never shows the map");
+		frames_until(detector, scene.head, scene.watch, true, 1.0f, true);
+		int hidden = -1;
+		for (int i = 1; i <= 90 && hidden < 0; ++i)
+		{
+			if (!detector.update(scene.head, scene.watch, true, frame, true))
+			{
+				hidden = i;
+			}
+		}
+		expect(hidden > 0 && near(static_cast<float>(hidden) * frame, config.hide_delay, 2 * frame), "grabbing the gun hides the map after the delay");
 	}
 
 	struct gun_scene
@@ -347,6 +426,7 @@ int main()
 {
 	test_helpers();
 	test_forearm_glance();
+	test_watch_glance_is_deliberate();
 	test_gun_inspect();
 	test_pointer();
 	if (failures)

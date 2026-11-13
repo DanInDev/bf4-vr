@@ -172,6 +172,14 @@ hud_show_main = 1
 hud_show_minimap = 1
 hud_show_ammo = 1
 hud_show_bottom = 1
+# The minimap on the off-hand wrist (hud_mode = body, #55) shows only on a deliberate watch glance: the
+# head at least hud_watch_pitch degrees down, the inner wrist within hud_watch_reach metres of the eyes
+# and turned to them within hud_watch_facing degrees, held hud_watch_dwell seconds. Never while the off
+# hand holds the gun, a magazine or a grenade.
+hud_watch_pitch = 25
+hud_watch_reach = 0.5
+hud_watch_facing = 40
+hud_watch_dwell = 0.25
 # Body calibration (#46): after a level loads, stand straight, arms out to the sides, and hold both
 # triggers for a second. It measures your height (from the floor, or from the arm span without one) and
 # span, sets body_height, body_span, arm_length and shoulder_width, and saves them here. first = until done
