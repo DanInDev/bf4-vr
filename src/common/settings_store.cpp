@@ -94,6 +94,7 @@ namespace bfvr::settings
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "magazine_reach", kind::real, 0.08f, 0.25f, 0.01f, "0.13", "", "physical reload: the off hand grabs or stows a magazine this close to the zone from the low chest to the off-side hip, metres" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
+			{ "magazine_flight", kind::boolean, 0, 0, 0, "1", "", "a magazine you let go or toss flies on with your hand's speed, tumbles and comes to rest on the floor for a few seconds (off: it just drops away); the AK quick reload knocks the old one out (#47)" },
 			{ "accessory_toggle", kind::choice, 0, 0, 0, "trigger", "trigger|touch|off", "accessory toggle (laser, light, magnifier: D-pad up): trigger = holding the gun two-handed, press the off-hand trigger; touch = off hand on the optic or front rail + grip" },
 			{ "vr_panel", kind::boolean, 0, 0, 0, "1", "", "hold the left menu button to open this panel (a short press stays the game's Start)" },
 			{ "stick_menu", kind::boolean, 0, 0, 0, "1", "", "hold both thumbstick clicks ~0.5 s to open or close this panel (SteamVR can take the left menu button)" },

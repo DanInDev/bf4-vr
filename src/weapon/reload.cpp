@@ -165,16 +165,20 @@ namespace bfvr::weapon
 			state_.inserted_since_lock = true;
 			return reload_event::magazine_in;
 		}
-		reload_event result = reload_event::magazine_in;
 		if (state_.magazine_in)
 		{
 			if (profile_.kind != variant::ak || !profile_.flick)
 			{
 				return reload_event::none;
 			}
+			// #47: two steps. The old one is knocked out now; the new one stays in the hand and seats on the
+			// next insert.
 			drop(state_.magazine_rounds);
-			result = reload_event::flicked_in;
+			state_.magazine_in = false;
+			state_.magazine_rounds = 0;
+			return reload_event::flicked_out;
 		}
+		const reload_event result = reload_event::magazine_in;
 		state_.magazine_in = true;
 		state_.magazine_rounds = state_.held_rounds;
 		state_.holding = false;

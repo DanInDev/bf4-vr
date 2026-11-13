@@ -146,6 +146,7 @@ namespace bfvr::core
 			weapon::set_free_hand_reload(true);
 			body::set_extra_meshes(true);
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true));
+			weapon::set_magazine_flight(store.boolean("magazine_flight", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");

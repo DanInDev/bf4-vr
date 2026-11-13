@@ -161,6 +161,7 @@ namespace bfvr::weapon
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
 		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
+		std::atomic<bool> magazine_flight_on{ true }; // live setting magazine_flight (#47)
 		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> active{};
@@ -218,7 +219,7 @@ namespace bfvr::weapon
 			case reload_event::magazine_stowed: return "magazine_stowed";
 			case reload_event::magazine_taken: return "magazine_taken";
 			case reload_event::magazine_in: return "magazine_in";
-			case reload_event::flicked_in: return "flicked_in";
+			case reload_event::flicked_out: return "flicked_out";
 			case reload_event::chambered: return "chambered";
 			case reload_event::racked_empty: return "racked_empty";
 			case reload_event::round_ejected: return "round_ejected";
@@ -239,9 +240,9 @@ namespace bfvr::weapon
 			{
 			case reload_event::magazine_taken:
 			case reload_event::magazine_stowed: play(cue::cloth); break;
-			case reload_event::magazine_in:
-			case reload_event::flicked_in: play(cue::magazine_in); break;
+			case reload_event::magazine_in: play(cue::magazine_in); break;
 			case reload_event::magazine_out:
+			case reload_event::flicked_out:
 			case reload_event::magazine_palmed: play(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
@@ -260,11 +261,11 @@ namespace bfvr::weapon
 			case reload_event::dry_fire: input::haptic(1 - reloading_hand, input::pulses::click); break;
 			case reload_event::bolt_locked: input::haptic(1 - reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_out:
+			case reload_event::flicked_out:
 			case reload_event::magazine_palmed:
 			case reload_event::magazine_taken: input::haptic(reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_stowed: input::haptic(reloading_hand, input::pulses::tick); break;
 			case reload_event::magazine_in:
-			case reload_event::flicked_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
 			case reload_event::round_ejected:
@@ -426,6 +427,11 @@ namespace bfvr::weapon
 	void set_free_hand_reload(bool enabled)
 	{
 		free_hand_reload = enabled;
+	}
+
+	void set_magazine_flight(bool enabled)
+	{
+		magazine_flight_on = enabled;
 	}
 
 	bool reload_claims_free_hand()
@@ -598,6 +604,8 @@ namespace bfvr::weapon
 		frame.held_rotation = q(points.held_rotation);
 		frame.held_tilt = points.held_tilt;
 		frame.palming = palming.load(std::memory_order_relaxed) && !swapped;
+		frame.throw_flight = magazine_flight_on.load(std::memory_order_relaxed);
+		frame.floor_valid = stereo::latest_floor(frame.floor_y);
 		// A grip on an accessory toggles it; the reload does not see it.
 		frame.grip = swapped ? (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 : grip && !accessory_busy.load(std::memory_order_relaxed);
 		// The free gun hand's grip near the pistol grip takes the gun back (free hands): when the hand is

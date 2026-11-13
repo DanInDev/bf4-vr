@@ -148,12 +148,15 @@ namespace
 		gun.load(11, 60); // 10 + 1
 		gun.take_from_chest();
 		const int before = owned(gun);
-		expect(gun.insert() == reload_event::flicked_in, "flick knocks the old magazine out");
+		expect(gun.insert() == reload_event::flicked_out, "flick knocks the old magazine out (#47: first step)");
+		expect(!gun.state().magazine_in && gun.state().holding && gun.rounds_in_gun() == 1, "the new one is still in the hand, only the chambered round in the gun");
+		expect(gun.insert() == reload_event::magazine_in, "second step: the new one seats");
 		expect(gun.rounds_in_gun() == 31 && gun.state().reserve == 40, "new magazine in, old rounds back (discard off)");
 		expect(owned(gun) == before, "flick with discard off keeps every round");
 		reload strict(ak);
 		strict.load(11, 60);
 		strict.take_from_chest();
+		strict.insert();
 		strict.insert();
 		expect(strict.state().reserve == 30, "flick with discard on loses the old rounds");
 		reload_profile no_flick = ak;
@@ -597,6 +600,92 @@ namespace
 		expect(r.off_hand_busy, "hand at the magwell: the grip is claimed before it closes");
 	}
 
+	// The falling magazine, whichever mesh draws it (the rig's own, or the extra one while the gun holds its magazine).
+	bool falling_at(const hand_result& r, v3& where)
+	{
+		if (r.draw == magazine_draw::falling)
+		{
+			where = r.magazine_position;
+			return true;
+		}
+		if (r.extra == hand_result::extra_magazine::falling)
+		{
+			where = r.extra_position;
+			return true;
+		}
+		return false;
+	}
+
+	// #47: a magazine let go while the hand swings keeps flying that way; with a floor it lands and rests.
+	void test_hands_toss()
+	{
+		reload gun(ar);
+		gun.load(16, 30);
+		reload_hands hands(flat_hold());
+		hands.update(gun, at(chest, true)); // takes a magazine from the pouch
+		hand_result r{};
+		v3 hand = away;
+		for (int i = 0; i < 30; ++i) // the hand settles away from the chest (the test jumps there in one frame)
+		{
+			hands.update(gun, at(hand, true));
+		}
+		for (int i = 0; i < 12; ++i) // swinging right at 1.8 m/s
+		{
+			hand.x += 0.02f;
+			hand_frame f = at(hand, true);
+			f.floor_valid = true;
+			f.floor_y = -1.6f;
+			r = hands.update(gun, f);
+		}
+		hand_frame let_go = at(hand, false);
+		let_go.floor_valid = true;
+		let_go.floor_y = -1.6f;
+		r = hands.update(gun, let_go);
+		expect(has(r, reload_event::magazine_dropped), "toss: let go away from the chest drops it");
+		const float released_x = hand.x;
+		for (int i = 0; i < 18; ++i) // 0.2 s
+		{
+			hand_frame f = at(hand, false);
+			f.floor_valid = true;
+			f.floor_y = -1.6f;
+			r = hands.update(gun, f);
+		}
+		v3 at_now{};
+		expect(falling_at(r, at_now) && at_now.x > released_x + 0.25f, "toss: 0.2 s later it is >25 cm further right (the hand's 1.8 m/s)");
+		for (int i = 0; i < 90; ++i) // 1 s more: on the floor
+		{
+			hand_frame f = at(hand, false);
+			f.floor_valid = true;
+			f.floor_y = -1.6f;
+			r = hands.update(gun, f);
+		}
+		expect(falling_at(r, at_now) && close(at_now.y, -1.6f + 0.08f, 1e-3f), "toss: it rests on the floor, still drawn");
+
+		// Flight off: the old straight drop.
+		reload still_gun(ar);
+		still_gun.load(16, 30);
+		reload_hands old(flat_hold());
+		old.update(still_gun, at(chest, true));
+		hand = away;
+		for (int i = 0; i < 12; ++i)
+		{
+			hand.x += 0.02f;
+			hand_frame f = at(hand, true);
+			f.throw_flight = false;
+			old.update(still_gun, f);
+		}
+		hand_frame off = at(hand, false);
+		off.throw_flight = false;
+		old.update(still_gun, off);
+		for (int i = 0; i < 18; ++i)
+		{
+			hand_frame f = at(hand, false);
+			f.throw_flight = false;
+			r = old.update(still_gun, f);
+		}
+		expect(falling_at(r, at_now) && close(at_now.x, hand.x, 1e-3f), "flight off: straight down");
+	}
+
 	void test_hands_flick()
 	{
 		reload gun(ak, { false });
@@ -605,8 +694,20 @@ namespace
 		hand_result r = hands.update(gun, at(chest, true));
 		expect(r.draw == magazine_draw::in_hand && r.extra == hand_result::extra_magazine::seated, "extra meshes: a new one taken, the old one still drawn in the gun");
 		r = hands.update(gun, at(magwell, true));
-		expect(has(r, reload_event::flicked_in) && r.draw == magazine_draw::with_gun, "new magazine knocks the old one out");
+		expect(has(r, reload_event::flicked_out) && r.draw == magazine_draw::in_hand, "#47 step one: the new magazine knocks the old one out and stays in the hand");
 		expect(r.extra == hand_result::extra_magazine::falling && r.extra_position.y <= magwell.y + 1e-4f, "extra meshes: the knocked-out one falls from the magwell");
+		bool seated = false;
+		int seat_frame = -1;
+		for (int i = 0; i < 60 && !seated; ++i) // held at the magwell
+		{
+			r = hands.update(gun, at(magwell, true));
+			if (has(r, reload_event::magazine_in))
+			{
+				seated = true;
+				seat_frame = i;
+			}
+		}
+		expect(seated && seat_frame >= 18 && seat_frame <= 26, "#47 step two: the new one seats about 0.25 s later");
 		for (int i = 0; i < 200 && r.extra != hand_result::extra_magazine::none; ++i)
 		{
 			r = hands.update(gun, at(magwell, false));
@@ -1045,7 +1146,8 @@ namespace
 		reload ak_gun(ak);
 		ak_gun.load(0, 60);
 		ak_gun.take_from_chest();
-		ak_gun.insert();
+		ak_gun.insert(); // knocks the empty magazine out (#47: two steps)
+		ak_gun.insert(); // seats the new one
 		reload_hands rack_hands;
 		hand_frame f = at(away, false);
 		f.has_root = true;
@@ -1078,7 +1180,8 @@ namespace
 		reload short_gun(ak);
 		short_gun.load(0, 60);
 		short_gun.take_from_chest();
-		short_gun.insert();
+		short_gun.insert(); // knocks the empty magazine out (#47: two steps)
+		short_gun.insert(); // seats the new one
 		reload_hands short_hands;
 		f.grip = false;
 		f.off_hand = away;
@@ -1267,7 +1370,7 @@ static void test_reload_sound_cues()
 	expect(cues_for(reload_event::magazine_out, cues) == 1 && cues[0].event == reload_sound::magazine_out && cues[0].delay_ms == 0, "cue: magazine out");
 	expect(cues_for(reload_event::magazine_in, cues) == 2 && cues[0].event == reload_sound::magazine_in && cues[1].event == reload_sound::magazine_seat
 		&& cues[1].delay_ms > 0, "cue: magazine in, then seated");
-	expect(cues_for(reload_event::flicked_in, cues) == 2 && cues[0].event == reload_sound::magazine_in, "cue: flicked in");
+	expect(cues_for(reload_event::flicked_out, cues) == 1 && cues[0].event == reload_sound::magazine_out, "cue: AK old magazine knocked out");
 	expect(cues_for(reload_event::chambered, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: chambered");
 	expect(cues_for(reload_event::racked_empty, cues) == 1 && cues[0].event == reload_sound::bolt, "cue: racked empty");
 	expect(cues_for(reload_event::magazine_stowed, cues) == 1 && cues[0].event == reload_sound::settle, "cue: stowed");
@@ -1299,6 +1402,7 @@ int main()
 	test_hands_reach_and_overlap();
 	test_hands_ar_drop_and_fall();
 	test_hands_flick();
+	test_hands_toss();
 	test_accessory_touch();
 	test_grenade_throw();
 	test_grenade_either_hand();

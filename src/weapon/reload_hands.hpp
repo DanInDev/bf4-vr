@@ -1,22 +1,14 @@
 #pragma once
 
+#include "weapon/magazine_flight.hpp"
 #include "weapon/reload.hpp"
+#include "weapon/vec.hpp"
 
 // Physical reload gestures (issue #14): turns the off hand, its grip, the reload button and the
 // gun's magazine and slide positions into reload events, and says where to draw the magazine.
 // Engine-free, all positions in one space (OpenXR LOCAL, metres). Tested by tests/reload_test.cpp.
 namespace bfvr::weapon
 {
-	struct v3
-	{
-		float x{}, y{}, z{};
-	};
-
-	struct q4
-	{
-		float x{}, y{}, z{}, w{ 1 };
-	};
-
 	struct hand_frame
 	{
 		float seconds{};      // since the last update
@@ -55,6 +47,11 @@ namespace bfvr::weapon
 		// Empty hands (#38): the off hand holds the gun by the handguard and the free gun hand is passed as
 		// off_hand: it may only rack (no magazine or pouch grabs; the magazine stays drawn with the gun).
 		bool handle_only{};
+		// #47: a discarded magazine flies on with the velocity it left with and comes to rest on the floor
+		// (OpenXR STAGE floor in LOCAL); off, or no floor known: the old short straight drop.
+		bool throw_flight{ true };
+		bool floor_valid{};
+		float floor_y{};
 	};
 
 	enum class magazine_draw
@@ -118,7 +115,9 @@ namespace bfvr::weapon
 		float reach_chest{ 0.13f }; // the magazine pouch, low on the chest (body_rig)
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
-		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears
+		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
+		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
+		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
 		// controller's aim axes (x right, y up, -z forward): AR held from below, AK by the sides.
 		v3 hold_ar{ 0.0f, 0.13f, -0.03f };
@@ -182,7 +181,7 @@ namespace bfvr::weapon
 
 	private:
 		void emit(hand_result& result, reload_event event);
-		void start_fall(v3 from, q4 rotation);
+		void start_fall(v3 from, q4 rotation, v3 velocity, const hand_frame& frame);
 
 		hand_config config_;
 		bool last_grip_{};
@@ -192,10 +191,14 @@ namespace bfvr::weapon
 		v3 rack_start_;
 		bool insert_armed_{};
 		q4 held_relative_; // the held magazine's rotation relative to the gun hand
-		bool falling_{};
-		float fall_time_{};
-		v3 fall_start_;
-		q4 fall_rotation_;
+		magazine_flight flight_;
+		float seat_pause_{}; // AK two-step reload: seconds until the new magazine may seat after the flick
+		// Smoothed velocities of the off hand's palm and the magwell (#47: a released magazine keeps them).
+		bool have_last_{};
+		v3 last_palm_;
+		v3 last_magwell_;
+		v3 palm_velocity_;
+		v3 magwell_velocity_;
 		bool seating_{};
 		float seat_time_{};
 		v3 seat_from_;

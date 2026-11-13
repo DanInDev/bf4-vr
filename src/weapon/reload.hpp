@@ -53,7 +53,7 @@ namespace bfvr::weapon
 		magazine_stowed,  // back at the chest, rounds to the reserve
 		magazine_taken,   // new one from the chest
 		magazine_in,
-		flicked_in,       // AK: old one knocked out, new one seated
+		flicked_out,      // AK: the new magazine knocked the old one out; the new one is still in the hand (#47: seats next)
 		chambered,        // bolt catch or rack fed a round
 		racked_empty,     // rack without a round to feed
 		round_ejected,    // rack with a round in the chamber: that round is lost (state() shows what was fed)

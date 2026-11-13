@@ -127,12 +127,13 @@ namespace bfvr::weapon
 		}
 	}
 
-	void reload_hands::start_fall(v3 from, q4 rotation)
+	void reload_hands::start_fall(v3 from, q4 rotation, v3 velocity, const hand_frame& frame)
 	{
-		falling_ = true;
-		fall_time_ = 0.0f;
-		fall_start_ = from;
-		fall_rotation_ = rotation;
+		flight_config flight;
+		flight.fallback_seconds = config_.fall_seconds;
+		flight_ = magazine_flight(flight);
+		// Flight off: the old straight drop (no velocity, no floor).
+		flight_.start(from, rotation, frame.throw_flight ? velocity : v3{}, frame.throw_flight && frame.floor_valid, frame.floor_y);
 	}
 
 	hand_result reload_hands::update(reload& gun, const hand_frame& frame)
@@ -147,6 +148,26 @@ namespace bfvr::weapon
 		const bool valid = frame.hands_valid;
 		const v3 reach = frame.has_palm ? frame.off_palm : frame.off_hand;
 		const bool ak = gun.profile().kind == variant::ak;
+		// #47: smoothed hand and magwell velocities (~50 ms), for a magazine let go in motion.
+		if (valid && frame.seconds > 1e-4f)
+		{
+			if (have_last_)
+			{
+				const float k = std::fmin(1.0f, frame.seconds / 0.05f);
+				const v3 palm_now = (reach - last_palm_) * (1.0f / frame.seconds);
+				const v3 well_now = (frame.magwell - last_magwell_) * (1.0f / frame.seconds);
+				palm_velocity_ = palm_velocity_ + (palm_now - palm_velocity_) * k;
+				magwell_velocity_ = magwell_velocity_ + (well_now - magwell_velocity_) * k;
+			}
+			last_palm_ = reach;
+			last_magwell_ = frame.magwell;
+			have_last_ = true;
+		}
+		else if (!valid)
+		{
+			have_last_ = false;
+			palm_velocity_ = magwell_velocity_ = {};
+		}
 		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, { 0, -config_.magazine_grab_drop, 0 }) : frame.magwell;
 		const bool on_handguard = frame.has_root && dot(reach - frame.magwell, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
 		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
@@ -233,7 +254,8 @@ namespace bfvr::weapon
 			}
 			else if (event == reload_event::magazine_dropped)
 			{
-				start_fall(frame.magwell, frame.magazine_rotation);
+				// Released from the gun: it leaves with the gun's motion.
+				start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_, frame);
 			}
 			emit(result, event);
 		}
@@ -300,12 +322,20 @@ namespace bfvr::weapon
 			{
 				insert_armed_ = true;
 			}
-			if (frame.grip && insert_armed_ && held_at_magwell)
+			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
+			if (frame.grip && insert_armed_ && held_at_magwell && seat_pause_ <= 0.0f)
 			{
 				const reload_event event = gun.insert();
-				if (event == reload_event::flicked_in)
+				if (event == reload_event::flicked_out)
 				{
-					start_fall(frame.magwell, frame.magazine_rotation);
+					// #47, two steps: the old magazine flies first; the new one, still in the hand, seats a
+					// moment later if the hand keeps it at the magwell.
+					seat_pause_ = config_.flick_seat_delay;
+					// AK quick reload: the new magazine knocks the old one out of the magwell, downward out of the
+					// gun, carrying the sideways part of the hand's swing (the push itself goes up into the well).
+					const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
+					const v3 swing{ palm_velocity_.x * 0.3f, 0.0f, palm_velocity_.z * 0.3f };
+					start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + down * config_.flick_speed + swing, frame);
 				}
 				else if (event == reload_event::magazine_in)
 				{
@@ -334,7 +364,8 @@ namespace bfvr::weapon
 				const reload_event event = gun.let_go(near_chest);
 				if (event == reload_event::magazine_dropped)
 				{
-					start_fall(held_top, held_rotation);
+					// Let go or tossed: it keeps the hand's velocity.
+					start_fall(held_top, held_rotation, palm_velocity_, frame);
 				}
 				emit(result, event);
 			}
@@ -425,20 +456,13 @@ namespace bfvr::weapon
 			result.magazine_position = frame.magwell + v3{ 0, -50.0f, 0 };
 			result.magazine_rotation = frame.magazine_rotation;
 		}
-		if (falling_)
+		const bool falling = flight_.active() && flight_.update(frame.seconds);
+		if (falling && result.draw == magazine_draw::hidden)
 		{
-			fall_time_ += frame.seconds;
-			if (fall_time_ >= config_.fall_seconds)
-			{
-				falling_ = false;
-			}
-			else if (result.draw == magazine_draw::hidden)
-			{
-				// The rig's one magazine mesh, when nothing else needs it.
-				result.draw = magazine_draw::falling;
-				result.magazine_position = fall_start_ + v3{ 0, -4.905f * fall_time_ * fall_time_, 0 };
-				result.magazine_rotation = fall_rotation_;
-			}
+			// The rig's one magazine mesh, when nothing else needs it.
+			result.draw = magazine_draw::falling;
+			result.magazine_position = flight_.position();
+			result.magazine_rotation = flight_.rotation();
 		}
 		// The second magazine (a copy of the game's draw where available): with one in the gun and one in the
 		// hand, whichever the rig's mesh does not show; the caught one while palming; one falling while the
@@ -455,11 +479,11 @@ namespace bfvr::weapon
 		{
 			result.extra = hand_result::extra_magazine::in_fist;
 		}
-		else if (falling_ && result.draw != magazine_draw::falling)
+		else if (falling && result.draw != magazine_draw::falling)
 		{
 			result.extra = hand_result::extra_magazine::falling;
-			result.extra_position = fall_start_ + v3{ 0, -4.905f * fall_time_ * fall_time_, 0 };
-			result.extra_rotation = fall_rotation_;
+			result.extra_position = flight_.position();
+			result.extra_rotation = flight_.rotation();
 		}
 		return result;
 	}

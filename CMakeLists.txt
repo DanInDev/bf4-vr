@@ -154,6 +154,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/profiles.cpp
 	src/weapon/reload.cpp
 	src/weapon/reload_hands.cpp
+	src/weapon/magazine_flight.cpp
 	src/weapon/shot_frame.cpp
 	src/weapon/shot_origin.cpp
 	src/weapon/game_reload_sounds.cpp
@@ -246,7 +247,9 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
 	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
-	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp)
+	add_executable(bfvr_magazine_flight_test tests/magazine_flight_test.cpp src/weapon/magazine_flight.cpp)
+	target_link_libraries(bfvr_magazine_flight_test PRIVATE bfvr_common)
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/magazine_flight.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp)
 	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
 
 	# Two-handed grip and the converged shot direction; exits non-zero on failure.
@@ -338,6 +341,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)
+	add_test(NAME magazine_flight COMMAND bfvr_magazine_flight_test)
 	add_test(NAME two_hand COMMAND bfvr_two_hand_test)
 	add_test(NAME body_calibration COMMAND bfvr_body_calibration_test)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
