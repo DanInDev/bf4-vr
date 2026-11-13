@@ -217,6 +217,10 @@ arm_length = 1.15
 shoulder_width = 0.0
 # First-person legs hidden (they sit oddly under a tracked head).
 hide_legs = 1
+# The soldier's collision radius in metres (#53); 0 = the game's 0.35. Smaller lets you walk up to a wall
+# and lean out of a window. Applied when the soldier spawns (a level's first spawn included); a change in a
+# level applies at the next respawn or checkpoint restart. Only the player's soldier. Pipe `radius` reports it.
+soldier_radius = 0
 # Torso: the shoulders turn with your real body, judged from the head (which may look ~40 degrees aside
 # on its own before it drags the torso along), so turning in the room does not leave the arms reaching
 # across the chest. 0 = shoulders fixed to the game body (turns with the stick).

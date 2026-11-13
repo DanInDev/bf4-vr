@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "body/arm_pose.hpp"
+#include "body/soldier_radius.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
@@ -586,6 +587,8 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%f %f", &dx1, &dx2);
 				return stereo::set_lens_fix(dx1, dx2);
 			}
+			if (command == "lean") return stereo::lean_report();
+			if (command == "radius") return body::soldier_radius_report();
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));

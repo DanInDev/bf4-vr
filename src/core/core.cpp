@@ -45,6 +45,7 @@
 #include "ui/hud_widget_table.hpp"
 #include "ui/hud_widgets.hpp"
 #include "body/body_calibration.hpp"
+#include "body/soldier_radius.hpp"
 #include "ui/body_calibration_flow.hpp"
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
@@ -166,6 +167,7 @@ namespace bfvr::core
 				weapon::set_body_size(size);
 			}
 			body::set_legs_hidden(store.boolean("hide_legs", true));
+			body::set_soldier_radius(store.real("soldier_radius", 0.0f));
 			body::set_torso_follow(store.boolean("torso_follow", true));
 			body::set_torso_hands(store.boolean("torso_hands", false));
 			body::set_body_shoulders(true);
@@ -244,6 +246,7 @@ namespace bfvr::core
 			weapon::update_two_handed();
 			weapon::update_zoom_mesh();
 			ui::update_body_calibration();
+			body::update_soldier_radius();
 			ui::update_vr_panel();
 			weapon::update_weapon_swap();
 			weapon::update_hit_feedback();
@@ -360,6 +363,7 @@ namespace bfvr::core
 			{
 				hooks::install_xinput_hooks();
 				hooks::install_rumble_hook();
+				body::install_soldier_radius_hook();
 				input::install_vr_controls();
 			}
 			return 0;
