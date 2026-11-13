@@ -127,7 +127,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
 | HUD-1 | done | `hud_show_crosshair` (HUD page) on and off | The game's crosshair appears and goes; nothing else in the middle of the HUD changes | #28 |  2026-11-04: works |
-| HUD-2 | open | Fight with `hud_show_hit_markers`, `hud_show_damage`, `hud_show_score` off in turn | Off: no hit marker, no red damage arcs, no "+100". On: they come back | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
+| HUD-2 | open | Fight with `hud_show_damage` off, then on (hit markers and score: HUD-11, off by default since #51) | Off: no red damage arcs. On: they come back | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
 | HUD-3 | done | At the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or the use reach still opens it. Objectives off: note what goes | #28 |  2026-11-04: works |
 | HUD-4 | open | `hud_show_markers` off | The names and triangles over your squad are gone; note whether the objective marker or grenade warnings go too | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
 | HUD-5 | retest | `hud_mode = body` (default): squad triangles and the objective marker | Each sits on its target; the crosshair is centred; the HUD corners are out of the way (`hud_marker_distance`) | #27 | 2026-10-25: on the flat HUD panel the triangles were off their people, "a little distracting" |
@@ -139,6 +139,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HUD-8 | open | Toggle `hud_show_main`, `hud_show_minimap`, `hud_show_ammo`, `hud_show_bottom` and both `hud_mode`s | Each piece goes and returns at once, nothing else changes | #26 | |
 | HUD-9 | open | HUD size and distance (`hud_width` 1.3, `hud_distance` 1.5; try 1.1 and 1.5) | Comfortable to read; no HUD burnt into the world, no black or flickering HUD | #3 | |
 | HUD-10 | done | HUD as a sharp flat layer ahead | | #3 | 2026-10-25: "really cool, I see it way in front of me" |
+| HUD-11 | open | Kill points and hit markers (#51): shoot an enemy with the HUD on the body (default); then switch HUD > Score pop-ups and HUD > Hit markers on | Off by default: no points, awards or hit marker anywhere, nothing far below you. Switched on: they come back (still placed by the body HUD; a proper placement is open in #51) | #51 | 2026-11-12: monitor: both default 0, the HUD hook hides crosshair, hit markers and score at their source (`hidden_mask=0x23`) |
 
 ## Sights and shots
 

@@ -10,11 +10,11 @@ namespace bfvr::ui::hud_widgets
 
 		constexpr element element_table[] = {
 			{ "hud_show_crosshair", false },
-			{ "hud_show_hit_markers", true },
+			{ "hud_show_hit_markers", false }, // #51: drawn far below the player with the body HUD
 			{ "hud_show_damage", true },
 			{ "hud_show_objectives", true },
 			{ "hud_show_prompts", true },
-			{ "hud_show_score", true },
+			{ "hud_show_score", false },       // #51
 			{ "hud_show_markers", true },
 		};
 

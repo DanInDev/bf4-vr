@@ -74,6 +74,11 @@ int main()
 		{
 			expect(store.boolean(e.setting, !e.shown_by_default) == e.shown_by_default, "registry default matches the table");
 		}
+		// #51: score pop-ups and hit markers ended up far below the player with the body HUD: hidden by default.
+		if (std::string(e.setting) == "hud_show_score" || std::string(e.setting) == "hud_show_hit_markers")
+		{
+			expect(!e.shown_by_default, "score pop-ups and hit markers are hidden by default (#51)");
+		}
 	}
 
 	bool shown[32]{};
