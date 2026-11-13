@@ -30,7 +30,8 @@ Read those instead of reconstructing history.
   and runs again at every `open_binary`, so open once per session (`docs/TOOLING.md`, #20). Same rules as all tools: never while
   Battlefield 6 / EasyAntiCheat games run.
 - `docs/SAFETY.md` is binding: campaign only, no tools while Battlefield 6 / EasyAntiCheat games run,
-  never commit dumps, screenshots, game files or profile data; DRM-protected code is analysed in memory only.
+  never commit dumps, screenshots, game files or profile data (sole exception: the owner-chosen README pictures
+  in `docs/img/showcase/`); DRM-protected code is analysed in memory only.
 
 ## Loop
 

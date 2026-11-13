@@ -27,7 +27,10 @@ of the project. They apply to every stage.
    the DRM, a decrypted executable, or memory dumps.
 7. Game assets (meshes, textures, UI) may be read from your own install or from game memory
    and used by the mod. Do not commit game files, dumps or Ghidra/IDA databases: `.gitignore`
-   excludes `re/dumps/`, `re/projects/` and `re/assets/`.
+   excludes `re/dumps/`, `re/projects/` and `re/assets/`. Test screenshots stay in `re/screenshots/`
+   (git-ignored). The one exception is `docs/img/showcase/`: a few gameplay pictures the owner chose for
+   the README (2026-11-13), web-sized, with the mod's own overlays visible. Add to it only on the owner's
+   say-so; nothing else from the game goes into the repository.
 8. If the mod is ever published, ship only your own code (like Overlord does) and
    require users to own the game.
 
