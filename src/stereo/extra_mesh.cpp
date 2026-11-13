@@ -536,6 +536,7 @@ namespace bfvr::stereo::extra_mesh
 		std::atomic<std::uint64_t> grenade_entries_seen{};
 		std::atomic<std::uint64_t> captures[item_count]{};
 		std::atomic<std::uint64_t> capture_attempts[item_count]{};
+		std::atomic<std::uint64_t> rifle_draws_dropped{}; // #41: draws of the captured primary left out of another item's capture
 		std::atomic<bool> forget_requested[item_count]{};
 		std::atomic<std::uint64_t> item_copies[item_count]{};
 		std::atomic<ULONGLONG> item_drawn_at[item_count]{};
@@ -723,6 +724,22 @@ namespace bfvr::stereo::extra_mesh
 			const bool knife = capturing_item == static_cast<int>(captured::knife);
 			// #58: the primary is the gun: its own draws (magazine included) are what is wanted.
 			const bool primary = capturing_item == static_cast<int>(captured::primary);
+			// #41: for another item, a draw from an index buffer of the captured primary is the rifle still drawn
+			// during the switch (headset 2026-11-11: the knife's capture kept the rifle's 22-23k-index meshes).
+			if (!primary)
+			{
+				for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
+				{
+					for (const grenade_draw& rifle : captured_items[static_cast<int>(captured::primary)])
+					{
+						if (keep[i] && grenade_capturing[i].index_buffer.Get() == rifle.index_buffer.Get())
+						{
+							keep[i] = false;
+							++rifle_draws_dropped;
+						}
+					}
+				}
+			}
 			bool gun = capture_saw_gun && !knife && !primary;
 			for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
 			{
@@ -1323,8 +1340,9 @@ namespace bfvr::stereo::extra_mesh
 			out += text;
 		}
 		char text[200];
-		std::snprintf(text, sizeof(text), "\nrejected=%llu grenade_entries=%llx pin=%llx capture_wanted=%s %llu ms ago",
-			static_cast<unsigned long long>(captures_rejected.load()), static_cast<unsigned long long>(grenade_entries_seen.load()),
+		std::snprintf(text, sizeof(text), "\nrejected=%llu rifle_draws_dropped=%llu grenade_entries=%llx pin=%llx capture_wanted=%s %llu ms ago",
+			static_cast<unsigned long long>(captures_rejected.load()), static_cast<unsigned long long>(rifle_draws_dropped.load()),
+			static_cast<unsigned long long>(grenade_entries_seen.load()),
 			static_cast<unsigned long long>(pin_entries.load()), item_name(static_cast<captured>(capture_wanted_item.load())),
 			static_cast<unsigned long long>(GetTickCount64() - capture_wanted_at.load()));
 		const std::lock_guard guard(summary_lock);

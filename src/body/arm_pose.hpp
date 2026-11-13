@@ -157,7 +157,8 @@ namespace bfvr::body
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw);
 	// #41: the game's knife is the weapon (captured once, hidden for that render), and the knife drawn at its
 	// holster (OpenXR LOCAL, the body's yaw) while it is not.
-	void set_knife_weapon(bool out);
+	// capture_ready: out long enough (#41) that the gun is no longer drawn; only then is it recorded.
+	void set_knife_weapon(bool out, bool capture_ready);
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
 	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
 	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.

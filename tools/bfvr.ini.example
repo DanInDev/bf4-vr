@@ -293,6 +293,10 @@ sling = 1
 # While the pistol or a gadget is out, the rifle still hangs on its sling in 3D (#58): a copy of the game's
 # own rifle, taken once a second after it is first in your hand (it blinks out for one frame then).
 sling_show_primary = 1
+# The game's own grenade stands at the pouch and its knife in the chest holster (#41). They are copies made
+# while each is in hand; at level start both are selected once for a moment (you see a quick weapon switch)
+# so the slots are filled from the start. 0 = only after you first take each.
+slot_models_at_start = 1
 # With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
 # ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
 c4_trigger = 1

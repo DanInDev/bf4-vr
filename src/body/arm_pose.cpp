@@ -326,6 +326,7 @@ namespace bfvr::body
 		// #41: the knife. Out as the game's weapon it is captured once (hidden and tagged for that render);
 		// otherwise the copy stands in its holster (OpenXR LOCAL, the body's yaw), blade down.
 		std::atomic<bool> knife_weapon_now{};
+		std::atomic<bool> knife_capture_ready{}; // #41: the knife out long enough for its capture
 		std::atomic<bool> holster_knife_shown{};
 		std::atomic<float> holster_knife_at[3]{};
 		std::atomic<float> holster_knife_yaw{};
@@ -2169,7 +2170,10 @@ namespace bfvr::body
 			namespace em = stereo::extra_mesh;
 			const bool on = grenade_mesh_on.load(std::memory_order_relaxed) && rig.weapon >= 0 && rig.parents[rig.weapon] >= 0 && rig.bones > 0;
 			const bool knife_out = on && knife_weapon_now.load(std::memory_order_relaxed);
-			knife_capturing = knife_out && !grenade_weapon_now.load(std::memory_order_relaxed) && !em::item_captured(em::captured::knife);
+			// #41: only once the knife has been out a moment (the switch animation over): before, the gun can
+			// still be drawn under the hidden root and taken for the knife.
+			knife_capturing = knife_out && knife_capture_ready.load(std::memory_order_relaxed) && !grenade_weapon_now.load(std::memory_order_relaxed)
+				&& !em::item_captured(em::captured::knife);
 			if (knife_capturing)
 			{
 				ik::bone_transform hidden;
@@ -2574,9 +2578,10 @@ namespace bfvr::body
 		grenade_weapon_now = current;
 	}
 
-	void set_knife_weapon(bool out)
+	void set_knife_weapon(bool out, bool capture_ready)
 	{
 		knife_weapon_now = out;
+		knife_capture_ready = out && capture_ready;
 	}
 
 	void set_primary_capture(bool wanted)

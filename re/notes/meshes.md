@@ -104,6 +104,11 @@ first grenade taken with `grenade_mesh` on, again for another kind of grenade).
   for one frame); a different gun in slot 0 drops the capture (`forget_item`). Drawn after the magazine
   draws of the gun in hand (the pistol's), at the let-go gun's sling pose; not while the knife is out
   (no magazine draw to follow).
+- #41 (2026-11-13): the knife is recorded only after it has been out 0.5 s, and any draw from an index buffer of
+  the captured primary is left out of another item's capture (`rifle_draws_dropped` in `extramesh`): the
+  headset's knife capture of 2026-11-11 kept the rifle's 22,461/23,178-index meshes, still drawn during the
+  switch. At level start `weapon/slot_capture_start` selects the grenade, then the knife, once each (setting
+  `slot_models_at_start`), after the gun has been in hand 2.5 s and the primary's own capture is done.
 - Needs a gun drawn (its magazine is the anchor); with none (knife) the theater's flat quad stands in, as
   it does until the first capture. Both eyes checked on the monitor (eye-2 screenshots are sometimes a
   frame behind: a hand or the grenade a few hundred pixels off in a single shot, not in the next).

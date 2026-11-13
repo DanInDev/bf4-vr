@@ -74,6 +74,7 @@ namespace bfvr::settings
 			{ "knife_yaw", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "degrees the held knife is turned about the controller's up (+ = to the right)" },
 			{ "knife_roll", kind::real, -180.0f, 180.0f, 5.0f, "0", "", "degrees the held knife is rolled about the controller ray (+ = clockwise seen from behind)" },
 			{ "use_reach", kind::boolean, 0, 0, 0, "1", "", "reach out ahead with the off hand (away from the gun) and squeeze its grip: the game's use (pick up, doors, prompts)" },
+			{ "slot_models_at_start", kind::boolean, 0, 0, 0, "1", "", "at level start the grenade and the knife are selected for a moment, so the game's own grenade stands at the pouch and its knife in the holster from the start (otherwise only after you first took each)" },
 			{ "sling_show_primary", kind::boolean, 0, 0, 0, "1", "", "while the pistol or a gadget is out, your rifle hangs on its sling in 3D (a copy of the game's own rifle, taken once while it is in hand)" },
 			{ "sling", kind::boolean, 0, 0, 0, "1", "", "with free_hands: a gun let go by both hands hangs on its sling at your belly (follows you, grip it there) instead of dropping to the floor" },
 			{ "free_hands", kind::boolean, 0, 0, 0, "1", "", "hold the gun with the gun-hand grip: let go and it drops to the floor below your hand (no firing); reach down and grip to pick it up" },
