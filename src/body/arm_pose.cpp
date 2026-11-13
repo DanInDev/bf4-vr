@@ -164,7 +164,8 @@ namespace bfvr::body
 		std::atomic<float> shoulder_offset[3]{}; // live setting, head axes (x right, y up, z back), metres
 		std::atomic<float> arm_length{ 1.0f };   // live setting: forearm and hand offsets scaled (reach)
 		std::atomic<float> shoulder_width{};     // live setting: clavicles moved outwards, metres per side
-		std::atomic<float> body_scale{ 1.0f };   // #46: the calibrated body against the reference (shoulder height)
+		std::atomic<float> body_scale{ 1.0f };   // #46: the player's height against the reference (shoulder depth)
+		std::atomic<float> shoulder_drop{ body::reference_shoulder_drop }; // #50: shoulder joints below the eyes, metres
 		std::atomic<bool> body_shoulders{ true }; // live setting: shoulder joints at shoulder_anchor from the head
 		// Right shoulder joint from the head (between the eyes), OpenXR axes; the left one mirrored.
 		constexpr ik::vec3 shoulder_anchor{ 0.18f, -0.22f, 0.04f };
@@ -992,10 +993,10 @@ namespace bfvr::body
 					// there (the torso turn below then turns both about the spine).
 					const int clavicle = rig.parents[bones.upper];
 					const ik::vec3 at = ik::model_of(local, rig.parents, bones.upper).position;
-					// #46: the anchor's height below the eyes and its depth scale with the calibrated body (its
-					// width comes from shoulder_width).
+					// #46, #50: the anchor sits shoulder_drop below the eyes, its depth scales with the player's
+					// height (its width comes from shoulder_width).
 					const float scale = body_scale.load(std::memory_order_relaxed);
-					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), shoulder_anchor.y * scale, shoulder_anchor.z * scale };
+					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), -shoulder_drop.load(std::memory_order_relaxed), shoulder_anchor.z * scale };
 					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, body_head + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
@@ -2519,9 +2520,10 @@ namespace bfvr::body
 		shoulder_width = width;
 	}
 
-	void set_body_scale(float scale)
+	void set_body_size(const body_size& size)
 	{
-		body_scale = std::isfinite(scale) && scale > 0.5f && scale < 1.5f ? scale : 1.0f;
+		body_scale = std::isfinite(size.scale) && size.scale > 0.5f && size.scale < 1.5f ? size.scale : 1.0f;
+		shoulder_drop = std::isfinite(size.shoulder_drop) && size.shoulder_drop > 0.0f && size.shoulder_drop < 0.5f ? size.shoulder_drop : body::reference_shoulder_drop;
 	}
 
 	void set_shoulder_offset(float x, float y, float z)

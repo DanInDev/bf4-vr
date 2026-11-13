@@ -2,8 +2,8 @@
 
 #include "body/arm_ik.hpp"
 
-// Body calibration (#46): stand straight, arms out to the sides (a T-pose), hold both triggers for a
-// second; the mod measures your size and fits the soldier's arms, shoulders and body zones to it.
+// Body calibration (#46, #50): stand straight, arms out to the sides (a T-pose), hold both triggers for
+// two seconds; the mod measures your size and fits the soldier's arms, shoulders and body zones to it.
 // Engine-free, OpenXR LOCAL metres (y up); tested by tests/body_calibration_test.cpp.
 namespace bfvr::body::calibration
 {
@@ -23,7 +23,8 @@ namespace bfvr::body::calibration
 
 	struct config
 	{
-		float hold_seconds{ 1.0f };
+		float hold_seconds{ 2.0f };      // #50: averaged over a longer hold (two runs of one person gave 1.86 and 1.97 m)
+		float max_floor_disagreement{ 0.10f }; // #50: a floor height this far from the span's: the floor is wrong, the span wins
 		float min_span{ 1.0f };          // grip to grip, horizontally
 		float max_below_eyes{ 0.50f };   // hands at shoulder height: this far below the eyes at most
 		float max_above_eyes{ 0.05f };
@@ -39,6 +40,7 @@ namespace bfvr::body::calibration
 		float stature{};         // standing height
 		float eye_height{};      // eyes above the floor
 		bool from_floor{};       // stature from the floor (else estimated from the span)
+		bool floor_doubted{};    // a floor was known but disagreed with the span, so the span was used
 		float standing_head_y{}; // the head's height in LOCAL while standing straight
 	};
 
@@ -64,6 +66,10 @@ namespace bfvr::body::calibration
 	float stature_from_span(float span);
 	float arm_reach(float span, float stature);
 	body_shape shape_for(const measurement& measured, const reference& ref = {});
+
+	// #50: a new height this far from the stored one (stored > 0) is kept only once a second T-pose agrees.
+	inline constexpr float confirm_tolerance = 0.05f;
+	bool needs_confirmation(float stored_height, float measured_height, float tolerance = confirm_tolerance);
 
 	class t_pose
 	{

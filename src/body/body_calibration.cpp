@@ -55,6 +55,11 @@ namespace bfvr::body::calibration
 		return shape;
 	}
 
+	bool needs_confirmation(float stored_height, float measured_height, float tolerance)
+	{
+		return stored_height > 0.0f && std::fabs(measured_height - stored_height) > tolerance;
+	}
+
 	bool t_pose::in_pose(const sample& now) const
 	{
 		if (!now.head_valid || !now.hands_valid || !now.left_trigger || !now.right_trigger)
@@ -116,8 +121,14 @@ namespace bfvr::body::calibration
 		{
 			m.eye_height = m.standing_head_y - floor_sum_ / static_cast<float>(floor_samples_);
 			m.stature = stature_from_eyes(m.eye_height);
+			if (std::fabs(m.stature - stature_from_span(m.span)) > config_.max_floor_disagreement)
+			{
+				// The STAGE floor has been seen 11 cm off between two runs; the span does not move.
+				m.from_floor = false;
+				m.floor_doubted = true;
+			}
 		}
-		else
+		if (!m.from_floor)
 		{
 			m.stature = stature_from_span(m.span);
 			m.eye_height = m.stature - crown_above_eyes;

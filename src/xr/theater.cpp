@@ -841,6 +841,9 @@ namespace bfvr::xr
 		std::uint64_t panel_revision{};
 		std::vector<std::uint32_t> panel_pixels;
 		cpu_overlay notice_overlay{ "notice" };
+		cpu_overlay calibration_overlay{ "calibration" };
+		std::uint64_t calibration_revision{};
+		std::vector<std::uint32_t> calibration_pixels;
 		std::uint64_t notice_revision{};
 		std::vector<std::uint32_t> notice_pixels;
 		cpu_overlay vignette_overlay{ "vignette" };
@@ -1084,6 +1087,37 @@ namespace bfvr::xr
 			magazine_quad.pose.orientation = { placed.orientation[0], placed.orientation[1], placed.orientation[2], placed.orientation[3] };
 			magazine_quad.size = { width, width * ui::magazine_label_height / ui::magazine_label_width };
 			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&magazine_quad);
+		}
+
+		// #50: the body calibration as a full step: a wide head-locked screen (about 64 degrees across) a
+		// little below the view centre, see-through so the game shows dimmed behind it.
+		void add_calibration_layer(XrCompositionLayerQuad& calibration_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			constexpr float distance = 1.2f;
+			constexpr float width = 1.5f;
+			if (!ui::vr_calibration_shown() || view_space == XR_NULL_HANDLE || layer_count >= max_layers
+				|| !ensure_overlay(calibration_overlay, ui::calibration_width, ui::calibration_height))
+			{
+				return;
+			}
+			if (ui::vr_calibration_pixels(calibration_revision, calibration_pixels))
+			{
+				upload_overlay(calibration_overlay, calibration_pixels);
+			}
+			if (!calibration_overlay.shown)
+			{
+				return;
+			}
+			calibration_quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+			calibration_quad.space = view_space;
+			calibration_quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+			calibration_quad.subImage.swapchain = calibration_overlay.swapchain;
+			calibration_quad.subImage.imageRect.extent = { ui::calibration_width, ui::calibration_height };
+			calibration_quad.pose.orientation.w = 1.0f;
+			calibration_quad.pose.position = { 0.0f, -0.08f, -distance };
+			calibration_quad.size = { width, width * ui::calibration_height / ui::calibration_width };
+			calibration_quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT; // premultiplied, see-through backdrop
+			layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&calibration_quad);
 		}
 
 		// Magnified sights (stereo/scope): the eye pass's lens picture (premultiplied, round) on a quad at
@@ -2352,9 +2386,10 @@ namespace bfvr::xr
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad magazine_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			XrCompositionLayerQuad calibration_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad sight_dot_quads[2]{};
-			const XrCompositionLayerBaseHeader* layers[17 + weapon::grab_zone_count]{};
+			const XrCompositionLayerBaseHeader* layers[18 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -2460,6 +2495,7 @@ namespace bfvr::xr
 				add_panel_layer(panel_quad, layers, layer_count);
 				add_panel_pointer(layers, layer_count);
 				add_notice_layer(notice_quad, layers, layer_count);
+				add_calibration_layer(calibration_quad, layers, layer_count);
 			}
 
 			enter("end frame");
@@ -2509,6 +2545,7 @@ namespace bfvr::xr
 			destroy_overlay(notice_overlay);
 			destroy_overlay(magazine_overlay);
 			magazine_drawn = -1;
+			destroy_overlay(calibration_overlay);
 			destroy_overlay(vignette_overlay);
 			destroy_overlay(reticle_overlay);
 			for (cpu_overlay& overlay : ring_overlay)

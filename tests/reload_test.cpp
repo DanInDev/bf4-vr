@@ -1071,19 +1071,33 @@ namespace
 		expect(gap(grenade_pouch, magazine_pouch) > reach.reach_chest + grenade_reach.reach_belt, "grenade and magazine pouches do not overlap");
 
 		// #46: a calibrated body 10 % smaller pulls every point 10 % closer to the head; 1 leaves them.
-		const v3 small = body_point(head, 0.0f, magazine_pouch, false, 0.9f);
+		const bfvr::body::body_size smaller_body = bfvr::body::size_for({ 0.9f * bfvr::body::reference_stature });
+		const v3 small = body_point(head, 0.0f, magazine_pouch, false, smaller_body);
 		expect(std::fabs(small.y - (head.y + 0.9f * magazine_pouch.y)) < 1e-5f && std::fabs(small.x - (head.x + 0.9f * magazine_pouch.x)) < 1e-5f
 				&& std::fabs(small.z - (head.z + 0.9f * magazine_pouch.z)) < 1e-5f, "body scale 0.9: the pouch 10 % closer");
-		const v3 same = body_point(head, 0.0f, magazine_pouch, false, 1.0f);
-		expect(std::fabs(same.y - (head.y + magazine_pouch.y)) < 1e-5f, "body scale 1: as laid out");
+		const v3 same = body_point(head, 0.0f, magazine_pouch, false);
+		expect(std::fabs(same.y - (head.y + magazine_pouch.y)) < 1e-5f && std::fabs(same.z - (head.z + magazine_pouch.z)) < 1e-5f, "reference body: as laid out");
 		holster_frame scaled = frame;
 		scaled.head = {};
 		scaled.head_yaw = 0.0f;
-		scaled.body_scale = 0.9f;
+		scaled.size = smaller_body;
 		holsters smaller;
 		const holster_result placed = smaller.update(scaled);
 		const int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
+		const int hip_zone = static_cast<int>(holster::secondary) - static_cast<int>(holster::primary);
 		expect(placed.has_centres && std::fabs(placed.centres[knife_zone].y - 0.9f * -0.27f) < 1e-4f, "body scale 0.9: the knife holster 10 % higher up the chest");
+
+		// #50: measures set by hand move only their zones: a deeper chest moves the pouches and the knife
+		// forward (-z), lower hips the hip holsters down; the over-shoulder zones stay with the height.
+		const bfvr::body::body_size custom = bfvr::body::size_for({ 0.0f, 0.0f, 0.15f, 0.85f });
+		const v3 deep = body_point(head, 0.0f, magazine_pouch, false, custom);
+		expect(std::fabs(deep.z - (head.z + 1.5f * magazine_pouch.z)) < 1e-5f && std::fabs(deep.y - (head.y + magazine_pouch.y)) < 1e-5f, "chest 0.15 m: the pouch 50 % further forward, same height");
+		holster_frame custom_frame = scaled;
+		custom_frame.size = custom;
+		holsters fitted;
+		const holster_result moved = fitted.update(custom_frame);
+		expect(moved.has_centres && std::fabs(moved.centres[hip_zone].y - -0.85f) < 1e-4f, "hips 0.85 m below the eyes: the hip holster there");
+		expect(std::fabs(moved.centres[0].y - placed.centres[0].y / 0.9f) < 1e-4f, "the primary over the shoulder stays at the reference height");
 	}
 	void test_hand_signal()
 	{

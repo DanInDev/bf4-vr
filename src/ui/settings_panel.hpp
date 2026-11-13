@@ -77,6 +77,7 @@ namespace bfvr::ui
 		{
 			box,
 			text,
+			polygon, // points: x0, y0, x1, y1, ... (antialiased, even-odd); area unused
 		};
 		type kind{ type::box };
 		rect area;
@@ -87,6 +88,8 @@ namespace bfvr::ui
 		bool wrap{};           // text: break into lines within the area (else one line, ellipsis)
 		int radius{};          // box: rounded corners (antialiased); half the height makes a pill
 		bool bold{};           // text: semibold
+		int face{};            // text: 0 Segoe UI, 1 Barlow Condensed SemiBold (headings of the calibration step, compiled in)
+		std::vector<int> points; // polygon corners in panel pixels
 	};
 
 	// How a setting row is switched.
