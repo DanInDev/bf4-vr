@@ -140,6 +140,7 @@ namespace bfvr::core
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(true);
 			weapon::set_magazine_snapping(true);
+			weapon::set_magazine_reach(store.real("magazine_reach", 0.13f));
 			weapon::set_free_hand_reload(true);
 			body::set_extra_meshes(true);
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true));

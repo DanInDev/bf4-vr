@@ -310,6 +310,7 @@ namespace bfvr::weapon
 		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
 		// hand returns to the controller after the grab with the magazine in it).
 		std::atomic<bool> magazine_snapping{ true }; // always on since #48 (was magazine_snap)
+		std::atomic<float> magazine_reach{ 0.13f };   // #57: the magazine zone's reach (low chest down to the off-side hip)
 		float snap_weight{};
 		bool snap_ak{};
 
@@ -410,6 +411,11 @@ namespace bfvr::weapon
 	void set_magazine_snapping(bool enabled)
 	{
 		magazine_snapping = enabled;
+	}
+
+	void set_magazine_reach(float metres)
+	{
+		magazine_reach = metres;
 	}
 
 	void set_free_hand_reload(bool enabled)
@@ -569,6 +575,8 @@ namespace bfvr::weapon
 		{
 			frame.chest = { 0.0f, -0.35f, -0.1f };
 		}
+		frame.has_chest_hip = weapon::body_rig_point(weapon::magazine_hip, frame.chest_hip);
+		frame.chest_reach = magazine_reach.load(std::memory_order_relaxed);
 		{
 			// The charging handle: the research override (pipe `reload handle x y z`), the gun's measured point, else the variant's.
 			float point[3]{};
@@ -629,6 +637,15 @@ namespace bfvr::weapon
 					continue;
 				}
 				publish_grab_zone(slots_shown[i], centre, result.zone_reach[i], result.in_zone == zones_shown[i]);
+			}
+			if (result.has_chest_hip)
+			{
+				const float hip[3]{ result.chest_hip.x, result.chest_hip.y, result.chest_hip.z };
+				publish_grab_zone(grab_slot::pouch_hip, hip, result.zone_reach[2], result.in_zone == hand_result::zone::chest);
+			}
+			else
+			{
+				clear_grab_zone(grab_slot::pouch_hip);
 			}
 		}
 		for (int i = 0; i < result.count; ++i)

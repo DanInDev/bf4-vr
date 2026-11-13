@@ -53,14 +53,17 @@ STYLE = """
 """
 
 # name, where, hand, x, y, z, reach (metres)
+# Grab zones v2 (#57): primary at the sling, gadgets over the shoulders, magazines from the low chest
+# down to the off-side hip (one capsule, drawn as its two ends).
 ZONES = [
-    ("Primary", "over the shoulder", "gun", 0.20, 0.05, 0.15, 0.155),
-    ("Gadget 1", "over the shoulder", "both", -0.20, 0.05, 0.15, 0.14),
+    ("Gadget 1", "over the shoulder", "both", 0.20, 0.05, 0.15, 0.155),
+    ("Gadget 2", "over the shoulder", "both", -0.20, 0.05, 0.15, 0.14),
     ("Grenades", "high chest", "off", 0.11, -0.27, -0.10, 0.10),
     ("Knife", "high chest", "gun", -0.10, -0.27, -0.10, 0.11),
     ("Magazines", "low chest", "off", -0.04, -0.47, -0.10, 0.13),
     ("Secondary", "hip", "gun", 0.22, -0.75, 0.0, 0.14),
-    ("Gadget 2", "hip", "both", -0.22, -0.75, 0.0, 0.14),
+    ("Magazines", "down to the hip", "off", -0.22, -0.75, 0.0, 0.13),
+    ("Primary", "at the sling", "gun", 0.10, -0.50, -0.12, 0.14),
 ]
 
 
@@ -143,10 +146,11 @@ def grab_zones():
     s.append('<rect class="visor" x="-55" y="-50" width="90" height="95" rx="26"/>')
     s.append('<path class="strap" d="M 20 -20 L 175 -10"/>')
     spots = [
-        (0, ["Primary", "Gadget 1"], "both", 1),
+        (0, ["Gadget 1", "Gadget 2"], "both", 1),
         (2, ["Grenades", "Knife"], "off", -1),
-        (4, ["Magazines"], "off", -1),
-        (5, ["Secondary", "Gadget 2"], "gun", 1),
+        (4, ["Magazines", "Primary (sling)"], "off", -1),
+        (5, ["Secondary", "Magazines"], "gun", 1),
+        (7, [], "gun", 1),
     ]
     for index, names, hand, side in spots:
         _n, _w, own, _x, y, z, r = ZONES[index]
@@ -166,6 +170,7 @@ def grab_zones():
     notes = [
         "Zones are measured from between the eyes and turn with the head only once it is 34° off the body, "
         "so looking down at a pouch does not move it.",
+        "The rifle is taken where it hangs on its sling; the magazines reach from the belly down to the off-side hip.",
         "Shoulder zones are 15 cm behind and 5 cm above the eyes: reach back over the shoulder. "
         "grab_debug = 1 draws every zone as a ring in the headset.",
         "Also on the gun: the magazine and charging handle (off hand, physical reload), the handguard "

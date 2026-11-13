@@ -35,6 +35,10 @@ namespace bfvr::weapon
 		v3 root;              // the gun's frame (Wep_Root: +z along the barrel, +y up)
 		q4 root_rotation;
 		v3 chest;             // magazine pouch: below the head
+		// #57: the magazine zone is a capsule from the pouch down to the off-side hip.
+		bool has_chest_hip{};
+		v3 chest_hip;
+		float chest_reach{};  // 0: hand_config::reach_chest
 		// Where the drawn fist holds the magazine (top, rotation), when the hand drawing knows; otherwise
 		// the hold offsets below place it from the off hand.
 		bool has_held{};
@@ -75,6 +79,8 @@ namespace bfvr::weapon
 		// Zone centres and reaches (grab_debug): magazine body, charging handle, chest pouch.
 		v3 zone_centre[3];
 		float zone_reach[3]{};
+		bool has_chest_hip{}; // #57: the pouch zone is a capsule down to this point (its reach as zone_reach[2])
+		v3 chest_hip;
 		bool has_handle{};
 		// Racking: the off hand holds the charging handle (handle_in_gun, Wep_Root axes when has_root)
 		// and has pulled it this far back along the barrel (0..slide_travel).

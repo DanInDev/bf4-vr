@@ -71,18 +71,18 @@
 <ellipse class="lens" cx="48" cy="-2" rx="30" ry="22"/>
 <text class="side" x="-915" y="130" text-anchor="middle">GUN HAND</text>
 <text class="side" x="915" y="130" text-anchor="middle">OFF HAND</text>
-<g class="gun">
+<g class="both">
 <circle class="reach" cx="-200" cy="-50" r="155"/>
 <circle class="dot" cx="-200" cy="-50" r="12"/>
 <line class="lead" x1="-355" y1="-50" x2="-586" y2="-70"/>
-<text class="zl" x="-600" y="-50" text-anchor="end">Primary</text>
+<text class="zl" x="-600" y="-50" text-anchor="end">Gadget 1</text>
 <text class="zs" x="-600" y="-6" text-anchor="end">over the shoulder, 16 cm</text>
 </g>
 <g class="both">
 <circle class="reach" cx="200" cy="-50" r="140"/>
 <circle class="dot" cx="200" cy="-50" r="12"/>
 <line class="lead" x1="340" y1="-50" x2="586" y2="-70"/>
-<text class="zl" x="600" y="-50" text-anchor="start">Gadget 1</text>
+<text class="zl" x="600" y="-50" text-anchor="start">Gadget 2</text>
 <text class="zs" x="600" y="-6" text-anchor="start">over the shoulder, 14 cm</text>
 </g>
 <g class="off">
@@ -113,12 +113,19 @@
 <text class="zl" x="-520" y="750" text-anchor="end">Secondary</text>
 <text class="zs" x="-520" y="794" text-anchor="end">hip, 14 cm</text>
 </g>
-<g class="both">
-<circle class="reach" cx="220" cy="750" r="140"/>
+<g class="off">
+<circle class="reach" cx="220" cy="750" r="130"/>
 <circle class="dot" cx="220" cy="750" r="12"/>
-<line class="lead" x1="360" y1="750" x2="506" y2="730"/>
-<text class="zl" x="520" y="750" text-anchor="start">Gadget 2</text>
-<text class="zs" x="520" y="794" text-anchor="start">hip, 14 cm</text>
+<line class="lead" x1="350" y1="750" x2="506" y2="770"/>
+<text class="zl" x="520" y="790" text-anchor="start">Magazines</text>
+<text class="zs" x="520" y="834" text-anchor="start">down to the hip, 13 cm</text>
+</g>
+<g class="gun">
+<circle class="reach" cx="-100" cy="500" r="140"/>
+<circle class="dot" cx="-100" cy="500" r="12"/>
+<line class="lead" x1="-240" y1="500" x2="-506" y2="480"/>
+<text class="zl" x="-520" y="500" text-anchor="end">Primary</text>
+<text class="zs" x="-520" y="544" text-anchor="end">at the sling, 14 cm</text>
 </g>
 </g>
 <g transform="translate(3900 820)">
@@ -138,11 +145,11 @@
 <ellipse class="part" cx="75" cy="10" rx="108" ry="122"/>
 <rect class="visor" x="-55" y="-50" width="90" height="95" rx="26"/>
 <path class="strap" d="M 20 -20 L 175 -10"/>
-<g class="gun">
+<g class="both">
 <circle class="reach" cx="150" cy="-50" r="155"/>
 <circle class="dot" cx="150" cy="-50" r="12"/>
-<text class="zl" x="325" y="-62" text-anchor="start">Primary</text>
-<text class="zl" x="325" y="4" text-anchor="start">Gadget 1</text>
+<text class="zl" x="325" y="-62" text-anchor="start">Gadget 1</text>
+<text class="zl" x="325" y="4" text-anchor="start">Gadget 2</text>
 </g>
 <g class="off">
 <circle class="reach" cx="-100" cy="270" r="100"/>
@@ -153,16 +160,22 @@
 <g class="off">
 <circle class="reach" cx="-100" cy="470" r="130"/>
 <circle class="dot" cx="-100" cy="470" r="12"/>
-<text class="zl" x="-250" y="490" text-anchor="end">Magazines</text>
+<text class="zl" x="-250" y="458" text-anchor="end">Magazines</text>
+<text class="zl" x="-250" y="524" text-anchor="end">Primary (sling)</text>
 </g>
 <g class="gun">
 <circle class="reach" cx="0" cy="750" r="140"/>
 <circle class="dot" cx="0" cy="750" r="12"/>
 <text class="zl" x="160" y="738" text-anchor="start">Secondary</text>
-<text class="zl" x="160" y="804" text-anchor="start">Gadget 2</text>
+<text class="zl" x="160" y="804" text-anchor="start">Magazines</text>
+</g>
+<g class="gun">
+<circle class="reach" cx="-120" cy="500" r="140"/>
+<circle class="dot" cx="-120" cy="500" r="12"/>
 </g>
 </g>
 <text class="note" x="80" y="2650">Zones are measured from between the eyes and turn with the head only once it is 34° off the body, so looking down at a pouch does not move it.</text>
-<text class="note" x="80" y="2706">Shoulder zones are 15 cm behind and 5 cm above the eyes: reach back over the shoulder. grab_debug = 1 draws every zone as a ring in the headset.</text>
-<text class="note" x="80" y="2762">Also on the gun: the magazine and charging handle (off hand, physical reload), the handguard (two-handed hold) and the pin of a held grenade (gun hand).</text>
+<text class="note" x="80" y="2706">The rifle is taken where it hangs on its sling; the magazines reach from the belly down to the off-side hip.</text>
+<text class="note" x="80" y="2762">Shoulder zones are 15 cm behind and 5 cm above the eyes: reach back over the shoulder. grab_debug = 1 draws every zone as a ring in the headset.</text>
+<text class="note" x="80" y="2818">Also on the gun: the magazine and charging handle (off hand, physical reload), the handguard (two-handed hold) and the pin of a held grenade (gun hand).</text>
 </svg>

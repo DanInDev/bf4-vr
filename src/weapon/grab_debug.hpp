@@ -20,6 +20,7 @@ namespace bfvr::weapon
 		gadget2,
 		dropped_gun, // free hands: the gun on the floor
 		grenade_pin, // the held grenade's pin until it is pulled
+		pouch_hip,   // #57: the magazine zone's far end, at the off-side hip
 		count,
 	};
 

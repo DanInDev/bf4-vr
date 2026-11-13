@@ -10,6 +10,9 @@ namespace bfvr::weapon
 	// Body frame: x toward the gun side, y up, z back; from the head (between the eyes).
 	constexpr v3 grenade_pouch{ 0.11f, -0.27f, -0.10f };  // high chest, gun side (the off hand reaches across)
 	constexpr v3 magazine_pouch{ -0.04f, -0.47f, -0.10f }; // low chest, a little to the off side
+	// #57: the magazine zone reaches from the pouch down to the off-side hip (a capsule): the hip is free
+	// since gadget 2 moved over the off-side shoulder.
+	constexpr v3 magazine_hip{ -0.22f, -0.75f, 0.0f };
 	// Where a let-go gun hangs on its sling (#38): belly height, gun side, a hand's width in front.
 	constexpr v3 sling_point{ 0.10f, -0.50f, -0.12f };
 

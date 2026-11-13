@@ -1,5 +1,6 @@
 #pragma once
 
+#include "weapon/body_rig.hpp"
 #include "weapon/reload_hands.hpp"
 
 // Weapon swapping by body holsters (docs/tasks/weapon-swap.md): the gun hand reaches to a spot on the
@@ -55,18 +56,19 @@ namespace bfvr::weapon
 		bool off_hand{}; // the off hand may draw here too
 	};
 
-	// The chest rig (user layout, 2026-11-04): primary over the gun-side shoulder, secondary on the
-	// gun-side hip, knife high on the off-side chest (cross draw), gadget 1 over the off-side shoulder,
-	// gadget 2 on the off-side hip. Grenades (high gun-side chest) and magazines (low chest) are the off
-	// hand's pouches (body_rig.hpp).
+	// The chest rig (grab zones v2, #57, owner 2026-11-13): primary at the sling where a let-go rifle
+	// hangs (belly, gun side), secondary on the gun-side hip, knife high on the off-side chest (cross
+	// draw), gadget 1 over the gun-side shoulder, gadget 2 over the off-side shoulder. Grenades (high
+	// gun-side chest) and magazines (low chest down to the off-side hip) are the off hand's pouches
+	// (body_rig.hpp). The sling and the hip are 30 cm apart; the nearest centre wins inside both radii.
 	struct holster_config
 	{
 		holster_zone zones[5]{
-			{ holster::primary, { 0.20f, 0.05f, 0.15f }, 0.155f },        // over the gun-side shoulder, behind the head
+			{ holster::primary, sling_point, 0.14f },                     // at the sling (the gun hand only)
 			{ holster::secondary, { 0.22f, -0.75f, 0.0f }, 0.14f },       // gun-side hip
 			{ holster::knife, { -0.10f, -0.27f, -0.10f }, 0.11f },        // high chest, off-hand side
-			{ holster::gadget1, { -0.20f, 0.05f, 0.15f }, 0.14f, true },  // over the off-side shoulder
-			{ holster::gadget2, { -0.22f, -0.75f, 0.0f }, 0.14f, true },  // off-side hip
+			{ holster::gadget1, { 0.20f, 0.05f, 0.15f }, 0.155f, true },  // over the gun-side shoulder, behind the head
+			{ holster::gadget2, { -0.20f, 0.05f, 0.15f }, 0.14f, true },  // over the off-side shoulder
 		};
 		float yaw_slack{ 0.6f }; // the body turns when the head is this far (radians) off it
 	};
