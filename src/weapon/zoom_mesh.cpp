@@ -17,6 +17,7 @@ namespace bfvr::weapon
 	{
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> at_eye{};
+		std::atomic<bool> always{};
 		std::atomic<float> forced{ -1.0f }; // research: >= 0 holds the factor there
 
 #if defined(_M_X64)
@@ -110,6 +111,11 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
+	void set_zoom_mesh_always(bool on)
+	{
+		always = on;
+	}
+
 	void set_sight_at_eye(bool eye)
 	{
 		at_eye = eye;
@@ -120,7 +126,7 @@ namespace bfvr::weapon
 #if defined(_M_X64)
 		const std::lock_guard guard(lock_);
 		const float hold = forced.load(std::memory_order_relaxed);
-		const bool wanted = !safety::mod_disabled() && (hold >= 0.0f || (enabled.load(std::memory_order_relaxed) && at_eye.load(std::memory_order_relaxed)));
+		const bool wanted = !safety::mod_disabled() && (hold >= 0.0f || (enabled.load(std::memory_order_relaxed) && (at_eye.load(std::memory_order_relaxed) || always.load(std::memory_order_relaxed))));
 		if (!wanted)
 		{
 			if (!patched.empty())

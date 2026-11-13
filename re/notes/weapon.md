@@ -752,6 +752,37 @@ Test pitfall: `tools\pipe.ps1` takes the command's argument as one string: `pipe
     eye has the game's own stray lens picture left of the optic while the magnifier is selected (not the mod's:
     it did not move with `lensfix`); the picture is one frame old.
 
+## The BF3-style lens on the game's reticle quad (`sight_lens`, 2026-11-13 night, monitor, #39)
+
+Headset 2026-11-13 evening (owner) on the screen-space reticle (`sight_reticle`): sized right only at the game's
+ADS eye distance (far too large with the gun held out), turning with the head, and the clear lens only within
+3 cm of the sight line (the zoom mesh's switch). All three come from the game drawing its reticle in screen space
+for its own ADS camera.
+
+**What the reticle quad reads** (pipe `reticle grab <folder>`, SCAR-H EOTech and AK-12 PK-AS): ps `t3` 128x128
+RGBA, **alpha = the reticle art** (EOTech: ring, four ticks, centre dot, two faint dots below; RGB white); `t4`
+864x864 R11G11B10 (a small scene render, the lens reflection); `t5`-`t7` BC5 glass detail maps; `t1`, `t2` cube
+maps. Material constants (ps cb1): **float 8 = the art's size as a fraction of the screen height** (EOTech 0.038:
+72 px of ticks at 2160 measured; PK-AS 0.040), `0.5 0.5`, `0.00175 0.00175`, `6 6 6 6`. Two 6-index quads per
+optic: the first writes no colour (stencil), the second is the reticle (blend ONE / INV_SRC_ALPHA).
+At the game's 40 degree ADS view the EOTech art's ring is 1.13 degrees across: the real sight's 65 MOA.
+
+**In the mod:** the zoom mesh is shown whenever a weapon is held (`set_zoom_mesh_always`), so the glass is clear and
+the reticle quad is drawn at any distance. At that quad (both eyes) the game's pixel shader is swapped for ours
+(VS, geometry, depth, stencil and blend kept): per pixel the ray from the eye, its slope off the gun's sight line
+in the gun's own axes (`camera_hook`: the drawn gun's sight direction and up from `weapon_points`, in the view's
+axes), and `t3` alpha at `0.5 + slope / span`, `span = size * 2 tan(fov / 2)` (`stereo/lens_math`, unit test
+`lens_math`). Settings `sight_lens`, `sight_lens_fov` (40), `sight_lens_brightness` (4); the mod's own dot layer
+(`sight_dot`) stays off meanwhile.
+
+Monitor (Release, fake head and hands, `sight_ads 0`): SCAR-H with the eye on the line: ring and dot centred in
+the window, art size 0.038 read from the material; 20 cm further out the ring keeps its angular size while the
+window shrinks; 5 cm below the line no reticle in the window (the line passes above it, as a real holo); head
+rolled 20 degrees: the eye 1 cm off the line, an arc of the ring at the window's edge. AK-12 PK-AS: clear lens
+near and far, its own ring and dot, art size 0.040. Not checked: the colour per optic (all drawn red: `t3` RGB
+is white, the game's tint not found yet), the magnifier with the zoom mesh always on (hidden at the hip), other
+optics, the headset.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

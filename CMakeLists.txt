@@ -130,6 +130,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/scope.cpp
 	src/stereo/scope_compose.cpp
 	src/stereo/scope_math.cpp
+	src/stereo/lens_math.cpp
 	src/stereo/scope_scissor.cpp
 	src/stereo/scripted_view.cpp
 	src/stereo/steady_camera.cpp
@@ -250,6 +251,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_two_hand_test PRIVATE bfvr_common)
 	add_executable(bfvr_body_calibration_test tests/body_calibration_test.cpp src/body/body_calibration.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_body_calibration_test PRIVATE bfvr_common)
+	add_executable(bfvr_lens_math_test tests/lens_math_test.cpp src/stereo/lens_math.cpp)
+	target_link_libraries(bfvr_lens_math_test PRIVATE bfvr_common)
 	add_executable(bfvr_hip_accuracy_test tests/hip_accuracy_test.cpp src/weapon/hip_accuracy_math.cpp src/weapon/zoom_mesh_math.cpp)
 	target_link_libraries(bfvr_hip_accuracy_test PRIVATE bfvr_common)
 	add_executable(bfvr_server_soldier_test tests/server_soldier_test.cpp src/weapon/server_soldier_math.cpp)
@@ -333,6 +336,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME hip_accuracy COMMAND bfvr_hip_accuracy_test)
 	add_test(NAME server_soldier COMMAND bfvr_server_soldier_test)
 	add_test(NAME weapon_pickup COMMAND bfvr_weapon_pickup_test)
+	add_test(NAME lens_math COMMAND bfvr_lens_math_test)
 	add_test(NAME optics COMMAND bfvr_optics_test)
 	add_test(NAME settings_panel COMMAND bfvr_settings_panel_test)
 	add_test(NAME vignette COMMAND bfvr_vignette_test)

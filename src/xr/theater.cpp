@@ -1169,7 +1169,7 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			const weapon::sight_dot_line line = weapon::latest_sight_dot_line();
-			if (!line.valid || scope_visible() || !store.boolean("sight_dot", true) || !head.valid)
+			if (!line.valid || scope_visible() || !store.boolean("sight_dot", true) || store.boolean("sight_lens", true) || !head.valid)
 			{
 				return;
 			}

@@ -346,6 +346,13 @@ scope_zoom = 1
 # The magnified picture drawn into the game's own image inside the optic's glass (the game's lens mask cuts
 # it), so it sits on the optic in both eyes; 0 = the separate headset layer used before.
 scope_in_frame = 1
+# Red dots and holos as a real sight (the BF3 single-player mod's lens): the game's reticle art placed by the
+# angle through the glass, so it keeps its true size at any distance, turns with the gun, not your head, and
+# the optic's glass is clear at any distance (the game's aiming mesh is kept shown while a gun is held).
+# sight_lens_fov: the aiming view the art is sized for (40: the EOTech's ring as the real one; more = larger).
+sight_lens = 1
+sight_lens_fov = 40
+sight_lens_brightness = 4
 # aim = controller: bullets leave the game camera, not the gun, so shots are aimed at the point this
 # many metres down the barrel line (closer targets hit slightly off, further ones almost exactly).
 aim_convergence = 25

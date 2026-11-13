@@ -13,6 +13,9 @@ namespace bfvr::weapon
 	float zoom_mesh_factor(float original, bool wanted);
 
 	void set_zoom_mesh(bool on);
+	// sight_lens (BF3-style lens): the zoom mesh is shown whenever a weapon is held, not only at the eye, so
+	// its glass and reticle quad are drawn at any distance (the lens shader in stereo/eye_pass draws them).
+	void set_zoom_mesh_always(bool always);
 	// weapon/two_handed, each update: an eye is behind the gun's sight (latched).
 	void set_sight_at_eye(bool at_eye);
 	// Present thread, once per frame.

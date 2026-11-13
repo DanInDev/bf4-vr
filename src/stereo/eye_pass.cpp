@@ -32,6 +32,7 @@
 #include "stereo/scope_math.hpp"
 #include "stereo/scope_scissor.hpp"
 #include "stereo/foveation.hpp"
+#include "stereo/lens_math.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -1482,6 +1483,491 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			return true;
 		}
 
+		// sight_lens (#39, the BF3 single-player mod's lens, on the game's own reticle quad): the quad the game draws
+		// on the optic's glass keeps its vertex shader, geometry, depth and stencil; only its pixel shader is ours.
+		// Per pixel: the ray from this eye through it, its slope off the gun's sight line in the gun's own axes, and
+		// the game's reticle art (the material's t3 alpha) looked up by that slope. So the reticle keeps its true
+		// angular size at any distance from the eye, turns with the gun (not the head), and stays on what the sight
+		// points at from anywhere behind the glass. Its size: the material's own size (ps cb1 float 8: 0.038 of the
+		// screen height for the EOTech) at the game's ADS view (sight_lens_fov, 40 degrees): 1.13 degrees of ring.
+		std::atomic<bool> sight_lens_on{ true };
+		std::atomic<float> sight_lens_fov{ 40.0f };
+		std::atomic<float> sight_lens_brightness{ 4.0f };
+		std::mutex lens_axes_lock;
+		bool lens_axes_valid{};
+		float lens_along[3]{}, lens_up[3]{}; // view space of the rendered eyes (both share the orientation)
+		std::atomic<std::uint64_t> lens_reticles{};
+		std::atomic<float> lens_size_seen{};
+		const char lens_reticle_shader[] = R"(
+cbuffer lens : register(b13)
+{
+	float4 view;   // viewport x, y, width, height
+	float4 proj;   // x scale, y scale, the reticle's span (slope across the art), brightness
+	float4 right;  // the gun's right, up and sight line in the eye's view space
+	float4 up;
+	float4 along;
+	float4 colour;
+};
+Texture2D art : register(t3);
+SamplerState linear_clamp : register(s15);
+float4 ps(float4 position : SV_Position) : SV_Target
+{
+	float2 ndc = float2((position.x - view.x) / view.z * 2.0 - 1.0, 1.0 - (position.y - view.y) / view.w * 2.0);
+	float3 ray = float3(ndc.x / proj.x, ndc.y / proj.y, -1.0);
+	float ahead = dot(ray, along.xyz);
+	if (ahead <= 0.0)
+		discard;
+	float2 slope = float2(dot(ray, right.xyz), dot(ray, up.xyz)) / ahead;
+	float2 uv = 0.5 + float2(slope.x, -slope.y) / proj.z;
+	if (any(uv < 0.0) || any(uv > 1.0))
+		discard;
+	float mark = art.SampleLevel(linear_clamp, uv, 0).a;
+	return float4(colour.rgb * mark * proj.w, mark);
+}
+)";
+		struct lens_reticle_resources
+		{
+			ComPtr<ID3D11Device> device;
+			ComPtr<ID3D11PixelShader> ps;
+			ComPtr<ID3D11Buffer> constants;
+			ComPtr<ID3D11SamplerState> sampler;
+			bool failed{};
+		} lens_reticle;
+
+		bool draw_reticle_lens(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
+		{
+			float along[3]{}, up[3]{};
+			{
+				const std::lock_guard guard(lens_axes_lock);
+				if (!lens_axes_valid)
+				{
+					return false;
+				}
+				std::memcpy(along, lens_along, sizeof(along));
+				std::memcpy(up, lens_up, sizeof(up));
+			}
+			if (projection_sx <= 0.0f || projection_sy <= 0.0f)
+			{
+				return false;
+			}
+			ComPtr<ID3D11Device> device;
+			c->GetDevice(&device);
+			if (lens_reticle.failed || !device)
+			{
+				return false;
+			}
+			if (lens_reticle.device.Get() != device.Get() || !lens_reticle.ps)
+			{
+				lens_reticle = {};
+				lens_reticle.device = device;
+				ComPtr<ID3DBlob> code, messages;
+				D3D11_BUFFER_DESC buffer{};
+				buffer.ByteWidth = 16 * 16;
+				buffer.Usage = D3D11_USAGE_DEFAULT;
+				buffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+				D3D11_SAMPLER_DESC sampler{};
+				sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+				sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+				sampler.MaxLOD = D3D11_FLOAT32_MAX;
+				if (FAILED(D3DCompile(lens_reticle_shader, sizeof(lens_reticle_shader) - 1, "lens_reticle", nullptr, nullptr, "ps", "ps_5_0",
+						D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &messages))
+					|| FAILED(device->CreatePixelShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr, &lens_reticle.ps))
+					|| FAILED(device->CreateBuffer(&buffer, nullptr, &lens_reticle.constants))
+					|| FAILED(device->CreateSamplerState(&sampler, &lens_reticle.sampler)))
+				{
+					log::write("eye pass: lens reticle shader failed: %s", messages ? static_cast<const char*>(messages->GetBufferPointer()) : "");
+					lens_reticle.failed = true;
+					return false;
+				}
+			}
+			ComPtr<ID3D11DeviceContext1> c1;
+			if (FAILED(c->QueryInterface(IID_PPV_ARGS(&c1))))
+			{
+				return false;
+			}
+			// The art's size as the material has it (fraction of the screen height), from its ps cb1.
+			float size = 0.038f;
+			{
+				ComPtr<ID3D11Buffer> material;
+				UINT first = 0, number = 0;
+				c1->PSGetConstantBuffers1(1, 1, &material, &first, &number);
+				float block[12]{};
+				if (material && read_arena_block(material.Get(), first, 3, block) && block[8] > 0.001f && block[8] < 0.5f)
+				{
+					size = block[8];
+				}
+			}
+			lens_size_seen = size;
+			D3D11_VIEWPORT viewport{};
+			UINT viewports = 1;
+			c->RSGetViewports(&viewports, &viewport);
+			if (viewports != 1 || viewport.Width < 16.0f)
+			{
+				return false;
+			}
+			float r[3]{}, u[3]{};
+			if (!lens_axes(along, up, r, u))
+			{
+				return false;
+			}
+			const float constants[16][4]{
+				{ viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height },
+				{ projection_sx, projection_sy, reticle_span(size, sight_lens_fov.load(std::memory_order_relaxed)), sight_lens_brightness.load(std::memory_order_relaxed) },
+				{ r[0], r[1], r[2], 0.0f },
+				{ u[0], u[1], u[2], 0.0f },
+				{ along[0], along[1], along[2], 0.0f },
+				{ 1.0f, 0.12f, 0.06f, 1.0f },
+			};
+			c->UpdateSubresource(lens_reticle.constants.Get(), 0, nullptr, constants, 0, 0);
+			ComPtr<ID3D11PixelShader> old_ps;
+			c->PSGetShader(&old_ps, nullptr, nullptr);
+			ComPtr<ID3D11Buffer> old_cb;
+			UINT old_first = 0, old_count = 0;
+			c1->PSGetConstantBuffers1(13, 1, &old_cb, &old_first, &old_count);
+			ComPtr<ID3D11SamplerState> old_sampler;
+			c->PSGetSamplers(15, 1, &old_sampler);
+			c->PSSetShader(lens_reticle.ps.Get(), nullptr, 0);
+			ID3D11Buffer* own = lens_reticle.constants.Get();
+			const UINT zero = 0, sixteen = 16;
+			original_ps_set_constant_buffers1(c, 13, 1, &own, &zero, &sixteen);
+			ID3D11SamplerState* linear = lens_reticle.sampler.Get();
+			c->PSSetSamplers(15, 1, &linear);
+			original_draw_indexed(c, count, start, base);
+			++lens_reticles;
+			c->PSSetShader(old_ps.Get(), nullptr, 0);
+			ID3D11Buffer* back = old_cb.Get();
+			if (old_count)
+			{
+				original_ps_set_constant_buffers1(c, 13, 1, &back, &old_first, &old_count);
+			}
+			else
+			{
+				original_ps_set_constant_buffers1(c, 13, 1, &back, nullptr, nullptr);
+			}
+			ID3D11SamplerState* back_sampler = old_sampler.Get();
+			c->PSSetSamplers(15, 1, &back_sampler);
+			return true;
+		}
+
+		// Research (pipe "reticle grab <folder>", #39 BF3-style lens): at the next first-eye reticle quad, its pixel
+		// shader's textures rendered out as RGBA8 (<folder>\srvN_WxH.rgba), and an info file with the textures'
+		// formats, the VS and PS constant buffer bindings with their first 64 floats, and the quad's indices and
+		// vertices.
+		std::atomic<int> grab_state{}; // 1 armed, 2 done, 3 failed
+		std::string grab_folder;
+		std::string grab_result;
+		const char grab_shader[] = R"(
+Texture2D picture : register(t0);
+float4 vs(uint id : SV_VertexID) : SV_Position
+{
+	float2 p = float2((id << 1) & 2, id & 2);
+	return float4(p * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
+}
+float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(position.xy, 0)); }
+)";
+
+		bool copy_buffer_bytes(ID3D11DeviceContext* c, ID3D11Buffer* buffer, UINT offset, UINT bytes, std::vector<std::uint8_t>& out)
+		{
+			out.clear();
+			if (!buffer || bytes == 0)
+			{
+				return false;
+			}
+			D3D11_BUFFER_DESC desc{};
+			buffer->GetDesc(&desc);
+			if (offset >= desc.ByteWidth)
+			{
+				return false;
+			}
+			bytes = std::min(bytes, desc.ByteWidth - offset);
+			ComPtr<ID3D11Device> device;
+			c->GetDevice(&device);
+			D3D11_BUFFER_DESC staging{};
+			staging.ByteWidth = (bytes + 15) & ~15u;
+			staging.Usage = D3D11_USAGE_STAGING;
+			staging.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+			ComPtr<ID3D11Buffer> copy;
+			if (FAILED(device->CreateBuffer(&staging, nullptr, &copy)))
+			{
+				return false;
+			}
+			const D3D11_BOX box{ offset, 0, 0, offset + bytes, 1, 1 };
+			c->CopySubresourceRegion(copy.Get(), 0, 0, 0, 0, buffer, 0, &box);
+			D3D11_MAPPED_SUBRESOURCE mapped{};
+			if (FAILED(original_map(c, copy.Get(), 0, D3D11_MAP_READ, 0, &mapped)))
+			{
+				return false;
+			}
+			out.assign(static_cast<const std::uint8_t*>(mapped.pData), static_cast<const std::uint8_t*>(mapped.pData) + bytes);
+			c->Unmap(copy.Get(), 0);
+			return true;
+		}
+
+		// One shader resource rendered into an RGBA8 target of its size and written raw. The state it changes is
+		// put back by the caller's grab.
+		bool save_resource_view(ID3D11DeviceContext* c, ID3D11ShaderResourceView* view, const std::string& prefix, std::string& note)
+		{
+			D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+			view->GetDesc(&desc);
+			ComPtr<ID3D11Resource> resource;
+			view->GetResource(&resource);
+			ComPtr<ID3D11Texture2D> texture;
+			char text[256];
+			if (desc.ViewDimension != D3D11_SRV_DIMENSION_TEXTURE2D || FAILED(resource.As(&texture)))
+			{
+				std::snprintf(text, sizeof(text), "view dimension %d format %d (not saved)", static_cast<int>(desc.ViewDimension), static_cast<int>(desc.Format));
+				note = text;
+				return false;
+			}
+			D3D11_TEXTURE2D_DESC t{};
+			texture->GetDesc(&t);
+			const UINT w = std::max(1u, t.Width >> desc.Texture2D.MostDetailedMip), h = std::max(1u, t.Height >> desc.Texture2D.MostDetailedMip);
+			std::snprintf(text, sizeof(text), "texture %ux%u mips %u format %d view format %d most detailed mip %u", t.Width, t.Height, t.MipLevels,
+				static_cast<int>(t.Format), static_cast<int>(desc.Format), desc.Texture2D.MostDetailedMip);
+			note = text;
+			if (w > 4096 || h > 4096)
+			{
+				return false;
+			}
+			ComPtr<ID3D11Device> device;
+			c->GetDevice(&device);
+			static ComPtr<ID3D11VertexShader> vs;
+			static ComPtr<ID3D11PixelShader> ps;
+			if (!ps)
+			{
+				ComPtr<ID3DBlob> vs_code, ps_code, messages;
+				if (FAILED(D3DCompile(grab_shader, sizeof(grab_shader) - 1, "grab", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vs_code, &messages))
+					|| FAILED(D3DCompile(grab_shader, sizeof(grab_shader) - 1, "grab", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &ps_code, &messages))
+					|| FAILED(device->CreateVertexShader(vs_code->GetBufferPointer(), vs_code->GetBufferSize(), nullptr, &vs))
+					|| FAILED(device->CreatePixelShader(ps_code->GetBufferPointer(), ps_code->GetBufferSize(), nullptr, &ps)))
+				{
+					return false;
+				}
+			}
+			D3D11_TEXTURE2D_DESC target_desc{};
+			target_desc.Width = w;
+			target_desc.Height = h;
+			target_desc.MipLevels = 1;
+			target_desc.ArraySize = 1;
+			target_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			target_desc.SampleDesc.Count = 1;
+			target_desc.Usage = D3D11_USAGE_DEFAULT;
+			target_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+			ComPtr<ID3D11Texture2D> target;
+			ComPtr<ID3D11RenderTargetView> target_view;
+			D3D11_TEXTURE2D_DESC staging_desc = target_desc;
+			staging_desc.Usage = D3D11_USAGE_STAGING;
+			staging_desc.BindFlags = 0;
+			staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+			ComPtr<ID3D11Texture2D> staging;
+			if (FAILED(device->CreateTexture2D(&target_desc, nullptr, &target)) || FAILED(device->CreateRenderTargetView(target.Get(), nullptr, &target_view))
+				|| FAILED(device->CreateTexture2D(&staging_desc, nullptr, &staging)))
+			{
+				return false;
+			}
+			ID3D11RenderTargetView* rtv = target_view.Get();
+			c->OMSetRenderTargets(1, &rtv, nullptr);
+			const D3D11_VIEWPORT viewport{ 0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h), 0.0f, 1.0f };
+			c->RSSetViewports(1, &viewport);
+			c->RSSetState(nullptr);
+			c->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+			c->OMSetDepthStencilState(nullptr, 0);
+			c->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			c->IASetInputLayout(nullptr);
+			c->VSSetShader(vs.Get(), nullptr, 0);
+			c->PSSetShader(ps.Get(), nullptr, 0);
+			c->PSSetShaderResources(0, 1, &view);
+			original_draw(c, 3, 0);
+			c->CopyResource(staging.Get(), target.Get());
+			D3D11_MAPPED_SUBRESOURCE mapped{};
+			if (FAILED(original_map(c, staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)))
+			{
+				return false;
+			}
+			char name[64];
+			std::snprintf(name, sizeof(name), "_%ux%u.rgba", w, h);
+			std::ofstream file(prefix + name, std::ios::binary);
+			for (UINT row = 0; row < h; ++row)
+			{
+				file.write(static_cast<const char*>(mapped.pData) + static_cast<std::size_t>(row) * mapped.RowPitch, static_cast<std::streamsize>(w) * 4);
+			}
+			c->Unmap(staging.Get(), 0);
+			return static_cast<bool>(file);
+		}
+
+		void grab_reticle(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
+		{
+			ComPtr<ID3D11DeviceContext1> c1;
+			if (FAILED(c->QueryInterface(IID_PPV_ARGS(&c1))))
+			{
+				grab_state = 3;
+				return;
+			}
+			std::string info;
+			char line[512];
+			// Constant buffers first (nothing is changed yet).
+			for (int stage = 0; stage < 2; ++stage)
+			{
+				ID3D11Buffer* buffers[8]{};
+				UINT first[8]{}, number[8]{};
+				if (stage == 0)
+				{
+					c1->VSGetConstantBuffers1(0, 8, buffers, first, number);
+				}
+				else
+				{
+					c1->PSGetConstantBuffers1(0, 8, buffers, first, number);
+				}
+				for (UINT slot = 0; slot < 8; ++slot)
+				{
+					if (!buffers[slot])
+					{
+						continue;
+					}
+					D3D11_BUFFER_DESC bd{};
+					buffers[slot]->GetDesc(&bd);
+					std::snprintf(line, sizeof(line), "%s cb%u buffer %p bytes %u first %u count %u\n", stage == 0 ? "vs" : "ps", slot, static_cast<void*>(buffers[slot]),
+						bd.ByteWidth, first[slot], number[slot]);
+					info += line;
+					std::vector<std::uint8_t> bytes;
+					if (copy_buffer_bytes(c, buffers[slot], first[slot] * 16, 64 * 4, bytes))
+					{
+						info += "   ";
+						for (std::size_t i = 0; i + 4 <= bytes.size(); i += 4)
+						{
+							float f{};
+							std::memcpy(&f, bytes.data() + i, 4);
+							std::snprintf(line, sizeof(line), "%s%.5g", i ? " " : "", f);
+							info += line;
+						}
+						info += "\n";
+					}
+					buffers[slot]->Release();
+				}
+			}
+			// The quad's indices and vertices.
+			{
+				ComPtr<ID3D11Buffer> index_buffer;
+				DXGI_FORMAT format{};
+				UINT index_offset = 0;
+				c->IAGetIndexBuffer(&index_buffer, &format, &index_offset);
+				ID3D11Buffer* vertex_buffer = nullptr;
+				UINT stride = 0, vertex_offset = 0;
+				c->IAGetVertexBuffers(0, 1, &vertex_buffer, &stride, &vertex_offset);
+				const UINT index_size = format == DXGI_FORMAT_R32_UINT ? 4 : 2;
+				std::vector<std::uint8_t> indices, vertices;
+				if (copy_buffer_bytes(c, index_buffer.Get(), index_offset + start * index_size, count * index_size, indices))
+				{
+					UINT highest = 0;
+					info += "indices";
+					for (UINT i = 0; i < count; ++i)
+					{
+						UINT value = 0;
+						std::memcpy(&value, indices.data() + i * index_size, index_size);
+						highest = std::max(highest, value);
+						std::snprintf(line, sizeof(line), " %u", value);
+						info += line;
+					}
+					std::snprintf(line, sizeof(line), " (base %d, stride %u)\n", base, stride);
+					info += line;
+					if (vertex_buffer && stride && copy_buffer_bytes(c, vertex_buffer, vertex_offset + static_cast<UINT>(base) * stride, (highest + 1) * stride, vertices))
+					{
+						for (UINT v = 0; v * stride < vertices.size(); ++v)
+						{
+							std::snprintf(line, sizeof(line), "vertex %u:", v);
+							info += line;
+							for (UINT i = 0; i + 4 <= stride; i += 4)
+							{
+								float f{};
+								std::memcpy(&f, vertices.data() + v * stride + i, 4);
+								std::snprintf(line, sizeof(line), " %.5g", f);
+								info += line;
+							}
+							info += "\n";
+						}
+					}
+				}
+				if (vertex_buffer)
+				{
+					vertex_buffer->Release();
+				}
+			}
+			// The textures, with the state put back afterwards.
+			ComPtr<ID3D11RenderTargetView> old_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+			ComPtr<ID3D11DepthStencilView> old_depth;
+			{
+				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				ID3D11DepthStencilView* depth_view = nullptr;
+				c->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, &depth_view);
+				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+				{
+					old_targets[i].Attach(targets[i]);
+				}
+				old_depth.Attach(depth_view);
+			}
+			D3D11_VIEWPORT old_viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
+			UINT viewport_count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+			c->RSGetViewports(&viewport_count, old_viewports);
+			ComPtr<ID3D11RasterizerState> raster;
+			c->RSGetState(&raster);
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT sample_mask = 0;
+			c->OMGetBlendState(&blend, factor, &sample_mask);
+			ComPtr<ID3D11DepthStencilState> depth;
+			UINT reference = 0;
+			c->OMGetDepthStencilState(&depth, &reference);
+			D3D11_PRIMITIVE_TOPOLOGY topology{};
+			c->IAGetPrimitiveTopology(&topology);
+			ComPtr<ID3D11InputLayout> layout;
+			c->IAGetInputLayout(&layout);
+			ComPtr<ID3D11VertexShader> vs;
+			ComPtr<ID3D11PixelShader> ps;
+			c->VSGetShader(&vs, nullptr, nullptr);
+			c->PSGetShader(&ps, nullptr, nullptr);
+			ID3D11ShaderResourceView* views[8]{};
+			c->PSGetShaderResources(0, 8, views);
+			for (UINT slot = 0; slot < 8; ++slot)
+			{
+				if (!views[slot])
+				{
+					continue;
+				}
+				std::string note;
+				const bool saved = save_resource_view(c, views[slot], grab_folder + "\\srv" + std::to_string(slot), note);
+				std::snprintf(line, sizeof(line), "ps t%u %p: %s%s\n", slot, static_cast<void*>(views[slot]), note.c_str(), saved ? " (saved)" : "");
+				info += line;
+			}
+			c->PSSetShaderResources(0, 8, views);
+			for (ID3D11ShaderResourceView* v : views)
+			{
+				if (v)
+				{
+					v->Release();
+				}
+			}
+			{
+				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+				{
+					targets[i] = old_targets[i].Get();
+				}
+				c->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, old_depth.Get());
+			}
+			c->RSSetViewports(viewport_count, old_viewports);
+			c->RSSetState(raster.Get());
+			c->OMSetBlendState(blend.Get(), factor, sample_mask);
+			c->OMSetDepthStencilState(depth.Get(), reference);
+			c->IASetPrimitiveTopology(topology);
+			c->IASetInputLayout(layout.Get());
+			c->VSSetShader(vs.Get(), nullptr, 0);
+			c->PSSetShader(ps.Get(), nullptr, 0);
+			std::ofstream file(grab_folder + "\\reticle.txt");
+			file << info;
+			grab_result = "reticle grab: written to " + grab_folder;
+			grab_state = 2;
+		}
+
 		// A draw marker in the probe (stage 'D', slot = index count) ties bindings to draws.
 		void STDMETHODCALLTYPE draw_indexed_detour(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
 		{
@@ -1497,6 +1983,15 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			if (reticle_draw(c, count))
 			{
 				++reticle_draws;
+				if (!patching && grab_state.load(std::memory_order_relaxed) == 1)
+				{
+					grab_reticle(c, count, start, base);
+				}
+				if (sight_lens_on.load(std::memory_order_relaxed) && draw_reticle_lens(c, count, start, base))
+				{
+					extra_mesh::after_draw(c, count, start, base, 1);
+					return;
+				}
 				const bool forced = reticle_forced.load(std::memory_order_relaxed) != 0;
 				const float tx = forced ? reticle_forced_tan[0].load(std::memory_order_relaxed) : reticle_tan[0].load(std::memory_order_relaxed);
 				const float ty = forced ? reticle_forced_tan[1].load(std::memory_order_relaxed) : reticle_tan[1].load(std::memory_order_relaxed);
@@ -2438,6 +2933,21 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 		reticle_valid = valid;
 	}
 
+	void set_lens_axes(bool valid, const float (&along)[3], const float (&up)[3])
+	{
+		const std::lock_guard guard(lens_axes_lock);
+		lens_axes_valid = valid;
+		std::memcpy(lens_along, along, sizeof(lens_along));
+		std::memcpy(lens_up, up, sizeof(lens_up));
+	}
+
+	void set_sight_lens(bool on, float ads_fov_degrees, float brightness)
+	{
+		sight_lens_on = on;
+		sight_lens_fov = ads_fov_degrees;
+		sight_lens_brightness = brightness;
+	}
+
 	void set_lens_eye(const pose& first_eye)
 	{
 		const std::lock_guard guard(lens_eye_lock);
@@ -2466,12 +2976,12 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 
 	std::string lens_report()
 	{
-		char text[640];
+		char text[900];
 		const std::lock_guard guard(lens_debug_lock);
 		std::snprintf(text, sizeof(text),
-			"scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
+			"sight_lens=%d reticles=%llu art_size=%.4f fov=%.1f | scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
 			"  eye1 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f\n  eye2 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f",
-			scope_in_frame_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_draws.load()), static_cast<unsigned long long>(lens_skipped.load()),
+			sight_lens_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_reticles.load()), lens_size_seen.load(), sight_lens_fov.load(), scope_in_frame_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_draws.load()), static_cast<unsigned long long>(lens_skipped.load()),
 			eye_shift_metres.load(), lens_extra_dx[0].load(), lens_extra_dx[1].load(), lens_debug_quad[0], lens_debug_quad[1], lens_debug_quad[2],
 			lens_debug_eye[0][0], lens_debug_eye[0][1], lens_debug_eye[0][2], lens_debug_centre[0][0], lens_debug_centre[0][1], lens_debug_centre[0][2],
 			lens_debug_centre[0][3], lens_debug_eye[1][0], lens_debug_eye[1][1], lens_debug_eye[1][2], lens_debug_centre[1][0], lens_debug_centre[1][1],
@@ -2510,6 +3020,18 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			}
 			std::fclose(file);
 			return "reticle dump: " + std::to_string(state_dump_lines.size()) + " stencil-tested draws of " + std::to_string(state_dump_index) + " indexed draws";
+		}
+		if (argument.rfind("grab ", 0) == 0)
+		{
+			grab_folder = argument.substr(5);
+			CreateDirectoryA(grab_folder.c_str(), nullptr);
+			grab_state = 1;
+			for (int waited = 0; waited < 60 && grab_state.load() == 1; ++waited)
+			{
+				Sleep(50);
+			}
+			const int state = grab_state.exchange(0);
+			return state == 2 ? grab_result : state == 3 ? "reticle grab: failed" : "reticle grab: no reticle quad drawn within 3 s (hold a sight to the eye)";
 		}
 		if (argument == "off")
 		{
