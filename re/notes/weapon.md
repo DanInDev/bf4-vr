@@ -627,6 +627,50 @@ only, the world's and the first-person one in soldier space, re-uploaded many ti
 
 Test pitfall: a relative path given to `eyeshot` is written from the game's drive root (`E:\`).
 
+## In-frame lens, step 0 (2026-11-13, monitor, Release, `fix/sights-in-frame`, #39)
+
+Brief: `docs/tasks/in-frame-lens.md`. The saved checkpoint now carries only the SCAR-H (`slot_probe.py`:
+0 `U_SCAR-H`, 6 `U_M67`, 7 `U_Knife`, 8 `U_SP_Visor`), so the AK-12's lens and the magnifier were not checked.
+
+**Fake hold with the right eye on the SCAR-H's sight line** (`free_hands 0`, `fakehead 0.064`):
+`fakehand 0 0 -0.003 -0.189 -0.60 0.075 -0.197 -0.3` gives `eyes off_line_cm=6.4/0.0 along_cm=-13.2`;
+`... -0.70 ... -0.4` puts the gun 10 cm further out (along -23.2). The AK-12 hold above (`-0.024 -0.158 -0.60
+0.054 -0.166 -0.3`) leaves the SCAR's line 3.8 cm from the right eye.
+
+**The holo reticle is collimated** (`sight_zoom_mesh` and `sight_reticle` on). Eye fixed, gun moved sideways
+by 0, 0.7 and 1.4 cm (`eyeshot2`, window cropped): the ring and dots stay at the same pixel while the window
+slides left, as through a real holo. At 1.4 cm the dots are drawn just outside the window's inner edge, on the
+housing: the stencil-2 lens mask reaches past the glass.
+
+**The second eye's first-person draws change between frames.** With the gun, head and hands fixed, the lower
+half of 6 `eyeshot` / `eyeshot2` captures (120x120 downscale, mean absolute difference against the first):
+
+| Case | Left eye | Right eye |
+| --- | --- | --- |
+| Zoom mesh and reticle on, along -13 cm | 0.1 0.1 0.1 0.1 0.1 | 4.3 4.4 0.2 2.1 4.3 |
+| `sight_zoom_mesh 0`, `sight_reticle 0` | | 0.1 0.1 4.4 0.1 0.1 |
+| On, gun 10 cm further out (along -23 cm) | | 7.1 5.8 1.8 2.0 0.3 and 1.8 x5 |
+
+The odd right-eye frames show a **second holo housing about 165 px right of the real one**, the gun body
+drawn dark (unlit) instead of lit, or the hands in another place. It also happens with the zoom mesh and the
+reticle fix off and with the gun 23 cm from the eye, so it is the eye pass, not the sights or the near
+plane. This is the "ring to the right of the gun" and probably part of "best at the left eye".
+
+**Lead: constant arenas are discarded during the eye renders.** A research counter (`eyepass`:
+`arena_discards eye1= eye2=`, maps with `D3D11_MAP_WRITE_DISCARD` of a known arena while `in_eye_render`)
+reads about **2 per first-eye render and 1 per second-eye render**, every frame (9401 frames: 18799 / 18415).
+The first eye's blocks come from `begin_readback`, a `CopyResource` of each arena queued **before** the first
+eye's draws. A block the first eye binds after a mid-render discard sits in the renamed arena, while the
+read-back holds the pre-discard data at the same offset. `prepare_eye_blocks` then patches the wrong data, and
+the second eye draws that piece with another camera (or another view's block). Which blocks fall after the
+discard varies with how full the arena is, so it would come and go. **Not proven:** the next step is to count
+first-eye bindings made after a discard of their arena, and to fix by copying such blocks at bind time on the
+GPU (`CopySubresourceRegion` of the block from the arena into the mod's buffer, ordered in the command stream),
+or by keying `patched_blocks` with an arena generation. The check is the table above: the right eye as steady
+as the left (all values <= 0.2).
+
+Test pitfall: `tools\pipe.ps1` takes the command's argument as one string: `pipe key "32 150"`, not `pipe key 32 150`.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

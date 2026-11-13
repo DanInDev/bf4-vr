@@ -257,7 +257,12 @@ namespace bfvr::stereo
 			}
 		}
 
-		void note_map(ID3D11Resource* resource, void* data)
+		// Research (#39, stray gun pieces in the second eye): arena maps with DISCARD inside each eye render.
+		std::atomic<std::uint64_t> arena_discards_eye1{};
+		std::atomic<std::uint64_t> arena_discards_eye2{};
+		bool in_eye_render{}; // render thread: inside one of the eye renders
+
+		bool note_map(ID3D11Resource* resource, void* data)
 		{
 			const std::lock_guard guard(arena_lock);
 			for (int i = 0; i < arena_count; ++i)
@@ -266,14 +271,14 @@ namespace bfvr::stereo
 				{
 					arenas[i].cpu = static_cast<const std::uint8_t*>(data);
 					arenas[i].last_map = GetTickCount64();
-					return;
+					return true;
 				}
 			}
 			D3D11_RESOURCE_DIMENSION dimension{};
 			resource->GetType(&dimension);
 			if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
 			{
-				return;
+				return false;
 			}
 			D3D11_BUFFER_DESC desc{};
 			static_cast<ID3D11Buffer*>(resource)->GetDesc(&desc);
@@ -295,7 +300,9 @@ namespace bfvr::stereo
 				}
 				arenas[slot_index] = { resource, static_cast<const std::uint8_t*>(data), desc.ByteWidth, GetTickCount64() };
 				log::write("eye pass: constant arena %p, %u bytes", static_cast<void*>(resource), desc.ByteWidth);
+				return true;
 			}
+			return false;
 		}
 
 		HRESULT STDMETHODCALLTYPE map_detour(ID3D11DeviceContext* c, ID3D11Resource* r, UINT s, D3D11_MAP type, UINT flags, D3D11_MAPPED_SUBRESOURCE* m)
@@ -303,7 +310,11 @@ namespace bfvr::stereo
 			const HRESULT hr = original_map(c, r, s, type, flags, m);
 			if (SUCCEEDED(hr) && m && r && (type == D3D11_MAP_WRITE_NO_OVERWRITE || type == D3D11_MAP_WRITE_DISCARD))
 			{
-				note_map(r, m->pData);
+				const bool arena = note_map(r, m->pData);
+				if (arena && type == D3D11_MAP_WRITE_DISCARD && in_eye_render)
+				{
+					++(patching ? arena_discards_eye2 : arena_discards_eye1);
+				}
 			}
 			return hr;
 		}
@@ -788,7 +799,6 @@ namespace bfvr::stereo
 		constexpr int hide_shader_count = 64;
 		std::atomic<std::uintptr_t> hide_shaders[hide_shader_count]{};
 		std::atomic<bool> hide_plain{};
-		bool in_eye_render{}; // render thread: inside one of the eye renders
 		struct plain_draw
 		{
 			std::uintptr_t shader{};
@@ -2090,13 +2100,15 @@ namespace bfvr::stereo
 
 	std::string eye_pass_report()
 	{
-		char text[768];
+		char text[1024];
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
 			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
-			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us)",
+			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us) "
+			"arena_discards eye1=%llu eye2=%llu",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
 			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
-			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load());
+			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load(),
+			arena_discards_eye1.load(), arena_discards_eye2.load());
 		return text;
 	}
 
