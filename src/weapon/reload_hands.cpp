@@ -222,7 +222,12 @@ namespace bfvr::weapon
 		// Palming turns the held magazine aside: the drawn hand drew it turned (held_tilt), else it is
 		// turned here. fist_*: as the fist holds it without the turn, where the caught one sits.
 		const q4 seated = frame.has_root ? multiply(conjugate(frame.root_rotation), frame.magazine_rotation) : q4{};
-		if (frame.has_root && !frame.has_held)
+		if (guided_ && has_guide_hold_ && !frame.has_held)
+		{
+			held_top = frame.off_hand + rotate(frame.off_rotation, guide_offset_);
+			held_rotation = multiply(frame.off_rotation, guide_rotation_);
+		}
+		else if (frame.has_root && !frame.has_held)
 		{
 			tilt_magazine(held_top, held_rotation, seated, tilt_, config_.palm_pivot_drop);
 		}
@@ -243,11 +248,23 @@ namespace bfvr::weapon
 		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
 		const float rail_depth = dot(held_top - frame.magwell, rail_down);
 		const v3 rail_point = frame.magwell + rail_down * std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
-		const float off_rail = distance(held_top, rail_point);
+		// Sideways from the rail's line: pushed on past the magwell it is still on the rail.
+		const float off_rail = distance(held_top, frame.magwell + rail_down * std::fmin(config_.lock_rail, rail_depth));
+		const auto keep_hold = [&](v3 top, q4 rotation)
+		{
+			const q4 hand_inverse = conjugate(frame.off_rotation);
+			guide_offset_ = rotate(hand_inverse, top - frame.off_hand);
+			guide_rotation_ = multiply(hand_inverse, rotation);
+			has_guide_hold_ = true;
+		};
 		const auto start_pull_out = [&]()
 		{
-			// Taken out of the gun: it slides out along the rail with the locked hand.
+			// Taken out of the gun: it slides out along the rail with the locked hand, held where it sat.
 			pulling_out_ = guided_ = lockable && frame.grip;
+			if (guided_)
+			{
+				keep_hold(frame.magwell, frame.magazine_rotation);
+			}
 		};
 		if (!lockable || !gun.state().holding)
 		{
@@ -386,6 +403,7 @@ namespace bfvr::weapon
 					&& off_rail < config_.lock_catch)
 				{
 					guided_ = true;
+					keep_hold(held_top, held_rotation);
 				}
 				if (guided_ && (!frame.grip || off_rail > config_.lock_leave || rail_depth > config_.lock_rail + config_.lock_seat_depth))
 				{

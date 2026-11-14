@@ -13,9 +13,10 @@ namespace bfvr::weapon
 	struct wall_stop_config
 	{
 		float margin{ 0.03f };   // the muzzle stays this far short of the wall
-		float max_push{ 0.30f }; // more than this: let go
-		float ease_in{ 0.02f };  // seconds (time constants)
-		float ease_out{ 0.06f };
+		float max_push{ 0.40f }; // more than this: let go (a rifle pushed back to the chest)
+		float rejoin{ 0.05f };   // let go, it takes hold again only once the push needed is this much under max_push
+		float ease_in{ 0.04f };  // seconds (time constants); headset 2026-11-14: 20 / 60 ms jittered
+		float ease_out{ 0.08f };
 	};
 
 	class wall_stop

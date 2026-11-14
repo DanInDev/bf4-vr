@@ -18,7 +18,7 @@ namespace bfvr::weapon
 	{
 		// The barrel from Wep_Root: rifles reach ~60 cm ahead of it, pistols ~22 cm; the ray starts 15 cm behind
 		// it (the hand inside a wall: the hit is behind the root, more than max_push inside: let go).
-		constexpr float rifle_reach = 0.60f;
+		constexpr float rifle_reach = 0.88f; // Wep_Root is at the back: trigger 0.32, handguard 0.51, rail 0.64 (re/notes/weapon.md); the AK-12 is 0.94 m long
 		constexpr float pistol_reach = 0.22f;
 		constexpr float behind = 0.15f;
 

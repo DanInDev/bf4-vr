@@ -89,7 +89,7 @@ namespace bfvr::hooks
 				}
 			}
 			// The sight aim's LT goes in after the two-handed filter, which keeps the off-hand trigger from the game.
-			input::gamepad_state pad = ui::filter_calibration_pad(ui::filter_panel_pad(input::with_sight_aim(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest()))))))));
+			input::gamepad_state pad = weapon::add_grenade_pulse(ui::filter_calibration_pad(ui::filter_panel_pad(input::with_sight_aim(weapon::filter_two_hand_pad(weapon::filter_swap_pad(weapon::filter_grenade_pad(weapon::filter_pad(input::for_game(input::latest())))))))));
 			if (hooks::game_pointer_active())
 			{
 				// The laser's trigger clicks the menu; the game's pad must not see it, nor the grips (the

@@ -70,7 +70,7 @@ namespace bfvr::weapon
 
 	struct free_hands_config
 	{
-		float release_seconds{ 0.35f }; // grip open this long before the gun falls (a regrip is free)
+		float release_seconds{ 0.15f }; // grip open this long before the gun falls (a regrip is free); headset 2026-11-14: 0.35 felt like a delay
 		float pickup_reach{ 0.30f };    // the palm this close to the dropped gun picks it up
 		float lie_height{ 0.04f };      // the gun's root above the floor when lying on its side
 		float regrip_reach{ 0.12f };    // the gun hand's palm this close to the pistol grip takes the gun back

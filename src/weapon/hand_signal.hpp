@@ -2,8 +2,8 @@
 
 #include "weapon/reload_hands.hpp"
 
-// Squad order by hand signal (campaign "engage", keyboard Q): the off hand raised above the eyes and
-// stretched out ahead, then a grip squeeze. Held above eye level, so the support hand on the gun
+// Squad order by hand signal (campaign "engage", keyboard Q): the off hand raised to eye level or above,
+// a little ahead of the head, then a grip squeeze. Held above eye level, so the support hand on the gun
 // (below the eyes while aiming) never gives the order. Engine-free; OpenXR LOCAL metres. Tested by
 // tests/reload_test.cpp.
 namespace bfvr::weapon
@@ -26,8 +26,9 @@ namespace bfvr::weapon
 
 	struct signal_config
 	{
-		float min_forward{ 0.35f }; // ahead of the head along its yaw
-		float min_up{ 0.05f };      // above eye level
+		// Headset 2026-11-14: 35 cm ahead and 5 cm up missed a fist raised over the head.
+		float min_forward{ 0.10f }; // ahead of the head along its yaw
+		float min_up{ 0.0f };       // at or above eye level (a raised gun's support hand stays below it)
 		float max_side{ 0.40f };
 		float cooldown{ 1.0f };     // seconds between orders
 	};

@@ -28,6 +28,10 @@ namespace bfvr::weapon
 	// XInput hook thread: LB is ours in physical mode (our throw pulse only); the gun-hand grip
 	// while it holds the pin.
 	input::gamepad_state filter_grenade_pad(const input::gamepad_state& pad);
+	// Last in the chain: a physical throw's LB pulse (the game's quick throw). Added after every filter, which
+	// may strip LB for their own reasons (headset 2026-11-14: the use reach stripped it from left-hand throws,
+	// so the game never threw them).
+	input::gamepad_state add_grenade_pulse(const input::gamepad_state& pad);
 
 	// Pipe "grenade": state. "grenade throw <yaw> <pitch> <speed> [safe]" (research): a throw from
 	// the off hand (or 20 cm left-low-ahead without tracking), yaw right / pitch up in degrees from

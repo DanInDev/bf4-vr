@@ -60,7 +60,7 @@ namespace
 		free_hands_frame f = holding();
 		expect(!hands.update(f).dropped, "held while gripping");
 		const int steps = steps_to_drop(hands, f);
-		expect(steps == 7, "drops after 0.35 s with the grip open (7 steps of 50 ms)");
+		expect(steps == 3, "drops after 0.15 s with the grip open (3 steps of 50 ms)");
 
 		f.grip = false;
 		free_hands_result r = hands.update(f);
@@ -94,13 +94,13 @@ namespace
 		free_hands_frame f = holding();
 		hands.update(f);
 		f.grip = false;
-		for (int i = 0; i < 5; ++i)
+		for (int i = 0; i < 2; ++i)
 		{
 			hands.update(f);
 		}
 		f.grip = true;
-		expect(!hands.update(f).dropped, "a regrip within 0.35 s keeps the gun");
-		expect(steps_to_drop(hands, f) == 7, "the timer starts over after a regrip");
+		expect(!hands.update(f).dropped, "a regrip within 0.15 s keeps the gun");
+		expect(steps_to_drop(hands, f) == 3, "the timer starts over after a regrip");
 
 		free_hands busy_hands;
 		f = holding();
@@ -151,7 +151,7 @@ namespace
 		low.update(f);
 		f.grip = false;
 		free_hands_result r{};
-		for (int i = 0; i < 7; ++i)
+		for (int i = 0; i < 3; ++i)
 		{
 			r = low.update(f);
 		}

@@ -154,7 +154,7 @@ namespace bfvr::weapon
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
 		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
-		float eject_speed{ 1.5f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion
+		float eject_speed{ 1.0f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion (1.5 felt too fast)
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
 		// controller's aim axes (x right, y up, -z forward): AR held from below, AK by the sides.
 		v3 hold_ar{ 0.0f, 0.13f, -0.03f };
@@ -262,5 +262,11 @@ namespace bfvr::weapon
 		bool guided_{};         // grip lock: the held magazine rides the rail
 		bool pulling_out_{};    // grip lock: guided out of the gun after a grab (not armed to seat)
 		bool lock_hold_{};      // grip lock: seated by the locked hand, the grip still held on it
+		// Grip lock: where the magazine sat against the off hand when it locked (the hand's aim axes). Locked, the
+		// fist no longer draws it, and the controller's fixed guess can be far off it (headset 2026-11-14: off the
+		// rail, unlocked, locked again: a flicker that never seated).
+		bool has_guide_hold_{};
+		v3 guide_offset_;
+		q4 guide_rotation_;
 	};
 }

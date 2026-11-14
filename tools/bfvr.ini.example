@@ -163,7 +163,8 @@ grab_debug = 0
 # A real gamepad on the first XInput slot also reaches the game. Off: only the VR controllers (a pad
 # with a worn or half-pressed trigger there fires the gun on its own; pipe status shows physical_pad).
 physical_pad = 1
-# Squad order (campaign "engage", keyboard Q): raise the off hand ahead above your eyes and squeeze.
+# Squad order (campaign "engage", keyboard Q): raise the off hand to eye level or above, a little ahead of
+# your head (a fist over the head), and squeeze the grip.
 squad_signal = 1
 # The controller grips are the mod's (holding the gun, reload, grenades, holsters, signals); 1 also
 # sends them to the game as LB/RB (grenade throw, and fire in some layouts).
@@ -179,7 +180,7 @@ ads_trigger = 0
 # markers in the world (squad names and triangles over your companions).
 hud_show_crosshair = 0
 hud_show_hit_markers = 0
-hud_show_damage = 1
+hud_show_damage = 0
 hud_show_objectives = 1
 hud_show_prompts = 1
 hud_show_score = 0

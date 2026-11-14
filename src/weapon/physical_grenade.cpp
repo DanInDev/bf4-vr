@@ -454,6 +454,12 @@ namespace bfvr::weapon
 				out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_RIGHT_SHOULDER);
 			}
 		}
+		return out;
+	}
+
+	input::gamepad_state add_grenade_pulse(const input::gamepad_state& pad)
+	{
+		input::gamepad_state out = pad;
 		if (GetTickCount64() < pulse_until.load(std::memory_order_relaxed))
 		{
 			out.buttons |= XINPUT_GAMEPAD_LEFT_SHOULDER;

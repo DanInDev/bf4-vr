@@ -37,15 +37,18 @@ int main()
 {
 	wall_stop stop;
 	expect(run(stop, true, -0.5f, 10) == 0.0f, "clear of walls: no push");
-	expect(std::fabs(run(stop, true, 0.10f, 9) - 0.13f) < 0.005f, "10 cm inside: pulled back 13 cm within 0.1 s");
-	expect(std::fabs(run(stop, true, -0.02f, 27) - 0.01f) < 0.003f, "2 cm short of the wall: within the margin, 1 cm back");
-	float after = run(stop, true, -0.5f, 27);
+	expect(std::fabs(run(stop, true, 0.10f, 27) - 0.13f) < 0.005f, "10 cm inside: pulled back 13 cm within 0.3 s");
+	expect(std::fabs(run(stop, true, -0.02f, 60) - 0.01f) < 0.003f, "2 cm short of the wall: within the margin, 1 cm back");
+	float after = run(stop, true, -0.5f, 60);
 	expect(after < 0.002f, "out of the wall: back in the hand within 0.3 s");
-	run(stop, true, 0.20f, 20);
-	after = run(stop, true, 0.40f, 30);
-	expect(stop.let_go() && after < 0.005f, "40 cm inside (more than 30 cm): lets go, the barrel goes in");
+	run(stop, true, 0.20f, 30);
+	after = run(stop, true, 0.45f, 60);
+	expect(stop.let_go() && after < 0.005f, "45 cm inside (more than 40 cm): lets go, the barrel goes in");
+	run(stop, true, 0.35f, 30);
+	expect(stop.let_go() && stop.push() < 0.005f, "let go, 38 cm needed (within 5 cm of the limit): stays let go, no flicker");
+	expect(run(stop, true, 0.30f, 60) > 0.30f && !stop.let_go(), "33 cm needed: takes hold again");
 	run(stop, true, 0.10f, 20);
-	after = run(stop, false, 0.10f, 30);
+	after = run(stop, false, 0.10f, 60);
 	expect(after < 0.002f, "no answer for the gun now: lets go");
 	expect(run(stop, true, NAN, 30) == 0.0f, "a broken answer: nothing");
 	if (failures)

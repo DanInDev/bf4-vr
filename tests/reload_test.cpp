@@ -1357,7 +1357,18 @@ namespace
 			signal.update(frame, 0.02f);
 		}
 		expect(!squeeze({ -0.1f, -0.15f, -0.45f }).order, "support hand on the gun (below the eyes): no order");
-		expect(!squeeze({ -0.1f, 0.15f, -0.2f }).order, "hand raised but close to the head: no order");
+		for (int i = 0; i < 60; ++i)
+		{
+			signal.update(frame, 0.02f);
+		}
+		// Headset 2026-11-14: a fist raised just above the head, not stretched out, gave no order.
+		expect(squeeze({ -0.1f, 0.12f, -0.15f }).order, "fist raised over the head, 15 cm ahead: order");
+		for (int i = 0; i < 60; ++i)
+		{
+			signal.update(frame, 0.02f);
+		}
+		expect(!squeeze({ -0.1f, 0.15f, -0.05f }).order, "hand beside the head (5 cm ahead): no order");
+		expect(!squeeze({ -0.1f, -0.05f, -0.45f }).order, "hand ahead but below the eyes (a raised gun's support hand): no order");
 		expect(!squeeze({ -0.6f, 0.15f, -0.4f }).order, "hand out to the side: no order");
 		frame.head_yaw = 1.5707963f; // looking along -x
 		expect(squeeze({ -0.5f, 0.15f, 0.0f }).order, "follows the head's yaw");
@@ -1616,6 +1627,37 @@ namespace
 		return frame;
 	}
 
+	// Headset 2026-11-14: the AK's new magazine jittered beside the magwell and never went in. Locked, the magazine is
+	// no longer the fist's, and the controller's fixed guess of where the hand holds it sat far from the drawn one:
+	// off the rail, unlocked, the fist's again, locked again. Locked, the hand keeps the hold it locked with.
+	void test_grip_lock_keeps_the_hold()
+	{
+		hand_config config = flat_hold();
+		config.hold_ar = config.hold_ak = { 0.25f, 0.0f, 0.0f }; // the controller's guess: 25 cm aside the drawn fist
+		reload gun(ak);
+		gun.load(30, 60);
+		reload_hands hands(config);
+		hands.update(gun, locked_at(chest, true));
+		const v3 hand{ magwell.x + 0.02f, magwell.y - 0.30f, magwell.z };
+		hand_frame f = locked_at(hand, true);
+		f.has_held = true; // the drawn fist holds it 6 cm under the magwell
+		f.held_top = { magwell.x + 0.02f, magwell.y - 0.06f, magwell.z };
+		hand_result r = hands.update(gun, f);
+		expect(r.guided, "hold: locked on from the fist's magazine");
+		bool stayed = true, flicked = false, seated = false;
+		for (int i = 0; i < 40; ++i)
+		{
+			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame.
+			hand_frame g = locked_at({ hand.x, hand.y + 0.01f * static_cast<float>(i), hand.z }, true);
+			r = hands.update(gun, g);
+			stayed = stayed && (r.guided || r.hand_lock > 0.0f || has(r, reload_event::magazine_in) || flicked);
+			flicked = flicked || has(r, reload_event::flicked_out);
+			seated = seated || has(r, reload_event::magazine_in);
+		}
+		expect(stayed, "hold: stays locked while pushed up (no flicker off the rail)");
+		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then the new one seats");
+	}
+
 	void test_grip_lock()
 	{
 		{
@@ -1757,6 +1799,7 @@ int main()
 	test_seating();
 	test_hands_palming();
 	test_grip_lock();
+	test_grip_lock_keeps_the_hold();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");
