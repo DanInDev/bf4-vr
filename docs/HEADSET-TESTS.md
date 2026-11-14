@@ -26,8 +26,8 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `test/headset-2026-11-14` = `main` + grip lock (`weapon/grip-lock`) + the physics (`physics/ray-ground`) + one-handed recoil (`weapon/one-hand-recoil`),
-**Release**, deployed 2026-11-14; the main checkout is on that branch, so the launcher's Update mod installs the
+Build: `main` (2026-11-14: grip lock, the physics, one-handed recoil merged), **Release**, deployed
+2026-11-14; the main checkout is on `main`, so the launcher's Update mod installs the
 same build. New in it, check these first (a mark, both stick clicks, whenever something looks off):
 
 A. **Grip lock (GUN-20):** with an empty gun, bring a fresh magazine up under the magwell. Within about 10 cm
