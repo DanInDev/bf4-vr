@@ -152,6 +152,12 @@ namespace bfvr::core
 			weapon::set_magazine_flight(store.boolean("magazine_flight", true));
 			weapon::set_grip_lock(store.boolean("grip_lock", true));
 			weapon::set_wall_stop(store.boolean("wall_stop", true));
+			{
+				const std::string lab = store.text("pose_lab", "off");
+				const float curls[5]{ store.real("pose_lab_thumb", 0.0f), store.real("pose_lab_index", 0.0f), store.real("pose_lab_middle", 0.0f),
+					store.real("pose_lab_ring", 0.0f), store.real("pose_lab_pinky", 0.0f) };
+				body::set_pose_lab(lab == "left" ? 0 : lab == "right" ? 1 : -1, curls);
+			}
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");

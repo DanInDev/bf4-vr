@@ -133,6 +133,14 @@ drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
+# Pose lab (development, panel page Skeleton): pose_lab = left or right gives that hand's fingers the curls
+# below (0 open .. 1 a fist) instead of what the hand is doing, live; pipe `poselab` prints them as code.
+pose_lab = off
+pose_lab_thumb = 0
+pose_lab_index = 0
+pose_lab_middle = 0
+pose_lab_ring = 0
+pose_lab_pinky = 0
 # The drawn gun stops at walls (#63): a ray along the real gun's barrel (the game's own ray cast) pulls the
 # drawn gun back along its barrel so the muzzle stays 3 cm short of the wall; shots leave from the drawn
 # barrel, so from the near side. Never stuck: worked out from your real hand every frame, and past 30 cm it

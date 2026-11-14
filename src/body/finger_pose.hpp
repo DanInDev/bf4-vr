@@ -62,6 +62,10 @@ namespace bfvr::body::fingers
 
 	hand_shape shape_for(task what, const finger_input& input);
 
+	// Pose lab (the panel's Skeleton page, 2026-11-14): a hand shaped only by the curls set by hand (thumb ..
+	// pinky, each 0 = open .. 1 = fist; out-of-range or broken values are clamped to 0..1), nothing animated.
+	hand_shape lab_shape(const float (&curls)[count]);
+
 	// Bend angle (radians) about local z of a joint rotation (its twist about z).
 	float bend_of(ik::quat rotation);
 	// The rotation with its bend about z replaced by angle, the rest (spread) kept.

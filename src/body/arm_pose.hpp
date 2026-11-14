@@ -253,6 +253,10 @@ namespace bfvr::body
 	// #63: the drawn gun pulled back along its barrel by this much (metres; weapon/wall_stop), and whether a
 	// gun is drawn in the gun hand on its ray now (else nothing to push).
 	void set_wall_push(float metres);
+	// Pose lab (the panel's Skeleton page): hand 0 left, 1 right, -1 off; the curls thumb .. pinky (0..1).
+	void set_pose_lab(int hand, const float (&curls)[5]);
+	// Pipe "poselab": the hand and curls, as a fingers::hand_shape literal.
+	std::string pose_lab_report();
 	bool wall_push_applies();
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();

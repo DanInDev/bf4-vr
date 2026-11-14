@@ -24,7 +24,7 @@ namespace bfvr::settings
 	// In display order within each page and section.
 	std::span<const presentation> catalog();
 	const presentation* presentation_of(std::string_view name);
-	// The pages in order: Start-up (launcher only), View, Body, Weapon, HUD, Controls, Advanced.
+	// The pages in order: Start-up (launcher only), View, Body, Weapon, HUD, Controls, Skeleton (development), Advanced.
 	std::span<const std::string_view> catalog_pages();
 	// A choice value's readable name ("pair" -> "Both eyes per frame"); the value itself when unknown.
 	std::string choice_label(std::string_view name, std::string_view value);

@@ -469,6 +469,8 @@ namespace bfvr::body
 		bone_memory slide_memory;
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
+		std::atomic<int> lab_hand{ -1 };            // pose lab: -1 off, 0 left, 1 right
+		std::atomic<float> lab_curls[fingers::count]{};
 		std::atomic<int> off_task{ static_cast<int>(fingers::task::free) };
 		std::atomic<ULONGLONG> off_task_at{};       // a request older than task_max_age_ms counts as free
 		constexpr ULONGLONG task_max_age_ms = 250;
@@ -1923,6 +1925,16 @@ namespace bfvr::body
 				{
 					choose_rack_grip(local, hand, task, target);
 				}
+				if (hand == lab_hand.load(std::memory_order_relaxed))
+				{
+					// Pose lab: the panel's curls, nothing else (no authored grip either).
+					const float curls[fingers::count]{ lab_curls[0].load(), lab_curls[1].load(), lab_curls[2].load(), lab_curls[3].load(), lab_curls[4].load() };
+					target = fingers::lab_shape(curls);
+					if (authored && authored_hand == hand)
+					{
+						authored = nullptr;
+					}
+				}
 				last_task[hand] = task;
 				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
 				for (int finger = 0; finger < fingers::count; ++finger)
@@ -2902,6 +2914,24 @@ namespace bfvr::body
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	void set_pose_lab(int hand, const float (&curls)[5])
+	{
+		lab_hand = hand == 0 || hand == 1 ? hand : -1;
+		for (int finger = 0; finger < fingers::count; ++finger)
+		{
+			lab_curls[finger] = curls[finger];
+		}
+	}
+
+	std::string pose_lab_report()
+	{
+		char text[256];
+		std::snprintf(text, sizeof(text), "pose_lab hand=%s\nhand_shape{ { 0, 0, 0, 0, 0 }, { %.2ff, %.2ff, %.2ff, %.2ff, %.2ff } } // animated, curl: thumb, index, middle, ring, pinky",
+			lab_hand.load() == 0 ? "left" : lab_hand.load() == 1 ? "right" : "off", lab_curls[0].load(), lab_curls[1].load(), lab_curls[2].load(), lab_curls[3].load(),
+			lab_curls[4].load());
+		return text;
 	}
 
 	void set_wall_push(float metres)

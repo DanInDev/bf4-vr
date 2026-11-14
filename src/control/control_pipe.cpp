@@ -593,6 +593,7 @@ namespace bfvr::control
 			if (command == "radius") return body::soldier_radius_report();
 			if (command == "raycast") return physics::raycast_command(argument);
 			if (command == "wallstop") return weapon::wall_stop_report();
+			if (command == "poselab") return body::pose_lab_report();
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));

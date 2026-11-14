@@ -213,6 +213,18 @@ namespace bfvr::body::fingers
 		return out;
 	}
 
+	hand_shape lab_shape(const float (&curls)[count])
+	{
+		hand_shape shape;
+		for (int finger = 0; finger < count; ++finger)
+		{
+			shape.animated[finger] = 0.0f;
+			const float curl = curls[finger];
+			shape.curl[finger] = std::isfinite(curl) ? (curl < 0.0f ? 0.0f : curl > 1.0f ? 1.0f : curl) : 0.0f;
+		}
+		return shape;
+	}
+
 	const hand_shape& shape_smoother::update(const hand_shape& target, float seconds, float closing, float opening)
 	{
 		if (!started_)

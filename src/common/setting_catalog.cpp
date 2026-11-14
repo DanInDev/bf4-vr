@@ -6,7 +6,7 @@ namespace bfvr::settings
 {
 	namespace
 	{
-		constexpr std::string_view pages[] = { "Start-up", "View", "Body", "Weapon", "HUD", "Controls", "Advanced" };
+		constexpr std::string_view pages[] = { "Start-up", "View", "Body", "Weapon", "HUD", "Controls", "Skeleton", "Advanced" };
 
 		constexpr presentation entries[] = {
 			// Start-up: read when the game starts; the launcher shows them, the in-VR panel cannot change them.
@@ -74,6 +74,12 @@ namespace bfvr::settings
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
+			{ "pose_lab", "Skeleton", "Pose lab", "Pose a hand", "Its fingers take the curls below, live", "off=Off|left=Left hand|right=Right hand" },
+			{ "pose_lab_thumb", "Skeleton", "Pose lab", "Thumb", "0 open .. 1 a fist", "" },
+			{ "pose_lab_index", "Skeleton", "Pose lab", "Index", "0 open .. 1 a fist", "" },
+			{ "pose_lab_middle", "Skeleton", "Pose lab", "Middle", "0 open .. 1 a fist", "" },
+			{ "pose_lab_ring", "Skeleton", "Pose lab", "Ring", "0 open .. 1 a fist", "" },
+			{ "pose_lab_pinky", "Skeleton", "Pose lab", "Pinky", "0 open .. 1 a fist", "" },
 			{ "wall_stop", "Weapon", "Hands and melee", "Gun stops at walls", "The drawn gun slides back off a wall", "" },
 			{ "grip_lock", "Weapon", "Reloading", "Hands lock onto the gun", "Magazines ride the magwell; the handle grip holds", "" },
 			{ "magazine_flight", "Weapon", "Reloading", "Thrown magazines fly", "They land on the real ground and lie 30 s", "" },
