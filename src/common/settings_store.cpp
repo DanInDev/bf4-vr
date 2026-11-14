@@ -70,6 +70,7 @@ namespace bfvr::settings
 			{ "body_span", kind::real, 0.0f, 2.5f, 0.01f, "0", "", "your arm span, grip to grip, from the calibration, metres (information)" },
 			{ "body_calibrate_now", kind::boolean, 0, 0, 0, "0", "", "switch on to start the T-pose calibration at once; it switches itself off" },
 			{ "shoulder_drop", kind::real, 0.0f, 0.45f, 0.01f, "0", "", "your shoulder joints below your eyes, metres (0 = from body_height: 0.22 at 1.78 m)" },
+			{ "shoulder_back", kind::real, -0.15f, 0.15f, 0.01f, "0", "", "the drawn shoulders moved back towards you (+) or forward (-), metres (headset 2026-11-14: they sat a little ahead)" },
 			{ "chest_depth", kind::real, 0.0f, 0.30f, 0.01f, "0", "", "the chest pouches and the knife in front of your eyes, metres (0 = from body_height: 0.10 at 1.78 m)" },
 			{ "hip_drop", kind::real, 0.0f, 1.10f, 0.01f, "0", "", "the hip holsters below your eyes, metres (0 = from body_height: 0.75 at 1.78 m)" },
 			{ "arm_length", kind::real, 0.8f, 1.5f, 0.05f, "1.15", "", "first-person arms stretched by this (reach)" },

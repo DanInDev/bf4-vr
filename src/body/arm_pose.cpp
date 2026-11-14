@@ -168,6 +168,7 @@ namespace bfvr::body
 		std::atomic<float> body_scale{ 1.0f };   // #46: the player's height against the reference (shoulder depth)
 		std::atomic<float> shoulder_drop{ body::reference_shoulder_drop }; // #50: shoulder joints below the eyes, metres
 		std::atomic<bool> body_shoulders{ true }; // live setting: shoulder joints at shoulder_anchor from the head
+		std::atomic<float> shoulder_back{};       // live setting shoulder_back: metres added to the anchor's depth
 		// Right shoulder joint from the head (between the eyes), OpenXR axes; the left one mirrored.
 		constexpr ik::vec3 shoulder_anchor{ 0.18f, -0.22f, 0.04f };
 		std::atomic<bool> legs_hidden{ true };   // live setting hide_legs
@@ -444,6 +445,10 @@ namespace bfvr::body
 		constexpr float finger_radius = 0.009f;
 		const contact::magazine_size magazine_body{}; // a rifle magazine (AK-12 / STANAG sized; not measured per gun yet)
 		ik::quat gun_hand_in_aim;      // the gun hand's rotation in its aim axes, last gun drawn
+		// The gun hand's wrist in the gun's frame (Wep_Root), last gun held: a slung copy hangs by its pistol
+		// grip at the sling point, where the hand takes it (headset 2026-11-14: drawn 21 cm below its zone).
+		ik::vec3 sling_grip_in_gun;
+		bool has_sling_grip{};
 		bool has_gun_hand_in_aim{};
 		// Racking: the inside of the hooked index (centroid of Index1-3), hand-bone axes, from the last shaping.
 		ik::vec3 hook_in_hand;
@@ -812,6 +817,12 @@ namespace bfvr::body
 				for (int hand = 0; hand < 2; ++hand)
 				{
 					geometry.hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.arms[hand].hand));
+					if (hand == 1 && gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed)
+						&& !sling_primary_shown.load(std::memory_order_relaxed)) // frozen at the primary's while its copy hangs
+					{
+						sling_grip_in_gun = geometry.hand[1].position;
+						has_sling_grip = true;
+					}
 					geometry.has_ik[hand] = rig.ik_hand[hand] >= 0;
 					if (geometry.has_ik[hand])
 					{
@@ -1022,7 +1033,7 @@ namespace bfvr::body
 					// #46, #50: the anchor sits shoulder_drop below the eyes, its depth scales with the player's
 					// height (its width comes from shoulder_width).
 					const float scale = body_scale.load(std::memory_order_relaxed);
-					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), -shoulder_drop.load(std::memory_order_relaxed), shoulder_anchor.z * scale };
+					const ik::vec3 anchor{ (hand == 0 ? -1.0f : 1.0f) * (shoulder_anchor.x + width), -shoulder_drop.load(std::memory_order_relaxed), shoulder_anchor.z * scale + shoulder_back.load(std::memory_order_relaxed) };
 					const ik::vec3 wanted = spine + ik::rotate(torso_turn, origin + ik::rotate(frame, body_head + anchor) - spine);
 					ik::bone_transform moved = ik::model_of(local, rig.parents, clavicle);
 					moved.position = moved.position + (wanted - at);
@@ -1208,9 +1219,14 @@ namespace bfvr::body
 							lying.rotation = ik::normalize(frame * yaw_turn * ik::quat{ 0, 1, 0, 0 } * on_side);
 							if (hanging)
 							{
-								// On the sling: upright, barrel 75 degrees down, facing where the body faces.
+								// On the sling: upright, barrel 75 degrees down, facing where the body faces, the
+								// pistol grip at the sling point.
 								const ik::quat down{ -0.60876143f, 0.0f, 0.0f, 0.79335334f };
 								lying.rotation = ik::normalize(frame * yaw_turn * down * ik::quat{ 0, 1, 0, 0 });
+								if (geometry.valid)
+								{
+									lying.position = lying.position - ik::rotate(lying.rotation, geometry.hand[1].position);
+								}
 							}
 							ik::set_model_transform(local, rig.parents, rig.weapon, lying);
 						}
@@ -2297,6 +2313,10 @@ namespace bfvr::body
 				const ik::quat yaw_turn{ 0, std::sin(half), 0, std::cos(half) };
 				const ik::quat down{ -0.60876143f, 0.0f, 0.0f, 0.79335334f };
 				sling.rotation = ik::normalize(frame * yaw_turn * down * ik::quat{ 0, 1, 0, 0 });
+				if (has_sling_grip)
+				{
+					sling.position = sling.position - ik::rotate(sling.rotation, sling_grip_in_gun);
+				}
 				ik::bone_transform root = ik::compose(ik::inverse(local[0]), sling);
 				root.scale = 1.0f;
 				float matrix[12];
@@ -2552,6 +2572,11 @@ namespace bfvr::body
 	{
 		arm_length = length > 0.5f && length < 2.0f ? length : 1.0f;
 		shoulder_width = width;
+	}
+
+	void set_shoulder_back(float metres)
+	{
+		shoulder_back = std::isfinite(metres) ? std::fmax(-0.15f, std::fmin(0.15f, metres)) : 0.0f;
 	}
 
 	void set_body_size(const body_size& size)

@@ -204,7 +204,7 @@ hud_ammo_width = 0.12
 hud_magazine_check = 1
 # Body calibration (#46, #50): after a level loads, stand straight, arms out to the sides, and hold both
 # triggers for two seconds. It measures your height (from the floor, or from the arm span without one, or
-# when the floor disagrees with the span by more than 10 cm) and span, sets body_height, body_span,
+# when the floor is 30 cm or more off from the span) and span, sets body_height, body_span,
 # arm_length and shoulder_width, and saves them here. A height more than 5 cm from the stored one is
 # kept only when a second T-pose agrees. first = until done once (body_height 0 asks again), always =
 # every level, off. body_height scales the pouches, holsters, sling and the shoulders (1.78 = as laid
@@ -216,6 +216,9 @@ body_span = 0
 # Body size by hand (#50), metres, 0 = from body_height: shoulder joints below the eyes (0.22 at 1.78 m),
 # chest pouches and knife in front of the eyes (0.10), hip holsters below the eyes (0.75).
 shoulder_drop = 0
+# The drawn shoulders moved back towards you (+) or forward (-), metres (headset 2026-11-14: they sat a
+# little ahead). Their height is shoulder_drop.
+shoulder_back = 0
 chest_depth = 0
 hip_drop = 0
 # First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).

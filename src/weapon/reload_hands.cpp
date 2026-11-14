@@ -214,6 +214,8 @@ namespace bfvr::weapon
 		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
 		const bool near_handle = to_slide < handle_reach && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
+		const float stow_reach = chest_reach * config_.stow_reach_scale;
+		const bool near_stow = !frame.handle_only && to_chest < stow_reach;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
 		q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
 		v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
@@ -431,7 +433,7 @@ namespace bfvr::weapon
 			}
 			else if (gun.state().holding)
 			{
-				const reload_event event = gun.let_go(near_chest);
+				const reload_event event = gun.let_go(near_stow);
 				if (event == reload_event::magazine_dropped)
 				{
 					// Let go or tossed: it keeps the hand's velocity.
@@ -462,6 +464,8 @@ namespace bfvr::weapon
 		result.zone_centre[2] = frame.chest;
 		result.zone_reach[2] = chest_reach;
 		result.has_chest_hip = frame.has_chest_hip;
+		result.stow_reach = stow_reach;
+		result.stow_zone = gun.state().holding && near_stow;
 		result.chest_hip = frame.chest_hip;
 		if (!gun.state().holding && !racking_ && !frame.grip)
 		{

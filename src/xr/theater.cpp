@@ -854,6 +854,7 @@ namespace bfvr::xr
 		bool sight_dot_shown{}; // this frame: the aim reticle stays off (the sight has its dot)
 		std::atomic<std::uint64_t> sight_dot_layers{}; // frames with a sight dot submitted (pipe status)
 		cpu_overlay ring_overlay[2]{ { "grab zone" }, { "grab zone (hand inside)" } };
+		cpu_overlay stow_overlay[2]{ { "stow marker" }, { "stow marker (hand inside)" } };
 		std::uint32_t max_layers{ 16 }; // the runtime's limit (OpenXR guarantees 16); more fails the frame
 		static constexpr std::uint32_t ring_pixels_size = 128;
 		ui::vignette comfort_vignette;
@@ -1034,6 +1035,55 @@ namespace bfvr::xr
 		int magazine_drawn{ -1 }; // rounds * 1000 + capacity of the uploaded image
 		input::gestures::magazine_check magazine_gesture;
 		LARGE_INTEGER last_magazine_time{};
+
+		// Headset 2026-11-14: where a held magazine goes back, shown while one is in the hand: a disc with three
+		// rounds at the chest pouch and one at the off-side hip, as large as the stow zone, green with the hand in it.
+		void add_stow_layers(XrCompositionLayerQuad (&quads)[2], const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
+		{
+			const weapon::held_magazine_view held = weapon::held_magazine();
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (!held.stow_shown || !head.valid || !(held.stow_reach > 0.0f) || layer_count + 2 + 5 > max_layers)
+			{
+				return;
+			}
+			const cpu_overlay& overlay = stow_overlay[held.stow_hot ? 1 : 0];
+			for (int hot = 0; hot < 2; ++hot)
+			{
+				if (!ensure_overlay(stow_overlay[hot], ring_pixels_size, ring_pixels_size))
+				{
+					return;
+				}
+				if (!stow_overlay[hot].shown)
+				{
+					std::vector<std::uint32_t> pixels;
+					ui::stow_texture(static_cast<int>(ring_pixels_size), hot != 0, pixels);
+					upload_overlay(stow_overlay[hot], pixels);
+					if (!stow_overlay[hot].shown)
+					{
+						return;
+					}
+				}
+			}
+			const stereo::pose centre = stereo::eye_math::centre_pose(head);
+			const float eye[3]{ centre.position[0], centre.position[1], centre.position[2] };
+			const float* points[2]{ held.stow_chest, held.stow_hip };
+			for (int i = 0; i < 2; ++i)
+			{
+				const float at[3]{ points[i][0], points[i][1], points[i][2] };
+				const ui::reticle_quad placed = ui::place_reticle(at, eye, 0.0f);
+				XrCompositionLayerQuad& quad = quads[i];
+				quad = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+				quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+				quad.space = space;
+				quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+				quad.subImage.swapchain = overlay.swapchain;
+				quad.subImage.imageRect.extent = { static_cast<std::int32_t>(ring_pixels_size), static_cast<std::int32_t>(ring_pixels_size) };
+				quad.pose.position = { placed.pose.position[0], placed.pose.position[1], placed.pose.position[2] };
+				quad.pose.orientation = { placed.pose.orientation[0], placed.pose.orientation[1], placed.pose.orientation[2], placed.pose.orientation[3] };
+				quad.size = { 2.0f * held.stow_reach, 2.0f * held.stow_reach };
+				layers[layer_count++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
+			}
+		}
 
 		void add_magazine_layer(XrCompositionLayerQuad& magazine_quad, const XrCompositionLayerBaseHeader** layers, std::uint32_t& layer_count)
 		{
@@ -2407,10 +2457,11 @@ namespace bfvr::xr
 			XrCompositionLayerQuad zone_quads[weapon::grab_zone_count]{};
 			XrCompositionLayerQuad notice_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad magazine_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
+			XrCompositionLayerQuad stow_quads[2]{};
 			XrCompositionLayerQuad calibration_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad scope_quad{ XR_TYPE_COMPOSITION_LAYER_QUAD };
 			XrCompositionLayerQuad sight_dot_quads[2]{};
-			const XrCompositionLayerBaseHeader* layers[18 + weapon::grab_zone_count]{};
+			const XrCompositionLayerBaseHeader* layers[20 + weapon::grab_zone_count]{};
 			std::uint32_t layer_count = 0;
 			// The pause menu (and other menus over a running level) is drawn straight into the image, not
 			// on a head-tracked frame: show the flat screen with the pointer while it is up.
@@ -2505,6 +2556,7 @@ namespace bfvr::xr
 				}
 				add_grab_zone_layers(zone_quads, layers, layer_count);
 				add_magazine_layer(magazine_quad, layers, layer_count);
+				add_stow_layers(stow_quads, layers, layer_count);
 				add_scope_layer(scope_quad, layers, layer_count);
 				add_sight_dot_layers(sight_dot_quads, layers, layer_count);
 				add_reticle_layer(reticle_quad, layers, layer_count);
@@ -2597,6 +2649,8 @@ namespace bfvr::xr
 			destroy_overlay(panel_overlay);
 			destroy_overlay(notice_overlay);
 			destroy_overlay(magazine_overlay);
+			destroy_overlay(stow_overlay[0]);
+			destroy_overlay(stow_overlay[1]);
 			magazine_drawn = -1;
 			destroy_overlay(calibration_overlay);
 			destroy_overlay(vignette_overlay);

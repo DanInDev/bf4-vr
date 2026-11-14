@@ -135,6 +135,8 @@ namespace bfvr::weapon
 		float rail_probe_off{};
 		float rail_probe_degrees{};
 		int rail_probe_flags{}; // 1 grip, 2 armed, 4 well free, 8 aligned, 16 guided this update, 32 left this update
+		bool stow_zone{};     // a held magazine can be put back: the hand is in the (larger) stow zone
+		float stow_reach{};   // that zone's reach around the pouch-to-hip line
 		bool loose{};         // a discarded magazine is in the world (flying or lying)
 		bool loose_resting{}; // #61: lying on the ground
 	};
@@ -144,6 +146,9 @@ namespace bfvr::weapon
 		float reach_magazine{ 0.10f }; // off hand this close to the magwell grabs / catches; a held magazine this close seats
 		float reach_slide{ 0.085f };
 		float reach_chest{ 0.13f }; // the magazine pouch, low on the chest (body_rig)
+		// Putting a held magazine back: the pouch-to-hip zone this many times larger (headset 2026-11-14: hard to
+		// find; a stow marker shows it while a magazine is in the hand).
+		float stow_reach_scale{ 1.6f };
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)

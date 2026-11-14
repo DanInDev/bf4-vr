@@ -16,6 +16,9 @@ namespace bfvr::ui
 	void sight_dot_texture(int size, std::vector<std::uint32_t>& pixels);
 	// grab_debug: a ring with a faint fill, amber, or green while a hand is inside (hot).
 	void ring_texture(int size, bool hot, std::vector<std::uint32_t>& pixels);
+	// Where a held magazine goes back (headset 2026-11-14): a faint disc and ring with three rounds in the middle,
+	// amber, or green while the hand is inside (hot).
+	void stow_texture(int size, bool hot, std::vector<std::uint32_t>& pixels);
 
 	struct reticle_quad
 	{

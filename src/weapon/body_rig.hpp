@@ -22,6 +22,14 @@ namespace bfvr::weapon
 	// at chest_depth (in proportion to the reference).
 	v3 sized_offset(const v3& offset, const body::body_size& size);
 
+	// Where the eyes would be with the head level (headset 2026-11-14: looking down at a pouch or the hip
+	// tipped the eyes ~5-10 cm forward and down about the neck, and every zone with them). The neck pivot
+	// sits eye_above_neck below and eye_ahead_of_neck behind the eyes; the head's pitch and roll are taken
+	// out about it, its yaw kept. head_rotation: the eyes' orientation (y up, -z forward).
+	constexpr float eye_above_neck = 0.11f;
+	constexpr float eye_ahead_of_neck = 0.09f;
+	v3 level_head(const v3& eyes, const q4& head_rotation);
+
 	// body_yaw: radians, 0 = facing -z, + = turned left (holsters::body_yaw). Mirrored when left-handed.
 	v3 body_point(const v3& head, float body_yaw, const v3& offset, bool left_handed, const body::body_size& size = {});
 }

@@ -40,6 +40,8 @@ namespace bfvr::body
 	void set_arm_shape(float length, float width);
 	// #46, #50: the player's body: the shoulders' height below the eyes (shoulder_drop) and their depth (scale).
 	void set_body_size(const body_size& size);
+	// Live setting shoulder_back: the drawn shoulders moved back (+) or forward (-), metres.
+	void set_shoulder_back(float metres);
 	// The first-person legs collapsed onto the hips (they sit oddly under a tracked head).
 	void set_legs_hidden(bool hidden);
 	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with

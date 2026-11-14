@@ -780,6 +780,15 @@ namespace bfvr::weapon
 			view.magwell[2] = frame.magwell.z;
 			view.rounds = gun.state().held_rounds;
 			view.capacity = gun.profile().capacity;
+			view.stow_shown = view.held && !result.guided && result.has_chest_hip;
+			view.stow_chest[0] = result.zone_centre[2].x;
+			view.stow_chest[1] = result.zone_centre[2].y;
+			view.stow_chest[2] = result.zone_centre[2].z;
+			view.stow_hip[0] = result.chest_hip.x;
+			view.stow_hip[1] = result.chest_hip.y;
+			view.stow_hip[2] = result.chest_hip.z;
+			view.stow_reach = result.stow_reach;
+			view.stow_hot = result.stow_zone;
 			const std::lock_guard view_guard(magazine_view_lock);
 			magazine_view = view;
 			magazine_view_at = GetTickCount64();

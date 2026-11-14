@@ -55,6 +55,13 @@ namespace bfvr::weapon
 		float magwell[3]{}; // the gun's magwell
 		int rounds{};
 		int capacity{};
+		// Where a held magazine goes back (headset 2026-11-14): the pouch and the off-side hip, the zone's
+		// reach around them, and whether the hand is in it now.
+		bool stow_shown{};
+		float stow_chest[3]{};
+		float stow_hip[3]{};
+		float stow_reach{};
+		bool stow_hot{};
 	};
 	held_magazine_view held_magazine();
 

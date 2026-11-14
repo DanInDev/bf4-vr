@@ -36,6 +36,7 @@ namespace bfvr::settings
 			{ "body_span", "Body", "Calibration", "Your arm span", "Grip to grip, metres (measured)", "" },
 			{ "shoulder_width", "Body", "Size", "Shoulder width", "Metres added on each side", "" },
 			{ "shoulder_drop", "Body", "Size", "Shoulders below the eyes", "Metres; 0 = from your height", "" },
+			{ "shoulder_back", "Body", "Size", "Shoulders back", "Metres; + towards you, - forward", "" },
 			{ "chest_depth", "Body", "Size", "Chest pouches in front", "Metres from the eyes; 0 = from your height", "" },
 			{ "hip_drop", "Body", "Size", "Hip holsters below the eyes", "Metres; 0 = from your height", "" },
 			{ "arm_length", "Body", "Size", "Arm length", "Longer arms reach further", "" },

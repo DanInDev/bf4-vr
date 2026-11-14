@@ -167,6 +167,7 @@ namespace bfvr::core
 					store.real("chest_depth", 0.0f), store.real("hip_drop", 0.0f) });
 				body::set_body_size(size);
 				weapon::set_body_size(size);
+				body::set_shoulder_back(store.real("shoulder_back", 0.0f));
 			}
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_soldier_radius(store.real("soldier_radius", 0.0f));

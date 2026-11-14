@@ -5,6 +5,7 @@
 // (src/weapon/grenade_hands), the weapon holsters (src/weapon/holsters) and the squad hand signal
 // (src/weapon/hand_signal).
 #include <cmath>
+#include <utility>
 #include <cstdio>
 #include <initializer_list>
 
@@ -358,6 +359,34 @@ namespace
 			}
 		}
 		return false;
+	}
+
+	// Headset 2026-11-14: putting a magazine back was hard to find. The stow zone is 1.6x the grab reach: 18 cm from
+	// the pouch puts it back (a grab there takes nothing), 25 cm drops it.
+	void test_stow_zone()
+	{
+		const auto let_go_at = [&](v3 hand)
+		{
+			reload gun(ar);
+			gun.load(11, 60);
+			reload_hands hands(flat_hold());
+			hands.update(gun, at(chest, true)); // a magazine from the pouch
+			hands.update(gun, at(away, true));
+			hand_result r = hands.update(gun, at(hand, true));
+			const bool zone = r.stow_zone;
+			r = hands.update(gun, at(hand, false));
+			return std::make_pair(zone, has(r, reload_event::magazine_stowed));
+		};
+		const auto near = let_go_at({ chest.x - 0.18f, chest.y, chest.z });
+		expect(near.first && near.second, "18 cm from the pouch: in the stow zone, put back");
+		const auto far = let_go_at({ chest.x - 0.25f, chest.y, chest.z });
+		expect(!far.first && !far.second, "25 cm from the pouch: not stowed");
+		reload gun(ar);
+		gun.load(11, 60);
+		reload_hands hands(flat_hold());
+		hands.update(gun, at(away, false));
+		const hand_result r = hands.update(gun, at({ chest.x - 0.18f, chest.y, chest.z }, true));
+		expect(!has(r, reload_event::magazine_taken), "a grab 18 cm from the pouch takes nothing (the grab reach is unchanged)");
 	}
 
 	// #57: the magazine zone runs from the low chest pouch down to the off-side hip (a capsule).
@@ -907,6 +936,36 @@ namespace
 		const float speed = std::sqrt(r.velocity.x * r.velocity.x + r.velocity.y * r.velocity.y + r.velocity.z * r.velocity.z);
 		expect(speed > 3.5f && speed < 6.5f && r.velocity.z < -3.0f && r.velocity.y > 1.0f, "throw velocity follows the hand");
 		expect(!r.holding && !r.off_busy, "hand empty after the throw");
+	}
+
+	// Headset 2026-11-14: looking down tipped every zone forward and down with the eyes. The level head is where
+	// the eyes would be with the head level, about the neck: the same for any pitch and roll, turning with the yaw.
+	void test_level_head()
+	{
+		const v3 neck{ 0.3f, 1.5f, -0.2f };
+		const auto eyes_for = [&](float yaw_degrees, float pitch_degrees, float roll_degrees, q4& q)
+		{
+			const float y = 0.5f * yaw_degrees * 0.017453293f, p = 0.5f * pitch_degrees * 0.017453293f, r = 0.5f * roll_degrees * 0.017453293f;
+			const q4 qy{ 0.0f, std::sin(y), 0.0f, std::cos(y) }, qp{ std::sin(p), 0.0f, 0.0f, std::cos(p) }, qr{ 0.0f, 0.0f, std::sin(r), std::cos(r) };
+			const auto mul = [](q4 a, q4 b) { return q4{ a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y, a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+				a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w, a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z }; };
+			q = mul(mul(qy, qp), qr);
+			const v3 v{ 0.0f, eye_above_neck, -eye_ahead_of_neck };
+			const float tx = 2.0f * (q.y * v.z - q.z * v.y), ty = 2.0f * (q.z * v.x - q.x * v.z), tz = 2.0f * (q.x * v.y - q.y * v.x);
+			return v3{ neck.x + v.x + q.w * tx + (q.y * tz - q.z * ty), neck.y + v.y + q.w * ty + (q.z * tx - q.x * tz),
+				neck.z + v.z + q.w * tz + (q.x * ty - q.y * tx) };
+		};
+		q4 level_q, down_q, side_q;
+		const v3 level = eyes_for(0.0f, 0.0f, 0.0f, level_q);
+		const v3 down = eyes_for(0.0f, -60.0f, 0.0f, down_q);
+		expect(close(down.z, level.z, 0.04f) == false, "looking down 60 degrees moves the eyes (the problem)");
+		const v3 a = level_head(level, level_q), b = level_head(down, down_q);
+		expect(close(a.x, level.x, 1e-3f) && close(a.y, level.y, 1e-3f) && close(a.z, level.z, 1e-3f), "level: the eyes themselves");
+		expect(close(b.x, level.x, 1e-3f) && close(b.y, level.y, 1e-3f) && close(b.z, level.z, 1e-3f), "looking down 60 degrees: where the eyes are when level");
+		const v3 tilted = eyes_for(90.0f, -45.0f, 20.0f, side_q);
+		const v3 c = level_head(tilted, side_q);
+		expect(close(c.y, level.y, 1e-3f) && close(c.x, neck.x - eye_ahead_of_neck, 1e-3f) && close(c.z, neck.z, 1e-3f),
+			"turned 90 degrees left, down and rolled: level, ahead of the neck to the left");
 	}
 
 	// The pin pulled with the teeth (owner's idea, 2026-11-14): the grenade held to the mouth a moment, then yanked
@@ -1634,6 +1693,7 @@ int main()
 	test_conservation();
 	test_profiles();
 	test_magazine_zone_to_hip();
+	test_stow_zone();
 	test_hands_ak();
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
@@ -1645,6 +1705,7 @@ int main()
 	test_grenade_throw();
 	test_grenade_either_hand();
 	test_grenade_teeth();
+	test_level_head();
 	test_grenade_drop_and_put_back();
 	test_holsters();
 	test_hand_signal();

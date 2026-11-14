@@ -803,7 +803,12 @@ namespace bfvr::weapon
 		holster_frame frame;
 		frame.seconds = seconds;
 		frame.head_valid = head_valid;
-		frame.head = head;
+		{
+			// The holsters hang from the level head, as the pouches (body_rig_point): looking down does not move them.
+			const stereo::head_sample sample = stereo::latest_head_sample();
+			const float* q = sample.eyes[0].orientation;
+			frame.head = sample.valid ? level_head(head, { q[0], q[1], q[2], q[3] }) : head;
+		}
 		frame.head_yaw = head_yaw;
 		frame.hand_valid = points.hand_valid[1] && now - points.at < points_max_age_ms;
 		frame.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
@@ -898,7 +903,8 @@ namespace bfvr::weapon
 		}
 		const float* l = head.eyes[0].position;
 		const float* r = head.eyes[1].position;
-		const v3 centre{ 0.5f * (l[0] + r[0]), 0.5f * (l[1] + r[1]), 0.5f * (l[2] + r[2]) };
+		const float* q = head.eyes[0].orientation;
+		const v3 centre = level_head({ 0.5f * (l[0] + r[0]), 0.5f * (l[1] + r[1]), 0.5f * (l[2] + r[2]) }, { q[0], q[1], q[2], q[3] });
 		if (!body_yaw(yaw))
 		{
 			const float* o = head.eyes[0].orientation;
