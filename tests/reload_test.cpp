@@ -958,7 +958,7 @@ namespace
 		q4 level_q, down_q, side_q;
 		const v3 level = eyes_for(0.0f, 0.0f, 0.0f, level_q);
 		const v3 down = eyes_for(0.0f, -60.0f, 0.0f, down_q);
-		expect(close(down.z, level.z, 0.04f) == false, "looking down 60 degrees moves the eyes (the problem)");
+		expect(level.y - down.y > 0.08f, "looking down 60 degrees drops the eyes ~10 cm (the problem)");
 		const v3 a = level_head(level, level_q), b = level_head(down, down_q);
 		expect(close(a.x, level.x, 1e-3f) && close(a.y, level.y, 1e-3f) && close(a.z, level.z, 1e-3f), "level: the eyes themselves");
 		expect(close(b.x, level.x, 1e-3f) && close(b.y, level.y, 1e-3f) && close(b.z, level.z, 1e-3f), "looking down 60 degrees: where the eyes are when level");

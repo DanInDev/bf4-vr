@@ -385,11 +385,17 @@ namespace bfvr::weapon
 		const int held_by = result.hand;
 		const int pin_hand = 1 - held_by;
 		if (result.event == grenade_event::taken && weapon.valid
-			&& (!stereo::extra_mesh::grenade_captured() || std::strcmp(captured_for, weapon.name) != 0))
+			&& (!stereo::extra_mesh::grenade_captured() || (captured_for[0] && std::strcmp(captured_for, weapon.name) != 0)))
 		{
-			// The game's own grenade for the hand (#36): once, and again for another kind of grenade.
+			// The game's own grenade for the hand (#36): once, and again for another kind of grenade. One captured at
+			// level start (#41, slot capture) counts: capturing again meant 4 s with the game's grenade selected, when a
+			// trigger threw it (headset 2026-11-14).
 			std::memcpy(captured_for, weapon.name, sizeof(captured_for));
 			request_grenade_capture();
+		}
+		else if (result.event == grenade_event::taken && weapon.valid && !captured_for[0])
+		{
+			std::memcpy(captured_for, weapon.name, sizeof(captured_for)); // the level start's capture was of this one
 		}
 		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
 		{
