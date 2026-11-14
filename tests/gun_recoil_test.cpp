@@ -155,6 +155,55 @@ namespace
 		expect(near(slow.at(2.0 * config.pitch_recovery).degrees, quick.at(config.pitch_recovery).degrees, 1e-3f),
 			"recovery 2 takes twice as long to settle");
 	}
+	// #60: a long gun fired with one hand climbs ~5x and is pushed back ~2.5x what a two-handed one does, and
+	// scatters; a pistol is unchanged; the setting at 0 is the old kick; two hands are not affected by it.
+	void test_one_handed()
+	{
+		const recoil_config config;
+		const recoil_profile rifle;
+		recoil_profile pistol;
+		pistol.pistol = true;
+		const auto burst = [&](const recoil_profile& gun, bool two_handed, float one_hand, int shots)
+		{
+			gun_recoil recoil(config);
+			double t = 1.0;
+			for (int i = 0; i < shots; ++i, t += 0.1)
+			{
+				recoil.shot(t, 1, 1.0f, two_handed, gun, one_hand);
+			}
+			return recoil.at(t - 0.1);
+		};
+		const recoil_offset two = burst(rifle, true, 1.0f, 1);
+		const recoil_offset one = burst(rifle, false, 1.0f, 1);
+		const recoil_offset old = burst(rifle, false, 0.0f, 1);
+		expect(std::fabs(one.degrees) > 4.0f * two.degrees, "one shot, one hand: the rifle climbs ~5x a two-handed shot");
+		expect(one.back > 2.0f * two.back, "one shot, one hand: pushed back ~2.5x");
+		expect(near(old.degrees, config.degrees_per_shot) && old.yaw == 0.0f, "setting 0: the old one-handed kick, no scatter");
+		const recoil_offset two_off = burst(rifle, true, 0.0f, 1);
+		expect(near(two.degrees, two_off.degrees) && near(two.back, two_off.back), "two hands: the setting changes nothing");
+		const recoil_offset p_one = burst(pistol, false, 1.0f, 3);
+		const recoil_offset p_old = burst(pistol, false, 0.0f, 3);
+		expect(near(p_one.degrees, p_old.degrees) && near(p_one.back, p_old.back) && near(p_one.yaw, p_old.yaw), "a pistol in one hand: unchanged");
+		const recoil_offset long_burst = burst(rifle, false, 1.0f, 12);
+		const recoil_offset two_burst = burst(rifle, true, 1.0f, 12);
+		expect(long_burst.degrees > config.max_degrees * 1.2f && long_burst.degrees <= config.one_hand_max_degrees + 1e-3f,
+			"full auto, one hand: climbs past the two-handed cap up to its own");
+		expect(two_burst.degrees <= config.max_degrees + 1e-3f, "full auto, two hands: the usual cap");
+		// Scatter: with a gun of no sideways recoil, one hand still throws the muzzle sideways, shot by shot.
+		float spread = 0.0f;
+		gun_recoil recoil(config);
+		double t = 1.0;
+		float last_yaw = 0.0f;
+		for (int i = 0; i < 8; ++i, t += 0.1)
+		{
+			recoil.shot(t, 1, 1.0f, false, rifle, 1.0f);
+			const float yaw = recoil.at(t).yaw;
+			spread += std::fabs(yaw - last_yaw);
+			last_yaw = yaw;
+		}
+		expect(spread > 2.0f, "one hand: the muzzle scatters sideways shot by shot");
+		expect(std::fabs(last_yaw) <= config.one_hand_max_yaw + 1e-3f, "the scatter stays within its cap");
+	}
 }
 
 int main()
@@ -165,6 +214,7 @@ int main()
 	test_gun_profile();
 	test_profile_from_game();
 	test_recovery();
+	test_one_handed();
 	if (failures == 0)
 	{
 		std::printf("gun_recoil: all passed\n");

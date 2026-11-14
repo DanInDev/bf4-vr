@@ -17,6 +17,18 @@ namespace bfvr::body
 		float back_recovery{ 0.06f };   // the push back returns faster than the muzzle comes down
 		float two_handed_scale{ 0.4f }; // a support hand on the handguard steadies the gun
 		float rest_degrees{ 0.25f };    // below this the gun is at rest: the next shot is a first shot
+		// #60: a long gun (not a pistol) fired without the support hand, at the one_hand setting's full
+		// strength: the climb per shot this many times the one-handed kick above (with two_handed_scale 0.4:
+		// ~5x a two-handed shot, as the BF3 VR mod tuned it), the push back this many times (~2.5x), a
+		// random throw of up to one_hand_scatter degrees per shot up/down and sideways, the muzzle settling
+		// one_hand_recovery times slower, and higher caps.
+		float one_hand_climb{ 2.0f };
+		float one_hand_back{ 1.0f };
+		float one_hand_scatter{ 1.5f };
+		float one_hand_recovery{ 1.8f };
+		float one_hand_max_degrees{ 35.0f };
+		float one_hand_max_back{ 0.05f };
+		float one_hand_max_yaw{ 12.0f };
 	};
 
 	// The gun's own recoil for the current stance (BF4: GunSwayData, hip fire), relative to the
@@ -28,6 +40,7 @@ namespace bfvr::body
 		float yaw_min{};              // degrees per shot, drawn uniformly between min and max
 		float yaw_max{};
 		float recovery{ 1.0f };       // scales the settle times (> 1: settles slower)
+		bool pistol{};                // a handgun (the game's pistol animation set): no one-hand penalty
 	};
 
 	struct recoil_offset
@@ -42,8 +55,9 @@ namespace bfvr::body
 	public:
 		explicit gun_recoil(const recoil_config& config = {}) : config_(config) {}
 		// shots fired at `now` (seconds, any steady clock); strength: the live setting (0 = off, 1 = as
-		// tuned); two_handed: the support hand holds the gun.
-		void shot(double now, int shots, float strength, bool two_handed, const recoil_profile& gun = {});
+		// tuned); two_handed: the support hand holds the gun; one_hand: the one-hand penalty's strength
+		// for a long gun fired without it (0 = none, 1 = as tuned, #60).
+		void shot(double now, int shots, float strength, bool two_handed, const recoil_profile& gun = {}, float one_hand = 0.0f);
 		// The kick at `now`; exactly zero two seconds after the last shot.
 		recoil_offset at(double now) const;
 		void reset() { state_ = {}; last_ = -1.0; }

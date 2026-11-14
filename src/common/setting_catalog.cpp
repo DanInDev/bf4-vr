@@ -55,6 +55,7 @@ namespace bfvr::settings
 			{ "reticle", "Weapon", "Aiming", "Aim dot", "A dot where the shots go", "" },
 			{ "reticle_size", "Weapon", "Aiming", "Aim dot size", "Degrees", "" },
 			{ "recoil", "Weapon", "Aiming", "Recoil", "The gun kicks in your hand; 0 = off", "" },
+			{ "one_hand_recoil", "Weapon", "Aiming", "One-handed recoil", "Long guns without the support hand; pistols not", "" },
 			{ "sight_dot", "Weapon", "Aiming", "Red dot in the sight", "Through the lens, aiming or not", "" },
 			{ "sight_dot_size", "Weapon", "Aiming", "Red dot size", "Degrees", "" },
 			{ "sight_dot_reach", "Weapon", "Aiming", "Red dot eye tolerance", "cm off the sight line", "" },

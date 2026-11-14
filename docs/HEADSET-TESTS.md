@@ -26,7 +26,7 @@ Before each session:
 
 ## Next session: a short list
 
-Build: `test/headset-2026-11-14` = `main` + grip lock (`weapon/grip-lock`) + the physics (`physics/ray-ground`),
+Build: `test/headset-2026-11-14` = `main` + grip lock (`weapon/grip-lock`) + the physics (`physics/ray-ground`) + one-handed recoil (`weapon/one-hand-recoil`),
 **Release**, deployed 2026-11-14; the main checkout is on that branch, so the launcher's Update mod installs the
 same build. New in it, check these first (a mark, both stick clicks, whenever something looks off):
 
@@ -37,6 +37,8 @@ A. **Grip lock (GUN-20):** with an empty gun, bring a fresh magazine up under th
 B. **Magazines on the real ground (GUN-21):** drop and toss used magazines on flat floor, rubble, stairs, a
    crate: each lands on what is there, bounces, tips onto a side and lies.
 C. **They lie 30 s (GUN-22):** look at one for half a minute; it is gone only after you look away.
+D. **One-handed recoil (GUN-23):** a burst at a far wall with the rifle in one hand, then with the off hand on
+   the handguard: one-handed it climbs far and jumps about (on purpose), two-handed as before; a pistol unchanged.
 
 Then the earlier list, from the 2026-11-13 build (all of it is in this build too):
 
@@ -151,6 +153,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | GUN-20 | open | Grip lock (`grip_lock`, Weapon > Reloading > Magazines lock onto the gun): bring a fresh magazine up under the magwell, push it in; then pull a magazine out by hand (AK) and look at the hand; then palm on the SCAR as before | Within a few cm it snaps upright onto the magwell and your drawn hand jumps onto it with the game's grip (fingers wrapped, not floating); it goes in only when you push up; seated, the hand stays on it until you open your grip; pulled out it slides straight down the well before it comes free. Off on the panel: the old loose zip-in, to compare | | 2026-11-14 monitor (fake hands, SCAR-H, empty gun): locked on 7 cm below the magwell (`guided=1`, lock 1.00), seated when pushed up, hand stayed on it while gripping, let go on opening. A 6 cm catch / 45 degrees missed a natural fist hold (2-11 cm off): now 10 cm / 50 degrees |
 | GUN-21 | open | Magazines on the real ground (#61): drop and toss used magazines on flat ground, on stairs, onto a crate or car roof, and down a slope | Each lands on what is there (not floating at your feet height, not sunk into it), bounces once or twice, tips onto a flat side and lies; on stairs it stays on the step it hit | | |
 | GUN-22 | open | Magazines lie 30 s (#61): drop one, look at it for half a minute, then look away and back | It is still there while you look; after 30 s it is gone only once you looked away (never vanishes in view) | | |
+| GUN-23 | open | One-handed recoil (#60, Weapon > Aiming > One-handed recoil): fire a burst at a far wall with the rifle in one hand, then with the off hand on the handguard; then the pistol in one hand | One-handed the rifle climbs far and jumps about (hard to keep on target, on purpose); two-handed it stays controllable as before; the pistol is unchanged. Too much or too little: say a value between 0 and 1 | #60 | |
 | GUN-14 | done | Hold the gun with your finger resting on the trigger, then pull; `trigger_press` (Weapon > Trigger pull to fire) 0.45 / 0.65 to compare | Resting never fires; a deliberate pull fires at about half way, letting go a little stops it | | 2026-11-09 headset: fine (no unwanted shots reported).; earlier: 2026-11-05: the gun kept firing: a resting finger read 26-47 % and every value reached the game. Now all or nothing past 55 % (released below 45 %), unit-tested |
 | GUN-16 | open | Grab zones v2 (#57), without looking, 10 tries each: rifle from the sling (belly, right), pistol from the right hip, gadget 1 over the right shoulder, gadget 2 over the left shoulder, magazines from the belly and from the left hip | Never the wrong item; a reach for the pistol never brings the rifle; `grab_debug = 1` rings sit where you reach (`magazine_reach`) | #57 | |
 | GUN-6 | done | (layout before #57) Chest rig (grab-zones.svg): gun hand over the right shoulder (primary), right hip (secondary), high left chest (knife); either hand over the left shoulder / left hip (gadgets, after the stash) | Each drawn on the first try; looking down at a pouch doesn't move it | #14 |  2026-11-04: works (all but grenades: GRN-2) |

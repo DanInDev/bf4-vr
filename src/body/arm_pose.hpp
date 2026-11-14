@@ -244,6 +244,8 @@ namespace bfvr::body
 	std::string hands_report();
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).
 	void set_gun_recoil(float strength);
+	// #60, setting one_hand_recoil: the one-hand penalty for long guns (0..1).
+	void set_one_hand_recoil(float strength);
 	// Shots the game fired this frame: the drawn gun kicks (the controller and the shot line do not).
 	void kick_gun(int shots, const recoil_profile& gun = {});
 	// Pipe "recoil": the current kick.
