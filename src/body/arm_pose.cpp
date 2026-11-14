@@ -186,6 +186,7 @@ namespace bfvr::body
 		std::atomic<bool> gun_in_hand{ true };    // a primary or secondary gun is drawn (weapon_swap)
 		std::atomic<float> support_weight{};       // two-handed hold, 0..1: the off hand is drawn on the gun
 		std::atomic<float> recoil_strength{ 1.0f }; // live setting recoil
+		std::atomic<float> one_hand_strength{ 1.0f }; // live setting one_hand_recoil (#60)
 		std::mutex recoil_lock;
 		gun_recoil recoil;
 		recoil_offset last_kick; // for the pipe report
@@ -2719,22 +2720,30 @@ namespace bfvr::body
 		}
 	}
 
+	void set_one_hand_recoil(float strength)
+	{
+		one_hand_strength = std::isfinite(strength) ? std::fmax(0.0f, std::fmin(1.0f, strength)) : 1.0f;
+	}
+
 	void kick_gun(int shots, const recoil_profile& gun)
 	{
 		const float strength = recoil_strength.load(std::memory_order_relaxed);
 		const std::lock_guard guard(recoil_lock);
-		recoil.shot(steady_seconds(), shots, strength, support_weight.load(std::memory_order_relaxed) >= 0.5f, gun);
+		recoil.shot(steady_seconds(), shots, strength, support_weight.load(std::memory_order_relaxed) >= 0.5f, gun,
+			one_hand_strength.load(std::memory_order_relaxed));
 		last_profile = gun;
 	}
 
 	std::string recoil_report()
 	{
-		char text[256];
+		char text[384];
 		const std::lock_guard guard(recoil_lock);
 		std::snprintf(text, sizeof(text),
-			"recoil strength=%.2f drawn_kick_deg=%.2f drawn_back_m=%.4f drawn_yaw_deg=%.2f now_deg=%.2f gun vertical=%.2f first_shot=%.2f yaw=%.2f..%.2f",
+			"recoil strength=%.2f drawn_kick_deg=%.2f drawn_back_m=%.4f drawn_yaw_deg=%.2f now_deg=%.2f gun vertical=%.2f first_shot=%.2f yaw=%.2f..%.2f"
+			" one_hand=%.2f pistol=%d two_handed=%d",
 			recoil_strength.load(), last_kick.degrees, last_kick.back, last_kick.yaw, recoil.at(steady_seconds()).degrees, last_profile.vertical,
-			last_profile.first_shot, last_profile.yaw_min, last_profile.yaw_max);
+			last_profile.first_shot, last_profile.yaw_min, last_profile.yaw_max, one_hand_strength.load(), last_profile.pistol ? 1 : 0,
+			support_weight.load() >= 0.5f ? 1 : 0);
 		return text;
 	}
 

@@ -48,6 +48,7 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t unlock_name = 0x20;
 		constexpr std::uintptr_t weapon_data = 0x30;      // SoldierWeaponData
 		constexpr std::uintptr_t data_firing = 0x90;      // WeaponFiringData
+		constexpr std::uintptr_t data_anim_set = 0x1C8;   // SoldierWeaponData.AnimBaseSet: 1 = wabsPstl (typeinfo, #60)
 		constexpr std::uintptr_t firing_primary = 0x10;   // FiringFunctionData
 		constexpr std::uintptr_t firing_rumble = 0x38;    // WeaponFiringData.Rumble: low, high, duration
 		constexpr std::uintptr_t firing_sway = 0x30;      // WeaponFiringData.WeaponSway (GunSwayData)
@@ -142,6 +143,8 @@ namespace bfvr::weapon
 			}
 			read(firing + firing_rumble, weapon.rumble);
 			weapon.recoil = read_recoil(firing, soldier);
+			std::int32_t anim_set = -1;
+			weapon.recoil.pistol = read(data + data_anim_set, anim_set) && anim_set == 1;
 			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
 			if ((server_soldier = player_server_soldier()) == 0 || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon

@@ -275,6 +275,10 @@ reticle_size = 1
 # AK-12, a bigger first shot). 0 = off, up to 3. The controller and the view do not move; the shots
 # follow the kicked gun, as with a real one.
 recoil = 1
+# A long gun (rifle, shotgun, LMG, sniper rifle; the game's own pistol animation set is left out) fired
+# without the support hand on the handguard: about 5x the climb of a two-handed shot, 2.5x the push back,
+# thrown about shot by shot and slower to settle, as in the BF3 VR mod (#60). 0 = the plain one-handed kick.
+one_hand_recoil = 1
 # Hold the gun's sight to an eye (within 3 cm of its line, up to 30 cm behind it) and the game aims
 # down the sights: the optic's lens clears (it is opaque at the hip) and the game's ADS accuracy and
 # slower walk apply; it ends 0.3 s after both eyes are more than 5 cm off the line. 0 = never

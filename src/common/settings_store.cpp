@@ -82,6 +82,7 @@ namespace bfvr::settings
 			{ "rack_grip", kind::choice, 0, 0, 0, "auto", "auto|pinch|hook", "the charging handle between the thumb and the side of the index (pinch), or inside the curled index (hook); auto: the pinch with the palm down on it, hooked in the index and middle with the palm up under it" },
 			{ "shoulder_width", kind::real, -0.1f, 0.2f, 0.01f, "0", "", "first-person shoulders moved outwards by this, metres per side" },
 			{ "recoil", kind::real, 0.0f, 3.0f, 0.1f, "1", "", "the drawn gun kicks per shot by the gun's own recoil data (muzzle up and sideways, back along the barrel; softer two-handed), 0 = off; the shots follow the kick" },
+			{ "one_hand_recoil", kind::real, 0.0f, 1.0f, 0.1f, "1", "", "a rifle, shotgun, LMG or sniper rifle fired without the support hand: ~5x the climb of a two-handed shot, ~2.5x the push back, thrown about shot by shot, slower to settle (#60); pistols are not affected; 0 = the plain one-handed kick" },
 			{ "melee_gesture", kind::boolean, 0, 0, 0, "1", "", "a quick forward thrust of the gun hand is the game's melee (knife stab)" },
 			{ "knife_pitch", kind::real, -180.0f, 180.0f, 5.0f, "145", "", "held knife: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
 			{ "knife_yaw", kind::real, -180.0f, 180.0f, 5.0f, "-15", "", "degrees the held knife is turned about the controller's up (+ = to the right)" },
