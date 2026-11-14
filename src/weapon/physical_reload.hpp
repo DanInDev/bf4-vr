@@ -64,6 +64,8 @@ namespace bfvr::weapon
 		bool stow_hot{};
 	};
 	held_magazine_view held_magazine();
+	// The gun in hand is a pistol (the game's animation set, #60).
+	bool held_is_pistol();
 
 	// Pipe "reload": state and the last events. "reload <event>" (research builds) drives the state
 	// machine directly: fire button grab take letgo stow insert rack.

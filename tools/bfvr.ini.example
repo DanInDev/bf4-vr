@@ -133,6 +133,11 @@ drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
+# The drawn gun stops at walls (#63): a ray along the real gun's barrel (the game's own ray cast) pulls the
+# drawn gun back along its barrel so the muzzle stays 3 cm short of the wall; shots leave from the drawn
+# barrel, so from the near side. Never stuck: worked out from your real hand every frame, and past 30 cm it
+# lets the barrel through rather than pulling the drawn hand off yours. Pipe `wallstop` shows it.
+wall_stop = 1
 # Grip lock: a magazine brought to the magwell (top within 10 cm of its axis, turned within 50 degrees of
 # how it sits) locks onto a rail along the magwell's axis, upright; the drawn off hand locks onto it with
 # the game's own magazine grip. Push it up to seat it; the hand stays on it while you grip. Pulled out by

@@ -79,6 +79,11 @@ namespace bfvr::body
 		bool has_root{};
 		float root[3]{};       // Wep_Root: the gun's frame (+z along the barrel, +y up)
 		float root_rotation[4]{ 0, 0, 0, 1 };
+		// #63: Wep_Root where the controller holds the gun (before the arm's reach limit and the wall push), the
+		// real gun the wall ray follows.
+		bool has_held_root{};
+		float held_root[3]{};
+		float held_root_rotation[4]{ 0, 0, 0, 1 };
 		bool has_optic{};
 		float optic[3]{};      // Wep_Scope1 (sight, magnifier)
 		// The sight line: the game's animation keeps the camera joint on the gun's sight, so the camera
@@ -245,6 +250,10 @@ namespace bfvr::body
 	// Setting grip_lock, racking: the hand's rotation on the charging handle held relative to the gun from
 	// the stroke's start (no turning round the knob).
 	void set_rack_lock(bool on);
+	// #63: the drawn gun pulled back along its barrel by this much (metres; weapon/wall_stop), and whether a
+	// gun is drawn in the gun hand on its ray now (else nothing to push).
+	void set_wall_push(float metres);
+	bool wall_push_applies();
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).

@@ -39,6 +39,13 @@ namespace bfvr::physics
 		std::mutex pipe_lock;
 		pipe_ray* pipe_pending{};
 
+		// #63: the barrel ray (latest request wins).
+		std::mutex barrel_lock;
+		v3 barrel_from, barrel_to;
+		std::uint64_t barrel_asked{}, barrel_cast{};
+		float barrel_fraction{ 1.0f };
+		ULONGLONG barrel_at{};
+
 		std::atomic<std::uint64_t> rays_cast{};
 		std::atomic<std::uint64_t> rays_hit{};
 		std::atomic<std::uint64_t> rays_failed{};
@@ -247,6 +254,25 @@ namespace bfvr::physics
 				}
 			}
 		}
+		{
+			v3 from, to;
+			std::uint64_t asked = 0;
+			{
+				const std::lock_guard guard(barrel_lock);
+				asked = barrel_asked != barrel_cast ? barrel_asked : 0;
+				from = barrel_from;
+				to = barrel_to;
+			}
+			if (asked)
+			{
+				ray_hit hit;
+				const bool cast_ok = cast(from, to, hit);
+				const std::lock_guard guard(barrel_lock);
+				barrel_cast = asked;
+				barrel_fraction = cast_ok && hit.hit && std::isfinite(hit.fraction) ? std::fmax(0.0f, std::fmin(1.0f, hit.fraction)) : 1.0f;
+				barrel_at = cast_ok ? GetTickCount64() : 0;
+			}
+		}
 		ground_ray rays[6];
 		const int count = level_ground().take_rays(rays, 6);
 		for (int i = 0; i < count; ++i)
@@ -261,6 +287,22 @@ namespace bfvr::physics
 				level_ground().retry_later(rays[i].key); // not castable now (no level yet): asked again later
 			}
 		}
+	}
+
+	void request_barrel_ray(const v3& from, const v3& to)
+	{
+		const std::lock_guard guard(barrel_lock);
+		barrel_from = from;
+		barrel_to = to;
+		++barrel_asked;
+	}
+
+	bool latest_barrel_ray(float& fraction, std::uint64_t& request)
+	{
+		const std::lock_guard guard(barrel_lock);
+		fraction = barrel_fraction;
+		request = barrel_cast;
+		return barrel_cast != 0 && barrel_at != 0 && GetTickCount64() - barrel_at < 100;
 	}
 
 	std::string raycast_command(const std::string& argument)

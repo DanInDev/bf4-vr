@@ -381,6 +381,10 @@ namespace bfvr::body
 		// the gun): the hand's rotation relative to the gun is taken as the stroke begins (overhand or underhand,
 		// as grabbed) and held until the handle is let go.
 		std::atomic<bool> rack_lock_on{ true };
+		std::atomic<float> wall_push{};          // #63: metres back along the barrel
+		std::atomic<bool> wall_push_target{};    // a gun on the gun hand's ray this frame
+		bool has_held_root{};                    // #63: the gun where the controller holds it (model space)
+		ik::bone_transform held_root;
 		bool rack_locked{};
 		ik::quat rack_hand_in_gun;
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
@@ -1137,6 +1141,25 @@ namespace bfvr::body
 						goal.hand = ik::normalize(turn(up, -kick.yaw) * turn(right, kick.degrees) * goal.hand);
 						goal.wrist = goal.wrist - forward * kick.back;
 					}
+					const bool on_ray = gun_on_ray.load(std::memory_order_relaxed) && !gun_on_floor_now.load(std::memory_order_relaxed); // not dropped or slung
+					wall_push_target = on_ray;
+					// The real gun for the wall ray: as the hand goal holds it, before the push and the arm's reach.
+					held_root.position = goal.wrist + ik::rotate(goal.hand, weapon_in_hand.position);
+					held_root.rotation = ik::normalize(goal.hand * weapon_in_hand.rotation);
+					has_held_root = on_ray;
+					const float push = wall_push.load(std::memory_order_relaxed);
+					if (on_ray && push > 0.0f)
+					{
+						// #63: the drawn gun (and the hand on it) pulled back along the barrel off the wall; the
+						// support hand follows the gun below.
+						const ik::vec3 barrel = ik::rotate(frame * ik::normalize(aim), ik::vec3{ 0.0f, 0.0f, -1.0f });
+						goal.wrist = goal.wrist - barrel * push;
+					}
+				}
+				else if (gun_hand_carries)
+				{
+					wall_push_target = false;
+					has_held_root = false;
 				}
 				const float support = support_weight.load(std::memory_order_relaxed);
 				if (hand != carrier && (carrier == 1 || off_by_grip.load(std::memory_order_relaxed)) && gun_placed && geometry.valid && support > 0.0f)
@@ -1380,6 +1403,19 @@ namespace bfvr::body
 			};
 			publish(rig.optic, points.has_optic, points.optic);
 			publish(rig.weapon, points.has_root, points.root);
+			points.has_held_root = has_held_root;
+			if (has_held_root)
+			{
+				const ik::vec3 at = ik::rotate(to_xr, held_root.position - origin);
+				const ik::quat turned = to_xr * held_root.rotation;
+				points.held_root[0] = at.x;
+				points.held_root[1] = at.y;
+				points.held_root[2] = at.z;
+				points.held_root_rotation[0] = turned.x;
+				points.held_root_rotation[1] = turned.y;
+				points.held_root_rotation[2] = turned.z;
+				points.held_root_rotation[3] = turned.w;
+			}
 			if (points.has_root)
 			{
 				const ik::quat root_xr = to_xr * ik::model_of(local, rig.parents, rig.weapon).rotation;
@@ -2866,6 +2902,16 @@ namespace bfvr::body
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	void set_wall_push(float metres)
+	{
+		wall_push = std::isfinite(metres) ? std::fmax(0.0f, std::fmin(0.5f, metres)) : 0.0f;
+	}
+
+	bool wall_push_applies()
+	{
+		return wall_push_target.load(std::memory_order_relaxed);
 	}
 
 	void set_rack_lock(bool on)

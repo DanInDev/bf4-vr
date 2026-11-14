@@ -178,6 +178,8 @@ add_library(bfvr_runtime STATIC
 	src/weapon/reload_hands.cpp
 	src/weapon/magazine_flight.cpp
 	src/physics/loose_body.cpp
+	src/weapon/wall_stop.cpp
+	src/weapon/wall_stop_game.cpp
 	src/physics/ground_cache.cpp
 	src/physics/ray_cast.cpp
 	src/weapon/shot_frame.cpp
@@ -280,6 +282,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_handedness_test PRIVATE bfvr_common)
 
 	# Physical reload state machine (AK and AR variants); exits non-zero on failure.
+	add_executable(bfvr_wall_stop_test tests/wall_stop_test.cpp src/weapon/wall_stop.cpp)
+	target_link_libraries(bfvr_wall_stop_test PRIVATE bfvr_common)
 	add_executable(bfvr_loose_body_test tests/loose_body_test.cpp src/physics/loose_body.cpp)
 	target_link_libraries(bfvr_loose_body_test PRIVATE bfvr_common)
 	add_executable(bfvr_ground_cache_test tests/ground_cache_test.cpp src/physics/ground_cache.cpp src/physics/loose_body.cpp)
@@ -387,6 +391,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME gestures COMMAND bfvr_gestures_test)
 	add_test(NAME handedness COMMAND bfvr_handedness_test)
 	add_test(NAME reload COMMAND bfvr_reload_test)
+	add_test(NAME wall_stop COMMAND bfvr_wall_stop_test)
 	add_test(NAME loose_body COMMAND bfvr_loose_body_test)
 	add_test(NAME ground_cache COMMAND bfvr_ground_cache_test)
 	add_test(NAME magazine_flight COMMAND bfvr_magazine_flight_test)

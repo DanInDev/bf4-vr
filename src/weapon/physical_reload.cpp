@@ -120,6 +120,8 @@ namespace bfvr::weapon
 			return body::profile_from_game(gun, ak12);
 		}
 
+		std::atomic<bool> pistol_in_hand{}; // the last weapon read is a pistol (#63: its shorter barrel)
+
 		game_weapon read_game_weapon()
 		{
 			game_weapon weapon;
@@ -147,6 +149,7 @@ namespace bfvr::weapon
 			weapon.recoil = read_recoil(firing, soldier);
 			std::int32_t anim_set = -1;
 			weapon.recoil.pistol = read(data + data_anim_set, anim_set) && anim_set == 1;
+			pistol_in_hand = weapon.recoil.pistol;
 			std::uintptr_t server_soldier{}, server_weapons{}, server_weapon{}, server_ammo{};
 			if ((server_soldier = player_server_soldier()) == 0 || !read(server_soldier + server_soldier_weapons, server_weapons)
 				|| !read(server_weapons + server_weapon_slots + index * 8, server_weapon) || !server_weapon
@@ -468,6 +471,11 @@ namespace bfvr::weapon
 	void set_magazine_flight(bool enabled)
 	{
 		magazine_flight_on = enabled;
+	}
+
+	bool held_is_pistol()
+	{
+		return pistol_in_hand.load(std::memory_order_relaxed);
 	}
 
 	void set_grip_lock(bool enabled)

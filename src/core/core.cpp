@@ -35,6 +35,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/wall_stop_game.hpp"
 #include "weapon/zoom_mesh.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
@@ -150,6 +151,7 @@ namespace bfvr::core
 			weapon::set_game_reload_sounds(store.boolean("reload_sounds", true));
 			weapon::set_magazine_flight(store.boolean("magazine_flight", true));
 			weapon::set_grip_lock(store.boolean("grip_lock", true));
+			weapon::set_wall_stop(store.boolean("wall_stop", true));
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");
@@ -247,6 +249,7 @@ namespace bfvr::core
 			weapon::update_physical_reload();
 			weapon::update_hip_accuracy();
 			weapon::update_physical_grenades();
+			weapon::update_wall_stop();
 			weapon::update_two_handed();
 			weapon::update_zoom_mesh();
 			ui::update_body_calibration();

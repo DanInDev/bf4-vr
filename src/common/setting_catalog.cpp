@@ -74,6 +74,7 @@ namespace bfvr::settings
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
+			{ "wall_stop", "Weapon", "Hands and melee", "Gun stops at walls", "The drawn gun slides back off a wall", "" },
 			{ "grip_lock", "Weapon", "Reloading", "Hands lock onto the gun", "Magazines ride the magwell; the handle grip holds", "" },
 			{ "magazine_flight", "Weapon", "Reloading", "Thrown magazines fly", "They land on the real ground and lie 30 s", "" },
 			{ "reload_sounds", "Weapon", "Reloading", "Reload sounds", "Magazines, bolt, pouch and pin", "" },
