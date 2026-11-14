@@ -130,6 +130,7 @@ namespace bfvr::body
 			float reach{};                         // goal distance over the animated arm's length (> 1: out of reach)
 			ik::quat aim_xr;                       // the aim rotation used, OpenXR LOCAL
 			ik::vec3 wrist_in_camera;              // OpenXR camera axes
+			ik::quat hand_in_aim;                  // the hand goal's rotation in the controller's aim axes
 		};
 
 		struct check_report
@@ -1170,6 +1171,7 @@ namespace bfvr::body
 				goal.has_pole_fallback = true;
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
 				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
+				last_arms[hand].hand_in_aim = ik::normalize(ik::conjugate(frame * ik::normalize(aim)) * goal.hand);
 				const float reach = ik::reach_ratio(local, rig.parents, bones, goal.wrist);
 				if (ik::solve_arm(local, rig.parents, bones, goal))
 				{
@@ -3017,6 +3019,8 @@ namespace bfvr::body
 			length += std::snprintf(text + length, sizeof(text) - length, "%s solved=%d reach=%.2f shoulder=%s elbow=%s wrist=%s goal=%s wrist_in_camera=%s\n",
 				hand == 0 ? "left " : "right", arm.solved ? 1 : 0, arm.reach, v(arm.shoulder, a), v(arm.elbow, b), v(arm.wrist, c), v(arm.goal, d),
 				v(arm.wrist_in_camera, e));
+			const ik::quat h = arm.hand_in_aim;
+			length += std::snprintf(text + length, sizeof(text) - length, "  hand_in_aim=(%.3f,%.3f,%.3f,%.3f)\n", h.x, h.y, h.z, h.w);
 		}
 		return text;
 	}
