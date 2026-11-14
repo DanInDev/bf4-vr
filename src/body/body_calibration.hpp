@@ -24,7 +24,9 @@ namespace bfvr::body::calibration
 	struct config
 	{
 		float hold_seconds{ 2.0f };      // #50: averaged over a longer hold (two runs of one person gave 1.86 and 1.97 m)
-		float max_floor_disagreement{ 0.10f }; // #50: a floor height this far from the span's: the floor is wrong, the span wins
+		// A floor height this far from the span's: the floor is wrong (not set up), the span wins. 10 cm let a
+		// short span (arms not straight) beat a right floor: the owner (1.88 m) measured 1.76 m (2026-11-14).
+		float max_floor_disagreement{ 0.30f };
 		float min_span{ 1.0f };          // grip to grip, horizontally
 		float max_below_eyes{ 0.50f };   // hands at shoulder height: this far below the eyes at most
 		float max_above_eyes{ 0.05f };

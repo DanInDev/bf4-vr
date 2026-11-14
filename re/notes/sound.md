@@ -131,3 +131,15 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
 - The sound plays from the entity's own transform (the gun), so it is positioned like the game's.
 - LB (off-hand grip) is the quick-throw grenade outside the reload zones (8 cm magwell, 20 cm chest):
   a grab that misses a zone throws a grenade. Not seen as a sound problem; keep in mind.
+
+## Grenade sounds (2026-11-14, owner: "a synthesised pin sound, not the grenade's own")
+
+- Loaded in the Baku level (pipe `scan` for `Weapons/Handheld/M67`): waves
+  `Sound/Weapons/Handheld/M67/M67_Remove_Safety_Pin_Wave`, `M67_Deploy_Wave`, `M67_Throw_Wave` and an
+  asset `Sound/Weapons/Handheld/M67/M67`.
+- None of the 106 live `SoundEntity` objects (43 sounds) is a grenade's while the rifle is out: the pin
+  sound comes with the grenade weapon's own animation, which a physical grenade never runs.
+- Open: play that wave (trigger the M67 patch while the grenade weapon exists, e.g. during the grenade
+  capture, or decode the wave from the game files as the BF3 VR mod does). Until then the synthesised
+  `cue::pin` plays.
+

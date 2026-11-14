@@ -123,7 +123,7 @@ namespace bfvr::body::calibration
 			m.stature = stature_from_eyes(m.eye_height);
 			if (std::fabs(m.stature - stature_from_span(m.span)) > config_.max_floor_disagreement)
 			{
-				// The STAGE floor has been seen 11 cm off between two runs; the span does not move.
+				// Grossly off from the span (more than max_floor_disagreement): no usable floor.
 				m.from_floor = false;
 				m.floor_doubted = true;
 			}

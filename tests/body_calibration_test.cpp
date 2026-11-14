@@ -110,14 +110,19 @@ namespace
 		hold(no_floor, pose(1.6f, true, 1.67f, false), 2.1f);
 		expect(no_floor.result().valid && !no_floor.result().from_floor && near(no_floor.result().stature, 1.78f), "no floor: stature from the span (fingertips 9 cm past the grips)");
 
-		// #50: the owner's two runs, 2026-11-12: the floor read 1.86 m, then 1.97 m; the span (1.65 m between
-		// the grips, 1.83 m from the span) stayed. Within 10 cm the floor is trusted; past it the span wins.
+		// The owner (1.88 m): floor runs read 1.86 and 1.97 m (2026-11-12); span runs 1.83 m (grips 1.65 m apart) and,
+		// 2026-11-14, 1.76 m (grips 1.58 m: arms out are rarely straight). The floor is the better measure, so it
+		// wins unless it is off from the span by a gross 30 cm (a floor not set up).
 		t_pose good_floor;
 		hold(good_floor, pose(1.65f, true, 1.75f), 2.1f);
 		expect(good_floor.result().from_floor && near(good_floor.result().stature, 1.86f), "floor 1.86 m, span 1.83 m: the floor");
-		t_pose bad_floor;
-		hold(bad_floor, pose(1.65f, true, 1.86f), 2.1f);
-		expect(!bad_floor.result().from_floor && bad_floor.result().floor_doubted && near(bad_floor.result().stature, 1.83f), "floor 1.97 m, span 1.83 m: the span, floor doubted");
+		t_pose high_floor;
+		hold(high_floor, pose(1.65f, true, 1.86f), 2.1f);
+		expect(high_floor.result().from_floor && near(high_floor.result().stature, 1.97f), "floor 1.97 m, span 1.83 m: still the floor (within 30 cm)");
+		t_pose bent_arms;
+		hold(bent_arms, pose(1.58f, true, 1.77f), 2.1f);
+		expect(bent_arms.result().from_floor && !bent_arms.result().floor_doubted && near(bent_arms.result().stature, 1.88f),
+			"2026-11-14: floor 1.88 m, grips only 1.58 m apart (1.76 m): the floor's 1.88 m");
 
 		t_pose odd;
 		hold(odd, pose(1.6f, true, 3.5f), 2.1f);
