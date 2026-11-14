@@ -299,6 +299,10 @@ namespace bfvr::weapon
 			back,
 		};
 		capture_stage grenade_capture{ capture_stage::idle };
+		// While a capture has the game's grenade (or knife) selected, a trigger is the game's own throw or
+		// stab: the triggers are kept from it (headset 2026-11-14: a grenade flew on a trigger press during a
+		// 4 s capture that saw no grenade draw).
+		std::atomic<bool> capture_active{};
 		std::atomic<bool> grenade_capture_requested{};
 		// #41: the same sequence selects the knife for its holster copy; which item this run is for.
 		std::atomic<bool> knife_capture_requested{};
@@ -585,6 +589,7 @@ namespace bfvr::weapon
 		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
 		advance_grenade_capture(held, now);
+		capture_active = grenade_capture != capture_stage::idle;
 		body::set_grenade_weapon(held.valid && held.current == 6 && grenade_capture != capture_stage::idle
 			&& capture_item == stereo::extra_mesh::captured::grenade);
 		update_sling_primary(held);
@@ -928,6 +933,11 @@ namespace bfvr::weapon
 		else if (dropped_now.load(std::memory_order_relaxed) || off_hand_now.load(std::memory_order_relaxed))
 		{
 			out.right_trigger = 0; // the gun lies on the floor or hangs from the off hand (free hands, #38)
+		}
+		if (capture_active.load(std::memory_order_relaxed))
+		{
+			out.right_trigger = 0;
+			out.left_trigger = 0;
 		}
 		return out;
 	}

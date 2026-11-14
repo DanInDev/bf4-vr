@@ -909,6 +909,56 @@ namespace
 		expect(!r.holding && !r.off_busy, "hand empty after the throw");
 	}
 
+	// The pin pulled with the teeth (owner's idea, 2026-11-14): the grenade held to the mouth a moment, then yanked
+	// away, arms it; passing by the mouth or holding it there without the yank does not; the hands' pull still works.
+	void test_grenade_teeth()
+	{
+		grenade_rig g;
+		g.frame.has_mouth = true;
+		g.frame.mouth = { 0.0f, -0.08f, -0.09f };
+		g.step();
+		g.frame.off_hand = g.frame.belt;
+		g.step();
+		g.frame.off_grip = true;
+		grenade_result r = g.step();
+		expect(r.event == grenade_event::taken, "teeth: a grenade taken");
+		// Swept past the mouth quickly: no bite.
+		r = g.move({ 0.0f, -0.08f, -0.12f }, 0.05f);
+		r = g.move({ -0.25f, -0.35f, -0.35f }, 0.1f);
+		expect(!r.armed, "teeth: swept past the mouth, still pinned");
+		r = g.move({ 0.0f, -0.09f, -0.12f }, 0.2f);
+		for (int i = 0; i < 27; ++i) // 0.3 s at the mouth
+		{
+			r = g.step();
+		}
+		expect(r.pin_bitten && !r.armed, "teeth: held at the mouth, the pin is in the teeth");
+		r = g.move({ -0.25f, -0.3f, -0.35f }, 0.15f);
+		expect(r.armed, "teeth: yanked away, armed");
+		bool pulled = false;
+		grenade_rig h;
+		h.frame.has_mouth = true;
+		h.frame.mouth = { 0.0f, -0.08f, -0.09f };
+		h.step();
+		h.frame.off_hand = h.frame.belt;
+		h.step();
+		h.frame.off_grip = true;
+		h.step();
+		h.move({ 0.0f, -0.09f, -0.12f }, 0.2f);
+		for (int i = 0; i < 27; ++i)
+		{
+			h.step();
+		}
+		// Moved away by the hand pull path still counts once: the event comes once.
+		for (int i = 0; i < 30; ++i)
+		{
+			const v3 at{ -0.02f * static_cast<float>(i), -0.09f - 0.01f * static_cast<float>(i), -0.12f };
+			h.frame.off_hand = at;
+			const grenade_result step = h.step();
+			pulled = pulled || step.event == grenade_event::pin_pulled;
+		}
+		expect(pulled, "teeth: the pin_pulled event comes (its sound and buzz)");
+	}
+
 	// Empty hands (#38): with the gun dropped or slung the gun hand takes the grenade, the off hand pulls the
 	// pin, the gun hand throws. Without either_hand the gun hand at the belt takes nothing.
 	void test_grenade_either_hand()
@@ -1594,6 +1644,7 @@ int main()
 	test_accessory_touch();
 	test_grenade_throw();
 	test_grenade_either_hand();
+	test_grenade_teeth();
 	test_grenade_drop_and_put_back();
 	test_holsters();
 	test_hand_signal();

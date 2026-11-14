@@ -20,6 +20,10 @@ namespace bfvr::weapon
 		// Empty hands (#38): the gun hand is free (the gun dropped or slung), so it may take the grenade too;
 		// then it holds and throws, and the off hand pulls the pin.
 		bool either_hand{};
+		// The mouth (the head's point a little below and ahead of the eyes): a grenade held there a moment
+		// takes its pin in the teeth, and yanked away the pin comes out (owner's idea, 2026-11-14).
+		bool has_mouth{};
+		v3 mouth;
 	};
 
 	enum class grenade_event
@@ -42,6 +46,8 @@ namespace bfvr::weapon
 		bool off_busy{};  // keep the off-hand grip from the game
 		bool gun_busy{};  // keep the gun-hand grip from the game
 		int hand{};       // which hand holds the grenade: 0 = off hand, 1 = gun hand (either_hand)
+		bool pin_bitten{}; // the pin is in the teeth (held to the mouth); yank the grenade away to pull it
+		bool bite_now{};   // this update the teeth took the pin (a tick)
 	};
 
 	struct grenade_config
@@ -52,6 +58,9 @@ namespace bfvr::weapon
 		float throw_speed{ 1.5f };  // hand speed at release that counts as a throw (m/s)
 		float velocity_window{ 0.08f }; // seconds of hand motion averaged into one velocity
 		float release_lookback{ 0.15f }; // the throw is the fastest such velocity this long before release
+		float mouth_reach{ 0.10f };   // the holding hand's palm this close to the mouth ...
+		float bite_seconds{ 0.15f };  // ... this long takes the pin in the teeth
+		float mouth_pull{ 0.18f };    // then this far from the mouth pulls it out
 	};
 
 	class grenade_hands
@@ -79,6 +88,8 @@ namespace bfvr::weapon
 		int holder_{}; // 0 = the off hand holds the grenade, 1 = the gun hand
 		bool armed_{};
 		bool pin_held_{};
+		bool bitten_{};
+		float bite_time_{};
 		v3 pin_start_;
 		float clock_{};
 		sample history_[history_size];

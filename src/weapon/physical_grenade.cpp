@@ -17,6 +17,7 @@
 #include "common/settings_store.hpp"
 #include "input/haptics.hpp"
 #include "stereo/extra_mesh.hpp"
+#include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/body_rig.hpp"
 #include "weapon/game_reload_sounds.hpp"
@@ -329,6 +330,21 @@ namespace bfvr::weapon
 		frame.gun_grip = (pad.buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
 		frame.have_grenade = weapon.valid && weapon.count > 0;
 		frame.either_hand = gun_dropped(); // #38: the gun on the floor or the sling frees the gun hand
+		{
+			// The mouth for the teeth pin pull: 8 cm below and 9 cm ahead of the eyes.
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (head.valid)
+			{
+				const stereo::pose centre = stereo::eye_math::centre_pose(head);
+				const float* o = centre.orientation;
+				const float x = o[0], y = o[1], z = o[2], w = o[3];
+				const float down[3]{ -2.0f * (x * y - w * z), -(1.0f - 2.0f * (x * x + z * z)), -2.0f * (y * z + w * x) }; // -(head up)
+				const float ahead[3]{ -2.0f * (x * z + w * y), -2.0f * (y * z - w * x), -(1.0f - 2.0f * (x * x + y * y)) };  // head -z
+				frame.has_mouth = true;
+				frame.mouth = { centre.position[0] + 0.08f * down[0] + 0.09f * ahead[0], centre.position[1] + 0.08f * down[1] + 0.09f * ahead[1],
+					centre.position[2] + 0.08f * down[2] + 0.09f * ahead[2] };
+			}
+		}
 		const grenade_result result = hands.update(frame);
 		// #41: the game's own grenade stands at the pouch while none is held (once captured); the ring only
 		// stands in until then (grab_debug: the pouch had no ring and could not be found, headset 2026-11-04).
@@ -382,7 +398,11 @@ namespace bfvr::weapon
 			play_game_reload_sound(reload_event::magazine_taken);
 			input::haptic(held_by, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
 		}
-		else if (result.event == grenade_event::pin_pulled)
+		if (result.bite_now)
+		{
+			input::haptic(held_by, input::pulses::tick);
+		}
+		if (result.event == grenade_event::pin_pulled)
 		{
 			play(cue::pin);
 			input::haptic(pin_hand, input::pulses::grab);

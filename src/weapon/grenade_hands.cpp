@@ -88,7 +88,8 @@ namespace bfvr::weapon
 			{
 				result.event = grenade_event::put_back;
 			}
-			holding_ = armed_ = pin_held_ = false;
+			holding_ = armed_ = pin_held_ = bitten_ = false;
+			bite_time_ = 0.0f;
 			history_count_ = 0;
 			return result;
 		}
@@ -101,7 +102,8 @@ namespace bfvr::weapon
 			{
 				holding_ = true;
 				holder_ = 0;
-				armed_ = pin_held_ = false;
+				armed_ = pin_held_ = bitten_ = false;
+				bite_time_ = 0.0f;
 				history_count_ = 0;
 				result.event = grenade_event::taken;
 			}
@@ -109,7 +111,8 @@ namespace bfvr::weapon
 			{
 				holding_ = true;
 				holder_ = 1;
-				armed_ = pin_held_ = false;
+				armed_ = pin_held_ = bitten_ = false;
+				bite_time_ = 0.0f;
 				history_count_ = 0;
 				result.event = grenade_event::taken;
 			}
@@ -128,6 +131,26 @@ namespace bfvr::weapon
 
 		if (holding_ && result.event != grenade_event::taken)
 		{
+			if (!armed_ && frame.has_mouth)
+			{
+				// The teeth: held at the mouth a moment the pin is bitten; yanked away it comes out.
+				const float to_mouth = length(minus(holder, frame.mouth));
+				if (!bitten_)
+				{
+					bite_time_ = to_mouth < config_.mouth_reach ? bite_time_ + frame.seconds : 0.0f;
+					if (bite_time_ >= config_.bite_seconds)
+					{
+						bitten_ = true;
+						result.bite_now = true;
+					}
+				}
+				else if (to_mouth > config_.mouth_pull)
+				{
+					armed_ = true;
+					bitten_ = pin_held_ = false;
+					result.event = grenade_event::pin_pulled;
+				}
+			}
 			if (!armed_)
 			{
 				if (puller_pressed && pin_distance < config_.reach_pin)
@@ -143,7 +166,7 @@ namespace bfvr::weapon
 					&& length(minus(puller, pin_start_)) >= config_.pin_pull)
 				{
 					armed_ = true;
-					pin_held_ = false;
+					pin_held_ = bitten_ = false;
 					result.event = grenade_event::pin_pulled;
 				}
 			}
@@ -160,11 +183,13 @@ namespace bfvr::weapon
 				{
 					result.event = length(v) >= config_.throw_speed ? grenade_event::thrown : grenade_event::dropped;
 				}
-				holding_ = armed_ = pin_held_ = false;
+				holding_ = armed_ = pin_held_ = bitten_ = false;
+				bite_time_ = 0.0f;
 			}
 		}
 
 		result.holding = holding_;
+		result.pin_bitten = holding_ && bitten_;
 		result.armed = armed_;
 		result.hand = holder_;
 		const bool pin_busy = holding_ && (pin_held_ || pin_distance < config_.reach_pin);
