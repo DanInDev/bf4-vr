@@ -61,6 +61,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
+| VIEW-AA | open | Open fields of the prologue and a later outdoor level: post anti-aliasing is now off; then raise BF4's Options > Video > Resolution Scale in steps (110 %, 125 %) | Distant buildings and ground sharper than before, edges not too jagged; the frame rate holds the headset's refresh (monitor: 125 % is ~13.4 ms for both eyes, over the 11.1 ms of 90 Hz; try 72 Hz for it) | | 2026-11-14 monitor: both work with the eye pass; re/notes/render-quality.md |
 | VIEW-1 | done | Step `view_crop_bottom` (View page) up from 0: 8, 12, 16, looking ahead and at your feet | The highest value with no black band at the bottom of the lens. Is the picture sharper (wall text, world markers)? Monitor: 14 gives ~28 % more vertical sharpness | #1 |  2026-11-04: works (value not noted) |
 | VIEW-2 | retest | At the chosen crop: look around, aim, reload, look down at the chest rig | The gun sits in your hands, horizons stay level, no tilt or swimming when you turn your head | #1 |  2026-11-04: MP1 |
 | VIEW-3 | done | Walk and sprint along a corridor with `steady_walk` on, off, on | On: the world glides with no side-to-side rocking, gun and hands stay put. Off: the old 12 cm sway |  2026-11-04: works; earlier | |

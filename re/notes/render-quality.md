@@ -79,3 +79,20 @@ The compositor gets the same tilted pose and the smaller symmetric FOV, so it re
   The wall corner and the gun keep their columns. 116.5 fps either way.
 - Gain at `view_crop_v 0.72`, d = 14: half angle 45.8° → 38.8°, so tan 1.028 → 0.804, which gives **28 % more
   lines per degree vertically**. Too much cut shows a black band at the bottom; headset row V1.
+
+## Resolution Scale and post anti-aliasing (2026-11-14)
+
+- `GstRender.AntiAliasingPost 0` (was 3, FXAA-type) and `GstRender.ResolutionScale` set in
+  `Documents\Battlefield 4\settings\PROFSAVE_profile` with BF4 closed; BF4 keeps both when it writes the profile
+  on exit. The launcher's **Set up for VR** now sets post AA to 0; Resolution Scale is left to the player
+  (BF4's Options > Video).
+- The eye pass works with a scale above 1: `eye_rejected=0`, the picture is complete and sharper.
+- Monitor, Release, prologue start, no headset session, MSAA (`AntiAliasingDeferred 2`) unchanged:
+
+| ResolutionScale | fps | GPU per eye (`eyepass gpu_ms`) |
+| --- | --- | --- |
+| 1.00 | 114 | 4.24 ms |
+| 1.25 | 76-80 | 6.70 ms |
+
+- 1.25 costs ~58 % more GPU time per eye (1.56 times the pixels). Both eyes at 1.25 (~13.4 ms) do not fit 90 Hz
+  (11.1 ms); they fit 72 Hz just. At 90 Hz roughly 1.1 is the ceiling on this PC. Headset row VIEW-AA.
