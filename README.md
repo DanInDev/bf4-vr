@@ -87,10 +87,14 @@ sights, some gadgets, and proper models for the grab zones. Progress and plans a
   <img src="docs/img/launcher.png" alt="The BF4-VR launcher: status, Start Battlefield 4, Setup and Settings tabs" width="640">
 </p>
 
-1. **Get the mod.** There is no public download yet; build it from source
-   ([build instructions](docs/architecture/README.md#build-and-run)).
-2. **Open the launcher** (`bfvr_launcher.exe`). On **Setup** it finds Battlefield 4, checks the game build and
-   installs the mod. **Settings** has every option, the same as the panel inside VR.
+The full walk-through, with what each button changes, picture-quality tips, updating and removing, is in
+**[docs/INSTALL.md](docs/INSTALL.md)**. In short:
+
+1. **Get the mod**: the zip from the [releases page](https://github.com/DanInDev/bf4-vr/releases), or build it from
+   source ([build instructions](docs/architecture/README.md#build-and-run)).
+2. **Open the launcher** (`bfvr_launcher.exe`). On **Setup**, press **Set up for VR**: it installs the mod, writes
+   its VR settings and sets BF4's own video settings (a backup is kept). **Settings** has every option, the same
+   as the panel inside VR.
 3. **Start SteamVR and connect the Quest** through Steam Link.
 4. Press **Start Battlefield 4** and continue your campaign.
 

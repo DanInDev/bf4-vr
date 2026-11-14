@@ -1,11 +1,9 @@
-// bf-vr launcher: installs and removes the dinput8.dll proxy in the game folder, sets the game and
-// bfvr.ini up for VR, edits bfvr.ini and starts the game through the EA app. Games: Battlefield 4
-// (the VR mod) and Battlefield 3 (research build); launcher/install.hpp holds what differs.
+// bf-vr launcher: installs and removes the dinput8.dll proxy in the Battlefield 4 folder, sets BF4 and
+// bfvr.ini up for VR, edits bfvr.ini and starts BF4 through the EA app.
 //
-// Usage: bfvr_launcher.exe [--game bf4|bf3] [--game-dir <folder>]
-// Defaults: the game chosen last time (bfvr_launcher.ini beside the launcher), the install folder from
-// the registry. The mod's dinput8.dll (BF3's in the folder bf3) and bfvr.ini.example are taken from
-// the launcher's own folder.
+// Usage: bfvr_launcher.exe [--game-dir <folder>]
+// Default: the install folder from the registry. The mod's dinput8.dll and bfvr.ini.example are taken
+// from the launcher's own folder.
 
 #include <windows.h>
 #include <commctrl.h>
@@ -74,26 +72,9 @@ namespace bfvr::launcher
 		} app;
 
 		const game_profile& game() { return *app.game.profile; }
-		std::filesystem::path mod_dll()
-		{
-			const std::string_view config = BFVR_BUILD_CONFIG;
-			return find_mod_dll(app.launcher_dir, game(), std::wstring(config.begin(), config.end()).c_str());
-		}
+		// The mod's dinput8.dll sits beside the launcher (in the package and in build\bf4\<config>).
+		std::filesystem::path mod_dll() { return app.launcher_dir / L"dinput8.dll"; }
 		std::filesystem::path ini_path() { return app.game.dir / L"bfvr.ini"; }
-		// Remembers the chosen game between starts.
-		std::filesystem::path launcher_ini() { return app.launcher_dir / L"bfvr_launcher.ini"; }
-
-		const game_profile& other_game()
-		{
-			for (const game_profile* profile : game_profiles)
-			{
-				if (profile != app.game.profile)
-				{
-					return *profile;
-				}
-			}
-			return game();
-		}
 
 		std::wstring widen(const std::string& text)
 		{
@@ -107,18 +88,6 @@ namespace bfvr::launcher
 			return wide;
 		}
 
-		// bfvr::config reads the file as narrow (ANSI) text, so values are written the same way.
-		std::string narrow(const std::wstring& text)
-		{
-			if (text.empty())
-			{
-				return {};
-			}
-			const int size = WideCharToMultiByte(CP_ACP, 0, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
-			std::string ansi(static_cast<std::size_t>(size), '\0');
-			WideCharToMultiByte(CP_ACP, 0, text.data(), static_cast<int>(text.size()), ansi.data(), size, nullptr, nullptr);
-			return ansi;
-		}
 
 		std::wstring window_text(HWND dialog, int control)
 		{
@@ -479,12 +448,7 @@ namespace bfvr::launcher
 			const bool have_dir = !app.game.dir.empty();
 			std::error_code error;
 			const bool profile_found = !app.profile.empty() && std::filesystem::exists(app.profile, error);
-			if (!game().vr_setup)
-			{
-				// Research build: which game settings VR needs is not known yet, so none are touched.
-				show(dialog, IDC_PROFILE_STATUS, L"left as they are (research build)", tone::normal);
-			}
-			else if (profile_found)
+			if (profile_found)
 			{
 				show_pending(dialog, IDC_PROFILE_STATUS, profile_pending(app.profile));
 			}
@@ -492,12 +456,7 @@ namespace bfvr::launcher
 			{
 				show(dialog, IDC_PROFILE_STATUS, std::wstring(L"not found yet: start ") + game().name + L" once so it creates its settings", tone::bad);
 			}
-			if (have_dir && !game().vr_setup)
-			{
-				const bool present = std::filesystem::exists(ini_path(), error);
-				show(dialog, IDC_INI_STATUS, present ? L"bfvr.ini present (flat screen in the headset)" : L"bfvr.ini is created by the setup", present ? tone::good : tone::normal);
-			}
-			else if (have_dir)
+			if (have_dir)
 			{
 				show_pending(dialog, IDC_INI_STATUS, ini_pending(ini_path()));
 			}
@@ -618,17 +577,8 @@ namespace bfvr::launcher
 			{
 				add(deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG));
 			}
-			if (game().vr_setup)
-			{
-				add(apply_ini(ini_path(), app.launcher_dir / L"bfvr.ini.example"));
-				add(apply_profile(app.profile, game_running(app.game)));
-			}
-			else
-			{
-				// Only the template: the VR values are BF4's, and the game's own settings stay untouched.
-				const bool seeded = ini::write(ini_path(), {}, app.launcher_dir / L"bfvr.ini.example");
-				add({ seeded, seeded ? L"bfvr.ini is in place (flat screen in the headset)." : L"bfvr.ini could not be written to " + ini_path().wstring() + L"." });
-			}
+			add(apply_ini(ini_path(), app.launcher_dir / L"bfvr.ini.example"));
+			add(apply_profile(app.profile, game_running(app.game)));
 			if (ok)
 			{
 				message += std::wstring(L"\r\nReady: start SteamVR (or Link), then Start ") + game().name + L".";
@@ -649,61 +599,22 @@ namespace bfvr::launcher
 			{
 				return;
 			}
-			const launch_command command = launch_of(app.game);
-			if (reinterpret_cast<INT_PTR>(ShellExecuteW(dialog, L"open", command.file.c_str(), command.arguments.empty() ? nullptr : command.arguments.c_str(),
-					command.directory.empty() ? nullptr : command.directory.c_str(), SW_SHOWNORMAL)) <= 32)
+			if (reinterpret_cast<INT_PTR>(ShellExecuteW(dialog, L"open", game().launch_link, nullptr, nullptr, SW_SHOWNORMAL)) <= 32)
 			{
-				fail(dialog, game().launch_link ? L"Windows did not accept the EA app's launch link. Is the EA app installed?"
-					: L"Could not start " + command.file + L".");
+				fail(dialog, L"Windows did not accept the EA app's launch link. Is the EA app installed?");
 				return;
 			}
-			say(dialog, game().launch_link
-				? std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute. If nothing happens, check the EA app for a prompt."
-				: std::wstring(L"Launch sent. Battlelog opens in your browser: start the campaign there, then ") + game().brand
-					+ L" opens (its campaign menu after about two minutes).");
+			say(dialog, std::wstring(L"Launch sent to the EA app; ") + game().brand + L" opens in a minute. If nothing happens, check the EA app for a prompt.");
 		}
 
-		// The texts that name the game, the header brand and the fresh state of the chosen game.
+		// The header brand, the status line and the fresh state of the game folder.
 		void show_game(HWND dialog)
 		{
-			const std::wstring name = game().name;
-			std::wstring upper = name;
-			CharUpperW(upper.data());
 			theme::set_brand(game().brand, game().name);
-			SetWindowTextW(dialog, (L"bf-vr launcher - " + name + L" VR (campaign only)").c_str());
-			SetDlgItemTextW(dialog, IDC_GAME, (std::wstring(L"Switch to ") + other_game().brand).c_str());
-			SetDlgItemTextW(dialog, IDC_START, (L"Start " + name).c_str());
-			SetDlgItemTextW(dialog, IDC_SETUP_GAME_HEADING, upper.c_str());
-			SetDlgItemTextW(dialog, IDC_SETUP_PROFILE_LABEL, (std::wstring(game().brand) + L" SETTINGS").c_str());
-			SetDlgItemTextW(dialog, IDC_RESTORE_PROFILE, (std::wstring(L"Restore ") + game().brand + L" settings").c_str());
-			SetDlgItemTextW(dialog, IDC_SETUP_WARNING, game().warning);
-			SetDlgItemTextW(dialog, IDC_SETUP_HINT, game().vr_setup
-				? (L"One click installs the mod, writes bfvr.ini for VR and sets " + name + L"'s own settings (a backup is kept).").c_str()
-				: L"One click installs the research build and writes bfvr.ini. The game's own settings are not changed.");
-			SetDlgItemTextW(dialog, IDC_SETUP, game().vr_setup ? L"Set up for VR" : L"Set up");
 			say(dialog, L"bf-vr " + widen(std::string(mod_version())) + L"  \x00B7  " + game().status);
 			refresh(dialog, true);
 			load_settings(dialog);
 			InvalidateRect(dialog, nullptr, TRUE);
-		}
-
-		void choose_game(const game_profile& profile, const std::filesystem::path& dir)
-		{
-			app.game = { dir.empty() ? find_install(profile) : dir, profile.exe, &profile };
-			app.profile = find_profile(profile);
-		}
-
-		void switch_game(HWND dialog)
-		{
-			if (settings_view::unsaved() && MessageBoxW(dialog, L"Your settings changes are not saved. Switch the game anyway?", L"bf-vr launcher",
-					MB_YESNO | MB_ICONQUESTION) != IDYES)
-			{
-				return;
-			}
-			choose_game(other_game(), {});
-			ini::write(launcher_ini(), { { "game", game().id } }, {});
-			show_game(dialog);
-			show_page(dialog, app.proxy.state == proxy_state::ours ? play : setup);
 		}
 
 		void choose_folder(HWND dialog)
@@ -814,7 +725,6 @@ namespace bfvr::launcher
 				case IDC_TAB_SETUP: show_page(dialog, setup); break;
 				case IDC_TAB_SETTINGS: show_page(dialog, settings); break;
 				case IDC_MINIMIZE: ShowWindow(dialog, SW_MINIMIZE); break;
-				case IDC_GAME: switch_game(dialog); break;
 				case IDC_CHANGE_FOLDER: choose_folder(dialog); break;
 				case IDC_OPEN_FOLDER: open_path(dialog, app.game.dir); break;
 				case IDC_INSTALL: report(dialog, deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG)); break;
@@ -853,7 +763,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 	const DWORD length = GetModuleFileNameW(nullptr, path, MAX_PATH);
 	app.launcher_dir = length && length < MAX_PATH ? std::filesystem::path(path).parent_path() : std::filesystem::current_path();
 
-	const game_profile* chosen = profile_by_id(ini::read(launcher_ini())["game"]);
 	std::filesystem::path game_dir;
 	int count{};
 	wchar_t** arguments = CommandLineToArgvW(GetCommandLineW(), &count);
@@ -863,16 +772,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 		{
 			game_dir = arguments[++i];
 		}
-		else if (_wcsicmp(arguments[i], L"--game") == 0)
-		{
-			if (const game_profile* named = profile_by_id(narrow(arguments[++i])))
-			{
-				chosen = named;
-			}
-		}
 	}
 	LocalFree(arguments);
-	choose_game(chosen ? *chosen : bf4_profile, game_dir);
+	app.game = { game_dir.empty() ? find_install(bf4_profile) : game_dir, bf4_profile.exe, &bf4_profile };
+	app.profile = find_profile(bf4_profile);
 
 	const INITCOMMONCONTROLSEX controls{ sizeof(controls), ICC_STANDARD_CLASSES };
 	InitCommonControlsEx(&controls);

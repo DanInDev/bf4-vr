@@ -17,6 +17,7 @@ namespace bfvr::launcher
 	{
 		// Verified on the development PC (docs/FINDINGS.md, re/notes/render-quality.md, re/notes/haptics.md).
 		constexpr wanted_setting profile_settings[] = {
+			{ "GstRender.AntiAliasingPost", "0", L"post anti-aliasing off (it blurs the whole headset image)" },
 			{ "GstRender.MantleEnabled", "0", L"DirectX 11 (Mantle off; the mod hooks DirectX 11)" },
 			{ "GstRender.WeaponDOF", "0", L"weapon depth of field off" },
 			{ "GstRender.MotionBlurEnabled", "0", L"motion blur off" },

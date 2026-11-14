@@ -113,40 +113,6 @@ namespace bfvr::launcher
 		}
 	}
 
-	const game_profile* profile_by_id(const std::string& id)
-	{
-		for (const game_profile* profile : game_profiles)
-		{
-			if (_stricmp(profile->id, id.c_str()) == 0)
-			{
-				return profile;
-			}
-		}
-		return nullptr;
-	}
-
-	launch_command launch_of(const game_install& game)
-	{
-		if (game.profile->launch_link)
-		{
-			return { game.profile->launch_link, {}, {} };
-		}
-		return { (game.dir / game.exe).wstring(), game.profile->launch_arguments, game.dir.wstring() };
-	}
-
-	std::filesystem::path find_mod_dll(const std::filesystem::path& launcher_dir, const game_profile& profile, const wchar_t* config)
-	{
-		const std::filesystem::path packaged = launcher_dir / profile.dll_folder / L"dinput8.dll";
-		std::error_code error;
-		if (!*profile.dll_folder || std::filesystem::exists(packaged, error))
-		{
-			return packaged;
-		}
-		// From the build tree: build/bf4/<config>/bfvr_launcher.exe beside build/bf3/<config>/dinput8.dll.
-		const std::filesystem::path built = launcher_dir.parent_path().parent_path() / profile.dll_folder / config / L"dinput8.dll";
-		return std::filesystem::exists(built, error) ? built : packaged;
-	}
-
 	std::filesystem::path find_install(const game_profile& profile)
 	{
 		wchar_t value[MAX_PATH]{};

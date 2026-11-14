@@ -13,6 +13,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
@@ -106,50 +107,16 @@ namespace
 		check(deploy(game, dll, "Test").ok, "deploy again (marker left for --keep inspection)");
 	}
 
-	// Battlefield 3 as the second game: its own build check, DLL folder and marker id.
-	void test_games(const fs::path& root)
+	// Another game's exe (BF3's x86 bf3.exe) is not taken for BF4.
+	void test_other_game(const fs::path& root)
 	{
-		check(profile_by_id("bf4") == &bf4_profile && profile_by_id("BF3") == &bf3_profile, "profiles found by id, any case");
-		check(profile_by_id("bf2") == nullptr && profile_by_id("") == nullptr, "unknown id gives no profile");
-
-		const game_install game{ root / L"bf3game", L"bfvr_fake_bf3.exe", &bf3_profile };
-		const fs::path launcher = root / L"build" / L"bf4" / L"Test";
-		const fs::path built = root / L"build" / L"bf3" / L"Test" / L"dinput8.dll";
+		const game_install game{ root / L"othergame", L"bfvr_fake_other.exe", &bf4_profile };
 		fs::create_directories(game.dir);
-		fs::create_directories(launcher);
-		fs::create_directories(built.parent_path());
-
-		check(find_mod_dll(launcher, bf4_profile, L"Test") == launcher / L"dinput8.dll", "BF4's DLL sits beside the launcher");
-		check(find_mod_dll(launcher, bf3_profile, L"Test") == launcher / L"bf3" / L"dinput8.dll", "BF3's DLL is expected in the folder bf3");
-		write_file(built, "bf-vr x86 proxy");
-		check(find_mod_dll(launcher, bf3_profile, L"Test") == built, "from the build tree the bf3 preset's DLL is used");
-		fs::create_directories(launcher / L"bf3");
-		write_file(launcher / L"bf3" / L"dinput8.dll", "packaged x86 proxy");
-		check(find_mod_dll(launcher, bf3_profile, L"Test") == launcher / L"bf3" / L"dinput8.dll", "a packaged DLL wins over the build tree");
-
-		write_fake_exe(game.dir / game.exe, bf4_179547_timestamp);
-		check(check_build(game).result == build_check::mismatch, "BF4's exe is not accepted as BF3");
-		write_fake_exe(game.dir / game.exe, bf3_1147186_timestamp, bf4_179547_machine);
-		check(check_build(game).result == build_check::mismatch, "BF3's timestamp on an x64 image is not accepted");
-		check(!deploy(game, built, "Test").ok && !fs::exists(game.dir / L"dinput8.dll"), "deploy refused on a wrong BF3 build");
-
-		write_fake_exe(game.dir / game.exe, bf3_1147186_timestamp, bf3_1147186_machine);
-		check(check_build(game).result == build_check::ok, "BF3 build 1147186 (x86) recognised");
-		check(deploy(game, built, "Test").ok && read_file(game.dir / L"dinput8.dll") == "bf-vr x86 proxy", "deploy into BF3");
-		check(read_file(game.dir / L"bfvr.deployed.json").find("\"game\":  \"bf3\"") != std::string::npos, "marker names bf3");
-		check(read_proxy(game).state == proxy_state::ours, "BF3 proxy is ours");
-		check(remove(game).ok && !fs::exists(game.dir / L"dinput8.dll"), "remove from BF3");
-
-		const launch_command bf3_start = launch_of(game);
-		check(bf3_start.file == (game.dir / game.exe).wstring() && bf3_start.directory == game.dir.wstring()
-			&& bf3_start.arguments.find(L"-webMode SP") == 0 && bf3_start.arguments.find(L"State_ResumeCampaign") != std::wstring::npos,
-			"BF3 starts its own exe in the game folder with the single-player arguments");
-		const launch_command bf4_start = launch_of(game_install{ game.dir, L"bf4.exe", &bf4_profile });
-		check(bf4_start.file.find(L"origin2://game/launch/") == 0 && bf4_start.arguments.empty() && bf4_start.directory.empty(),
-			"BF4 starts through the EA app link");
-
-		const game_install wrong_game{ game.dir, game.exe, &bf4_profile };
-		check(check_build(wrong_game).result == build_check::mismatch, "BF3's exe is not accepted as BF4");
+		write_fake_exe(game.dir / game.exe, 0x511C9356, 0x014C);
+		check(check_build(game).result == build_check::mismatch, "BF3's exe is not accepted as BF4");
+		write_fake_exe(game.dir / game.exe, bf4_179547_timestamp, 0x014C);
+		check(check_build(game).result == build_check::mismatch, "BF4's timestamp on an x86 image is not accepted");
+		check(std::wstring_view(bf4_profile.launch_link).starts_with(L"origin2://game/launch/"), "BF4 starts through the EA app link");
 	}
 
 	void test_hash(const fs::path& root)
@@ -182,14 +149,14 @@ namespace
 	{
 		const fs::path profile = root / L"settings" / L"PROFSAVE_profile";
 		fs::create_directories(profile.parent_path());
-		const std::string original = "GstAudio.AudioQuality 1\nGstRender.MantleEnabled 1\nGstRender.MotionBlur 0.000000\nGstRender.WeaponDOF 1\nGstRender.VSyncEnabled 0\n";
+		const std::string original = "GstAudio.AudioQuality 1\nGstRender.AntiAliasingPost 3\nGstRender.MantleEnabled 1\nGstRender.MotionBlur 0.000000\nGstRender.WeaponDOF 1\nGstRender.VSyncEnabled 0\n";
 		write_file(profile, original);
 
-		check(profile_pending(profile).size() == 4, "profile: Mantle, weapon DOF, motion blur enabled, vibration pending; 0.000000 counts as 0");
+		check(profile_pending(profile).size() == 5, "profile: post AA, Mantle, weapon DOF, motion blur enabled, vibration pending; 0.000000 counts as 0");
 		check(!apply_profile(profile, true).ok && read_file(profile) == original, "profile untouched while the game runs");
 		check(apply_profile(profile, false).ok && profile_pending(profile).empty(), "profile set for VR");
 		const std::string applied = read_file(profile);
-		check(applied.rfind("GstAudio.AudioQuality 1\nGstRender.MantleEnabled 0\nGstRender.MotionBlur 0\nGstRender.WeaponDOF 0\nGstRender.VSyncEnabled 0\n", 0) == 0,
+		check(applied.rfind("GstAudio.AudioQuality 1\nGstRender.AntiAliasingPost 0\nGstRender.MantleEnabled 0\nGstRender.MotionBlur 0\nGstRender.WeaponDOF 0\nGstRender.VSyncEnabled 0\n", 0) == 0,
 			"other lines and order kept, values replaced in place");
 		check(applied.find("GstInput.Vibration 1\n") != std::string::npos && applied.find("GstRender.MotionBlurEnabled 0\n") != std::string::npos, "missing keys appended");
 		check(read_file(profile_backup(profile)) == original, "backup is the original");
@@ -246,7 +213,7 @@ int wmain(int argc, wchar_t** argv)
 
 	test_hash(root);
 	test_install(root);
-	test_games(root);
+	test_other_game(root);
 	test_ini(root);
 	test_vr_setup(root);
 

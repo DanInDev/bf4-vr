@@ -21,8 +21,9 @@ Use
      mod first if you never have, so it creates its settings.
   3. "Set up for VR" does everything in one go: installs the mod, sets the mod's
      bfvr.ini for VR (head-tracked 3D, sharp 2160x2160 image, view crop, HUD layer) and
-     changes BF4's own settings that VR needs (DirectX 11, no weapon depth of field or
-     motion blur, vsync off, pad vibration on). BF4's settings are backed up first;
+     changes BF4's own settings that VR needs (DirectX 11, post anti-aliasing off, no
+     weapon depth of field or motion blur, vsync off, pad vibration on). BF4's Video
+     option "Resolution Scale" still works on top: higher is sharper and slower. BF4's settings are backed up first;
      "Restore BF4 settings" puts them back. The "VR setup" lines show what is still
      to change and which VR runtime the mod will use.
   4. Start SteamVR (Steam Link) or Meta Horizon Link, then "Start Battlefield 4" (goes
