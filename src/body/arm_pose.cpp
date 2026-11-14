@@ -377,6 +377,12 @@ namespace bfvr::body
 		magazine_snap_hold snap_request;
 		// Grip lock (set_magazine_lock): the off hand's goal from a magazine pose in OpenXR LOCAL.
 		magazine_lock_pose lock_request;
+		// Racking locked (grip_lock, headset 2026-11-14: the hand could turn all the way round the knob and into
+		// the gun): the hand's rotation relative to the gun is taken as the stroke begins (overhand or underhand,
+		// as grabbed) and held until the handle is let go.
+		std::atomic<bool> rack_lock_on{ true };
+		bool rack_locked{};
+		ik::quat rack_hand_in_gun;
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
@@ -1160,6 +1166,15 @@ namespace bfvr::body
 					// carries, #38).
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
+					if (rack_lock_on.load(std::memory_order_relaxed))
+					{
+						if (!rack_locked)
+						{
+							rack_hand_in_gun = ik::normalize(ik::conjugate(gun.rotation) * goal.hand);
+							rack_locked = true;
+						}
+						goal.hand = nlerp(goal.hand, ik::normalize(gun.rotation * rack_hand_in_gun), handle_request.weight);
+					}
 					const bool own = hand == hook_hand; // the hook and pinch points were measured on this hand
 					const bool pinch = own && pinching && has_pinch;
 					const ik::vec3 hooked = pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
@@ -1167,6 +1182,10 @@ namespace bfvr::body
 						: own && has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
 						: goal.wrist + (on_handle - (origin + ik::rotate(frame, palm)));
 					goal.wrist = goal.wrist + (hooked - goal.wrist) * handle_request.weight;
+				}
+				if (hand != carrier && !(gun_placed && handle_request.weight > 0.0f))
+				{
+					rack_locked = false; // the handle let go: the next stroke takes the hand's rotation again
 				}
 				if (hand == 0 && carrier == 1 && gun_placed)
 				{
@@ -2847,6 +2866,11 @@ namespace bfvr::body
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
+	}
+
+	void set_rack_lock(bool on)
+	{
+		rack_lock_on = on;
 	}
 
 	void set_magazine_lock(const magazine_lock_pose& pose)

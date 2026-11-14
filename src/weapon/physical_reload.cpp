@@ -473,6 +473,7 @@ namespace bfvr::weapon
 	void set_grip_lock(bool enabled)
 	{
 		grip_lock_on = enabled;
+		body::set_rack_lock(enabled);
 	}
 
 	bool reload_claims_free_hand()

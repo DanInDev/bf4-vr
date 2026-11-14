@@ -136,7 +136,8 @@ magazine_reach = 0.13
 # Grip lock: a magazine brought to the magwell (top within 10 cm of its axis, turned within 50 degrees of
 # how it sits) locks onto a rail along the magwell's axis, upright; the drawn off hand locks onto it with
 # the game's own magazine grip. Push it up to seat it; the hand stays on it while you grip. Pulled out by
-# hand it rides the same rail out. 0 = the older loose behaviour (it zips in from 10 cm).
+# hand it rides the same rail out. Racking, the hand keeps the turn it took the charging handle with (no
+# turning round the knob). 0 = the older loose behaviour (it zips in from 10 cm).
 grip_lock = 1
 # A magazine let go or tossed flies on with the hand's speed, tumbles, bounces and tips onto a side on the
 # level's real ground (the game's own ray cast, #61; the headset's or the soldier's floor until that answers),

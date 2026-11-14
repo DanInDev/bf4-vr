@@ -242,6 +242,9 @@ namespace bfvr::body
 		float rotation[4]{ 0, 0, 0, 1 };
 	};
 	void set_magazine_lock(const magazine_lock_pose& pose);
+	// Setting grip_lock, racking: the hand's rotation on the charging handle held relative to the gun from
+	// the stroke's start (no turning round the knob).
+	void set_rack_lock(bool on);
 	// Pipe "fingers": each hand's task, controller reading and shape.
 	std::string hands_report();
 	// Live setting recoil: how hard the drawn gun kicks per shot (body/gun_recoil; 0 = off, 1 = as tuned).
