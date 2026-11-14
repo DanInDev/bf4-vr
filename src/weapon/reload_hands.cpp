@@ -297,8 +297,10 @@ namespace bfvr::weapon
 			}
 			else if (event == reload_event::magazine_dropped)
 			{
-				// Released from the gun: it leaves with the gun's motion.
-				start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_, frame);
+				// Released from the gun: pushed out of the well along the gun's down axis, with the gun's motion
+				// (a flick throws it further; headset 2026-11-14: it dropped straight down).
+				const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
+				start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + down * config_.eject_speed, frame);
 			}
 			emit(result, event);
 		}

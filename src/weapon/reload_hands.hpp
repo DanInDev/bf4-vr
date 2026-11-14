@@ -154,6 +154,7 @@ namespace bfvr::weapon
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
 		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
+		float eject_speed{ 1.5f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
 		// controller's aim axes (x right, y up, -z forward): AR held from below, AK by the sides.
 		v3 hold_ar{ 0.0f, 0.13f, -0.03f };

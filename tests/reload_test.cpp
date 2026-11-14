@@ -629,6 +629,47 @@ namespace
 		expect(r.off_hand_busy, "hand at the magwell: the grip is claimed before it closes");
 	}
 
+	// Headset 2026-11-14: a released magazine not caught dropped straight down. It is pushed out of the well
+	// (eject_speed along the gun's down axis) and keeps the gun's motion: a flick of the gun throws it further.
+	void test_eject_flight()
+	{
+		{
+			reload gun(ar);
+			gun.load(16, 30);
+			reload_hands hands(flat_hold());
+			hands.update(gun, at(away, false));
+			hand_result r = hands.update(gun, at(away, false, true));
+			const float start = r.magazine_position.y;
+			for (int i = 0; i < 6; ++i)
+			{
+				r = hands.update(gun, at(away, false));
+			}
+			expect(r.draw == magazine_draw::falling && r.magazine_position.y < start - 0.08f, "ejected: 8 cm out in 0.07 s (gravity alone: 2 cm)");
+		}
+		{
+			// The gun swung to the right at 2 m/s as the button goes.
+			reload gun(ar);
+			gun.load(16, 30);
+			reload_hands hands(flat_hold());
+			hand_frame f = at(away, false);
+			for (int i = 0; i < 10; ++i)
+			{
+				f.magwell.x = magwell.x + 2.0f * f.seconds * static_cast<float>(i);
+				hands.update(gun, f);
+			}
+			f.magwell.x += 2.0f * f.seconds;
+			f.button = true;
+			hand_result r = hands.update(gun, f);
+			const float start_x = r.magazine_position.x;
+			f.button = false;
+			for (int i = 0; i < 9; ++i)
+			{
+				r = hands.update(gun, f);
+			}
+			expect(r.draw == magazine_draw::falling && r.magazine_position.x > start_x + 0.12f, "flicked: it flies on with the gun's swing");
+		}
+	}
+
 	// The falling magazine, whichever mesh draws it (the rig's own, or the extra one while the gun holds its magazine).
 	bool falling_at(const hand_result& r, v3& where)
 	{
@@ -1698,6 +1739,7 @@ int main()
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
 	test_hands_ar_drop_and_fall();
+	test_eject_flight();
 	test_hands_flick();
 	test_hands_toss();
 	test_hands_loose_on_ground();
