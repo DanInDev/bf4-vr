@@ -45,6 +45,7 @@ namespace bfvr::settings
 			{ "hud_show_bottom", kind::boolean, 0, 0, 0, "1", "", "HUD: weapon and stance icons at the bottom" },
 			{ "stereo_render", kind::choice, 0, 0, 0, "pair", "aer|pair", "both eyes from one game frame, or alternate eyes" },
 			{ "cutscene_view", kind::choice, 0, 0, 0, "screen", "screen|look", "while the game moves the camera (cutscenes, the death fall): a flat screen, or 3D with your head looking around in the scene" },
+			{ "cutscene_hands", kind::choice, 0, 0, 0, "game", "game|controllers", "in cutscenes (the game moving the camera itself): the arms, gun and fingers as the game animates them (game), or following your controllers as in play (controllers)" },
 			{ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders relative to the head, metres (x right, y up, z back)" },
 			{ "shoulder_reach", kind::real, 0.0f, 0.3f, 0.01f, "0.12", "", "a shoulder moves up to this far towards a hand out of reach before the arm stretches, metres" },
 			{ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "first-person arms follow the VR controllers" },

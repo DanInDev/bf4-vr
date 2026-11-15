@@ -131,6 +131,7 @@ add_library(bfvr_runtime STATIC
 	src/body/finger_pose.cpp
 	src/body/pose_tweaks.cpp
 	src/body/pose_book.cpp
+	src/body/scene_blend.cpp
 	src/body/gun_recoil.cpp
 	src/body/torso.cpp
 	src/body/grasp_contact.cpp
@@ -361,6 +362,9 @@ if(BFVR_BUILD_TESTS)
 	# The pose editor's tweaks and bfvr_poses.ini (src/body/pose_tweaks); exits non-zero on failure.
 	add_executable(bfvr_pose_tweaks_test tests/pose_tweaks_test.cpp src/body/pose_tweaks.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_pose_tweaks_test PRIVATE bfvr_common)
+	# The cutscene blend (src/body/scene_blend); exits non-zero on failure.
+	add_executable(bfvr_scene_blend_test tests/scene_blend_test.cpp src/body/scene_blend.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_scene_blend_test PRIVATE bfvr_common)
 
 	# The drawn gun's kick (src/body/gun_recoil); exits non-zero on failure.
 	add_executable(bfvr_gun_recoil_test tests/gun_recoil_test.cpp src/body/gun_recoil.cpp)
@@ -427,6 +431,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME pose_tweaks COMMAND bfvr_pose_tweaks_test)
+	add_test(NAME scene_blend COMMAND bfvr_scene_blend_test)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 	add_test(NAME torso COMMAND bfvr_torso_test)
 	add_test(NAME scripted_view COMMAND bfvr_scripted_view_test)

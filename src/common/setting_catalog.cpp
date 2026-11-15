@@ -27,6 +27,7 @@ namespace bfvr::settings
 			{ "vignette", "View", "Comfort", "Comfort vignette", "Darkens the edges when the game moves you", "off=Off|turning=Turning|moving=Moving|both=Both" },
 			{ "vignette_strength", "View", "Comfort", "Vignette strength", "How far it closes in", "" },
 			{ "cutscene_view", "View", "Comfort", "Cutscenes", "A flat screen, or look around in 3D", "screen=Flat screen|look=Look around" },
+			{ "cutscene_hands", "View", "Comfort", "Hands in cutscenes", "The game's animation, or your controllers", "game=The game's|controllers=Controllers" },
 
 			// Body
 			{ "arm_ik", "Body", "Arms", "Arms follow the controllers", "The soldier's arms reach for your hands", "" },

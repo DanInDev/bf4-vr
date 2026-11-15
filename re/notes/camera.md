@@ -89,6 +89,12 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
   dead or absent, or the camera has been more than 10 deg off the aim for 0.25 s (back below 4 deg for
   0.5 s). `cutscene_view = screen` shows those frames on the theater screen (like menus), `look` keeps
   head-tracked stereo. Not yet seen in a real cutscene: this checkpoint has none.
+- **Hands in scenes** (`cutscene_hands`, 2026-11-15, monitor): with `cutscene_view = look` the arm IK kept turning
+  the animated body back to the rendered frame and pulling the arms to the controllers in scenes (owner: hands
+  reversed in the new-campaign intro). Now `body/arm_pose` skips its arm, gun and finger edits while
+  `stereo::scripted_scene()`, eased over ~0.15 s (`body/scene_blend`). Monitor: no false scene in play (gun turned
+  40 and 70 deg, pitched 50, head turned 60: `scripted=0`, arms solved); a grenade death: `arms_scene=1`,
+  the mod pose 0 within ~1 s; after the respawn back to 1, both arms solved. The intro itself not yet seen.
 
 ## Eye heights per stance and physical stance (2026-11-03, monitor)
 

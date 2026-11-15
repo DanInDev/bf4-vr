@@ -87,6 +87,8 @@ namespace bfvr::stereo
 	void set_cutscene_screen(bool screen);
 	// Pipe "cutscene": the detector's state and inputs.
 	std::string cutscene_report();
+	// The game moves the camera itself now (a cutscene or the death fall; stereo/scripted_view), outside menus.
+	bool scripted_scene();
 	// Live setting physical_stance (#33): crouching or lying down in the room changes the game's
 	// stance (input/physical_stance), and the view follows the real head only (the game's own eye
 	// drop for its stance is added back). Switching it on measures standing afresh.

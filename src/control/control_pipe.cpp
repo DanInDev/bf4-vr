@@ -902,7 +902,7 @@ namespace bfvr::control
 			if (command == "haptics") return input::haptics_pipe_command(argument) + "\n" + weapon::hit_feedback_report();
 			if (command == "holster") return weapon::holster_pipe_command(argument);
 			if (command == "stereorender") return stereo::set_stereo_render(argument);
-			if (command == "cutscene") return stereo::cutscene_report();
+			if (command == "cutscene") return stereo::cutscene_report() + "\n" + body::cutscene_hands_report();
 			if (command == "stance") return stereo::stance_report();
 			if (command == "fakehand")
 			{

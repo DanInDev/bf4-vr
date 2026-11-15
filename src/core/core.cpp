@@ -181,6 +181,7 @@ namespace bfvr::core
 			applied = revision;
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
+			body::set_cutscene_hands(store.text("cutscene_hands", "game") == "game");
 			stereo::set_physical_stance(store.boolean("physical_stance", false));
 			// #48: behaviours that once had a setting to compare them with the old one are fixed on.
 			stereo::set_gun_life_size(true);

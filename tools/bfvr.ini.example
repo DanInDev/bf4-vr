@@ -91,6 +91,9 @@ stereo_render = pair
 # head looks around inside the scene while the game moves you. Detected when the camera turns away
 # from the aim for a quarter second, or the soldier is dead or absent; pipe `cutscene` shows it.
 cutscene_view = screen
+# In cutscenes (look): the arms, gun and fingers as the game animates them (game), or following your
+# controllers as in play (controllers; the scene's animated body then fights them: hands reversed).
+cutscene_hands = game
 # Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
 # smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
 # pipe `rightstick look|turn`.

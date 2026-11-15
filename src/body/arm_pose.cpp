@@ -19,6 +19,7 @@
 #include "body/grasp_contact.hpp"
 #include "body/gun_recoil.hpp"
 #include "body/pose_book.hpp"
+#include "body/scene_blend.hpp"
 #include "body/torso.hpp"
 #include "input/vr_controls.hpp"
 #include "common/config.hpp"
@@ -173,6 +174,14 @@ namespace bfvr::body
 		// Right shoulder joint from the head (between the eyes), OpenXR axes; the left one mirrored.
 		constexpr ik::vec3 shoulder_anchor{ 0.18f, -0.22f, 0.04f };
 		std::atomic<bool> legs_hidden{ true };   // live setting hide_legs
+		// Live setting cutscene_hands: in a scene the game animates (stereo::scripted_scene) the arms, gun and
+		// fingers stay as animated; the mod's pose eases out and back in (body/scene_blend). Under rig_lock.
+		std::atomic<bool> cutscene_game_hands{ true };
+		scene_blend scene_mix;
+		LARGE_INTEGER scene_last{};
+		ik::bone_transform scene_animated[max_bones];
+		std::atomic<bool> scene_now{};
+		std::atomic<float> scene_weight{ 1.0f };
 		std::atomic<float> arm_stretch{ 0.25f };   // live setting: how much longer an arm still out of reach may get
 		std::atomic<float> shoulder_reach{ 0.12f }; // live setting: how far a shoulder may move towards an out-of-reach hand
 		std::mutex gun_hand_lock;
@@ -2620,10 +2629,34 @@ namespace bfvr::body
 							}
 						}
 					}
-					edit_arms(local);
-					edit_weapon(local);
-					edit_fingers(local);
-					attach_held_magazine(local);
+					// A cutscene: the game's own arms (edit_arms would turn its animated body back to the
+					// rendered frame and pull the arms to the controllers: hands reversed and twisted).
+					LARGE_INTEGER counter{}, frequency{};
+					QueryPerformanceCounter(&counter);
+					QueryPerformanceFrequency(&frequency);
+					const float scene_seconds = scene_last.QuadPart
+						? std::fmin(static_cast<float>(counter.QuadPart - scene_last.QuadPart) / static_cast<float>(frequency.QuadPart), 0.1f) : 0.0f;
+					scene_last = counter;
+					const bool scene = cutscene_game_hands.load(std::memory_order_relaxed) && stereo::scripted_scene();
+					const float weight = scene_mix.update(scene, scene_seconds);
+					scene_now = scene;
+					scene_weight = weight;
+					if (weight > 0.0f)
+					{
+						const int count = rig.bones < max_bones ? rig.bones : max_bones;
+						if (weight < 1.0f)
+						{
+							std::memcpy(scene_animated, local, sizeof(ik::bone_transform) * static_cast<std::size_t>(count));
+						}
+						edit_arms(local);
+						edit_weapon(local);
+						edit_fingers(local);
+						attach_held_magazine(local);
+						if (weight < 1.0f)
+						{
+							blend_pose(local, scene_animated, count, weight);
+						}
+					}
 					publish_extra_magazine(local);
 					publish_extra_grenade(local);
 					publish_holster_knife(local);
@@ -3018,6 +3051,19 @@ namespace bfvr::body
 	void set_support_hand(float weight)
 	{
 		support_weight = std::fmax(0.0f, std::fmin(1.0f, weight));
+	}
+
+	void set_cutscene_hands(bool game)
+	{
+		cutscene_game_hands = game;
+	}
+
+	std::string cutscene_hands_report()
+	{
+		char text[128];
+		std::snprintf(text, sizeof(text), "cutscene_hands=%s arms_scene=%d mod_pose_weight=%.2f", cutscene_game_hands.load() ? "game" : "controllers",
+			scene_now.load() ? 1 : 0, scene_weight.load());
+		return text;
 	}
 
 	void set_finger_poses(bool enabled)

@@ -215,6 +215,11 @@ namespace bfvr::body
 	// Finger poses (always on since #48, was finger_poses): the fingers follow the controller and what the hands hold
 	// (body/finger_pose); off = as the game animated them.
 	void set_finger_poses(bool enabled);
+	// Live setting cutscene_hands: in cutscenes (the game moving the camera itself) the arms, gun and fingers
+	// stay as the game animates them (true) or follow the controllers as in play (false).
+	void set_cutscene_hands(bool game);
+	// Pipe "cutscene": the setting, whether the arms see a scene now and how much of the mod's pose is drawn.
+	std::string cutscene_hands_report();
 	// Live setting off_hand_pose: the off hand, when not on the gun, takes the gun hand's grip mirrored
 	// (neutral: how a hand holds the controller) instead of the animated handguard hold turned by the
 	// controller (animated). Needs a gun drawn once.

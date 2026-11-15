@@ -520,6 +520,10 @@ namespace bfvr::stereo
 			// (cutscenes, the death fall) with cutscene_view = screen.
 			const bool menu_frame = is_menu_camera(params) || !safety::campaign_level_loaded();
 			const bool scripted_frame = !menu_frame && update_scripted(params);
+			if (menu_frame)
+			{
+				scripted_now = false; // the arms (body/arm_pose) read it; a menu is no scene
+			}
 			const bool menu = menu_frame || (scripted_frame && cutscene_screen.load(std::memory_order_relaxed));
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			float world_half_vertical = 0.0f; // set in head-tracked frames: the FOV the world is rendered with
@@ -990,6 +994,11 @@ namespace bfvr::stereo
 		std::snprintf(text, sizeof(text), "physical_stance=%d body=%d drop_m=%.2f game=%d eye_lift_m=%.2f standing_eye_m=%.3f", physical_stance_on.load() ? 1 : 0,
 			stance_wanted.load(), stance_drop.load(), input::game_stance(), stance_lift.load(), standing_eye);
 		return text;
+	}
+
+	bool scripted_scene()
+	{
+		return scripted_now.load(std::memory_order_relaxed);
 	}
 
 	std::string cutscene_report()
