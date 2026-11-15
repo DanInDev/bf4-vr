@@ -224,6 +224,9 @@ namespace bfvr::body
 	// (neutral: how a hand holds the controller) instead of the animated handguard hold turned by the
 	// controller (animated). Needs a gun drawn once.
 	void set_off_hand_neutral(bool neutral);
+	// Live setting gun_hand_pose (#68): the gun hand while the off hand carries the gun, or holding a grenade or a
+	// gadget, takes the gun grip as you hold the controller (neutral) or the game's animated hold (animated).
+	void set_gun_hand_neutral(bool neutral);
 	// Live setting magazine_grip: how the off hand holds a magazine. "auto" = wrapped in the fist, cupped
 	// on the palm (base plate in the palm, fingers closing on it by contact) once the palm faces up;
 	// "wrap" / "cup" = always that grip.

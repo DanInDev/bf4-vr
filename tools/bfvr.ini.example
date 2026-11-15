@@ -281,6 +281,9 @@ torso_hands = 0
 # hold the controller (a held magazine stands upright in the fist); animated = the game's handguard
 # hold turned by the controller. Monitor-checked 2026-11-03; the headset decides (H1).
 off_hand_pose = neutral
+# The gun hand while the off hand carries the gun, or holding a grenade or a gadget (C4 detonator): neutral = the gun
+# grip as you hold the controller (like the free off hand), animated = the game's own hold turned by the controller.
+gun_hand_pose = neutral
 # A held magazine: wrap = in the fist; cup = standing on the upturned palm, base plate in the palm, the
 # fingers closing until they touch it (contact, not a fixed curl); auto = cup once the palm faces up,
 # wrap again when it turns back (with a margin, so it does not flicker). Pipe `fingers` shows the grip

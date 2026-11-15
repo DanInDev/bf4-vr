@@ -405,6 +405,9 @@ namespace bfvr::body
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
+		// Live setting gun_hand_pose (#68): the gun hand without a gun (the off hand carries it) or with a gadget
+		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
+		std::atomic<bool> gun_hand_neutral{ true };
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
 		bool cupped{};
@@ -1108,6 +1111,15 @@ namespace bfvr::body
 				if (hand == 0 && carrier == 1 && off_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim)
 				{
 					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim);
+				}
+				// #68 (owner 2026-11-15): the gun hand turned itself round once the gun went to the off hand (the game's
+				// animated grip, turned by the controller), and a grenade or the C4 detonator in it sat oddly. Like the
+				// free off hand, it now holds as you hold the controller: the gun grip on the aim ray. Items keep their
+				// own place in the hand (the knife has its own frame below).
+				const bool item_in_gun_hand = gun_hand_carries && !gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed);
+				if (hand == 1 && gun_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim && (carrier == 0 || item_in_gun_hand))
+				{
+					goal.hand = frame * ik::normalize(aim) * gun_hand_in_aim;
 				}
 				const bool off_grip_carries = carry_weapon && hand == 0 && off_by_grip.load(std::memory_order_relaxed);
 				if (carry_weapon && hand == 0)
@@ -3097,6 +3109,11 @@ namespace bfvr::body
 	void set_off_hand_neutral(bool neutral)
 	{
 		off_hand_neutral = neutral;
+	}
+
+	void set_gun_hand_neutral(bool neutral)
+	{
+		gun_hand_neutral = neutral;
 	}
 
 	void set_off_hand_task(fingers::task task)
