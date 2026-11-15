@@ -953,8 +953,18 @@ namespace
 		expect(has(r, reload_event::flicked_out) && r.draw == magazine_draw::in_hand, "#47 step one: the new magazine knocks the old one out and stays in the hand");
 		expect(r.extra == hand_result::extra_magazine::falling && r.extra_position.y <= magwell.y + 1e-4f, "extra meshes: the knocked-out one falls from the magwell");
 		bool seated = false;
+		for (int i = 0; i < 60 && !seated; ++i) // held at the magwell: no second motion
+		{
+			r = hands.update(gun, at(magwell, true));
+			seated = has(r, reload_event::magazine_in);
+		}
+		expect(!seated && gun.state().holding, "#47 step two needs its own motion: held still at the magwell, the new one does not seat (owner 2026-11-15)");
+		r = hands.update(gun, at({ magwell.x, magwell.y - 0.03f, magwell.z }, true));
+		r = hands.update(gun, at(magwell, true));
+		expect(!has(r, reload_event::magazine_in), "3 cm away and back is not yet the second motion");
+		r = hands.update(gun, at({ magwell.x, magwell.y - 0.07f, magwell.z }, true));
 		int seat_frame = -1;
-		for (int i = 0; i < 60 && !seated; ++i) // held at the magwell
+		for (int i = 0; i < 30 && !seated; ++i)
 		{
 			r = hands.update(gun, at(magwell, true));
 			if (has(r, reload_event::magazine_in))
@@ -963,7 +973,7 @@ namespace
 				seat_frame = i;
 			}
 		}
-		expect(seated && seat_frame >= 18 && seat_frame <= 26, "#47 step two: the new one seats about 0.25 s later");
+		expect(seated && seat_frame == 0, "#47 step two: brought 7 cm away and pushed in again, the new one seats");
 		for (int i = 0; i < 200 && r.extra != hand_result::extra_magazine::none; ++i)
 		{
 			r = hands.update(gun, at(magwell, false));
@@ -1751,17 +1761,29 @@ namespace
 		hand_result r = hands.update(gun, f);
 		expect(r.guided, "hold: locked on from the fist's magazine");
 		bool stayed = true, flicked = false, seated = false;
-		for (int i = 0; i < 40; ++i)
+		float y = hand.y;
+		int pull_back = 0;
+		for (int i = 0; i < 80 && !seated; ++i)
 		{
-			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame.
-			hand_frame g = locked_at({ hand.x, hand.y + 0.01f * static_cast<float>(i), hand.z }, true);
+			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame. After the flick (#47, two motions) it
+			// comes down 8 cm and pushes up again.
+			if (flicked && pull_back < 8)
+			{
+				y -= 0.01f;
+				++pull_back;
+			}
+			else
+			{
+				y += 0.01f;
+			}
+			hand_frame g = locked_at({ hand.x, y, hand.z }, true);
 			r = hands.update(gun, g);
 			stayed = stayed && (r.guided || r.hand_lock > 0.0f || has(r, reload_event::magazine_in) || flicked);
 			flicked = flicked || has(r, reload_event::flicked_out);
 			seated = seated || has(r, reload_event::magazine_in);
 		}
 		expect(stayed, "hold: stays locked while pushed up (no flicker off the rail)");
-		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then the new one seats");
+		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then, pulled back and pushed in again, the new one seats");
 	}
 
 	void test_grip_lock()

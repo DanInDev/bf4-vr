@@ -159,6 +159,10 @@ namespace bfvr::weapon
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
+		// AK quick reload, two motions (owner 2026-11-15: it flicked the old one away and the new one was in at once):
+		// after the flick the new magazine seats only once it has left the magwell this far and is pushed in again.
+		float flick_rearm{ 0.05f };
+		float flick_seat_reach{ 0.03f }; // ... and is back within this of the magwell
 		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
 		float eject_speed{ 1.0f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion (1.5 felt too fast)
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
@@ -268,6 +272,8 @@ namespace bfvr::weapon
 		bool rack_full_{};
 		v3 rack_start_;
 		bool insert_armed_{};
+		bool flick_rearm_{}; // after an AK flick: armed again at flick_rearm from the magwell (not rearm_distance)
+		bool flick_second_{}; // re-armed after a flick: it seats only within flick_seat_reach (the second push)
 		q4 held_relative_; // the held magazine's rotation relative to the gun hand
 		magazine_flight flight_;
 		physics::loose_body loose_; // #61: on the real ground (world)
