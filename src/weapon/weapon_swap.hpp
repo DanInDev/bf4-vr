@@ -51,6 +51,11 @@ namespace bfvr::weapon
 	// unit. The game's aim goes there so its use target is what the hand reaches for (#37 keeps it with the
 	// body otherwise).
 	bool use_reach_direction(float (&direction)[3]);
+	// #70: for a moment around the squad order (Q) and a melee strike, where the head looks; while the C4's throw
+	// (left trigger) is held, along the off hand's ray. OpenXR LOCAL, unit. false otherwise.
+	bool action_aim_direction(float (&direction)[3]);
+	// Live setting action_aim (#70).
+	void set_action_aim(bool on);
 
 	// Present thread, once per frame.
 	void update_weapon_swap();

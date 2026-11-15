@@ -107,6 +107,7 @@ namespace bfvr::settings
 			{ "sling", kind::boolean, 0, 0, 0, "1", "", "with free_hands: a gun let go by both hands hangs on its sling at your belly (follows you, grip it there) instead of dropping to the floor" },
 			{ "free_hands_release", kind::real, 0.0f, 0.5f, 0.05f, "0", "", "free hands: the gun hand's grip open this long (seconds) before the gun drops or goes to the off hand; 0 = at once (raise it if a loose grip drops the gun by accident)" },
 			{ "free_hands", kind::boolean, 0, 0, 0, "1", "", "hold the gun with the gun-hand grip: let go and it drops to the floor below your hand (no firing); reach down and grip to pick it up" },
+			{ "action_aim", kind::boolean, 0, 0, 0, "1", "", "the squad order and a melee strike go where you look, a C4 throw along your off hand: the game's aim turns there for the moment of the action (off: along your body, as the game's aim is otherwise)" },
 			{ "c4_trigger", kind::boolean, 0, 0, 0, "1", "", "with the C4 out, the off-hand trigger throws a C4 (the game's aim button); the gun-hand trigger on the detonator sets them off" },
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand to eye level or above, a little ahead of your head (a fist over the head), and squeeze the grip" },
 			{ "grenade", kind::choice, 0, 0, 0, "physical", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },

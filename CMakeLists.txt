@@ -218,6 +218,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/sight_state.cpp
 	src/weapon/optics.cpp
 	src/weapon/weapon_swap.cpp
+	src/weapon/action_aim.cpp
 	src/xr/controller_actions.cpp
 	src/xr/runtime_selection.cpp
 	src/xr/theater.cpp
@@ -364,6 +365,9 @@ if(BFVR_BUILD_TESTS)
 	# The pose editor's tweaks and bfvr_poses.ini (src/body/pose_tweaks); exits non-zero on failure.
 	add_executable(bfvr_pose_tweaks_test tests/pose_tweaks_test.cpp src/body/pose_tweaks.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_pose_tweaks_test PRIVATE bfvr_common)
+	# #70: the action aim timing (src/weapon/action_aim); exits non-zero on failure.
+	add_executable(bfvr_action_aim_test tests/action_aim_test.cpp src/weapon/action_aim.cpp)
+	target_link_libraries(bfvr_action_aim_test PRIVATE bfvr_common)
 	# The cutscene blend (src/body/scene_blend); exits non-zero on failure.
 	add_executable(bfvr_scene_blend_test tests/scene_blend_test.cpp src/body/scene_blend.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_scene_blend_test PRIVATE bfvr_common)
@@ -435,6 +439,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME pose_tweaks COMMAND bfvr_pose_tweaks_test)
+	add_test(NAME action_aim COMMAND bfvr_action_aim_test)
 	add_test(NAME scene_blend COMMAND bfvr_scene_blend_test)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 	add_test(NAME torso COMMAND bfvr_torso_test)

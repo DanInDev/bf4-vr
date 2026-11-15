@@ -449,6 +449,10 @@ namespace bfvr::stereo
 				local[1] = 0.0f;
 				local[2] = -std::cos(turn);
 			}
+			else if (weapon::action_aim_direction(local))
+			{
+				// #70: the squad order, a melee strike or a C4 throw: the game's target along the head or the hand.
+			}
 			else if (weapon::use_reach_direction(local))
 			{
 				// Reaching to use something: the game's use target is where the hand reaches.

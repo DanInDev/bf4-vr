@@ -23,6 +23,7 @@
 #include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/action_aim.hpp"
 #include "weapon/body_rig.hpp"
 #include "weapon/free_hands.hpp"
 #include "weapon/grab_debug.hpp"
@@ -135,6 +136,17 @@ namespace bfvr::weapon
 		std::atomic<bool> signal_raised{};
 		hand_signal signal;
 		ULONGLONG order_up_at{};
+		// #70: the squad order and a melee strike turn the game's aim to where the head looks first; the C4 throw
+		// along the off hand's ray while its trigger is held (live setting action_aim).
+		action_aim order_aim;
+		bool order_key_down{};
+		std::atomic<bool> action_aim_on{ true };
+		std::atomic<ULONGLONG> head_aim_until{};
+		std::atomic<ULONGLONG> c4_aim_until{};
+		std::atomic<ULONGLONG> melee_from{};
+		constexpr ULONGLONG action_lead_ms = 100;
+		constexpr ULONGLONG action_tail_ms = 150;
+		constexpr ULONGLONG c4_tail_ms = 300;
 		std::uint64_t orders{};
 
 		// Melee by hand (#15): pad right-stick click for one stab.
@@ -224,11 +236,23 @@ namespace bfvr::weapon
 		// Called with lock held: Q down now, up after key_hold_ms (advance).
 		void give_order(ULONGLONG now)
 		{
-			if (order_up_at || !hooks::press_game_key(order_key, true))
+			if (action_aim_on.load(std::memory_order_relaxed))
 			{
-				return;
+				// #70: aim first, Q after the lead (advance presses it).
+				if (order_up_at || order_key_down || !order_aim.start(now, key_hold_ms))
+				{
+					return;
+				}
+				head_aim_until = now + action_lead_ms + key_hold_ms + action_tail_ms;
 			}
-			order_up_at = now + key_hold_ms;
+			else
+			{
+				if (order_up_at || !hooks::press_game_key(order_key, true))
+				{
+					return;
+				}
+				order_up_at = now + key_hold_ms;
+			}
 			++orders;
 			input::haptic(0, input::pulses::click);
 			log::write("squad: order given (Q)");
@@ -253,6 +277,11 @@ namespace bfvr::weapon
 		// Called with lock held.
 		void advance(ULONGLONG now)
 		{
+			const bool order_down = order_aim.button(now);
+			if (order_down != order_key_down && hooks::press_game_key(order_key, order_down))
+			{
+				order_key_down = order_down;
+			}
 			if (order_up_at && now >= order_up_at)
 			{
 				hooks::press_game_key(order_key, false);
@@ -596,7 +625,13 @@ namespace bfvr::weapon
 		update_sling_primary(held);
 		update_slot_captures(held, now);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
-		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
+		const bool c4_out = c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr;
+		input::set_item_left_trigger(c4_out);
+		// #70: while the C4's throw (left trigger) is held, the game's aim goes along the off hand's ray.
+		if (c4_out && action_aim_on.load(std::memory_order_relaxed) && input::latest().left_trigger > 64)
+		{
+			c4_aim_until = now + c4_tail_ms;
+		}
 		LARGE_INTEGER counter{}, frequency{};
 		QueryPerformanceCounter(&counter);
 		QueryPerformanceFrequency(&frequency);
@@ -620,7 +655,14 @@ namespace bfvr::weapon
 			if (melee_enabled.load(std::memory_order_relaxed) && head_sample.valid
 				&& melee.update(stereo::eye_math::centre_pose(head_sample), hands.grip[1].position, hands.valid[1], busy, seconds))
 			{
-				melee_until = now + melee_pulse_ms;
+				// #70: the game's aim to where the head looks first, the stab after the lead.
+				const ULONGLONG lead = action_aim_on.load(std::memory_order_relaxed) ? action_lead_ms : 0;
+				melee_from = now + lead;
+				melee_until = now + lead + melee_pulse_ms;
+				if (lead)
+				{
+					head_aim_until = now + lead + melee_pulse_ms + action_tail_ms;
+				}
 				++strikes;
 				input::haptic(1, input::pulses::strike);
 			}
@@ -927,7 +969,7 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}
-		if (GetTickCount64() < melee_until.load(std::memory_order_relaxed))
+		if (const ULONGLONG tick = GetTickCount64(); tick >= melee_from.load(std::memory_order_relaxed) && tick < melee_until.load(std::memory_order_relaxed))
 		{
 			out.buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
 			out.connected = true;
@@ -988,6 +1030,46 @@ namespace bfvr::weapon
 	bool gun_in_off_grip()
 	{
 		return off_grip_now.load(std::memory_order_relaxed);
+	}
+
+	bool action_aim_direction(float (&direction)[3])
+	{
+		const ULONGLONG now = GetTickCount64();
+		const bool c4 = now < c4_aim_until.load(std::memory_order_relaxed);
+		if (!c4 && now >= head_aim_until.load(std::memory_order_relaxed))
+		{
+			return false;
+		}
+		float q[4];
+		if (c4)
+		{
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!hands.valid[0])
+			{
+				return false;
+			}
+			std::copy(std::begin(hands.aim[0].orientation), std::end(hands.aim[0].orientation), q);
+		}
+		else
+		{
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (!head.valid)
+			{
+				return false;
+			}
+			const stereo::pose centre = stereo::eye_math::centre_pose(head);
+			std::copy(std::begin(centre.orientation), std::end(centre.orientation), q);
+		}
+		// -z of the rotation (OpenXR: forward).
+		direction[0] = -2.0f * (q[0] * q[2] + q[1] * q[3]);
+		direction[1] = -2.0f * (q[1] * q[2] - q[0] * q[3]);
+		direction[2] = -(1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]));
+		return true;
+	}
+
+	void set_action_aim(bool on)
+	{
+		action_aim_on = on;
 	}
 
 	bool use_reach_direction(float (&direction)[3])
