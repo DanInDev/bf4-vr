@@ -82,6 +82,25 @@ namespace bfvr::body::contact
 		return cupped ? palm_up > leave : palm_up >= enter;
 	}
 
+	float support_slide::update(bool held, float along, float rest, float back, float forward, bool lock)
+	{
+		const float low = -std::fmax(back, 0.0f);
+		const float high = std::fmax(forward, 0.0f);
+		const float wanted = std::isfinite(along) ? std::fmax(low, std::fmin(high, along - rest)) : 0.0f;
+		if (!held || !lock)
+		{
+			latched_ = false;
+			return rest + wanted;
+		}
+		if (!latched_)
+		{
+			latched_ = true;
+			offset_ = wanted;
+		}
+		// A range changed while held (a setting) still bounds the kept place.
+		return rest + std::fmax(low, std::fmin(high, offset_));
+	}
+
 	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets)
 	{
 		const float s = side > 0.0f ? 1.0f : side < 0.0f ? -1.0f : 0.0f;

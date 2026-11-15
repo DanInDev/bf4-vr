@@ -245,6 +245,9 @@ namespace bfvr::body
 	// Live settings rack_over_out / rack_over_up / rack_under_out / rack_under_down (metres): where the rack fist
 	// sits against the knob (body/grasp_contact rack_fist_offset).
 	void set_rack_fist_offsets(float over_out, float over_up, float under_out, float under_down);
+	// Live settings support_lock / support_slide_back / support_slide_forward: the off hand on the handguard stays
+	// where it grabbed (lock) and within back..forward metres of the gun's own support spot (body/grasp_contact).
+	void set_support_slide(bool lock, float back, float forward);
 	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.

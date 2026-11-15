@@ -201,8 +201,27 @@ static void test_rack_fist_offset()
 	expect(contact::rack_fist_offset(false, 0.4f, offsets).x == 0.05f, "rack fist: any positive side is the left");
 }
 
+static void test_support_slide()
+{
+	contact::support_slide slide;
+	const float rest = 0.5f;
+	expect(slide.update(true, 0.55f, rest, 0.06f, 0.08f, true) == 0.55f && slide.latched(), "support: the hold takes the place it grabbed");
+	expect(slide.update(true, 0.62f, rest, 0.06f, 0.08f, true) == 0.55f, "support: locked, the controller moving forward does not slide the hand");
+	expect(slide.update(true, 0.40f, rest, 0.06f, 0.08f, true) == 0.55f, "support: nor moving back");
+	expect(!(slide.update(false, 0.40f, rest, 0.06f, 0.08f, true) == 0.55f) && !slide.latched(), "support: let go, the lock ends");
+	expect(slide.update(true, 0.80f, rest, 0.06f, 0.08f, true) == 0.58f, "support: a grab 30 cm ahead (on the barrel) is held at the range's front");
+	slide.update(false, 0.0f, rest, 0.06f, 0.08f, true);
+	expect(slide.update(true, 0.30f, rest, 0.06f, 0.08f, true) == 0.44f, "support: a grab far back is held at the range's back");
+	expect(slide.update(true, 0.30f, rest, 0.02f, 0.08f, true) == 0.48f, "support: a smaller range set while held still bounds it");
+	contact::support_slide free;
+	expect(free.update(true, 0.55f, rest, 0.06f, 0.08f, false) == 0.55f && free.update(true, 0.57f, rest, 0.06f, 0.08f, false) == 0.57f,
+		"support: unlocked it follows the controller within the range");
+	expect(free.update(true, NAN, rest, 0.06f, 0.08f, false) == rest, "support: a broken reading gives the rest spot");
+}
+
 int main()
 {
+	test_support_slide();
 	test_rack_fist_offset();
 	test_pinch();
 	test_coupling();

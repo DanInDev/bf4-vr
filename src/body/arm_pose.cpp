@@ -262,10 +262,6 @@ namespace bfvr::body
 			torso_report = yaw;
 			return yaw;
 		}
-		// How far the drawn off hand may slide from where the animation holds the handguard, metres.
-		constexpr float support_slide_back = 0.10f;
-		constexpr float support_slide_forward = 0.20f;
-
 		// Normalised linear blend on the shorter arc.
 		ik::quat nlerp(ik::quat a, ik::quat b, float t)
 		{
@@ -375,6 +371,12 @@ namespace bfvr::body
 			float side{};         // the handle's side of the gun: +1 left, -1 right, 0 on top
 		};
 		contact::rack_fist_offsets rack_fist; // under rig_lock (set_rack_fist_offsets)
+		// The off hand on the handguard: locked where it grabbed (live settings support_lock, support_slide_back
+		// and support_slide_forward; headset 2026-11-15: it slid along the gun with every move).
+		std::atomic<bool> support_lock{ true };
+		std::atomic<float> support_back{ 0.06f };
+		std::atomic<float> support_forward{ 0.08f };
+		contact::support_slide support_place; // under rig_lock
 		handle_hold handle_request;
 		// #40: the open off hand snapping onto the seated magazine (set_magazine_snap). delta: the snapped
 		// hand pose less the controller's (model space), kept from the last seated frame so the hand eases
@@ -1185,6 +1187,10 @@ namespace bfvr::body
 					has_held_root = false;
 				}
 				const float support = support_weight.load(std::memory_order_relaxed);
+				if (hand != carrier && !(support > 0.0f))
+				{
+					support_place.update(false, 0.0f, 0.0f, 0.0f, 0.0f, true); // the hold ended: the next grab takes its place afresh
+				}
 				if (hand != carrier && (carrier == 1 || off_by_grip.load(std::memory_order_relaxed)) && gun_placed && geometry.valid && support > 0.0f)
 				{
 					// Two-handed: the off hand is drawn where the gun's own animation holds it, slid along
@@ -1197,9 +1203,11 @@ namespace bfvr::body
 						held_at.position.x = -held_at.position.x;
 						held_at.rotation = fingers::mirrored_hand(held_at.rotation);
 					}
+					// Locked where the hold took it (support_lock), within the range (support_slide_back/forward).
 					const float along = ik::rotate(ik::conjugate(gun.rotation), goal.wrist - gun.position).z;
 					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y,
-						std::fmax(held_at.position.z - support_slide_back, std::fmin(held_at.position.z + support_slide_forward, along)) };
+						support_place.update(true, along, held_at.position.z, support_back.load(std::memory_order_relaxed),
+							support_forward.load(std::memory_order_relaxed), support_lock.load(std::memory_order_relaxed)) };
 					const ik::vec3 snapped = gun.position + ik::rotate(gun.rotation, on_gun);
 					goal.wrist = goal.wrist + (snapped - goal.wrist) * support;
 					goal.hand = nlerp(goal.hand, gun.rotation * held_at.rotation, support);
@@ -3095,6 +3103,14 @@ namespace bfvr::body
 	{
 		off_task = static_cast<int>(task);
 		off_task_at = GetTickCount64();
+	}
+
+	void set_support_slide(bool lock, float back, float forward)
+	{
+		const auto metres = [](float v) { return std::isfinite(v) ? std::fmax(0.0f, std::fmin(0.3f, v)) : 0.0f; };
+		support_lock = lock;
+		support_back = metres(back);
+		support_forward = metres(forward);
 	}
 
 	void set_rack_fist_offsets(float over_out, float over_up, float under_out, float under_down)

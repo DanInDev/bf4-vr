@@ -106,6 +106,23 @@ namespace bfvr::body::contact
 	};
 	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets);
 
+	// The off hand on the handguard (two-handed hold): where along the barrel it is drawn, in the gun's frame
+	// (+z towards the muzzle). The game's own support spot (rest) is the middle; the hand may sit up to back
+	// metres behind it and forward ahead of it. Locked, the place is taken as the hold starts and kept until
+	// it ends (headset 2026-11-15: the hand slid along the gun with every move, up onto the SCAR-H's barrel);
+	// unlocked it follows the controller within the range.
+	class support_slide
+	{
+	public:
+		// held: the two-handed hold is on this frame; along: the controller's wrist along the barrel.
+		float update(bool held, float along, float rest, float back, float forward, bool lock);
+		bool latched() const { return latched_; }
+
+	private:
+		bool latched_{};
+		float offset_{}; // the latched place, relative to rest
+	};
+
 	// Palming (weapon/reload_hands, same formula as weapon::tilt_magazine): a magazine held at top and
 	// rotation, turned by angle radians about the barrel axis of the gun frame it would sit in, through
 	// its body pivot_drop below the top. seated: its rotation relative to that frame (Wep_Root, +z along

@@ -283,6 +283,12 @@ magazine_grip = auto
 # the hand takes the handle: palm down on it (overhand) pinches, palm up under it (underhand) hooks the
 # knob in the index and middle. Kept for the stroke. Pipe `fingers` shows the hold and the palm reading.
 rack_grip = fist
+# Two-handed: the off hand stays on the handguard where it grabbed until you let go (support_lock = 0: it slides
+# with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
+# muzzle) metres of the game's own handguard spot.
+support_lock = 1
+support_slide_back = 0.06
+support_slide_forward = 0.08
 # rack_grip fist: where the fist sits against the charging handle's knob (metres, the gun's frame): overhand out on
 # the handle's side and up, underhand out and down, so it holds the knob from outside the gun. Panel page Skeleton.
 rack_over_out = 0.05
