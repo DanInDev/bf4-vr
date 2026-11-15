@@ -12,8 +12,9 @@ SCAR-H only.
 
 - **Unlocks:** with `SyncedBFSettings.AllUnlocksUnlocked` (+0x54, three instances) and the crate menu's
   `UIWeaponSelectorGridWidgetData.UnlockEverything` (+0xA0) poked to 1, every crate gun became
-  selectable after the crate was closed and opened again (owner, 2026-11-15). Memory only, gone at the
-  next start. Which of the two flags is needed is not known yet.
+  selectable after the crate was closed and opened again (owner, 2026-11-15). **Built (step 0a):** the
+  setting `unlock_all_weapons` holds `AllUnlocksUnlocked` alone at 1 while a campaign level runs; on a
+  fresh start the owner found every gun selectable, so the crate's own flag is not needed.
 - **The crate offers 51 guns** in eight rows (`re/notes/weapon.md` "The weapon crate and unlocks").
   Every BF4 gun and gadget (167 unlock assets) is loaded in a level, the crate shows a fixed subset.
 - **Per-gun data without spawning:** each unlock asset's `StoredWeaponData` (+0x78) has the magazine
@@ -199,7 +200,7 @@ cover 35 of the 51 guns on the existing state machine; then F 6, G 4, H 5, J 1.
 
 | # | Step | Guns | Depends on | Issue |
 | --- | --- | --- | --- | --- |
-| 0a | **Unlock all weapons** setting (`unlock_all_weapons`, default on): set the flags at each level load; find which flag is needed; panel row, ini line | all | | new |
+| 0a | ~~**Unlock all weapons** setting~~ **done 2026-11-15** (`unlock_all_weapons`, default on; `AllUnlocksUnlocked` alone) | all | | |
 | 0b | **Weapon picker**: pipe `give <unlock> primary\|secondary` and later an in-VR list. Research how the crate applies a choice (the message it sends on Done). Also fixes the agent's clicks problem in the crate (#34) | all | | new (with #34) |
 | 0c | **Catalog**: `tools/weapon_catalog_probe.py`, `docs/weapons.md` (one row per gun: data, profile, status per check) | all | | new |
 | 0d | Fix the AK list (`U_SAIGA_20K`; add A-91 and the rock-in guns once the flags exist) with a unit test | Saiga | | with 1 |
@@ -222,7 +223,6 @@ engine-free logic, the gate green, the monitor check's raw output on the issue, 
 
 ## Open questions
 
-- Which unlock flag is needed (0a): test each alone, closing and reopening the crate.
 - How the crate applies a choice (0b): `UnlockWeaponAndSlot`, `NetworkSetCustomizationWeaponSlotMessage`
   and `ClientPlayerSelectedUnlocksMessage` are candidates in the type registry.
 - Bolt and pump guns (8): does the game play its own cycle animation on the drawn gun, and can it be
