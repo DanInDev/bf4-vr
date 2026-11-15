@@ -1,9 +1,10 @@
 // bf-vr launcher: installs and removes the dinput8.dll proxy in the Battlefield 4 folder, sets BF4 and
 // bfvr.ini up for VR, edits bfvr.ini and starts BF4 through the EA app.
 //
-// Usage: bfvr_launcher.exe [--game-dir <folder>]
-// Default: the install folder from the registry. The mod's dinput8.dll and bfvr.ini.example are taken
-// from the launcher's own folder.
+// Usage: bfvr_launcher.exe [--game-dir <folder>] [--profile <PROFSAVE_profile>]
+// Default: the install folder from the registry and Documents\Battlefield 4\settings\PROFSAVE_profile
+// (--profile points the normal/VR switch at a test copy). The mod's dinput8.dll and bfvr.ini.example are
+// taken from the launcher's own folder.
 
 #include <windows.h>
 #include <commctrl.h>
@@ -18,6 +19,7 @@
 
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
+#include "launcher/play_mode.hpp"
 #include "launcher/resource.hpp"
 #include "launcher/settings_view.hpp"
 #include "launcher/theme.hpp"
@@ -45,7 +47,7 @@ namespace bfvr::launcher
 		constexpr RECT footer_band{ 0, 226, 420, 262 };
 		constexpr RECT art{ 10, 32, 260, 218 };
 		constexpr RECT panels[page_count][3] = {
-			{ { 270, 32, 410, 160 } },
+			{ { 270, 32, 410, 178 } },
 			{ { 10, 32, 210, 122 }, { 10, 128, 210, 218 }, { 220, 32, 410, 218 } },
 			{ { 0, 0, 0, 0 } },
 		};
@@ -75,6 +77,7 @@ namespace bfvr::launcher
 		// The mod's dinput8.dll sits beside the launcher (in the package and in build\bf4\<config>).
 		std::filesystem::path mod_dll() { return app.launcher_dir / L"dinput8.dll"; }
 		std::filesystem::path ini_path() { return app.game.dir / L"bfvr.ini"; }
+		play_mode mode() { return current_mode(app.profile, app.proxy.state == proxy_state::ours); }
 
 		std::wstring widen(const std::string& text)
 		{
@@ -187,6 +190,7 @@ namespace bfvr::launcher
 			case IDCANCEL: return theme::button::close;
 			case IDC_START: return theme::button::launch;
 			case IDC_SETUP: return theme::button::primary;
+			case IDC_MODE: return theme::button::toggle;
 			default: return theme::button::normal;
 			}
 		}
@@ -363,6 +367,19 @@ namespace bfvr::launcher
 
 		void refresh_setup(HWND dialog);
 
+		// The switch shows which mode's BF4 settings are live; the second line says when the mod disagrees.
+		void show_mode(HWND dialog)
+		{
+			const bool vr = mode() == play_mode::vr;
+			const bool installed = app.proxy.state == proxy_state::ours;
+			const wchar_t* detail = vr ? (installed ? L"VR settings, mod on" : L"VR settings, but no mod installed")
+				: (installed ? L"Normal settings, but the mod is installed" : L"Normal: plain BF4, your settings");
+			const HWND toggle = GetDlgItem(dialog, IDC_MODE);
+			SetWindowTextW(toggle, (std::wstring(L"VR mode\n") + detail).c_str());
+			theme::set_checked(toggle, vr);
+			EnableWindow(toggle, !app.game.dir.empty() && !app.running);
+		}
+
 		void refresh(HWND dialog, bool full)
 		{
 			const bool have_dir = !app.game.dir.empty();
@@ -394,6 +411,7 @@ namespace bfvr::launcher
 				&& !app.running && app.proxy.state != proxy_state::foreign);
 			EnableWindow(GetDlgItem(dialog, IDC_REMOVE), app.proxy.state == proxy_state::ours && !app.running);
 			EnableWindow(GetDlgItem(dialog, IDC_START), have_dir && !app.running);
+			show_mode(dialog);
 			refresh_setup(dialog);
 		}
 
@@ -466,7 +484,6 @@ namespace bfvr::launcher
 			}
 			show_runtime(dialog);
 			EnableWindow(GetDlgItem(dialog, IDC_SETUP), have_dir && app.build.result == build_check::ok && !app.running);
-			EnableWindow(GetDlgItem(dialog, IDC_RESTORE_PROFILE), !app.running && std::filesystem::exists(profile_backup(app.profile), error));
 		}
 
 		void load_settings(HWND dialog)
@@ -562,6 +579,8 @@ namespace bfvr::launcher
 		// Everything a new user needs: the mod, its VR settings and BF4's own settings, each reported.
 		void set_up(HWND dialog)
 		{
+			// Before the install: without a marker the mode follows the mod.
+			const play_mode before = mode();
 			std::wstring message;
 			bool ok = true;
 			const auto add = [&](const result& step)
@@ -578,7 +597,7 @@ namespace bfvr::launcher
 				add(deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG));
 			}
 			add(apply_ini(ini_path(), app.launcher_dir / L"bfvr.ini.example"));
-			add(apply_profile(app.profile, game_running(app.game)));
+			add(switch_profile(app.profile, before, play_mode::vr, game_running(app.game), true));
 			if (ok)
 			{
 				message += std::wstring(L"\r\nReady: start SteamVR (or Link), then Start ") + game().name + L".";
@@ -591,11 +610,50 @@ namespace bfvr::launcher
 			}
 		}
 
+		// The Play page's switch: BF4's settings and the mod together. What would stop the install is
+		// checked first, so the settings are only rolled back after an unexpected file error.
+		void switch_mode(HWND dialog)
+		{
+			const play_mode from = mode();
+			const play_mode to = from == play_mode::vr ? play_mode::normal : play_mode::vr;
+			std::error_code error;
+			if (to == play_mode::vr && app.proxy.state == proxy_state::foreign)
+			{
+				fail(dialog, L"Not switched to VR: another mod's dinput8.dll is in the game folder.");
+				return;
+			}
+			if (to == play_mode::vr && (app.build.result != build_check::ok || !std::filesystem::exists(mod_dll(), error)))
+			{
+				fail(dialog, std::wstring(L"Not switched to VR: ") + (app.build.result != build_check::ok ? L"unsupported game build (Setup page)." : L"dinput8.dll is missing beside the launcher."));
+				return;
+			}
+			const bool running = game_running(app.game);
+			const result settings = switch_profile(app.profile, from, to, running);
+			if (!settings.ok)
+			{
+				report(dialog, settings);
+				return;
+			}
+			const result mod = to == play_mode::vr ? deploy(app.game, mod_dll(), BFVR_BUILD_CONFIG)
+				: app.proxy.state == proxy_state::ours ? remove(app.game) : result{ true, L"No mod was installed." };
+			if (!mod.ok)
+			{
+				// Back to where it was, so the switch never shows a mode the mod does not match.
+				switch_profile(app.profile, to, from, running);
+				report(dialog, { false, mod.message + L" The BF4 settings stay the " + (from == play_mode::vr ? L"VR" : L"normal") + L" ones." });
+				return;
+			}
+			report(dialog, { true, std::wstring(to == play_mode::vr ? L"VR mode. " : L"Normal mode. ") + mod.message + L"\r\n" + settings.message });
+		}
+
 		void start_game(HWND dialog)
 		{
-			if (app.proxy.state != proxy_state::ours
-				&& MessageBoxW(dialog, (std::wstring(L"The mod is not installed, so ") + game().name + L" starts without VR. Start anyway?").c_str(),
-					L"bf-vr launcher", MB_YESNO | MB_ICONQUESTION) != IDYES)
+			const bool installed = app.proxy.state == proxy_state::ours;
+			const bool vr = mode() == play_mode::vr;
+			const std::wstring question = vr
+				? std::wstring(L"VR mode is on, but the mod is not installed, so ") + game().name + L" starts without VR. Start anyway?"
+				: std::wstring(L"Normal mode is on, but the mod is installed, so ") + game().name + L" starts with it. Start anyway?";
+			if (vr != installed && MessageBoxW(dialog, question.c_str(), L"bf-vr launcher", MB_YESNO | MB_ICONQUESTION) != IDYES)
 			{
 				return;
 			}
@@ -648,7 +706,7 @@ namespace bfvr::launcher
 				init_window(dialog);
 				settings_view::create(dialog, IDC_SETTINGS_VIEW, to_pixels(dialog, settings_area), settings_message);
 				show_game(dialog);
-				show_page(dialog, app.proxy.state == proxy_state::ours ? play : setup);
+				show_page(dialog, app.proxy.state == proxy_state::ours || std::filesystem::exists(mode_marker(app.profile)) ? play : setup);
 				SetTimer(dialog, refresh_timer, 2000, nullptr);
 				return TRUE;
 			case WM_TIMER:
@@ -731,7 +789,7 @@ namespace bfvr::launcher
 				case IDC_REMOVE: report(dialog, remove(app.game)); break;
 				case IDC_START: start_game(dialog); break;
 				case IDC_SETUP: set_up(dialog); break;
-				case IDC_RESTORE_PROFILE: report(dialog, restore_profile(app.profile, game_running(app.game))); break;
+				case IDC_MODE: switch_mode(dialog); break;
 				case IDC_OPEN_LOG: open_log(dialog); break;
 				case IDC_CHECK_UPDATE: check_update(dialog); break;
 				case IDCANCEL:
@@ -764,6 +822,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 	app.launcher_dir = length && length < MAX_PATH ? std::filesystem::path(path).parent_path() : std::filesystem::current_path();
 
 	std::filesystem::path game_dir;
+	std::filesystem::path profile;
 	int count{};
 	wchar_t** arguments = CommandLineToArgvW(GetCommandLineW(), &count);
 	for (int i = 1; arguments && i + 1 < count; ++i)
@@ -772,10 +831,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int)
 		{
 			game_dir = arguments[++i];
 		}
+		else if (_wcsicmp(arguments[i], L"--profile") == 0)
+		{
+			profile = arguments[++i];
+		}
 	}
 	LocalFree(arguments);
 	app.game = { game_dir.empty() ? find_install(bf4_profile) : game_dir, bf4_profile.exe, &bf4_profile };
-	app.profile = find_profile(bf4_profile);
+	app.profile = profile.empty() ? find_profile(bf4_profile) : profile;
 
 	const INITCOMMONCONTROLSEX controls{ sizeof(controls), ICC_STANDARD_CLASSES };
 	InitCommonControlsEx(&controls);

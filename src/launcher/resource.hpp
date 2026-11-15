@@ -22,6 +22,7 @@
 #define IDC_RUNNING 1112
 #define IDC_START 1113
 #define IDC_OPEN_LOG 1114
+#define IDC_MODE 1115
 
 #define IDC_SETUP_GAME_HEADING 1240
 #define IDC_SETUP_MOD_HEADING 1241
@@ -31,6 +32,7 @@
 #define IDC_SETUP_PROFILE_LABEL 1252
 #define IDC_SETUP_INI_LABEL 1253
 #define IDC_SETUP_HINT 1270
+#define IDC_SETUP_MODE_HINT 1271
 #define IDC_SETUP_WARNING 1280
 #define IDC_FOLDER 1210
 #define IDC_CHANGE_FOLDER 1211
@@ -42,7 +44,6 @@
 #define IDC_PROFILE_STATUS 1217
 #define IDC_INI_STATUS 1218
 #define IDC_SETUP 1219
-#define IDC_RESTORE_PROFILE 1220
 #define IDC_CHECK_UPDATE 1221
 
 // The Settings page is one child window (launcher/settings_view), created at start-up.

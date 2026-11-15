@@ -34,8 +34,8 @@ Unzip anywhere **except** the BF4 folder (for example `Documents\bf-vr`) and run
    - writes the VR values into `bfvr.ini` in the BF4 folder (head-tracked 3D, a 2160x2160 image per eye,
      the view crop, the HUD layer); your other settings in it are kept;
    - changes BF4's own settings that VR needs: DirectX 11 (Mantle off), **post anti-aliasing off** (it blurs the
-     whole headset image), no weapon depth of field, no motion blur, vsync off, pad vibration on. The original
-     file is backed up first; **Restore BF4 settings** puts it back.
+     whole headset image), no weapon depth of field, no motion blur, vsync off, pad vibration on. Your normal
+     settings are kept for normal mode (below).
 
    The **VR setup** lines turn green once nothing is left to change, and show which VR runtime the mod will use.
 
@@ -55,6 +55,16 @@ Advanced). **Save** writes `bfvr.ini`. You can change all of this later inside V
 4. In VR, **hold the left menu button (≡)** for the mod's settings panel. Controls:
    [quest3-controls.svg](img/quest3-controls.svg); grab zones: [grab-zones.svg](img/grab-zones.svg).
 
+## Normal mode and VR mode
+
+The **VR mode** switch on the Play tab flips between playing BF4 in VR and playing it normally on the monitor,
+for example to reach a part of the campaign with mouse and keyboard and then go on in VR. Close BF4 first.
+Each mode keeps its own copy of BF4's video, audio and control settings: switching saves the current ones
+(`PROFSAVE_profile.bfvr-normal` or `.bfvr-vr` in `Documents\Battlefield 4\settings`, plain text files you may
+edit while BF4 is closed) and brings back the other mode's, then installs or removes the mod. What you change
+in BF4's options stays with the mode you changed it in. Campaign progress is shared: Resume continues from
+the last checkpoint in either mode.
+
 ## Picture quality
 
 BF4's own **Options > Video** still apply on top of the mod:
@@ -73,8 +83,8 @@ Setup tab (or **Set up for VR** again). **Updates?** asks GitHub whether a newer
 
 ## Removing
 
-**Remove mod** on the Setup tab deletes `dinput8.dll` from the BF4 folder; **Restore BF4 settings** brings back
-your original video settings. `bfvr.ini` and `bfvr.log` stay in the BF4 folder as plain text; delete them if you like.
+Switch **VR mode** off on the Play tab: it deletes `dinput8.dll` from the BF4 folder and brings back your normal
+settings. (**Remove mod** on the Setup tab removes only the DLL.) `bfvr.ini` and `bfvr.log` stay in the BF4 folder as plain text; delete them if you like.
 
 > [!IMPORTANT]
 > **Campaign only.** The mod switches itself off outside the campaign, but always press **Remove mod** before

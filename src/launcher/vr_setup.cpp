@@ -198,21 +198,12 @@ namespace bfvr::launcher
 		return pending(ini_settings, ini::read(ini), true);
 	}
 
-	result apply_profile(const std::filesystem::path& profile, bool game_running)
+	result set_profile_for_vr(const std::filesystem::path& profile)
 	{
 		std::error_code error;
-		if (game_running)
-		{
-			return { false, L"BF4 settings not changed: the game is running and writes its settings back when it closes. Close it first." };
-		}
 		if (profile.empty() || !std::filesystem::exists(profile, error))
 		{
 			return { false, L"BF4 settings not found (" + profile.wstring() + L"). Start Battlefield 4 once so it creates them, then set up again." };
-		}
-		const std::filesystem::path backup = profile_backup(profile);
-		if (!std::filesystem::exists(backup, error) && !std::filesystem::copy_file(profile, backup, error))
-		{
-			return { false, L"BF4 settings not changed: the backup " + backup.wstring() + L" could not be written." };
 		}
 
 		std::string text = read_text(profile);
@@ -254,27 +245,7 @@ namespace bfvr::launcher
 			std::filesystem::remove(temporary, error);
 			return { false, L"BF4 settings not changed: " + profile.wstring() + L" could not be replaced." };
 		}
-		return { true, L"BF4 settings set for VR (original kept as " + backup.filename().wstring() + L")." };
-	}
-
-	result restore_profile(const std::filesystem::path& profile, bool game_running)
-	{
-		std::error_code error;
-		const std::filesystem::path backup = profile_backup(profile);
-		if (game_running)
-		{
-			return { false, L"Not restored: the game is running and writes its settings back when it closes. Close it first." };
-		}
-		if (!std::filesystem::exists(backup, error))
-		{
-			return { false, L"No backup to restore: bf-vr has not changed the BF4 settings." };
-		}
-		if (!CopyFileW(backup.c_str(), profile.c_str(), FALSE))
-		{
-			return { false, L"Restoring " + profile.wstring() + L" failed." };
-		}
-		std::filesystem::remove(backup, error);
-		return { true, L"BF4 settings restored to what they were before the VR setup." };
+		return { true, L"BF4 settings set for VR." };
 	}
 
 	result apply_ini(const std::filesystem::path& ini_path, const std::filesystem::path& seed)

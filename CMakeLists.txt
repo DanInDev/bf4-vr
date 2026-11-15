@@ -430,6 +430,7 @@ if(BFVR_GAME STREQUAL "bf4")
 	add_library(bfvr_launcher_core STATIC
 		src/launcher/ini_file.cpp
 		src/launcher/install.cpp
+		src/launcher/play_mode.cpp
 		src/launcher/update.cpp
 		src/launcher/vr_setup.cpp
 	)

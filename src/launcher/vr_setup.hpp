@@ -27,6 +27,7 @@ namespace bfvr::launcher
 
 	// Empty when Documents cannot be resolved; the file itself appears after BF4's first start.
 	std::filesystem::path find_profile(const game_profile& game = bf4_profile);
+	// The untouched profile that launchers before the normal/VR switch kept at the first VR setup.
 	std::filesystem::path profile_backup(const std::filesystem::path& profile);
 
 	// Settings whose current value differs from the wanted one (numbers compared as numbers, so
@@ -34,10 +35,9 @@ namespace bfvr::launcher
 	std::vector<const wanted_setting*> profile_pending(const std::filesystem::path& profile);
 	std::vector<const wanted_setting*> ini_pending(const std::filesystem::path& ini);
 
-	// Backs the profile up once (the first, untouched copy is kept), then sets the wanted values,
-	// keeping every other line. Refused while the game runs: BF4 writes the profile back on exit.
-	result apply_profile(const std::filesystem::path& profile, bool game_running);
-	result restore_profile(const std::filesystem::path& profile, bool game_running);
+	// Sets the wanted values in place, keeping every other line. No backup and no check for a running
+	// game: switch_profile (play_mode) does both.
+	result set_profile_for_vr(const std::filesystem::path& profile);
 	// The wanted mod settings into bfvr.ini (seeded from the template when it does not exist yet).
 	result apply_ini(const std::filesystem::path& ini, const std::filesystem::path& seed);
 

@@ -17,6 +17,7 @@
 
 #include "launcher/ini_file.hpp"
 #include "launcher/install.hpp"
+#include "launcher/play_mode.hpp"
 #include "launcher/update.hpp"
 #include "launcher/vr_setup.hpp"
 
@@ -153,18 +154,13 @@ namespace
 		write_file(profile, original);
 
 		check(profile_pending(profile).size() == 5, "profile: post AA, Mantle, weapon DOF, motion blur enabled, vibration pending; 0.000000 counts as 0");
-		check(!apply_profile(profile, true).ok && read_file(profile) == original, "profile untouched while the game runs");
-		check(apply_profile(profile, false).ok && profile_pending(profile).empty(), "profile set for VR");
+		check(set_profile_for_vr(profile).ok && profile_pending(profile).empty(), "profile set for VR");
 		const std::string applied = read_file(profile);
 		check(applied.rfind("GstAudio.AudioQuality 1\nGstRender.AntiAliasingPost 0\nGstRender.MantleEnabled 0\nGstRender.MotionBlur 0\nGstRender.WeaponDOF 0\nGstRender.VSyncEnabled 0\n", 0) == 0,
 			"other lines and order kept, values replaced in place");
 		check(applied.find("GstInput.Vibration 1\n") != std::string::npos && applied.find("GstRender.MotionBlurEnabled 0\n") != std::string::npos, "missing keys appended");
-		check(read_file(profile_backup(profile)) == original, "backup is the original");
-		check(apply_profile(profile, false).ok && read_file(profile_backup(profile)) == original, "a second setup keeps the first backup");
-		check(!restore_profile(profile, true).ok, "no restore while the game runs");
-		check(restore_profile(profile, false).ok && read_file(profile) == original && !fs::exists(profile_backup(profile)), "restore brings the original back");
-		check(!restore_profile(profile, false).ok, "nothing to restore twice");
-		check(!apply_profile(root / L"nowhere" / L"PROFSAVE_profile", false).ok, "missing profile: asks to start BF4 once");
+		check(!fs::exists(profile_backup(profile)) && !fs::exists(fs::path(profile) += L".tmp"), "no backup or temporary file of its own");
+		check(!set_profile_for_vr(root / L"nowhere" / L"PROFSAVE_profile").ok, "missing profile: asks to start BF4 once");
 
 		const fs::path seed = root / L"vr.ini.example";
 		const fs::path ini_file = root / L"vrgame" / L"bfvr.ini";
@@ -178,6 +174,63 @@ namespace
 		check(manifest_name("{\"file_format_version\": \"1.0.0\", \"runtime\": {\"name\": \"SteamVR\", \"library_path\": \"x.dll\"}}") == "SteamVR",
 			"runtime manifest name");
 		check(manifest_name("{}").empty(), "manifest without a name");
+	}
+
+	void test_play_mode(const fs::path& root)
+	{
+		const fs::path profile = root / L"modes" / L"PROFSAVE_profile";
+		const fs::path progress = root / L"modes" / L"PROFSAVE";
+		fs::create_directories(profile.parent_path());
+		const std::string normal = "GstRender.AntiAliasingPost 3\nGstRender.VSyncEnabled 1\nGstInput.MouseSensitivity 0.3\n";
+		write_file(profile, normal);
+		write_file(progress, "campaign progress");
+
+		check(current_mode(profile, false) == play_mode::normal && current_mode(profile, true) == play_mode::vr, "mode: no marker, the mod decides");
+		check(current_mode(fs::path(), true) == play_mode::vr, "mode: no profile path, the mod decides");
+		check(!switch_profile(profile, play_mode::normal, play_mode::vr, true).ok && read_file(profile) == normal && !fs::exists(mode_marker(profile)),
+			"mode: nothing switched while the game runs");
+		check(!switch_profile(root / L"nowhere" / L"PROFSAVE_profile", play_mode::normal, play_mode::vr, false).ok, "mode: missing profile refused");
+
+		check(switch_profile(profile, play_mode::normal, play_mode::vr, false).ok, "mode: first switch to VR");
+		check(read_file(mode_copy(profile, play_mode::normal)) == normal, "mode: the normal settings are kept");
+		check(profile_pending(profile).empty() && read_file(profile).find("GstInput.MouseSensitivity 0.3\n") != std::string::npos,
+			"mode: VR values set on top of the normal settings");
+		check(current_mode(profile, false) == play_mode::vr, "mode: marker says VR, whatever the mod");
+
+		// The user changes settings in VR (in the game or in the file), then goes back to normal.
+		const std::string vr = read_file(profile) + "GstAudio.Volume 0.5\n";
+		write_file(profile, vr);
+		check(switch_profile(profile, play_mode::vr, play_mode::normal, false).ok, "mode: switch to normal");
+		check(read_file(profile) == normal && read_file(mode_copy(profile, play_mode::vr)) == vr, "mode: normal settings back, VR ones kept with the change");
+		check(current_mode(profile, true) == play_mode::normal, "mode: marker says normal");
+
+		// A normal-mode change survives the next round trip; the VR copy comes back as it was.
+		const std::string normal2 = normal + "GstRender.FieldOfView 90\n";
+		write_file(profile, normal2);
+		check(switch_profile(profile, play_mode::normal, play_mode::vr, false).ok && read_file(profile) == vr, "mode: VR copy comes back unchanged");
+		check(read_file(mode_copy(profile, play_mode::normal)) == normal2, "mode: the changed normal settings are kept");
+		check(switch_profile(profile, play_mode::vr, play_mode::normal, false).ok && read_file(profile) == normal2, "mode: changed normal settings back");
+
+		check(switch_profile(profile, play_mode::normal, play_mode::normal, false).ok && read_file(profile) == normal2, "mode: same mode changes nothing");
+		check(switch_profile(profile, play_mode::normal, play_mode::vr, false, true).ok && profile_pending(profile).empty(),
+			"mode: Set up for VR sets the VR values on the VR copy");
+		check(read_file(progress) == "campaign progress", "mode: campaign progress untouched");
+		check(!fs::exists(fs::path(profile) += L".tmp") && !fs::exists(fs::path(mode_copy(profile, play_mode::vr)) += L".tmp"), "mode: no temporary files left");
+
+		// An install that an older launcher set up: no copies, but its backup of the original.
+		const fs::path old = root / L"oldsetup" / L"PROFSAVE_profile";
+		fs::create_directories(old.parent_path());
+		write_file(old, "vr settings\n");
+		write_file(profile_backup(old), normal);
+		check(switch_profile(old, current_mode(old, true), play_mode::normal, false).ok && read_file(old) == normal, "mode: normal from an older backup");
+		check(read_file(mode_copy(old, play_mode::vr)) == "vr settings\n" && fs::exists(profile_backup(old)), "mode: VR kept, the old backup left alone");
+
+		// Never set up and no backup: going normal keeps the current settings.
+		const fs::path bare = root / L"bare" / L"PROFSAVE_profile";
+		fs::create_directories(bare.parent_path());
+		write_file(bare, "tuned for vr\n");
+		check(switch_profile(bare, play_mode::vr, play_mode::normal, false).ok && read_file(bare) == "tuned for vr\n", "mode: no normal copy, the profile stays");
+		check(current_mode(bare, true) == play_mode::normal, "mode: still marked normal");
 	}
 }
 
@@ -216,6 +269,7 @@ int wmain(int argc, wchar_t** argv)
 	test_other_game(root);
 	test_ini(root);
 	test_vr_setup(root);
+	test_play_mode(root);
 
 	if (keep)
 	{

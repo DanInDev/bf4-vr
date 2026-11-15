@@ -93,14 +93,15 @@ The full walk-through, with what each button changes, picture-quality tips, upda
 1. **Get the mod**: the zip from the [releases page](https://github.com/DanInDev/bf4-vr/releases), or build it from
    source ([build instructions](docs/architecture/README.md#build-and-run)).
 2. **Open the launcher** (`bfvr_launcher.exe`). On **Setup**, press **Set up for VR**: it installs the mod, writes
-   its VR settings and sets BF4's own video settings (a backup is kept). **Settings** has every option, the same
-   as the panel inside VR.
+   its VR settings and sets BF4's own video settings (your normal ones are kept). **Settings** has every option,
+   the same as the panel inside VR.
 3. **Start SteamVR and connect the Quest** through Steam Link.
-4. Press **Start Battlefield 4** and continue your campaign.
+4. Press **Start Battlefield 4** and continue your campaign. The **VR mode** switch on the Play tab goes back to
+   normal play on the monitor and back again; each mode keeps its own BF4 settings.
 
 > [!IMPORTANT]
 > BF4-VR is for the **single-player campaign only**. It switches itself off outside the campaign, but always
-> use **Remove mod** in the launcher before playing multiplayer. See [docs/SAFETY.md](docs/SAFETY.md).
+> switch **VR mode** off (or use **Remove mod**) in the launcher before playing multiplayer. See [docs/SAFETY.md](docs/SAFETY.md).
 
 ## Controls
 
