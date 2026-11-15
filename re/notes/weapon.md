@@ -783,6 +783,23 @@ near and far, its own ring and dot, art size 0.040. Not checked: the colour per 
 is white, the game's tint not found yet), the magnifier with the zoom mesh always on (hidden at the hip), other
 optics, the headset.
 
+## The AK-12's optic "missing its top" (2026-11-16 night, monitor, Baku, #39)
+
+Owner, headset 2026-11-15: the AK's scope shows a visual glitch, a missing texture on top. With `sight_lens` on
+(default) the zoom mesh was shown **whenever a gun is held** (`set_zoom_mesh_always`): that is the optic as the
+game's own ADS camera sees it, built without the parts that camera never sees, so from anywhere else the PK-AS
+housing looks gutted. Pipe `zoommesh 1` (hip model) against `zoommesh 0` (zoom model) from above shows the
+difference on the optic. Now the zoom mesh shows only while an eye looks into the lens from behind
+(`weapon::eye_in_lens_cone`: up to 70 cm behind the lens, within `sight_lens_cone` degrees of the sight line
+plus the lens radius; latched with 4 degrees more to leave). 15 degrees still caught a head looking down at the
+gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): default 8.
+
+| Pose (fake head and hands) | `zoommesh` | Picture |
+| --- | --- | --- |
+| Head pitched 35 deg down at the gun at the hip | `in_view=0`, nothing patched | full optic (hip model) |
+| Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
+| Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

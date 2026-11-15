@@ -167,6 +167,15 @@ namespace bfvr::weapon
 		return along >= -max_behind && along <= max_ahead && off <= max_offset;
 	}
 
+	bool eye_in_lens_cone(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float lens_ahead, float tan_half_angle,
+		float lens_radius, float max_distance)
+	{
+		float off = 0.0f, along = 0.0f;
+		sight_offset(eye, sight_eye, direction, off, along);
+		const float behind_lens = lens_ahead - along;
+		return behind_lens > 0.0f && behind_lens <= max_distance && off <= lens_radius + std::fmax(tan_half_angle, 0.0f) * behind_lens;
+	}
+
 	sight_dot_view sight_dot_for_eye(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float lens_radius, float max_behind,
 		float max_ahead, float distance)
 	{

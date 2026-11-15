@@ -84,6 +84,12 @@ namespace bfvr::weapon
 	// instead of the bare barrel's (they differ by a degree or two: the barrel is zeroed upwards).
 	void drawn_barrel_rotation(const float (&root_rotation)[4], float (&rotation)[4], const float* sight_direction = nullptr);
 
+	// #39 (owner 2026-11-15: the AK-12's optic looked gutted, its top missing): the game's zoom mesh is the optic
+	// as its own ADS camera sees it, open at the top. It is shown only while an eye looks into the lens from
+	// behind: up to max_distance behind the lens (lens_ahead along the sight line from sight_eye) and within
+	// tan_half_angle of the line counted from the lens, plus the lens radius. direction: unit.
+	bool eye_in_lens_cone(const float (&eye)[3], const float (&sight_eye)[3], const float (&direction)[3], float lens_ahead, float tan_half_angle,
+		float lens_radius, float max_distance);
 	// An eye looks through the sight: within max_offset (metres) of the sight line, and from up to
 	// max_behind behind the game's eye point (eye relief) to max_ahead in front of it (towards the optic:
 	// in VR the eye can come closer than the game's camera sits). direction: unit.

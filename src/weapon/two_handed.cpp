@@ -51,6 +51,8 @@ namespace bfvr::weapon
 		constexpr float sight_leave_hold_seconds = 0.3f;
 		sight_ads_latch sight_latch;
 		sight_ads_latch mesh_latch; // sight_zoom_mesh: a sight at an eye, whatever the game's aim does
+		sight_ads_latch view_latch; // sight_lens: an eye looks into the lens from behind (the zoom mesh's cone)
+		std::atomic<float> lens_cone_degrees{ 8.0f }; // live setting sight_lens_cone; 0 = the zoom mesh always
 		bool eye_line_valid{};      // sight_reticle: a sight is at an eye and its line is fresh
 		float eye_line[3]{};        // that line's direction, OpenXR LOCAL
 		std::atomic<bool> sight_reticle{ true }; // live setting sight_reticle
@@ -63,6 +65,8 @@ namespace bfvr::weapon
 		constexpr float sight_eye_relief = 0.30f;     // up to this far behind the game's eye point
 		constexpr float sight_min_ahead = 0.05f;      // and at least this far in front of it
 		constexpr float sight_optic_clearance = 0.02f; // up to this close behind the optic
+		constexpr float lens_cone_radius = 0.015f; // the zoom mesh's view cone (#39): the lens's radius ...
+		constexpr float lens_cone_reach = 0.70f;   // ... and how far behind it an eye still looks in
 		bool drawn_line{};                       // this update aimed along the drawn gun
 		std::atomic<bool> claim{};
 		std::atomic<bool> holds{};  // the off hand holds the handguard (two-handed hold), for #38's hand-over
@@ -103,6 +107,8 @@ namespace bfvr::weapon
 			sight_latch.reset();
 			mesh_latch.reset();
 			set_sight_at_eye(false);
+			view_latch.reset();
+			set_sight_in_view(false);
 			dot_line = {};
 			dot_seen[0] = dot_seen[1] = false;
 			input::set_sight_aim(false);
@@ -112,6 +118,11 @@ namespace bfvr::weapon
 	void set_two_handed(bool on)
 	{
 		enabled = on;
+	}
+
+	void set_sight_lens_cone(float degrees)
+	{
+		lens_cone_degrees = std::isfinite(degrees) ? std::fmax(0.0f, std::fmin(45.0f, degrees)) : 8.0f;
 	}
 
 	void set_two_hand_lock(bool lock)
@@ -325,6 +336,10 @@ namespace bfvr::weapon
 				publish_grab_zone(grab_slot::sight_lens, lens, sight_dot_lens_radius.load(std::memory_order_relaxed), dot_seen_last);
 			}
 			bool enter = false, stay = false;
+			bool view_enter = false, view_stay = false;
+			const float cone = lens_cone_degrees.load(std::memory_order_relaxed);
+			constexpr float to_radians = 3.14159265f / 180.0f;
+			const float lens_ahead = ahead + sight_optic_clearance;
 			for (int e = 0; e < 2; ++e)
 			{
 				float at[3];
@@ -332,7 +347,11 @@ namespace bfvr::weapon
 				sight_offset(at, start, barrel, eye_off[e], eye_along[e]);
 				enter = enter || eye_behind_sight(at, start, barrel, sight_enter_metres, sight_eye_relief, ahead);
 				stay = stay || eye_behind_sight(at, start, barrel, sight_leave_metres, sight_eye_relief, ahead);
+				view_enter = view_enter || eye_in_lens_cone(at, start, barrel, lens_ahead, std::tan(cone * to_radians), lens_cone_radius, lens_cone_reach);
+				view_stay = view_stay || eye_in_lens_cone(at, start, barrel, lens_ahead, std::tan((cone + 4.0f) * to_radians), lens_cone_radius, lens_cone_reach);
 			}
+			// sight_lens_cone 0: the zoom mesh whenever a gun is held (as before 2026-11-15).
+			set_sight_in_view(cone <= 0.0f || view_latch.update(view_enter, view_stay, seconds, sight_leave_hold_seconds));
 			// The drawn recoil kicks the sight by centimetres: firing keeps the aim until 0.4 s after the last shot.
 			stay = stay || ticks - last_trigger_at < 400;
 			eye_line_valid = mesh_latch.update(enter, stay, seconds, sight_leave_hold_seconds);
@@ -386,6 +405,7 @@ namespace bfvr::weapon
 			// No fresh line: the reticle goes back to the game's place at once, the zoom mesh after the hold.
 			eye_line_valid = false;
 			set_sight_at_eye(mesh_latch.update(false, false, seconds, sight_leave_hold_seconds));
+			set_sight_in_view(lens_cone_degrees.load(std::memory_order_relaxed) <= 0.0f || view_latch.update(false, false, seconds, sight_leave_hold_seconds));
 		}
 		if (aiming != sight_aiming)
 		{

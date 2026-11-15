@@ -73,6 +73,7 @@ namespace bfvr::settings
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
 			{ "sight_lens", "Weapon", "Aiming", "Real sight lens", "Reticle by angle, any distance", "" },
+			{ "sight_lens_cone", "Weapon", "Aiming", "Clear lens angle", "Degrees off the sight line the lens stays clear", "", true },
 			{ "sight_lens_fov", "Weapon", "Aiming", "Reticle size", "The aiming view it is sized for, degrees", "" },
 			{ "sight_lens_brightness", "Weapon", "Aiming", "Reticle brightness", "", "" },
 			{ "scope_in_frame", "Weapon", "Aiming", "Scope picture in the glass", "Drawn into the game's image, not a layer", "" },
