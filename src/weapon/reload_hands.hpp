@@ -238,6 +238,9 @@ namespace bfvr::weapon
 		v3 under_centre;
 	};
 	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config);
+	// The gun wants charging: nothing chambered, or the bolt held open. Only then is the large underhand handle
+	// zone there (the overhand one always is).
+	bool needs_rack(const gun_state& state);
 	// The handle's side from its knob in the gun frame (+x left); AK-pattern guns default to the right.
 	float rack_side(v3 handle_in_gun, bool ak);
 	// Angle between two rotations, degrees.

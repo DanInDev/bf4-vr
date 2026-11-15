@@ -1035,4 +1035,10 @@ clicks behaved. Not explained yet.
 - With BF4 in front the pipe's `pad` stick no longer turned the soldier (it did while BF4 was behind), and
   `fakeyaw` turns only the camera, so the crate could not be faced again for the SCAR-H. A `fakehead` yaw turns
   the body with the head.
-
+- **2026-11-15 evening (monitor, SCAR-H in Baku, empty gun)**: overhand fist with `rack_over_out` 0 sat on the
+  receiver; with 0.05 / up 0.01 it holds the knob from outside with a gap to the gun. The SCAR-H's handguard spot
+  lies inside the underhand rack zone (its handle sits above the front of the handguard), so the zone claimed the
+  off hand and the two-handed grab never started (`busy=1`); the underhand zone is now only there while the gun
+  needs charging (`needs_rack`: nothing chambered or the bolt open). Handguard lock (`support_lock`): grabbed at
+  4.8 cm ahead of the magwell, the controller 7 cm forward left the hand at 4.8 cm (unlocked: 11.4 cm), 7 cm back
+  moved it 3 cm with the game's own support spot as the barrel tilted; no regrab (`grabs` unchanged).

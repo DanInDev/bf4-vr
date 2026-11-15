@@ -97,6 +97,11 @@ namespace bfvr::weapon
 		return true;
 	}
 
+	bool needs_rack(const gun_state& state)
+	{
+		return !state.chamber || state.bolt_locked;
+	}
+
 	float rack_side(v3 handle_in_gun, bool ak)
 	{
 		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
@@ -234,6 +239,12 @@ namespace bfvr::weapon
 			rack_test = rack_zone_of(reach, handle, frame.root_rotation, rack_side(handle_in_gun, ak), config_);
 			handle_reach = config_.rack_over_reach;
 			handle_grab = rack_test.over_centre;
+			// The large underhand zone only while the gun needs charging: below the handle is the handguard on
+			// guns like the SCAR-H, whose two-handed grab it took (monitor 2026-11-15).
+			if (rack_test.zone == rack_zone::under && !needs_rack(gun.state()))
+			{
+				rack_test.zone = rack_zone::none;
+			}
 		}
 		else if (frame.has_slide)
 		{
@@ -510,7 +521,7 @@ namespace bfvr::weapon
 		result.zone_centre[1] = handle_grab;
 		result.zone_reach[1] = handle_reach;
 		result.has_handle = frame.has_root || frame.has_slide;
-		result.has_under_zone = frame.has_root;
+		result.has_under_zone = frame.has_root && needs_rack(gun.state());
 		result.under_centre = rack_test.under_centre;
 		result.under_radii = config_.rack_under_radii;
 		if (racking_ && valid)

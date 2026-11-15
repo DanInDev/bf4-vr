@@ -515,13 +515,16 @@ namespace
 		// Headset 2026-11-04: an underhand rack missed the AK's handle. Its zone now sits out on the
 		// handle's side (here world +x) and is larger: 10 cm out and 6 cm below the knob still racks.
 		reload under(ak);
-		under.load(11, 60);
+		under.load(0, 60);
+		under.take_from_chest();
+		under.insert(); // knocks the empty one out (#47)
+		under.insert(); // seats the new one: an empty chamber, it needs charging
 		reload_hands underhand(flat_hold());
 		underhand.update(under, palm_at(away, false));
 		r = underhand.update(under, palm_at(handle + v3{ 0.10f, -0.06f, 0.0f }, true));
 		expect(r.racking && under.state().magazine_in, "underhand: the palm out beside and below the handle starts the rack");
 		r = underhand.update(under, palm_at(handle + v3{ 0.10f, -0.06f, 0.05f }, false));
-		expect(has(r, reload_event::round_ejected), "underhand: pulled back and let go, it racks");
+		expect(has(r, reload_event::chambered), "underhand: pulled back and let go, it chambers");
 
 		reload third(ak);
 		third.load(11, 60);
@@ -582,7 +585,10 @@ namespace
 		const auto stroke = [&](v3 offset, bool& underhand, bool& chambered)
 		{
 			reload gun(ak);
-			gun.load(11, 60);
+			gun.load(0, 60);
+			gun.take_from_chest();
+			gun.insert();
+			gun.insert(); // seated, nothing chambered: the underhand zone is there
 			reload_hands hands(flat_hold());
 			hands.update(gun, palm_at(away, false));
 			hand_result r = hands.update(gun, palm_at(handle + offset, true));
@@ -591,17 +597,44 @@ namespace
 			r = hands.update(gun, palm_at(handle + offset + v3{ 0.0f, 0.0f, 0.06f }, true));
 			underhand = underhand && r.rack_underhand;
 			r = hands.update(gun, palm_at(handle + offset + v3{ 0.0f, 0.0f, 0.06f }, false));
-			chambered = has(r, reload_event::round_ejected);
+			chambered = has(r, reload_event::chambered);
 			return racking;
 		};
 		bool underhand = false, chambered = false;
 		expect(stroke({ 0.03f, 0.03f, 0.0f }, underhand, chambered) && !underhand && chambered, "overhand grab: racks, held overhand");
 		expect(stroke({ 0.03f, -0.15f, 0.0f }, underhand, chambered) && underhand && chambered, "underhand grab 15 cm below: racks, held underhand to the release");
 		reload busy_gun(ak);
-		busy_gun.load(11, 60);
+		busy_gun.load(0, 60);
+		busy_gun.take_from_chest();
+		busy_gun.insert();
+		busy_gun.insert();
 		reload_hands busy(flat_hold());
 		const hand_result open = busy.update(busy_gun, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
 		expect(open.off_hand_busy && open.in_zone == hand_result::zone::handle && open.has_under_zone, "open hand in the underhand zone: the grip is the reload's (no handguard grab there)");
+
+		// Loaded and chambered, the space under the handle is the handguard's again (SCAR-H, monitor 2026-11-15);
+		// the overhand zone still racks.
+		reload loaded(ak);
+		loaded.load(11, 60);
+		reload_hands ready(flat_hold());
+		const hand_result below = ready.update(loaded, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
+		expect(!below.off_hand_busy && below.in_zone == hand_result::zone::none && !below.has_under_zone, "loaded: no underhand zone, the grip is the two-handed grab's");
+		bool loaded_under = false, loaded_chambered = false;
+		reload overhand_gun(ak);
+		overhand_gun.load(11, 60);
+		reload_hands overhand(flat_hold());
+		overhand.update(overhand_gun, palm_at(away, false));
+		hand_result over = overhand.update(overhand_gun, palm_at(handle + v3{ 0.03f, 0.03f, 0.0f }, true));
+		loaded_under = over.rack_underhand;
+		over = overhand.update(overhand_gun, palm_at(handle + v3{ 0.03f, 0.03f, 0.06f }, false));
+		loaded_chambered = has(over, reload_event::round_ejected);
+		expect(!loaded_under && loaded_chambered, "loaded: the overhand zone still racks (a round ejected)");
+		gun_state open_bolt;
+		open_bolt.chamber = false;
+		expect(needs_rack(open_bolt), "needs_rack: nothing chambered");
+		gun_state locked;
+		locked.bolt_locked = true;
+		expect(needs_rack(locked) && !needs_rack(gun_state{}), "needs_rack: the bolt held open; a chambered gun does not");
 	}
 
 	// #40: the open hand snaps onto the seated magazine by distance; not while holding, gripping or with no
