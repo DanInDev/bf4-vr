@@ -131,5 +131,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   gun go to the sling and the reload zones switch off (`dropped=1`).
 - 2026-11-15: pipe `scan` returns at most 64 matches per memory region, so a vtable census misses objects in busy
   regions (found 114 of 259 weapon unlock assets). Walk the regions fully for a census (`re/notes/weapon.md` crate section).
+- 2026-11-15: the weapon crate opens with `game.ps1 keys -Keys E` (focus), not `pipe key 69`; in its menu
+  keyboard Down scrolls the rows. With BF4 in front, `pipe pad` stick turns stopped turning the soldier and
+  `fakeyaw` turns only the camera: face the crate before taking focus (`re/notes/weapon.md` "Fist rack").
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

@@ -1018,3 +1018,21 @@ clicks behaved. Not explained yet.
 - **Clicks**: in this menu background pointer clicks (BF4 not in front) only hover; Done, the row arrows and items
   did not react, and a click on an item flipped the Primary/Secondary tab instead (as in the gadget stash, #34).
   Pad D-pad does not move the selection. `pipe watch <UnlockEverything> rw` saw no read while the menu was idle.
+
+## Fist rack, two handle zones (2026-11-15, monitor: fakehead + fakehand, AK-12 from the crate)
+
+- `rack_grip = fist`: the grab's zone decides the hold. AK-12 (handle on the right, (-0.02, 0.06, 0.53)): the left
+  palm at the overhand zone's centre took `fist_over` (no game pinch, `authored=none`); 6.0 cm back and let go
+  chambered (magazine 30 -> 29). Palm up 12 cm below the knob took `fist_under` (stroke palm-up 0.94); the same pull
+  chambered (29 -> 28). Both holds put the fist on the same knob point, at the front of the receiver on the right,
+  the left arm reaching over the top for overhand.
+- SCAR-H's point (0.035, 0.04, 0.57) as `reload handle` on the AK: the overhand zone moved to the gun's left (centre
+  x 0.064 against 0.179); overhand and underhand both chambered. The SCAR's own mesh was not in hand (see below).
+- Crate: `pipe key 69` (E) did not open "[E] OPEN WEAPON CRATE" here; `game.ps1 keys -Keys E` (focus) did. In the
+  menu keyboard Down scrolls the rows (three presses show Carbine and Assault Rifle); `game.ps1 click` works with
+  the client at 1920x1080 and the menu in the 2160x2160 back buffer's centred 16:9 band (client x = bb x * 0.889,
+  y = (bb y - 472) * 0.889). Done: client (1245, 992).
+- With BF4 in front the pipe's `pad` stick no longer turned the soldier (it did while BF4 was behind), and
+  `fakeyaw` turns only the camera, so the crate could not be faced again for the SCAR-H. A `fakehead` yaw turns
+  the body with the head.
+
