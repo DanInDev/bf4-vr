@@ -985,3 +985,30 @@ So the stash has no back action: only Done closes it. The off-hand grip gesture 
 if a menu is still up 500 ms later, clicks Done; the laser is kept off the cursor for 200 ms meanwhile. One observation:
 the first pointer click after the stash opened (on C4) switched the slot tab to Gadget Two and filled nothing; the next
 clicks behaved. Not explained yet.
+
+## The weapon crate and unlocks (2026-11-15, monitor, Shanghai-tower checkpoint "Reach the VIPs")
+
+- **Weapon census**: every `SoldierWeaponUnlockAsset` (vtable `0x141E76F40`) is in memory during a level: 259 assets,
+  167 without underslung variants (`_M320_*`, `_M26_*`), i.e. every BF4 gun and gadget including the MP-only ones.
+  `tools/unlock_census.py` reads them; it needs a full heap walk (pipe `scan` returns at most 64 hits per region).
+- **The crate menu** ("[E] OPEN WEAPON CRATE") is a `UIWeaponSelectorGridWidget` (vtable `0x141BF9970`, one instance).
+  Its data at widget `+0x28`: `CategoryDisplayOrder` (+0x78) = SIDEARM, SHOTGUN, PDW, CARBINE, ASSAULTRIFLE, LMG, DMR,
+  SNIPER; `SlotPrimary`/`SlotSecondary` 0/1; **`UnlockEverything` (+0xA0) = 0**.
+- **The crate's list**: widget `+0x148` -> 51 entries of 0x38 bytes `{unlock asset, slot (0 primary / 1 secondary),
+  attachment list, shared ptr, -1, 0, 1}`, once for each slot (102). No per-entry lock flag. The 51 in list order:
+  MP412Rex | CBJ-MS Scorpion JS2 MX4 P90 MagpulPDR PP2000 UMP45 | 870 HAWK M1014 QBS09_SP SAIGA_20K SPAS12 USAS-12_SP UTAS |
+  A91 GalilACE52 AK5C G36C M4A1 SG553LB | AEK971 AK12 SteyrAug CZ805 FAMAS M16A4 M416 QBZ951 SAR21 SCAR-H |
+  M240 M249 MG4 Pecheneg QBB95 Type88 Ultimax | MK11 M39EBR QBU88 RFB_SP SCAR-HSV SVD12 | SRS FY-JS M82A3_SP Scout SV98.
+  On screen the rows reorder: Shotgun shows 870, HAWK, M1014, SPAS-12, USAS-12, UTS, ... (QBS-09 and Saiga later);
+  PDW shows MX4 ... UMP-45 then CBJ-MS. Whether the moved ones are the locked ones is not verified.
+- **`SyncedBFSettings`** (constructor `0x141A39F90`, vtable `0x141C58A20`): three instances, `AllUnlocksUnlocked`
+  (+0x54) 0 in each. Poked to 1 (all three) and `UnlockEverything` to 1 with the menu open: the open menu did not
+  change. **Owner, after closing and reopening the crate: every gun selectable** (2026-11-15). Which of the two
+  flags is needed is not known. Design and work order for all 51 guns: `docs/tasks/all-weapons.md`.
+- **Per-gun data**: unlock asset +0x78 `StoredWeaponData` {WeaponClass, MagCount, MagCapacity} for every gun;
+  +0x58 NonStreamedBlueprint is null until the gun is spawned, so its firing data (FireLogic: ReloadType +0x9C,
+  FireLogicType +0xA0, BoltAction +0x1C) is read from the spawned weapon (+0x30 SoldierWeaponData -> +0x90
+  WeaponFiringData -> +0x10 FiringFunctionData -> +0x168): `tools/weapon_catalog_probe.py [--held]`.
+- **Clicks**: in this menu background pointer clicks (BF4 not in front) only hover; Done, the row arrows and items
+  did not react, and a click on an item flipped the Primary/Secondary tab instead (as in the gadget stash, #34).
+  Pad D-pad does not move the selection. `pipe watch <UnlockEverything> rw` saw no read while the menu was idle.

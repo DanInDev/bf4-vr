@@ -17,7 +17,8 @@ Read those instead of reconstructing history.
 - `re/MAPPING.md` what is left to reverse-engineer, by area, with method and session order;
   `re/symbols/bf4-179547.md` the registry of verified addresses/offsets (add every new finding there).
 - `docs/tasks/` holds self-contained task briefs (e.g. `smooth-stereo.md`: a smoother 3D view);
-  start from the brief when the user names one.
+  start from the brief when the user names one. `all-weapons.md`: the 51 crate guns, their real mechanics and
+  the work order for making each one handle like the real gun.
 - **Overlord** ([github.com/Aeka0/Overlord](https://github.com/Aeka0/Overlord)) is the quality reference: its
   skeleton, weapon handling and utility interactions (#21). GPLv3: study the design, never copy its code.
   What was learned from it: `docs/architecture/overview.md` (loader/infrastructure split, verified hooks) and
@@ -120,5 +121,7 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   ("taken from its holster"), then not again in three tries with `zone=primary` reported. A held pad
   grip is `pad 0 0 0 0 <ms> 0200` (returns at once, the mod holds it); without it free hands lets the
   gun go to the sling and the reload zones switch off (`dropped=1`).
+- 2026-11-15: pipe `scan` returns at most 64 matches per memory region, so a vtable census misses objects in busy
+  regions (found 114 of 259 weapon unlock assets). Walk the regions fully for a census (`re/notes/weapon.md` crate section).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
