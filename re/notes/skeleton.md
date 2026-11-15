@@ -266,3 +266,15 @@ server magazine (an empty reload), sampled at ~100 Hz (forward kinematics over t
 
 `arm_pose` eases a grip's finger rotations (Thumb1-3, <Finger>1-3) in over ~50 ms and places a held
 magazine where the grip holds it relative to the hand bone; the cup (palm up) still overrides.
+
+## One magazine mesh (2026-11-05, monitor, AK-12 and SCAR-H)
+
+- Magazine bones: `Wep_Mag` 131 (child of `Wep_Root`), with children `Wep_Mag_Ammo` 132 (live (0, -0.0004,
+  -0.025)) and `Wep_Mag_Extra1` 133 (live (0.036, -0.007, 0) on first read, (-0.002, -0.108, 0.010) later).
+- `Wep_Mag_Extra1` carries no mesh on either gun: offset 29 cm out (pipe `bone 133 0 0.15 0.25`) nothing
+  moves on screen, while the same offset on `Wep_Mag` lifts the magazine into view.
+- The game's own AK-12 reload (`reload = button`) moves only `Wep_Mag`: down ~0.5 m and back (the same mesh
+  plays old and new); `Wep_Mag_Extra1` stays put relative to it through the whole reload.
+- So a magazine in the hand while another sits in the gun (pouch take with one seated, AK flick, AR
+  palming) cannot both be drawn from the rig: physical_reload moves the one mesh to the hand.
+
