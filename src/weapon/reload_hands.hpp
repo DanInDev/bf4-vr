@@ -95,9 +95,14 @@ namespace bfvr::weapon
 		bool has_chest_hip{}; // #57: the pouch zone is a capsule down to this point (its reach as zone_reach[2])
 		v3 chest_hip;
 		bool has_handle{};
+		// The underhand handle zone (grab_debug: an ellipsoid in the gun frame), when the gun frame is known.
+		bool has_under_zone{};
+		v3 under_centre;
+		v3 under_radii;
 		// Racking: the off hand holds the charging handle (handle_in_gun, Wep_Root axes when has_root)
 		// and has pulled it this far back along the barrel (0..slide_travel).
 		bool racking{};
+		bool rack_underhand{}; // grabbed in the underhand zone: the fist holds the knob palm up from below
 		v3 handle_in_gun;
 		float rack_pull{};
 		// This update the pull reached rack_pull (once per stroke): the rack will count on release.
@@ -164,11 +169,16 @@ namespace bfvr::weapon
 		v3 handle_ar{ 0.0f, 0.06f, 0.20f };
 		v3 handle_ak{ 0.0f, 0.03f, 0.40f };
 		float reach_handle{ 0.085f };
-		// AK: the handle's grab zone sits this far from the knob (Wep_Root axes: +x is the gun's left, so
-		// out on its right, where the AK's handle is, and a little low) and is larger, so an underhand rack
-		// finds it; the drawn hand still pinches the knob.
-		v3 handle_grab_ak{ -0.04f, -0.02f, 0.0f };
-		float reach_handle_ak{ 0.11f };
+		// The charging handle's two grab zones (owner, 2026-11-15), Wep_Root axes from the knob with x
+		// towards the handle's side of the gun (rack_side): overhand at the handle's level, out on its side
+		// and a little above (a sphere); underhand a larger region below it (an ellipsoid, radii out, down
+		// and along the barrel; short along the barrel so the handguard ahead stays the two-handed grab's).
+		v3 rack_over_offset{ 0.03f, 0.03f, 0.0f };
+		float rack_over_reach{ 0.09f };
+		v3 rack_under_offset{ 0.02f, -0.09f, 0.0f };
+		v3 rack_under_radii{ 0.10f, 0.12f, 0.06f };
+		// In both zones the hand counts as underhand this far below the knob's height.
+		float rack_under_below{ 0.01f };
 		// The magazine is grabbed by its body, this far below where it seats (gun frame -y): on an AK the
 		// charging handle sits only ~3 cm from the magwell, the hand on the magazine well below it.
 		float magazine_grab_drop{ 0.08f };
@@ -215,6 +225,20 @@ namespace bfvr::weapon
 	// (true) rather than starting a reload step, when the palm is within regrip_reach of the grip and nearer
 	// it than every reload zone of last (the previous update's zones).
 	bool grip_before_reload(v3 palm, v3 grip, float regrip_reach, const hand_result& last);
+	// Which charging-handle zone a palm is in (hand_config's rack zones around the knob, in the gun frame
+	// given by root_rotation; side +1: the handle is on the gun's left (+x), -1 its right, 0 on top).
+	enum class rack_zone { none, over, under };
+	struct rack_zone_test
+	{
+		rack_zone zone{ rack_zone::none };
+		float over_distance{ 1e9f }; // palm to the overhand zone's centre, metres
+		float under_scaled{ 1e9f };  // the palm in the underhand ellipsoid's radii (< 1 inside)
+		v3 over_centre;
+		v3 under_centre;
+	};
+	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config);
+	// The handle's side from its knob in the gun frame (+x left); AK-pattern guns default to the right.
+	float rack_side(v3 handle_in_gun, bool ak);
 	// Angle between two rotations, degrees.
 	float angle_between(q4 a, q4 b);
 	// Palming: how far a magazine held at in_gun (rotation relative to Wep_Root) still leans about the
@@ -236,6 +260,7 @@ namespace bfvr::weapon
 		bool last_grip_{};
 		bool last_button_{};
 		bool racking_{};
+		bool rack_underhand_{};
 		bool rack_full_{};
 		v3 rack_start_;
 		bool insert_armed_{};

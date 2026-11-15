@@ -273,11 +273,13 @@ off_hand_pose = neutral
 # wrap again when it turns back (with a margin, so it does not flicker). Pipe `fingers` shows the grip
 # and each fingertip's gap to the magazine.
 magazine_grip = auto
-# Racking: pinch = the charging handle's knob between the thumb and the side of the index (a key pinch;
+# Racking: fist (default) = the knob in a closed fist, overhand when grabbed beside or above the handle,
+# underhand from the larger zone below it (grab_debug draws both), the hand locked on the knob to the release;
+# pinch = the charging handle's knob between the thumb and the side of the index (a key pinch;
 # the thumb closes until it touches the knob); hook = the knob inside the curled index; auto = by how
 # the hand takes the handle: palm down on it (overhand) pinches, palm up under it (underhand) hooks the
 # knob in the index and middle. Kept for the stroke. Pipe `fingers` shows the hold and the palm reading.
-rack_grip = auto
+rack_grip = fist
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one

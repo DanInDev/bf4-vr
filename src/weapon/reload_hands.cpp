@@ -97,6 +97,33 @@ namespace bfvr::weapon
 		return true;
 	}
 
+	float rack_side(v3 handle_in_gun, bool ak)
+	{
+		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
+	}
+
+	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config)
+	{
+		rack_zone_test test;
+		const v3 over = config.rack_over_offset;
+		const v3 under = config.rack_under_offset;
+		test.over_centre = knob + rotate(root_rotation, { side * over.x, over.y, over.z });
+		test.under_centre = knob + rotate(root_rotation, { side * under.x, under.y, under.z });
+		test.over_distance = distance(palm, test.over_centre);
+		const v3 local = rotate(conjugate(root_rotation), palm - test.under_centre);
+		const v3 radii = config.rack_under_radii;
+		if (radii.x > 0.0f && radii.y > 0.0f && radii.z > 0.0f)
+		{
+			const v3 scaled{ local.x / radii.x, local.y / radii.y, local.z / radii.z };
+			test.under_scaled = std::sqrt(dot(scaled, scaled));
+		}
+		const bool in_over = test.over_distance < config.rack_over_reach;
+		const bool in_under = test.under_scaled < 1.0f;
+		const float height = rotate(conjugate(root_rotation), palm - knob).y;
+		test.zone = in_under && (!in_over || height < -config.rack_under_below) ? rack_zone::under : in_over ? rack_zone::over : rack_zone::none;
+		return test;
+	}
+
 	float angle_between(q4 a, q4 b)
 	{
 		const float d = std::fabs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w);
@@ -194,25 +221,37 @@ namespace bfvr::weapon
 		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
 		const float to_chest = !valid ? 1e9f : frame.has_chest_hip ? segment_distance(reach, frame.chest, frame.chest_hip) : distance(reach, frame.chest);
 		const float chest_reach = frame.chest_reach > 0 ? frame.chest_reach : config_.reach_chest;
-		// The charging handle: from the gun frame per variant, else the slide bone.
+		// The charging handle: from the gun frame per variant, else the slide bone. With the gun frame it
+		// has two zones (rack_zone_of): overhand beside and above the knob, underhand a larger one below.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide;
 		const v3 handle_in_gun = frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar;
-		// Where the hand grabs it: the knob itself, or for an AK a larger zone out beside the gun on the
-		// handle's side, so it is also found reaching under the gun (headset 2026-11-04).
 		v3 handle_grab = handle;
+		rack_zone_test rack_test;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
-			handle_reach = ak ? config_.reach_handle_ak : config_.reach_handle;
-			handle_grab = ak ? handle + rotate(frame.root_rotation, config_.handle_grab_ak) : handle;
+			rack_test = rack_zone_of(reach, handle, frame.root_rotation, rack_side(handle_in_gun, ak), config_);
+			handle_reach = config_.rack_over_reach;
+			handle_grab = rack_test.over_centre;
+		}
+		else if (frame.has_slide)
+		{
+			rack_test.over_distance = distance(reach, handle);
+			rack_test.zone = rack_test.over_distance < handle_reach ? rack_zone::over : rack_zone::none;
+		}
+		if (!valid)
+		{
+			rack_test.zone = rack_zone::none;
 		}
 		// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
 		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
-		const float to_slide = valid && (frame.has_root || frame.has_slide) ? distance(reach, handle_grab) : 1e9f;
-		// Zones overlap on small guns: the nearest one wins.
-		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(to_slide < handle_reach && to_slide < to_magwell);
-		const bool near_handle = to_slide < handle_reach && !near_magwell;
+		const bool in_rack_zone = rack_test.zone != rack_zone::none;
+		// Zones overlap: the magazine beats the underhand zone (the large fallback below the handle);
+		// against the overhand zone the nearer one wins.
+		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine
+			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
+		const bool near_handle = in_rack_zone && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
 		const float stow_reach = chest_reach * config_.stow_reach_scale;
 		const bool near_stow = !frame.handle_only && to_chest < stow_reach;
@@ -327,6 +366,7 @@ namespace bfvr::weapon
 			if (near_handle)
 			{
 				racking_ = true;
+				rack_underhand_ = rack_test.zone == rack_zone::under;
 				rack_full_ = false;
 				rack_start_ = frame.off_hand;
 			}
@@ -464,15 +504,19 @@ namespace bfvr::weapon
 		}
 
 		// Also before the grip closes: the game must never see the press that starts a gesture.
-		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || to_slide < handle_reach;
+		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || in_rack_zone;
 		result.zone_centre[0] = magazine_body;
 		result.zone_reach[0] = config_.reach_magazine;
 		result.zone_centre[1] = handle_grab;
 		result.zone_reach[1] = handle_reach;
 		result.has_handle = frame.has_root || frame.has_slide;
+		result.has_under_zone = frame.has_root;
+		result.under_centre = rack_test.under_centre;
+		result.under_radii = config_.rack_under_radii;
 		if (racking_ && valid)
 		{
 			result.racking = true;
+			result.rack_underhand = rack_underhand_;
 			result.handle_in_gun = handle_in_gun;
 			result.rack_pull = std::fmax(0.0f, std::fmin(config_.slide_travel, dot(frame.off_hand - rack_start_, back)));
 			if (!rack_full_ && result.rack_pull >= config_.rack_pull)

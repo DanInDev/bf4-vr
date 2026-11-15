@@ -58,6 +58,8 @@ namespace bfvr::body::fingers
 		pinch,      // the charging handle's knob between the thumb and the side of the index (thumb by contact)
 		underhand,  // palm up under the charging handle: the knob hooked in the curled index and middle
 		reach,      // open, about to grab something (inside a grab zone)
+		fist_over,  // the charging handle's knob in a closed fist, palm down or on its side (overhand rack)
+		fist_under, // the same from below, palm up (underhand rack): the thumb stays along the side
 	};
 
 	hand_shape shape_for(task what, const finger_input& input);

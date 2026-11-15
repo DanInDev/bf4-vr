@@ -64,6 +64,17 @@ namespace
 	void test_shapes()
 	{
 		finger_input none;
+		// Racking with rack_grip fist (owner 2026-11-15): closer to a closed fist than the old handle hook.
+		const hand_shape over = shape_for(task::fist_over, none);
+		const hand_shape under = shape_for(task::fist_under, none);
+		const hand_shape hook = shape_for(task::handle, none);
+		bool closed = true;
+		for (int f = index; f < count; ++f)
+		{
+			closed = closed && over.curl[f] >= 0.85f && under.curl[f] >= 0.85f && over.curl[f] >= hook.curl[f] && over.animated[f] == 0.0f;
+		}
+		expect(closed, "fist rack: index .. pinky curled at least as far as the hook, 0.85 or more, nothing animated");
+		expect(under.curl[thumb] < over.curl[thumb], "fist rack: underhand keeps the thumb along the side");
 		const hand_shape item = shape_for(task::item, none);
 		for (int f = 0; f < count; ++f)
 		{

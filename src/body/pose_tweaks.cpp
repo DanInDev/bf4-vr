@@ -17,7 +17,7 @@ namespace bfvr::body::poses
 )";
 
 		constexpr std::string_view names[grip_count] = {
-			"relaxed", "reach", "fist", "cup", "palm", "magazine_ak", "magazine_ar", "hook", "pinch", "underhand",
+			"relaxed", "reach", "fist", "cup", "palm", "magazine_ak", "magazine_ar", "hook", "pinch", "underhand", "rack_over", "rack_under",
 		};
 
 		float limit(float value, float bound)

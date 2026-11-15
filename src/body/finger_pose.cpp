@@ -87,6 +87,11 @@ namespace bfvr::body::fingers
 			return curled(0.15f, 0.7f, 0.72f, 0.9f, 0.95f);
 		case task::reach:
 			return curled(0.0f, 0.05f, 0.05f, 0.05f, 0.08f);
+		case task::fist_over:
+			// Closed round the knob (owner, 2026-11-15: much closer to a fist than the pinch); the thumb over the index.
+			return curled(0.6f, 0.85f, 0.9f, 0.92f, 0.95f);
+		case task::fist_under:
+			return curled(0.4f, 0.85f, 0.9f, 0.92f, 0.95f);
 		case task::free:
 			break;
 		}

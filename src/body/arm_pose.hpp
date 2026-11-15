@@ -223,7 +223,8 @@ namespace bfvr::body
 	// on the palm (base plate in the palm, fingers closing on it by contact) once the palm faces up;
 	// "wrap" / "cup" = always that grip.
 	void set_magazine_grip(const std::string& grip);
-	// Live setting rack_grip: "pinch" = the charging handle between the thumb and the side of the index
+	// Live setting rack_grip: "fist" (default) = the knob in a closed fist, overhand or underhand by the zone
+	// the stroke was grabbed in, the hand locked on it; "pinch" = between the thumb and the side of the index
 	// (the thumb closes on it by contact); "hook" = inside the curled index; "auto" = the pinch with the
 	// palm down on the handle (overhand), the knob hooked in the index and middle with the palm up under
 	// it (underhand), chosen as the hand takes the handle.
@@ -233,7 +234,8 @@ namespace bfvr::body
 	void set_off_hand_task(fingers::task task);
 	// Racking: the drawn off hand on the charging handle (Wep_Root axes, metres), weight 0..1, and the
 	// bolt / handle pulled this far back along the barrel. weight 0 = off.
-	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull);
+	// underhand: the stroke was grabbed in the handle's underhand zone (rack_grip fist: palm up from below).
+	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull, bool underhand = false);
 	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.

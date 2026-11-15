@@ -320,6 +320,7 @@ namespace bfvr::weapon
 		// The drawn off hand: its finger shape and, while racking, its hold on the charging handle (eased
 		// on and off; the pull itself springs back at once, like the real handle).
 		float handle_weight{};
+		bool handle_underhand{}; // the last stroke's grab: underhand (kept while the hand eases off the handle)
 		float handle_in_gun[3]{};
 		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
 		// hand returns to the controller after the grab with the magazine in it).
@@ -392,7 +393,11 @@ namespace bfvr::weapon
 			{
 				handle_weight = 0.0f;
 			}
-			body::set_handle_hold(handle_weight, handle_in_gun, racking ? result->rack_pull : 0.0f);
+			if (racking)
+			{
+				handle_underhand = result->rack_underhand;
+			}
+			body::set_handle_hold(handle_weight, handle_in_gun, racking ? result->rack_pull : 0.0f, handle_underhand);
 		}
 
 		void attach_magazine()
@@ -723,6 +728,15 @@ namespace bfvr::weapon
 				}
 				publish_grab_zone(slots_shown[i], centre, result.zone_reach[i], result.in_zone == zones_shown[i]);
 			}
+			if (result.has_under_zone)
+			{
+				const float under[3]{ result.under_centre.x, result.under_centre.y, result.under_centre.z };
+				publish_grab_zone(grab_slot::handle_under, under, result.under_radii.y, result.in_zone == hand_result::zone::handle);
+			}
+			else
+			{
+				clear_grab_zone(grab_slot::handle_under);
+			}
 			if (result.has_chest_hip)
 			{
 				const float hip[3]{ result.chest_hip.x, result.chest_hip.y, result.chest_hip.z };
@@ -956,6 +970,9 @@ namespace bfvr::weapon
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
 			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
 			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
+		char rack[160];
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f)", r.rack_underhand ? 1 : 0, r.under_centre.x,
+			r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
@@ -981,6 +998,6 @@ namespace bfvr::weapon
 		{
 			length += std::snprintf(text + length, sizeof(text) - length, " %s", recent[i]);
 		}
-		return text + std::string(zones) + touch;
+		return text + std::string(zones) + rack + touch;
 	}
 }

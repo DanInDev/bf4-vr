@@ -25,6 +25,8 @@ namespace bfvr::body::poses
 		hook,        // the charging handle in the index's curl
 		pinch,       // the charging handle between thumb and index (the game's AK-12 rack)
 		underhand,   // palm up under the charging handle, index and middle hooked over it
+		rack_over,   // the charging handle in a closed fist, overhand (rack_grip fist)
+		rack_under,  // the same, underhand from below
 		count,
 		none = count,
 	};

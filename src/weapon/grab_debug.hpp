@@ -22,6 +22,7 @@ namespace bfvr::weapon
 		grenade_pin, // the held grenade's pin until it is pulled
 		pouch_hip,   // #57: the magazine zone's far end, at the off-side hip
 		sight_lens,  // #39: where the mod takes the optic's lens to be (on the sight line), green while an eye sees the dot
+		handle_under, // the charging handle's underhand zone (an ellipsoid: drawn as large as its height)
 		count,
 	};
 

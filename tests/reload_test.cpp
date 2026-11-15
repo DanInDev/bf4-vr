@@ -531,6 +531,79 @@ namespace
 		expect(r.count == 0, "16 cm below the magazine is out of reach");
 	}
 
+	// Owner 2026-11-15: the charging handle has an overhand zone at its level, out on its side and a little
+	// above, and a larger underhand zone below it, short along the barrel (the handguard ahead stays the
+	// two-handed grab's). Gun frame as the identity here: +x left, +y up, +z along the barrel.
+	void test_rack_zones()
+	{
+		const hand_config config;
+		const q4 straight{};
+		const v3 knob{ -0.02f, 0.06f, 0.53f }; // the AK-12's, on the gun's right
+		const float side = rack_side(knob, true);
+		expect(side == -1.0f && rack_side({ 0.035f, 0.04f, 0.57f }, false) == 1.0f && rack_side({ 0.0f, 0.06f, 0.2f }, false) == 0.0f
+				&& rack_side({ 0.0f, 0.03f, 0.4f }, true) == -1.0f,
+			"side: from the knob's x (SCAR-H left, AK-12 right); a centred AK handle counts as the right");
+		const auto zone = [&](v3 offset) { return rack_zone_of(knob + offset, knob, straight, side, config).zone; };
+		expect(zone({ -0.03f, 0.03f, 0.0f }) == rack_zone::over, "over: out on the handle's side, above it");
+		expect(zone({ 0.0f, 0.0f, 0.0f }) == rack_zone::over, "over: on the knob");
+		expect(zone({ 0.03f, 0.03f, 0.0f }) == rack_zone::over, "over: from across the top");
+		expect(zone({ -0.03f, 0.13f, 0.0f }) == rack_zone::none, "over: 10 cm above the zone is out");
+		expect(zone({ -0.02f, -0.05f, 0.0f }) == rack_zone::under, "under: below the knob");
+		expect(zone({ -0.06f, -0.17f, 0.02f }) == rack_zone::under, "under: 17 cm below and 6 cm out still racks");
+		expect(zone({ -0.02f, -0.24f, 0.0f }) == rack_zone::none, "under: 24 cm below is out");
+		expect(zone({ -0.02f, -0.06f, 0.08f }) == rack_zone::none, "under: 8 cm ahead along the barrel is the handguard's");
+		expect(zone({ -0.02f, -0.06f, -0.08f }) == rack_zone::none, "under: 8 cm behind is out");
+		expect(zone({ -0.03f, -0.02f, 0.0f }) == rack_zone::under, "both zones, below the knob's height: underhand");
+		expect(zone({ -0.03f, 0.005f, 0.0f }) == rack_zone::over, "both zones, at the knob's height: overhand");
+		// Turned gun: the zones turn with it (barrel along world -z, the handle's side along world +x).
+		const q4 turned{ 0.0f, 1.0f, 0.0f, 0.0f };
+		const v3 knob_world{ 0.02f, 0.06f, -0.53f };
+		expect(rack_zone_of(knob_world + v3{ 0.02f, -0.12f, 0.0f }, knob_world, turned, side, config).zone == rack_zone::under, "turned gun: below is under");
+		expect(rack_zone_of(knob_world + v3{ 0.03f, 0.03f, 0.0f }, knob_world, turned, side, config).zone == rack_zone::over, "turned gun: out on the side and up is over");
+
+		// Through reload_hands: the zone the grab starts in is the stroke's hold.
+		hand_frame frame = at(away, false);
+		frame.has_root = true;
+		frame.root = { 0.0f, -0.2f, 0.0f };
+		frame.root_rotation = turned;
+		frame.magwell = frame.root + v3{ 0.0f, 0.0f, -0.45f };
+		frame.has_handle_point = true;
+		frame.handle_point = knob;
+		const v3 handle = frame.root + v3{ 0.02f, 0.06f, -0.53f };
+		const auto palm_at = [&](v3 palm, bool grip)
+		{
+			hand_frame f = frame;
+			f.grip = grip;
+			f.has_palm = true;
+			f.off_palm = palm;
+			f.off_hand = palm;
+			return f;
+		};
+		const auto stroke = [&](v3 offset, bool& underhand, bool& chambered)
+		{
+			reload gun(ak);
+			gun.load(11, 60);
+			reload_hands hands(flat_hold());
+			hands.update(gun, palm_at(away, false));
+			hand_result r = hands.update(gun, palm_at(handle + offset, true));
+			underhand = r.racking && r.rack_underhand;
+			const bool racking = r.racking;
+			r = hands.update(gun, palm_at(handle + offset + v3{ 0.0f, 0.0f, 0.06f }, true));
+			underhand = underhand && r.rack_underhand;
+			r = hands.update(gun, palm_at(handle + offset + v3{ 0.0f, 0.0f, 0.06f }, false));
+			chambered = has(r, reload_event::round_ejected);
+			return racking;
+		};
+		bool underhand = false, chambered = false;
+		expect(stroke({ 0.03f, 0.03f, 0.0f }, underhand, chambered) && !underhand && chambered, "overhand grab: racks, held overhand");
+		expect(stroke({ 0.03f, -0.15f, 0.0f }, underhand, chambered) && underhand && chambered, "underhand grab 15 cm below: racks, held underhand to the release");
+		reload busy_gun(ak);
+		busy_gun.load(11, 60);
+		reload_hands busy(flat_hold());
+		const hand_result open = busy.update(busy_gun, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
+		expect(open.off_hand_busy && open.in_zone == hand_result::zone::handle && open.has_under_zone, "open hand in the underhand zone: the grip is the reload's (no handguard grab there)");
+	}
+
 	// #40: the open hand snaps onto the seated magazine by distance; not while holding, gripping or with no
 	// magazine in, and not on the handguard.
 	void test_magazine_snap()
@@ -1780,6 +1853,7 @@ int main()
 	test_hands_ak();
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
+	test_rack_zones();
 	test_hands_ar_drop_and_fall();
 	test_eject_flight();
 	test_hands_flick();

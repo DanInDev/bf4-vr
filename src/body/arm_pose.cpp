@@ -362,6 +362,7 @@ namespace bfvr::body
 			float weight{};       // 0..1: how far the drawn hand is on the handle
 			ik::vec3 handle;      // Wep_Root axes
 			float pull{};         // metres back along the barrel; the slide bone moves with it
+			bool underhand{};     // grabbed in the underhand zone (rack_grip fist)
 		};
 		handle_hold handle_request;
 		// #40: the open off hand snapping onto the seated magazine (set_magazine_snap). delta: the snapped
@@ -400,7 +401,12 @@ namespace bfvr::body
 		float cup_weight{};                 // the drawn magazine's blend from the fist (0) onto the palm (1)
 		// Live setting: 0 pinch (thumb and index side), 1 hook (the index's curl), 2 auto (the pinch overhand,
 		// the index and middle hooked underhand, by the palm as the hand takes the handle).
-		std::atomic<int> rack_grip{ 2 };
+		// 3 fist (owner, 2026-11-15): the knob in a closed fist, overhand or underhand by the zone the stroke
+		// was grabbed in (weapon/reload_hands), the hand locked on it.
+		std::atomic<int> rack_grip{ 3 };
+		bool fisting{};           // this frame: the racking hand holds the knob in its fist
+		ik::vec3 fist_in_hand;    // the fist's grasp centre, hand-bone axes, from the last shaping
+		bool has_fist{};
 		bool pinching{};
 		float pinch_gap_mm{};
 		bool rack_stroke{};       // the handle hold of this stroke has been decided
@@ -1195,7 +1201,9 @@ namespace bfvr::body
 					// carries, #38).
 					const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 					const ik::vec3 on_handle = gun.position + ik::rotate(gun.rotation, handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull });
-					if (rack_lock_on.load(std::memory_order_relaxed))
+					const bool fist_hold = rack_grip.load(std::memory_order_relaxed) == 3;
+					// The fist is always locked on the knob: the turn it took the handle with, held to the release.
+					if (rack_lock_on.load(std::memory_order_relaxed) || fist_hold)
 					{
 						if (!rack_locked)
 						{
@@ -1206,7 +1214,8 @@ namespace bfvr::body
 					}
 					const bool own = hand == hook_hand; // the hook and pinch points were measured on this hand
 					const bool pinch = own && pinching && has_pinch;
-					const ik::vec3 hooked = pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
+					const ik::vec3 hooked = own && fist_hold && has_fist ? on_handle - ik::rotate(goal.hand, fist_in_hand)
+						: pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
 						: own && hooking_under && has_under_hook ? on_handle - ik::rotate(goal.hand, under_hook_in_hand)
 						: own && has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
 						: goal.wrist + (on_handle - (origin + ik::rotate(frame, palm)));
@@ -1772,6 +1781,15 @@ namespace bfvr::body
 				rack_palm_up = palm_up_on_gun(local, hand);
 				rack_underhand = contact::underhand_rack(rack_underhand, rack_palm_up);
 			}
+			fisting = on_handle && mode == 3;
+			if (fisting)
+			{
+				hooking_under = false;
+				pinching = false;
+				task = handle_request.underhand ? fingers::task::fist_under : fingers::task::fist_over;
+				target = fingers::shape_for(task, {});
+				return;
+			}
 			hooking_under = on_handle && mode == 2 && rack_underhand;
 			// The pinch is the left hand's authored pose, mirrored onto the right hand when it racks (#38).
 			pinching = on_handle && (mode == 0 || (mode == 2 && !rack_underhand)) && rig.thumb_base[hand] > 0;
@@ -1859,6 +1877,8 @@ namespace bfvr::body
 			case poses::grip::cup:
 			case poses::grip::palm: task = fingers::task::cup; break;
 			case poses::grip::hook: task = fingers::task::handle; break;
+			case poses::grip::rack_over: task = fingers::task::fist_over; break;
+			case poses::grip::rack_under: task = fingers::task::fist_under; break;
 			case poses::grip::underhand: task = fingers::task::underhand; break;
 			case poses::grip::pinch:
 			case poses::grip::magazine_ak:
@@ -1895,6 +1915,8 @@ namespace bfvr::body
 			case fingers::task::handle: return poses::grip::hook;
 			case fingers::task::pinch: return poses::grip::pinch;
 			case fingers::task::underhand: return poses::grip::underhand;
+			case fingers::task::fist_over: return poses::grip::rack_over;
+			case fingers::task::fist_under: return poses::grip::rack_under;
 			default: return poses::grip::none; // the gun's own grips and items: as the game animates them
 			}
 		}
@@ -1986,6 +2008,8 @@ namespace bfvr::body
 			if (!finger_poses.load(std::memory_order_relaxed))
 			{
 				has_hook = false; // racking falls back to the palm
+				has_fist = false;
+				fisting = false;
 				has_pinch = false;
 				pinching = false;
 				has_under_hook = false;
@@ -2075,6 +2099,21 @@ namespace bfvr::body
 						+ ik::model_of(local, rig.parents, middle_joints[1]).position + ik::model_of(local, rig.parents, middle_joints[2]).position) * (1.0f / 3.0f);
 					under_hook_in_hand = ik::rotate(ik::conjugate(hand.rotation), (curl + middle) * 0.5f - hand.position);
 				}
+				// The fist: the knob at its grasp centre (between the curled middle finger and the thumb).
+				const int (&fist_middle)[fingers::joints] = rig.finger_bones[rack][fingers::middle];
+				const int fist_pinky = rig.finger_bones[rack][fingers::pinky][0];
+				const int fist_thumb = rig.finger_bones[rack][fingers::thumb][1];
+				has_fist = false;
+				if (fist_middle[0] > 0 && fist_middle[2] > 0 && fist_pinky > 0 && fist_thumb > 0)
+				{
+					const auto at = [&](int bone) { return ik::model_of(local, rig.parents, bone).position; };
+					const fingers::grasp grasp = fingers::grasp_of(at(index_joints[0]), at(fist_pinky), at(fist_middle[0]), at(fist_middle[2]), at(fist_thumb));
+					if (grasp.valid)
+					{
+						fist_in_hand = ik::rotate(ik::conjugate(hand.rotation), grasp.centre - hand.position);
+						has_fist = true;
+					}
+				}
 				// The pinch: the knob against the side of the index's middle segment, towards the thumb tip.
 				const int thumb_tip = rig.finger_tips[rack][fingers::thumb];
 				has_pinch = thumb_tip > 0;
@@ -2092,6 +2131,7 @@ namespace bfvr::body
 			{
 				has_pinch = false;
 				has_under_hook = false;
+				has_fist = false;
 			}
 		}
 
@@ -2992,7 +3032,7 @@ namespace bfvr::body
 
 	void set_rack_grip(const std::string& grip)
 	{
-		rack_grip = grip == "pinch" ? 0 : grip == "hook" ? 1 : 2;
+		rack_grip = grip == "pinch" ? 0 : grip == "hook" ? 1 : grip == "auto" ? 2 : 3;
 	}
 
 	void set_off_hand_neutral(bool neutral)
@@ -3006,9 +3046,10 @@ namespace bfvr::body
 		off_task_at = GetTickCount64();
 	}
 
-	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull)
+	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull, bool underhand)
 	{
 		const std::lock_guard guard(rig_lock);
+		handle_request.underhand = underhand;
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);
@@ -3084,6 +3125,8 @@ namespace bfvr::body
 			case fingers::task::pinch: return "pinch";
 			case fingers::task::underhand: return "underhand";
 			case fingers::task::reach: return "reach";
+			case fingers::task::fist_over: return "fist_over";
+			case fingers::task::fist_under: return "fist_under";
 			}
 			return "?";
 		};
@@ -3122,7 +3165,7 @@ namespace bfvr::body
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
 				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
-				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : "auto", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
+				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : rack_grip.load() == 2 ? "auto" : fisting ? (handle_request.underhand ? "fist(under)" : "fist(over)") : "fist", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
 				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
