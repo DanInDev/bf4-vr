@@ -1152,7 +1152,13 @@ namespace bfvr::weapon
 			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses), use_offset[0], use_offset[1], use_offset[2],
 			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
 			body::latest_weapon_points().floor_y, last_grip_point[0], last_grip_point[1], last_grip_point[2], last_grip_in_reach ? 1 : 0, last_slung ? 1 : 0, last_dropped_at[0], last_dropped_at[1], last_dropped_at[2]);
-		return std::string(text) + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;
+		float aim_yaw{}, aim_pitch{};
+		const bool aim_known = input::aim_angles(aim_yaw, aim_pitch);
+		const ULONGLONG tick = GetTickCount64();
+		char aim[160];
+		std::snprintf(aim, sizeof(aim), "\naction_aim=%d head_aim=%d c4_aim=%d game_aim_yaw_deg=%.1f pitch_deg=%.1f%s", action_aim_on.load() ? 1 : 0,
+			tick < head_aim_until.load() ? 1 : 0, tick < c4_aim_until.load() ? 1 : 0, aim_yaw * 57.29578f, aim_pitch * 57.29578f, aim_known ? "" : " (unknown)");
+		return std::string(text) + aim + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;
 	}
 
 	void request_grenade_capture()
