@@ -469,7 +469,7 @@ namespace bfvr::weapon
 					result.rail_probe_flags |= 32;
 				}
 				result.rail_probe_flags |= guided_ ? 16 : 0;
-				push_home = guided_ && insert_armed_ && rail_depth <= (flick_second_ ? config_.flick_seat_reach : config_.lock_seat_depth);
+				push_home = guided_ && insert_armed_ && rail_depth <= config_.lock_seat_depth;
 			}
 			if (push_home && seat_pause_ <= 0.0f)
 			{

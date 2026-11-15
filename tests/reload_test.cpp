@@ -964,8 +964,9 @@ namespace
 			r = hands.update(gun, at({ magwell.x, magwell.y + 0.01f * static_cast<float>(i), magwell.z }, true));
 			seated = has(r, reload_event::magazine_in);
 		}
+		r = hands.update(gun, at(magwell, true)); // and back down to the magwell without leaving it downwards
+		seated = seated || has(r, reload_event::magazine_in);
 		expect(!seated, "#47: pushing on up past the magwell after the flick is no second motion");
-		r = hands.update(gun, at(magwell, true));
 		r = hands.update(gun, at({ magwell.x, magwell.y - 0.03f, magwell.z }, true));
 		r = hands.update(gun, at(magwell, true));
 		expect(!has(r, reload_event::magazine_in), "3 cm away and back is not yet the second motion");
@@ -1767,14 +1768,20 @@ namespace
 		f.held_top = { magwell.x + 0.02f, magwell.y - 0.06f, magwell.z };
 		hand_result r = hands.update(gun, f);
 		expect(r.guided, "hold: locked on from the fist's magazine");
-		bool stayed = true, flicked = false, seated = false;
+		bool stayed = true, flicked = false, seated = false, seated_early = false;
 		float y = hand.y;
 		int pull_back = 0;
-		for (int i = 0; i < 80 && !seated; ++i)
+		int past = 0;
+		for (int i = 0; i < 120 && !seated; ++i)
 		{
 			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame. After the flick (#47, two motions) it
 			// comes down 8 cm and pushes up again.
-			if (flicked && pull_back < 8)
+			if (flicked && past < 5)
+			{
+				y += 0.01f; // after the flick the hand pushes on 5 cm past the magwell first (monitor 2026-11-16)
+				++past;
+			}
+			else if (flicked && pull_back < 15)
 			{
 				y -= 0.01f;
 				++pull_back;
@@ -1786,10 +1793,13 @@ namespace
 			hand_frame g = locked_at({ hand.x, y, hand.z }, true);
 			r = hands.update(gun, g);
 			stayed = stayed && (r.guided || r.hand_lock > 0.0f || has(r, reload_event::magazine_in) || flicked);
+			const bool now_seated = has(r, reload_event::magazine_in);
+			seated_early = seated_early || (now_seated && flicked && pull_back < 15);
 			flicked = flicked || has(r, reload_event::flicked_out);
-			seated = seated || has(r, reload_event::magazine_in);
+			seated = seated || now_seated;
 		}
 		expect(stayed, "hold: stays locked while pushed up (no flicker off the rail)");
+		expect(!seated_early, "hold: after the flick, pushing on past the magwell and coming back without the pull-back does not seat (#47)");
 		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then, pulled back and pushed in again, the new one seats");
 	}
 
