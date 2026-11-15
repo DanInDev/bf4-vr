@@ -94,7 +94,11 @@ it with the submitted FOV). Window resizing does not help: the game keeps a 1920
   reversed in the new-campaign intro). Now `body/arm_pose` skips its arm, gun and finger edits while
   `stereo::scripted_scene()`, eased over ~0.15 s (`body/scene_blend`). Monitor: no false scene in play (gun turned
   40 and 70 deg, pitched 50, head turned 60: `scripted=0`, arms solved); a grenade death: `arms_scene=1`,
-  the mod pose 0 within ~1 s; after the respawn back to 1, both arms solved. The intro itself not yet seen.
+  the mod pose 0 within ~1 s; after the respawn back to 1, both arms solved.
+- **The new-campaign intro** (SP_Prologue, the sinking car; fakehead + fakehand): a first-person scene on the
+  same rig (Warsaw1pAntSke01); the detector calls it at once (`scripted=1`, camera 35 to 136 deg off the aim,
+  health 100: the soldier exists). Game hands: one gloved hand rests naturally in the footwell. `controllers`
+  (the old way): one glove twisted backwards at the dashboard, the other sleeve stretched across the view.
 
 ## Eye heights per stance and physical stance (2026-11-03, monitor)
 
