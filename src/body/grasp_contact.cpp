@@ -82,6 +82,12 @@ namespace bfvr::body::contact
 		return cupped ? palm_up > leave : palm_up >= enter;
 	}
 
+	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets)
+	{
+		const float s = side > 0.0f ? 1.0f : side < 0.0f ? -1.0f : 0.0f;
+		return underhand ? ik::vec3{ s * offsets.under_out, -offsets.under_down, 0.0f } : ik::vec3{ s * offsets.over_out, offsets.over_up, 0.0f };
+	}
+
 	bool underhand_rack(bool underhand, float palm_up, float enter, float leave)
 	{
 		if (!std::isfinite(palm_up))

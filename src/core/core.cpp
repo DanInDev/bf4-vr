@@ -243,6 +243,8 @@ namespace bfvr::core
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
 			body::set_rack_grip(store.text("rack_grip", "fist"));
+			body::set_rack_fist_offsets(store.real("rack_over_out", 0.05f), store.real("rack_over_up", 0.01f), store.real("rack_under_out", 0.03f),
+				store.real("rack_under_down", 0.04f));
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			body::set_one_hand_recoil(store.real("one_hand_recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));

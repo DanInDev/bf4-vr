@@ -372,7 +372,9 @@ namespace bfvr::body
 			ik::vec3 handle;      // Wep_Root axes
 			float pull{};         // metres back along the barrel; the slide bone moves with it
 			bool underhand{};     // grabbed in the underhand zone (rack_grip fist)
+			float side{};         // the handle's side of the gun: +1 left, -1 right, 0 on top
 		};
+		contact::rack_fist_offsets rack_fist; // under rig_lock (set_rack_fist_offsets)
 		handle_hold handle_request;
 		// #40: the open off hand snapping onto the seated magazine (set_magazine_snap). delta: the snapped
 		// hand pose less the controller's (model space), kept from the last seated frame so the hand eases
@@ -1223,7 +1225,10 @@ namespace bfvr::body
 					}
 					const bool own = hand == hook_hand; // the hook and pinch points were measured on this hand
 					const bool pinch = own && pinching && has_pinch;
-					const ik::vec3 hooked = own && fist_hold && has_fist ? on_handle - ik::rotate(goal.hand, fist_in_hand)
+					// The fist holds the knob at its inner edge, out on the handle's side: its grasp centre is moved
+					// off the knob so it stays outside the receiver (headset 2026-11-15, SCAR-H).
+					const ik::vec3 fist_at = on_handle + ik::rotate(gun.rotation, contact::rack_fist_offset(handle_request.underhand, handle_request.side, rack_fist));
+					const ik::vec3 hooked = own && fist_hold && has_fist ? fist_at - ik::rotate(goal.hand, fist_in_hand)
 						: pinch ? on_handle - ik::rotate(goal.hand, pinch_in_hand)
 						: own && hooking_under && has_under_hook ? on_handle - ik::rotate(goal.hand, under_hook_in_hand)
 						: own && has_hook ? on_handle - ik::rotate(goal.hand, hook_in_hand)
@@ -3092,10 +3097,18 @@ namespace bfvr::body
 		off_task_at = GetTickCount64();
 	}
 
-	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull, bool underhand)
+	void set_rack_fist_offsets(float over_out, float over_up, float under_out, float under_down)
+	{
+		const auto metres = [](float v) { return std::isfinite(v) ? std::fmax(-0.15f, std::fmin(0.15f, v)) : 0.0f; };
+		const std::lock_guard guard(rig_lock);
+		rack_fist = { metres(over_out), metres(over_up), metres(under_out), metres(under_down) };
+	}
+
+	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull, bool underhand, float side)
 	{
 		const std::lock_guard guard(rig_lock);
 		handle_request.underhand = underhand;
+		handle_request.side = std::isfinite(side) ? side : 0.0f;
 		handle_request.weight = std::fmax(0.0f, std::fmin(1.0f, weight));
 		handle_request.handle = { handle_in_gun[0], handle_in_gun[1], handle_in_gun[2] };
 		handle_request.pull = std::fmax(0.0f, pull);

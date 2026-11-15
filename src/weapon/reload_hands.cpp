@@ -517,6 +517,7 @@ namespace bfvr::weapon
 		{
 			result.racking = true;
 			result.rack_underhand = rack_underhand_;
+			result.rack_side = frame.has_root ? rack_side(handle_in_gun, ak) : 0.0f;
 			result.handle_in_gun = handle_in_gun;
 			result.rack_pull = std::fmax(0.0f, std::fmin(config_.slide_travel, dot(frame.off_hand - rack_start_, back)));
 			if (!rack_full_ && result.rack_pull >= config_.rack_pull)

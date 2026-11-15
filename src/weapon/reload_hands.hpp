@@ -103,6 +103,7 @@ namespace bfvr::weapon
 		// and has pulled it this far back along the barrel (0..slide_travel).
 		bool racking{};
 		bool rack_underhand{}; // grabbed in the underhand zone: the fist holds the knob palm up from below
+		float rack_side{};     // the handle's side of the gun (rack_side): +1 left, -1 right, 0 on top
 		v3 handle_in_gun;
 		float rack_pull{};
 		// This update the pull reached rack_pull (once per stroke): the rack will count on release.

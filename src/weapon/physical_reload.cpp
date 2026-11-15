@@ -321,6 +321,7 @@ namespace bfvr::weapon
 		// on and off; the pull itself springs back at once, like the real handle).
 		float handle_weight{};
 		bool handle_underhand{}; // the last stroke's grab: underhand (kept while the hand eases off the handle)
+		float handle_side{};     // its handle's side of the gun (+1 left, -1 right, 0 on top)
 		float handle_in_gun[3]{};
 		// #40: the open off hand snapping onto the seated magazine, eased in quickly and out more slowly (the
 		// hand returns to the controller after the grab with the magazine in it).
@@ -396,8 +397,9 @@ namespace bfvr::weapon
 			if (racking)
 			{
 				handle_underhand = result->rack_underhand;
+				handle_side = result->rack_side;
 			}
-			body::set_handle_hold(handle_weight, handle_in_gun, racking ? result->rack_pull : 0.0f, handle_underhand);
+			body::set_handle_hold(handle_weight, handle_in_gun, racking ? result->rack_pull : 0.0f, handle_underhand, handle_side);
 		}
 
 		void attach_magazine()

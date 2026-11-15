@@ -92,6 +92,20 @@ namespace bfvr::body::contact
 	// thumb-and-index pinch) below `leave`; a hand in between keeps the last stroke's hold.
 	bool underhand_rack(bool underhand, float palm_up, float enter = 0.2f, float leave = -0.2f);
 
+	// rack_grip fist: where the fist's grasp centre sits relative to the charging handle's knob, in the gun's
+	// frame (Wep_Root: +x the gun's left, +y up). The knob is held at the fist's inner edge, the fist out on
+	// the handle's side (side +1 left, -1 right, 0 a centred handle: no sideways move), a little above it
+	// overhand and below it underhand, so the fist stays outside the receiver (headset 2026-11-15: the
+	// SCAR-H's knob is 3.5 cm off the centre line and the centred fist went into the gun).
+	struct rack_fist_offsets
+	{
+		float over_out{ 0.05f };
+		float over_up{ 0.01f };
+		float under_out{ 0.03f };
+		float under_down{ 0.04f };
+	};
+	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets);
+
 	// Palming (weapon/reload_hands, same formula as weapon::tilt_magazine): a magazine held at top and
 	// rotation, turned by angle radians about the barrel axis of the gun frame it would sit in, through
 	// its body pivot_drop below the top. seated: its rotation relative to that frame (Wep_Root, +z along
