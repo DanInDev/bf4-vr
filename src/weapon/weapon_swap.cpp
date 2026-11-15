@@ -153,6 +153,7 @@ namespace bfvr::weapon
 		melee_gesture melee;
 		// Free hands (#35).
 		std::atomic<bool> free_hands_on{};
+		std::atomic<float> free_hands_release{}; // live setting free_hands_release, seconds
 		std::atomic<bool> sling_on{ true }; // #38: a let-go gun hangs on the sling, not on the floor
 		std::atomic<bool> sling_primary_on{ true }; // #58: the primary drawn on the sling while another weapon is out
 		sling_primary sling_copy;
@@ -739,6 +740,7 @@ namespace bfvr::weapon
 			drop.sling_valid = body_rig_point(sling_point, drop.sling_at) && body_yaw(drop.sling_yaw);
 			const float* q = points.hand_rotation[1];
 			drop.hand_yaw = std::atan2(2.0f * (q[0] * q[2] + q[1] * q[3]), 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]));
+			dropper.set_release_seconds(free_hands_release.load(std::memory_order_relaxed));
 			const free_hands_result dropped = dropper.update(drop);
 			last_grip_point[0] = drop.grip_point.x;
 			last_grip_point[1] = drop.grip_point.y;
@@ -951,6 +953,11 @@ namespace bfvr::weapon
 	void set_free_hands(bool on)
 	{
 		free_hands_on = on;
+	}
+
+	void set_free_hands_release(float seconds)
+	{
+		free_hands_release = seconds;
 	}
 
 	void set_sling(bool on)

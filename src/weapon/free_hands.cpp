@@ -4,6 +4,11 @@
 
 namespace bfvr::weapon
 {
+	void free_hands::set_release_seconds(float seconds)
+	{
+		config_.release_seconds = std::isfinite(seconds) ? std::fmax(0.0f, std::fmin(0.5f, seconds)) : 0.0f;
+	}
+
 	void free_hands::reset()
 	{
 		dropped_ = false;

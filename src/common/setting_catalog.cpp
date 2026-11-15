@@ -110,6 +110,7 @@ namespace bfvr::settings
 			{ "grenade", "Weapon", "Grenades and gadgets", "Grenades", "From the belt by hand, or the button", "physical=By hand|button=Button" },
 			{ "grenade_throw_scale", "Weapon", "Grenades and gadgets", "Throw strength", "Launch speed times your hand speed", "" },
 			{ "c4_trigger", "Weapon", "Grenades and gadgets", "C4 with the triggers", "Off hand throws, gun hand detonates", "" },
+			{ "free_hands_release", "Weapon", "Hands and melee", "Let-go delay", "Seconds before an opened hand drops the gun", "", true },
 			{ "free_hands", "Weapon", "Hands and melee", "Free hands", "Let go and the gun drops; grip to pick up", "" },
 			{ "sling", "Weapon", "Hands and melee", "Gun on a sling", "With free hands: it hangs at your belly", "" },
 			{ "weapon_pickup", "Weapon", "Hands and melee", "Grab weapons from the ground", "Either hand: grip it or reach down over it", "" },

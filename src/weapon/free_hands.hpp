@@ -70,7 +70,9 @@ namespace bfvr::weapon
 
 	struct free_hands_config
 	{
-		float release_seconds{ 0.15f }; // grip open this long before the gun falls (a regrip is free); headset 2026-11-14: 0.35 felt like a delay
+		// Grip open this long before the gun falls or goes to the off hand (a regrip within it is free). Owner
+		// 2026-11-15: no wait at all, the hand is empty the moment it opens (0.35, then 0.15 s felt like a delay).
+		float release_seconds{ 0.0f };
 		float pickup_reach{ 0.30f };    // the palm this close to the dropped gun picks it up
 		float lie_height{ 0.04f };      // the gun's root above the floor when lying on its side
 		float regrip_reach{ 0.12f };    // the gun hand's palm this close to the pistol grip takes the gun back
@@ -84,6 +86,8 @@ namespace bfvr::weapon
 		free_hands_result update(const free_hands_frame& frame);
 		void reset();
 		const free_hands_config& config() const { return config_; }
+		// Live setting free_hands_release (seconds, clamped 0..0.5).
+		void set_release_seconds(float seconds);
 
 	private:
 		free_hands_config config_;

@@ -60,7 +60,7 @@ namespace
 		free_hands_frame f = holding();
 		expect(!hands.update(f).dropped, "held while gripping");
 		const int steps = steps_to_drop(hands, f);
-		expect(steps == 3, "drops after 0.15 s with the grip open (3 steps of 50 ms)");
+		expect(steps == 1, "drops at once when the grip opens (free_hands_release 0, owner 2026-11-15)");
 
 		f.grip = false;
 		free_hands_result r = hands.update(f);
@@ -91,6 +91,7 @@ namespace
 	void test_regrip_and_busy()
 	{
 		free_hands hands;
+		hands.set_release_seconds(0.15f); // free_hands_release set: a quick regrip is free
 		free_hands_frame f = holding();
 		hands.update(f);
 		f.grip = false;
@@ -150,11 +151,7 @@ namespace
 		f.gun_hand = { 0.0f, -1.5f, 0.0f };
 		low.update(f);
 		f.grip = false;
-		free_hands_result r{};
-		for (int i = 0; i < 3; ++i)
-		{
-			r = low.update(f);
-		}
+		const free_hands_result r = low.update(f);
 		expect(r.event == free_hands_event::dropped && r.dropped, "drops even with the hand already low");
 	}
 }
@@ -181,7 +178,30 @@ void test_hand_over()
 		r = hands.update(f);
 	}
 	expect(r.event == free_hands_event::handed_to_off && r.in_off_hand && r.block_fire && !r.dropped, "the gun hand lets go: the off hand keeps the gun");
-	expect(steps * 0.05f + 1e-3f >= hands.config().release_seconds, "only after the release time (a quick regrip is free)");
+	expect(steps == 1, "at once: the first update with the grip open (owner 2026-11-15: no wait)");
+	{
+		// free_hands_release set: a quick regrip within it keeps the gun; held open past it, the off hand takes it.
+		free_hands slow;
+		slow.set_release_seconds(0.15f);
+		free_hands_frame s = f;
+		s.grip = true;
+		slow.update(s);
+		s.grip = false;
+		const free_hands_result first = slow.update(s);
+		s.grip = true;
+		slow.update(s);
+		s.grip = false;
+		free_hands_result later;
+		int open_steps = 0;
+		for (; open_steps < 40 && later.event != free_hands_event::handed_to_off; ++open_steps)
+		{
+			later = slow.update(s);
+		}
+		expect(first.event == free_hands_event::none && open_steps * 0.05f + 1e-3f >= 0.15f && later.event == free_hands_event::handed_to_off,
+			"free_hands_release 0.15 s: a quick regrip is free, the off hand takes it after the delay");
+		slow.set_release_seconds(9.0f);
+		expect(slow.config().release_seconds == 0.5f, "free_hands_release is clamped to 0.5 s");
+	}
 	// The free gun hand goes off to rack, grips there: no take-back away from the pistol grip.
 	f.gun_hand = { 0.25f, -0.15f, -0.55f };
 	f.grip = true;

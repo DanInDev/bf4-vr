@@ -105,6 +105,7 @@ namespace bfvr::settings
 			{ "slot_models_at_start", kind::boolean, 0, 0, 0, "1", "", "at level start the grenade and the knife are selected for a moment, so the game's own grenade stands at the pouch and its knife in the holster from the start (otherwise only after you first took each)" },
 			{ "sling_show_primary", kind::boolean, 0, 0, 0, "1", "", "while the pistol or a gadget is out, your rifle hangs on its sling in 3D (a copy of the game's own rifle, taken once while it is in hand)" },
 			{ "sling", kind::boolean, 0, 0, 0, "1", "", "with free_hands: a gun let go by both hands hangs on its sling at your belly (follows you, grip it there) instead of dropping to the floor" },
+			{ "free_hands_release", kind::real, 0.0f, 0.5f, 0.05f, "0", "", "free hands: the gun hand's grip open this long (seconds) before the gun drops or goes to the off hand; 0 = at once (raise it if a loose grip drops the gun by accident)" },
 			{ "free_hands", kind::boolean, 0, 0, 0, "1", "", "hold the gun with the gun-hand grip: let go and it drops to the floor below your hand (no firing); reach down and grip to pick it up" },
 			{ "c4_trigger", kind::boolean, 0, 0, 0, "1", "", "with the C4 out, the off-hand trigger throws a C4 (the game's aim button); the gun-hand trigger on the detonator sets them off" },
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand to eye level or above, a little ahead of your head (a fist over the head), and squeeze the grip" },

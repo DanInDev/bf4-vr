@@ -257,6 +257,7 @@ namespace bfvr::core
 			weapon::set_use_reach(store.boolean("use_reach", true));
 			weapon::set_weapon_pickup(store.boolean("weapon_pickup", true));
 			weapon::set_free_hands(store.boolean("free_hands", true));
+			weapon::set_free_hands_release(store.real("free_hands_release", 0.0f));
 			weapon::set_sling(store.boolean("sling", true));
 			weapon::set_sling_show_primary(store.boolean("sling_show_primary", true));
 			weapon::set_slot_models_at_start(store.boolean("slot_models_at_start", true));

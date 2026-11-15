@@ -425,6 +425,8 @@ use_reach = 1
 # holds the handguard and the off hand keeps the gun (no firing); the free gun hand can rack the charging
 # handle; grip at the pistol grip to take it back. On by default (headset feedback 2026-11-09).
 free_hands = 1
+# Free hands: the gun hand's grip open this long (seconds) before the gun drops or goes to the off hand; 0 = at once.
+free_hands_release = 0
 # With free hands: a gun let go by both hands hangs on its sling at your belly (it follows you; grip it
 # there). 0 = it drops to the floor as before.
 sling = 1
