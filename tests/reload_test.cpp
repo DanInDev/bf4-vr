@@ -1776,12 +1776,12 @@ namespace
 		{
 			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame. After the flick (#47, two motions) it
 			// comes down 8 cm and pushes up again.
-			if (flicked && past < 5)
+			if (flicked && past < 12)
 			{
-				y += 0.01f; // after the flick the hand pushes on 5 cm past the magwell first (monitor 2026-11-16)
+				y += 0.01f; // after the flick the hand pushes on 12 cm (the flick comes 3 cm below the magwell: ~9 cm past it, as on the monitor 2026-11-16)
 				++past;
 			}
-			else if (flicked && pull_back < 15)
+			else if (flicked && pull_back < 22)
 			{
 				y -= 0.01f;
 				++pull_back;
@@ -1794,7 +1794,7 @@ namespace
 			r = hands.update(gun, g);
 			stayed = stayed && (r.guided || r.hand_lock > 0.0f || has(r, reload_event::magazine_in) || flicked);
 			const bool now_seated = has(r, reload_event::magazine_in);
-			seated_early = seated_early || (now_seated && flicked && pull_back < 15);
+			seated_early = seated_early || (now_seated && flicked && pull_back < 22);
 			flicked = flicked || has(r, reload_event::flicked_out);
 			seated = seated || now_seated;
 		}
