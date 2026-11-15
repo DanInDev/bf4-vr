@@ -130,6 +130,7 @@ namespace bfvr::settings
 			{ "reticle_size", kind::real, 0.3f, 3.0f, 0.1f, "1", "", "aim reticle size, degrees" },
 			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy); not for a clear holo while hip_accuracy is 1" },
 			{ "sight_dot", kind::boolean, 0, 0, 0, "1", "", "guns with an optic: a red dot at infinity along the sight line, seen only by an eye that looks through the lens, aiming or not (the game's own reticle follows the view's centre, not the sight)" },
+			{ "unlock_all_weapons", kind::boolean, 0, 0, 0, "1", "", "every gun in the campaign weapon crate can be picked (the game's own all-unlocked switch, held while a campaign level runs; memory only, nothing is saved or sent)" },
 			{ "hip_accuracy", kind::real, 0.0f, 1.0f, 0.1f, "1", "", "hip-fire spread of your weapons: 1 = as tight as aiming down sights (sights work without the game's aim), 0 = the game's 3-7 degree hip cone" },
 			{ "sight_dot_size", kind::real, 0.1f, 2.0f, 0.05f, "0.6", "", "sight dot size, degrees (the glow; the bright core is about half)" },
 			{ "sight_dot_reach", kind::real, 1.0f, 6.0f, 0.5f, "2", "", "how far off the sight line an eye still sees the red dot, cm (the lens is about 1.5; more forgives an unsteady hold)" },

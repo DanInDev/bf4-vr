@@ -135,6 +135,7 @@ offline mode is the legitimate way to play without a connection.
 | `entityevent <entity> <event id> [slot]` | Research: on the game thread, call the entity's event handler (vtable slot, default 5) with that event id (`re/notes/sound.md`) |
 | `motion` | The game camera's own yaw rate and speed (no head pose), the comfort vignette's input (#10) |
 | `sightstate` | The current weapon's sight (#39): unlock name, zoom levels, the level the next aim uses and the one in use, its SightType (2 = magnifier), and the attachments read from its unlocks (`optic=U_AK12_PK-AS reflex magnifier magnified (zoom)`) |
+| `unlocks` | `unlock_all_weapons`: the setting, the code check, the active `SyncedBFSettings`, its `AllUnlocksUnlocked`, whether the 1 is the mod's, writes and restores |
 | `hipaccuracy` | `hip_accuracy` (#39): strength, patched GunSwayData blocks, each one's standing hip min/max as written, the game's and the zoom values |
 | `pickup` | `weapon_pickup` (#54): weapons on the ground found (census, usable), how long the census scan took, each palm's nearest pickup (m), R down, presses, takes started and done, the last event |
 | `serversoldier` | The player's server soldier (`weapon/server_soldier`): its address, how it was found (kept, static table, heap scan), changes, misses and scans. Physical reload and grenades read ammo through it |

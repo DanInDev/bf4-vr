@@ -35,6 +35,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/unlock_all.hpp"
 #include "weapon/wall_stop_game.hpp"
 #include "weapon/zoom_mesh.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -215,6 +216,7 @@ namespace bfvr::core
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
+			weapon::set_unlock_all_weapons(store.boolean("unlock_all_weapons", true));
 			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
 			weapon::set_sight_reticle(store.boolean("sight_reticle", true));
 			stereo::set_scope_in_frame(store.boolean("scope_in_frame", true));
@@ -254,6 +256,7 @@ namespace bfvr::core
 			apply_settings();
 			weapon::update_physical_reload();
 			weapon::update_hip_accuracy();
+			weapon::update_unlock_all_weapons();
 			weapon::update_physical_grenades();
 			weapon::update_wall_stop();
 			weapon::update_two_handed();

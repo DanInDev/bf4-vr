@@ -43,6 +43,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/hit_feedback.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/unlock_all.hpp"
 #include "weapon/server_soldier.hpp"
 #include "weapon/weapon_pickup.hpp"
 #include "weapon/zoom_mesh.hpp"
@@ -877,6 +878,7 @@ namespace bfvr::control
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
+			if (command == "unlocks") return weapon::unlock_all_report();
 			if (command == "serversoldier") return weapon::server_soldier_report();
 			if (command == "pickup") return weapon::weapon_pickup_report();
 			if (command == "zoommesh") return weapon::zoom_mesh_command(argument);

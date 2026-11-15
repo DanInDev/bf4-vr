@@ -1005,6 +1005,11 @@ clicks behaved. Not explained yet.
   (+0x54) 0 in each. Poked to 1 (all three) and `UnlockEverything` to 1 with the menu open: the open menu did not
   change. **Owner, after closing and reopening the crate: every gun selectable** (2026-11-15). Which of the two
   flags is needed is not known. Design and work order for all 51 guns: `docs/tasks/all-weapons.md`.
+- **Which flag** (static, 2026-11-15): every reader of `SyncedBFSettings` goes through the cache `0x1423717C0`, and
+  the unlock check `0x140157D10` tests `AllUnlocksUnlocked` before the player's unlock sets, so that flag on the
+  cached instance is the lever; the crate's `UnlockEverything` is likely not needed (to confirm live). The
+  level-load settings sync (`0x1402BA570`) writes the flag from the server's copy, so it must be set after it:
+  `weapon/unlock_all` (setting `unlock_all_weapons`, pipe `unlocks`) holds it at 1 while a campaign level runs.
 - **Per-gun data**: unlock asset +0x78 `StoredWeaponData` {WeaponClass, MagCount, MagCapacity} for every gun;
   +0x58 NonStreamedBlueprint is null until the gun is spawned, so its firing data (FireLogic: ReloadType +0x9C,
   FireLogicType +0xA0, BoltAction +0x1C) is read from the spawned weapon (+0x30 SoldierWeaponData -> +0x90

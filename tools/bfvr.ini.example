@@ -331,6 +331,10 @@ sight_dot_test = 0
 # sighting = only the eye behind the sight sees the dot; both = one layer for both eyes (try it if the
 # dot never shows at one eye).
 sight_dot_eyes = sighting
+# Every gun in the campaign weapon crate can be picked, locked or not. Holds the game's own
+# all-unlocked switch (SyncedBFSettings.AllUnlocksUnlocked) while a campaign level runs and puts the
+# game's value back when the level ends; memory only, nothing is saved or sent to EA.
+unlock_all_weapons = 1
 # Hip-fire spread of your weapons (standing, crouched, prone; still and moving): 1 = as tight as aiming
 # down sights, so a sight is accurate without the game's aim; 0 = the game's (3-7 degrees at the hip,
 # 0.2-1.7 aiming). Patches the weapons' GunSwayData in memory; enemies carrying the same gun model may
