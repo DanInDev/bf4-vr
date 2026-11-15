@@ -132,4 +132,5 @@ on those branches.
 - Step 7 can run alongside anything else.
 
 **Left out for now:** catching a grenade between hands (wait for the held grenade from #36 to settle),
-knife stab, ladders, vehicles, and BF3's stream view (we have none; ask if you want one).
+knife stab, ladders, vehicles. BF3's stream view now has a BF4 counterpart (`stream_view`, 2026-11-15:
+same idea, the left eye re-aimed at a steadied level camera, drawn into the game window; docs/TOOLING.md "Recording").

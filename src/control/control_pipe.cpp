@@ -40,6 +40,7 @@
 #include "stereo/hud_capture.hpp"
 #include "stereo/scope.hpp"
 #include "stereo/scope_compose.hpp"
+#include "stereo/stream_view.hpp"
 #include "stereo/tracking.hpp"
 #include "stereo/world_pass.hpp"
 #include "weapon/hit_feedback.hpp"
@@ -115,9 +116,20 @@ namespace bfvr::control
 			}
 			if (eye)
 			{
-				back_buffer = eye_index == 2 ? stereo::latest_scope_image().texture : stereo::eye_pass_image(eye_index);
+				if (eye_index == 3)
+				{
+					back_buffer = stereo::stream_view_image();
+				}
+				else
+				{
+					back_buffer = eye_index == 2 ? stereo::latest_scope_image().texture : stereo::eye_pass_image(eye_index);
+				}
 				if (!back_buffer)
 				{
+					if (eye_index == 3)
+					{
+						return "no stream picture (stream_view off, or no head-tracked frame yet)";
+					}
 					return eye_index == 2 ? "no scope image yet (not aiming through a magnifying sight)" : "no eye image (eyepass off, or no frame rendered yet)";
 				}
 			}
@@ -584,6 +596,8 @@ namespace bfvr::control
 			if (command == "eyeshot") return take_screenshot(argument, false, true);
 			if (command == "eyeshot2") return take_screenshot(argument, false, true, 1);
 			if (command == "scopeshot") return take_screenshot(argument, false, true, 2);
+			if (command == "streamshot") return take_screenshot(argument, false, true, 3);
+			if (command == "stream") return stereo::stream_view_command(argument);
 			if (command == "scope") return stereo::scope_report() + "\n" + stereo::lens_report();
 			if (command == "lensfix")
 			{

@@ -27,6 +27,10 @@ namespace bfvr::settings
 			{ "vignette", "View", "Comfort", "Comfort vignette", "Darkens the edges when the game moves you", "off=Off|turning=Turning|moving=Moving|both=Both" },
 			{ "vignette_strength", "View", "Comfort", "Vignette strength", "How far it closes in", "" },
 			{ "cutscene_view", "View", "Comfort", "Cutscenes", "A flat screen, or look around in 3D", "screen=Flat screen|look=Look around" },
+			{ "stream_view", "View", "Recording", "Stream view", "Steady 16:9 picture in the game window, for OBS", "" },
+			{ "stream_fov", "View", "Recording", "Stream width", "Degrees across", "" },
+			{ "stream_smoothing", "View", "Recording", "Stream steadiness", "Seconds to settle; 0 = follows your head exactly", "" },
+			{ "stream_hud", "View", "Recording", "HUD in the stream", "Crosshair, markers and objective text", "" },
 			{ "cutscene_hands", "View", "Comfort", "Hands in cutscenes", "The game's animation, or your controllers", "game=The game's|controllers=Controllers" },
 
 			// Body

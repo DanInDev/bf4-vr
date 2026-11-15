@@ -33,6 +33,7 @@
 #include "stereo/eye_pass.hpp"
 #include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
+#include "stereo/stream_view.hpp"
 #include "stereo/world_pass.hpp"
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
@@ -182,6 +183,8 @@ namespace bfvr::core
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
 			body::set_cutscene_hands(store.text("cutscene_hands", "game") == "game");
+			stereo::set_stream_view(store.boolean("stream_view", true), store.real("stream_fov", 80.0f), store.real("stream_smoothing", 0.3f),
+				store.boolean("stream_hud", true));
 			stereo::set_physical_stance(store.boolean("physical_stance", false));
 			// #48: behaviours that once had a setting to compare them with the old one are fixed on.
 			stereo::set_gun_life_size(true);
@@ -336,6 +339,8 @@ namespace bfvr::core
 			{
 				theater->on_present(swap_chain);
 			}
+			// After the theater took this frame's eyes: the window's picture is drawn over.
+			stereo::stream_view_on_present(swap_chain, theater && theater->status().menu_over_level);
 		}
 
 		std::string status_text()

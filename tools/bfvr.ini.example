@@ -94,6 +94,16 @@ cutscene_view = screen
 # In cutscenes (look): the arms, gun and fingers as the game animates them (game), or following your
 # controllers as in play (controllers; the scene's animated body then fights them: hands reversed).
 cutscene_hands = game
+# Stream view, for recording with OBS (docs/TOOLING.md "Recording"): while the headset shows the
+# level, the game window shows the left eye re-aimed at a steadied camera: yaw and pitch follow the
+# head through a low-pass, the roll is taken out, 16:9 and stream_fov degrees across, letterboxed into
+# the window. Menus, loading screens and flat-screen cutscenes stay the game's own picture.
+# stream_smoothing: seconds to settle while the head is held still (turns are followed closer);
+# 0 = no steadying (still level and 16:9). stream_hud: the HUD layer drawn into it. Pipe `stream`.
+stream_view = 1
+stream_fov = 80
+stream_smoothing = 0.3
+stream_hud = 1
 # Right stick (issue #22): look = the game's aiming stick; turn = horizontal turns the view (snap or
 # smooth), vertical flicks change stance (down: stand > crouch > prone, up: back). Switch live with
 # pipe `rightstick look|turn`.

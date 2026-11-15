@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "common/log.hpp"
+#include "stereo/pipeline_state.hpp"
 
 using Microsoft::WRL::ComPtr;
 
@@ -166,82 +167,6 @@ float4 ps(vertex v) : SV_Target
 			}
 			return true;
 		}
-
-		// Everything the draw changes, put back afterwards (Get* add references, released by ComPtr).
-		struct saved_state
-		{
-			D3D11_PRIMITIVE_TOPOLOGY topology{};
-			ComPtr<ID3D11InputLayout> layout;
-			ComPtr<ID3D11VertexShader> vs;
-			ComPtr<ID3D11PixelShader> ps;
-			ComPtr<ID3D11GeometryShader> gs;
-			ComPtr<ID3D11HullShader> hs;
-			ComPtr<ID3D11DomainShader> ds;
-			ComPtr<ID3D11ShaderResourceView> ps_view;
-			ComPtr<ID3D11SamplerState> ps_sampler;
-			ComPtr<ID3D11Buffer> ps_buffer;
-			ComPtr<ID3D11RasterizerState> rasterizer;
-			UINT viewport_count{ D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE };
-			D3D11_VIEWPORT viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
-			ComPtr<ID3D11RenderTargetView> targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-			ComPtr<ID3D11DepthStencilView> depth;
-			ComPtr<ID3D11BlendState> blend;
-			float blend_factor[4]{};
-			UINT sample_mask{};
-			ComPtr<ID3D11DepthStencilState> depth_state;
-			UINT stencil_ref{};
-
-			void save(ID3D11DeviceContext* c)
-			{
-				c->IAGetPrimitiveTopology(&topology);
-				c->IAGetInputLayout(&layout);
-				c->VSGetShader(&vs, nullptr, nullptr);
-				c->PSGetShader(&ps, nullptr, nullptr);
-				c->GSGetShader(&gs, nullptr, nullptr);
-				c->HSGetShader(&hs, nullptr, nullptr);
-				c->DSGetShader(&ds, nullptr, nullptr);
-				c->PSGetShaderResources(0, 1, &ps_view);
-				c->PSGetSamplers(0, 1, &ps_sampler);
-				c->PSGetConstantBuffers(0, 1, &ps_buffer);
-				c->RSGetState(&rasterizer);
-				c->RSGetViewports(&viewport_count, viewports);
-				ID3D11RenderTargetView* raw[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
-				c->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, raw, &depth);
-				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
-				{
-					targets[i].Attach(raw[i]);
-				}
-				c->OMGetBlendState(&blend, blend_factor, &sample_mask);
-				c->OMGetDepthStencilState(&depth_state, &stencil_ref);
-			}
-
-			void restore(ID3D11DeviceContext* c)
-			{
-				c->IASetPrimitiveTopology(topology);
-				c->IASetInputLayout(layout.Get());
-				c->VSSetShader(vs.Get(), nullptr, 0);
-				c->PSSetShader(ps.Get(), nullptr, 0);
-				c->GSSetShader(gs.Get(), nullptr, 0);
-				c->HSSetShader(hs.Get(), nullptr, 0);
-				c->DSSetShader(ds.Get(), nullptr, 0);
-				ID3D11ShaderResourceView* view = ps_view.Get();
-				c->PSSetShaderResources(0, 1, &view);
-				ID3D11SamplerState* s = ps_sampler.Get();
-				c->PSSetSamplers(0, 1, &s);
-				ID3D11Buffer* b = ps_buffer.Get();
-				c->PSSetConstantBuffers(0, 1, &b);
-				c->RSSetState(rasterizer.Get());
-				c->RSSetViewports(viewport_count, viewports);
-				ID3D11RenderTargetView* raw[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
-				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
-				{
-					raw[i] = targets[i].Get();
-				}
-				c->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, raw, depth.Get());
-				c->OMSetBlendState(blend.Get(), blend_factor, sample_mask);
-				c->OMSetDepthStencilState(depth_state.Get(), stencil_ref);
-			}
-		};
 	}
 
 	bool compose_scope(ID3D11DeviceContext* context, ID3D11Texture2D* back_buffer, float aspect, const scope_request& request)
@@ -273,7 +198,7 @@ float4 ps(vertex v) : SV_Target
 		const constants values{ { 0.022f, 0.04f, 0.35f, 0.0f }, { 1.0f, 0.12f, 0.06f, 0.95f } };
 		context->UpdateSubresource(constant_buffer.Get(), 0, nullptr, &values, 0, 0);
 
-		saved_state state;
+		saved_pipeline state;
 		state.save(context);
 		ID3D11ShaderResourceView* const no_view = nullptr;
 		context->PSSetShaderResources(0, 1, &no_view);

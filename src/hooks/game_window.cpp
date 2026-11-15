@@ -348,6 +348,20 @@ namespace bfvr::hooks
 		return keys_answered.load();
 	}
 
+	bool real_client_size(unsigned& width, unsigned& height)
+	{
+		const HWND hwnd = window.load();
+		RECT client{};
+		if (!hwnd || !(original_get_client_rect ? original_get_client_rect(hwnd, &client) : GetClientRect(hwnd, &client)) || client.right <= 0
+			|| client.bottom <= 0)
+		{
+			return false;
+		}
+		width = static_cast<unsigned>(client.right);
+		height = static_cast<unsigned>(client.bottom);
+		return true;
+	}
+
 	bool point_game_cursor(float u, float v, bool pressed)
 	{
 		const HWND hwnd = window.load();

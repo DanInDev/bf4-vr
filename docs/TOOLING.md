@@ -101,6 +101,45 @@ popped-out view). Without VR View it falls back to the small view inside the Sta
 `-List` prints the open windows. It is the compositor's mirror, so slightly cropped and warped
 against the lenses. First used 2026-11-11 (the laser beam showed; marks never do).
 
+## Recording: the stream view and OBS
+
+VR View is one lens-shaped eye that shakes with every head movement. With `stream_view = 1` (default;
+View page > Recording) the **game window** shows a recording picture instead, whenever the headset shows
+the level head-tracked: the left eye's image re-aimed at a steadied camera (yaw and pitch follow the head
+through a low-pass, `stream_smoothing` seconds to settle at rest, faster turns followed closer; the roll
+taken out), 16:9 and `stream_fov` degrees across, the HUD layer's main piece on top (`stream_hud`: crosshair,
+markers, objective text; the minimap and ammo, which the headset shows on the body, are left out), letterboxed into
+the window so that the monitor-shaped window shows it in proportion. Menus, loading screens and flat-screen
+cutscenes stay the game's own picture. The game renders a square image that DXGI stretches into the
+monitor-sized window, so the 16:9 picture is drawn squeezed into the back buffer and comes out right on
+the monitor. Cost: two full-screen passes inside the game's Present, **0.05 ms GPU** and 0.02-0.04 ms CPU per
+frame (timestamp queries, `stream`; 2026-11-15, 1920x1080 picture into a 2160x2160 back buffer, RTX 5070). The
+picture has as many pixels as the window shows of it.
+
+The camera follows yaw and pitch only and is level; it cannot leave the rendered image, so with
+`view_crop_h` the room to steady is (rendered width - `stream_fov`) / 2: with the owner's crop (0.78) the eye
+image is ±47° wide and the default 80° leaves 7° each side.
+
+Not in it: what the mod adds as OpenXR layers (the aim dot, grab rings, the separate sight lens quad,
+the panel, notices, the laser). Use VR View for those. The scope picture is in it when `scope_in_frame`
+draws it into the eye image (the default).
+
+OBS:
+1. Sources > **Window Capture**, window `[bf4.exe]: Battlefield 4`, capture method *Windows 10 (1903 and up)*;
+   untick *Capture Cursor*. (*Game Capture* of bf4.exe works too.)
+2. On a 16:9 monitor and a 16:9 canvas the picture fills it; on another monitor shape crop the black bars
+   (Alt-drag in the preview) or use *Fit to screen*.
+3. Sound: **Application Audio Capture** of bf4.exe, as before.
+4. Steadiness: raise `stream_smoothing` (0.5) for a calmer picture, lower it (0.15) if it trails turns; `0`
+   shows the head's motion as it is (still level and 16:9). A narrower `stream_fov` leaves more room to
+   steady: the camera is pulled towards the eye's own view whenever the picture's corners would leave the
+   rendered image (fast turns, a far-rolled head, a tight `view_crop_h`), so the bars never show the edge.
+
+Pipe: `stream` (state, picture and window size, the eye's and the stream camera's yaw / pitch / roll,
+`kept` = share of the steadying in use, CPU time), `stream trace` (the last 256 frames of those angles),
+`streamshot <path.png>` (the 16:9 picture itself; `shot` still takes the back buffer before it is drawn
+over, so screenshots and `dev-run` show the eye image as before).
+
 ## One-shot dev loop: `tools/dev-run.ps1`
 
 `dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks (through the mod's pointer, no focus needed; RESUME by pad A)
@@ -151,6 +190,7 @@ offline mode is the legitimate way to play without a connection.
 | `watch <hex address> [len] [ms] [rw]` | Hardware write-watch (debug registers + exception handler): every instruction that writes the address, with hit count and a 6-frame unwound backtrace; `rw` traps reads too ("what accesses this", e.g. the per-frame reader of a widget's `Visible`) |
 | `eye <m>` / `eyealt <m>` | Research: shift the camera sideways / alternate ±m per frame (pass negatives with a leading space: `eye ' -1'`) |
 | `fov <rad>` | Research: override the vertical FOV (`RenderView+0xB4`; 0 = off) |
+| `stream [trace]` / `streamshot <path.png>` | Stream view for recording (section "Recording"): state, sizes, eye and stream camera angles, CPU ms; `trace` the last 256 frames; `streamshot` the 16:9 picture |
 | `scope` / `scopeshot <path.png>` | Magnified sights: the game's FOV (hip and aiming), magnification, whether the scope render runs, its FOV, lens quad and which eye; the eye pass's scope timing is in `status` (`scope_ms`, prepare/render/compose). `scopeshot` writes the lens picture (512x512, round, premultiplied) |
 | `lean` | #53: the head's offset from the session origin (OpenXR LOCAL, in the body's axes: forward, right, up) and how far the rendered view sits from the soldier's own camera, from the last head-tracked frame; notes when the head is over 0.5 m from the origin |
 | `raycast <x y z> <x y z>\|down [m]\|ahead [m]\|stats` | #59: the game's own physics ray (level only) between two world points, or from the head straight down / along the view, cast on the game thread; hit point, distance, normal, microseconds. `stats`: rays cast, hits, faults, mean time, and the ground cache's columns (`re/notes/physics.md`) |
