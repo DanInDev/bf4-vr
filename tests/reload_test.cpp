@@ -959,6 +959,13 @@ namespace
 			seated = has(r, reload_event::magazine_in);
 		}
 		expect(!seated && gun.state().holding, "#47 step two needs its own motion: held still at the magwell, the new one does not seat (owner 2026-11-15)");
+		for (int i = 1; i <= 6 && !seated; ++i) // pushing on up past the magwell, 1 cm a frame (monitor 2026-11-16)
+		{
+			r = hands.update(gun, at({ magwell.x, magwell.y + 0.01f * static_cast<float>(i), magwell.z }, true));
+			seated = has(r, reload_event::magazine_in);
+		}
+		expect(!seated, "#47: pushing on up past the magwell after the flick is no second motion");
+		r = hands.update(gun, at(magwell, true));
 		r = hands.update(gun, at({ magwell.x, magwell.y - 0.03f, magwell.z }, true));
 		r = hands.update(gun, at(magwell, true));
 		expect(!has(r, reload_event::magazine_in), "3 cm away and back is not yet the second motion");

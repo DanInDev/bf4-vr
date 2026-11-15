@@ -433,7 +433,10 @@ namespace bfvr::weapon
 		}
 		else if (gun.state().holding && valid)
 		{
-			if (distance(held_top, frame.magwell) > (flick_rearm_ ? config_.flick_rearm : config_.rearm_distance))
+			// After a flick only a pull back down out of the well re-arms (along the magwell's down axis): pushing on up
+			// past the magwell, as the hand does after knocking the old one out, is no second motion (monitor 2026-11-16).
+			const bool pulled_back = flick_rearm_ ? rail_depth > config_.flick_rearm : distance(held_top, frame.magwell) > config_.rearm_distance;
+			if (pulled_back)
 			{
 				insert_armed_ = true;
 				flick_second_ = flick_rearm_;
@@ -441,7 +444,7 @@ namespace bfvr::weapon
 			}
 			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
 			bool push_home = frame.grip && insert_armed_ && held_at_magwell
-				&& (!flick_second_ || distance(held_top, frame.magwell) < config_.flick_seat_reach);
+				&& (!flick_second_ || rail_depth <= config_.flick_seat_reach); // the second push: back up to (or past) the magwell
 			if (lockable)
 			{
 				// Locks on near the rail when it is turned roughly as it sits; leaves off the rail, past its end
@@ -466,7 +469,7 @@ namespace bfvr::weapon
 					result.rail_probe_flags |= 32;
 				}
 				result.rail_probe_flags |= guided_ ? 16 : 0;
-				push_home = guided_ && insert_armed_ && rail_depth <= config_.lock_seat_depth;
+				push_home = guided_ && insert_armed_ && rail_depth <= (flick_second_ ? config_.flick_seat_reach : config_.lock_seat_depth);
 			}
 			if (push_home && seat_pause_ <= 0.0f)
 			{

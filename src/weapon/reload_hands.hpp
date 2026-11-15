@@ -162,7 +162,7 @@ namespace bfvr::weapon
 		// AK quick reload, two motions (owner 2026-11-15: it flicked the old one away and the new one was in at once):
 		// after the flick the new magazine seats only once it has left the magwell this far and is pushed in again.
 		float flick_rearm{ 0.05f };
-		float flick_seat_reach{ 0.03f }; // ... and is back within this of the magwell
+		float flick_seat_reach{ 0.03f }; // ... and is pushed back up to within this below the magwell (or past it)
 		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
 		float eject_speed{ 1.0f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion (1.5 felt too fast)
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
