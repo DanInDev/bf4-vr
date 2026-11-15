@@ -203,7 +203,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | HAND-11 | open | Look down | Legs hidden; arm length and gun size plausible (`arm_length` 1.15) | #13 | |
 | HAND-12 | retest | `physical_stance = 1` (stand straight when switching it on): crouch, kneel, lie down, get up; then crouch with the stick | The soldier follows within ~½ s; the view follows only your head; the stick flick still crouches; hands, gun and chest stay where they were relative to your head | #33 | 2026-11-05 monitor: crouched, the gun and arms were drawn ~60 cm too low (out of view); fixed on `fix/physical-stance-hands`, now the same place standing and crouched |
 | HAND-13 | open | `dominant_hand = left` | Sticks, triggers and buttons swap; the gun follows the left controller; the minimap on the right forearm | #9 | |
-| HAND-17 | open | Panel page Skeleton: Pose a hand = Right, move Thumb .. Pinky; then Left; then Off | The chosen hand's fingers take the curls at once, whatever it holds; Off gives the normal grips back. Pipe `poselab` prints the pose as a `hand_shape` line to paste into finger_pose.cpp | | |
+| HAND-17 | open | Panel page Skeleton: Edit grip = Handle pinch, Hold it on = Left hand; move Thumb base across, Index bend; Pose file = Save; Hold it on = Off and rack the gun | The left hand holds the pinch at once and follows the sliders; racking shows the same tweaked pinch; `bfvr_poses.ini` appears beside `bfvr.ini` and is read at the next start | | |
 | HAND-14 | done | Hands follow the controllers, the gun stays in the right hand | | #11 | 2026-10-25: "flawless" for guns |
 
 ## Controls and menus

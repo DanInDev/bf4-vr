@@ -23,6 +23,11 @@ Read those instead of reconstructing history.
   skeleton, weapon handling and utility interactions (#21). GPLv3: study the design, never copy its code.
   What was learned from it: `docs/architecture/overview.md` (loader/infrastructure split, verified hooks) and
   `docs/tasks/per-eye-rendering.md` ("How Overlord does it": both eyes from one game frame).
+- **BF3 VR: The Great Destroyer** ([github.com/criminalvictory/Battlefield-3-VR-The-Great-Destroyer](https://github.com/criminalvictory/Battlefield-3-VR-The-Great-Destroyer)):
+  a BF3 campaign VR mod on the same Frostbite generation (OpenXR on the game's D3D11 device, free hands,
+  per-joint finger poses in `src/handpose.cpp`, hand reloads incl. bolt and charging handle in `src/reload.cpp`,
+  scopes, stereo via `SplitScreenTestViewCount`). **Before starting anything new, check whether it already
+  solved it** and note what was learned. No licence stated (2026-11-15): read for design, never copy its code.
 - **Reverse engineering.** The decrypted image comes from `pipe dump re\dumps\bf4-179547-mem.exe` (git-ignored,
   never committed). Quick and enough for single functions: `python -E tools\disasm.py <dump> <address> --full`
   (capstone + `.pdata`), `tools\callers.py`, plus the pipe's `watch <address> 4 <ms>` (hardware write watch with
@@ -90,6 +95,9 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   `setting set right_stick look` to pitch the view, then back.
 - The user's own mouse and keyboard reach BF4 when they use the PC: check `GetLastInputInfo` or ask before
   sending input; stop if shots or weapon swaps happen that you did not cause.
+- Esc skips a cutscene during its loading screen (owner, 2026-11-15); the resume checkpoint starts with the
+  Shanghai briefing cutscene, which at the headless ~3 fps otherwise takes minutes. The level no longer spawns
+  you with the SCAR and AK: they are in the weapon crate beside you (owner, 2026-11-15).
 - Checkpoint (campaign resume): the gadget stash (C4, M320) is the green crate stack at the start, opened
   with E when facing it; its menu takes `pipe pointer <u> <v> 0|1` clicks. Grenades: throw low along the
   corridor (`grenade throw 0 10 5` lands ~4 m away and wounds); a ceiling bounce has killed the player.

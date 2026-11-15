@@ -208,21 +208,6 @@ namespace
 }
 
 // Pose lab: the hand shaped by the panel's curls only, nothing of the animation; values clamped.
-static void test_lab_shape()
-{
-	using namespace bfvr::body::fingers;
-	const float curls[count]{ 0.2f, 0.6f, 1.4f, -0.3f, NAN };
-	const hand_shape shape = lab_shape(curls);
-	bool none_animated = true;
-	for (int f = 0; f < count; ++f)
-	{
-		none_animated = none_animated && shape.animated[f] == 0.0f;
-	}
-	expect(none_animated, "lab: nothing of the animation kept");
-	expect(shape.curl[thumb] == 0.2f && shape.curl[index] == 0.6f, "lab: the curls as set");
-	expect(shape.curl[middle] == 1.0f && shape.curl[ring] == 0.0f && shape.curl[pinky] == 0.0f, "lab: out of range or broken: clamped to 0..1");
-}
-
 int main()
 {
 	test_bend();
@@ -230,7 +215,6 @@ int main()
 	test_grasp();
 	test_mirror();
 	test_smoother();
-	test_lab_shape();
 	if (failures == 0)
 	{
 		std::printf("finger_pose: all tests passed\n");

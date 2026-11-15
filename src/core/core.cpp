@@ -8,6 +8,7 @@
 #include <string>
 
 #include "body/arm_pose.hpp"
+#include "body/pose_book.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
 #include "common/settings_store.hpp"
@@ -106,6 +107,65 @@ namespace bfvr::core
 			input::set_button_map(map);
 		}
 
+		// Pose editor (panel page Skeleton): the sliders are the edited grip's tweak. Choosing a grip (or
+		// loading the file) puts its saved tweak on the sliders; moving them changes it live. pose_file is
+		// a button: save or load once, then back to keep.
+		void apply_pose_editor(settings::registry& store)
+		{
+			static std::string shown; // the grip whose tweak the sliders hold
+			constexpr const char* finger_names[body::fingers::count] = { "thumb", "index", "middle", "ring", "pinky" };
+			const std::string edit = store.text("pose_edit", "off");
+			const body::poses::grip which = body::poses::grip_named(edit);
+			const std::string action = store.text("pose_file", "keep");
+			// The sliders first, so a save in the same pass keeps what they show (a load replaces them anyway).
+			if (edit == shown && which != body::poses::grip::none && action != "load")
+			{
+				body::poses::tweak value;
+				for (int finger = 0; finger < body::fingers::count; ++finger)
+				{
+					value.fingers[finger].bend = store.real(std::string("pose_") + finger_names[finger] + "_bend", 0.0f);
+					value.fingers[finger].side = store.real(std::string("pose_") + finger_names[finger] + "_side", 0.0f);
+				}
+				value.thumb_across = store.real("pose_thumb_across", 0.0f);
+				value.thumb_out = store.real("pose_thumb_out", 0.0f);
+				body::pose_book::set(which, value);
+			}
+			if (action == "save")
+			{
+				log::write("poses: %s", body::pose_book::save().c_str());
+				store.set("pose_file", "keep");
+			}
+			else if (action == "load")
+			{
+				const std::string result = body::pose_book::load();
+				log::write("poses: load %s", result.empty() ? "ok" : result.c_str());
+				store.set("pose_file", "keep");
+				shown.clear();
+			}
+			if (edit != shown)
+			{
+				shown = edit;
+				if (which != body::poses::grip::none)
+				{
+					const body::poses::tweak saved = body::pose_book::get(which);
+					char value[32];
+					for (int finger = 0; finger < body::fingers::count; ++finger)
+					{
+						std::snprintf(value, sizeof(value), "%g", saved.fingers[finger].bend);
+						store.set(std::string("pose_") + finger_names[finger] + "_bend", value);
+						std::snprintf(value, sizeof(value), "%g", saved.fingers[finger].side);
+						store.set(std::string("pose_") + finger_names[finger] + "_side", value);
+					}
+					std::snprintf(value, sizeof(value), "%g", saved.thumb_across);
+					store.set("pose_thumb_across", value);
+					std::snprintf(value, sizeof(value), "%g", saved.thumb_out);
+					store.set("pose_thumb_out", value);
+				}
+			}
+			const std::string show = store.text("pose_show", "off");
+			body::set_pose_preview(show == "left" ? 0 : show == "right" ? 1 : -1, which);
+		}
+
 		// Live settings (common/settings_store.hpp) pushed into the modules when they changed.
 		void apply_settings()
 		{
@@ -153,12 +213,7 @@ namespace bfvr::core
 			weapon::set_magazine_flight(store.boolean("magazine_flight", true));
 			weapon::set_grip_lock(store.boolean("grip_lock", true));
 			weapon::set_wall_stop(store.boolean("wall_stop", true));
-			{
-				const std::string lab = store.text("pose_lab", "off");
-				const float curls[5]{ store.real("pose_lab_thumb", 0.0f), store.real("pose_lab_index", 0.0f), store.real("pose_lab_middle", 0.0f),
-					store.real("pose_lab_ring", 0.0f), store.real("pose_lab_pinky", 0.0f) };
-				body::set_pose_lab(lab == "left" ? 0 : lab == "right" ? 1 : -1, curls);
-			}
+			apply_pose_editor(store);
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");

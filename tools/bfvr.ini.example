@@ -133,14 +133,26 @@ drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
-# Pose lab (development, panel page Skeleton): pose_lab = left or right gives that hand's fingers the curls
-# below (0 open .. 1 a fist) instead of what the hand is doing, live; pipe `poselab` prints them as code.
-pose_lab = off
-pose_lab_thumb = 0
-pose_lab_index = 0
-pose_lab_middle = 0
-pose_lab_ring = 0
-pose_lab_pinky = 0
+# Pose editor (development, panel page Skeleton): pose_edit picks a grip (relaxed, reach, fist, cup, palm,
+# magazine_ak, magazine_ar, hook, pinch, underhand); the pose_<finger>_bend / _side and pose_thumb_across / _out
+# sliders are that grip's finger tweaks in degrees, added live on top of what it draws wherever a hand shows it.
+# pose_show = left or right holds that hand in the grip while you tune it. pose_file = save writes all grips to
+# bfvr_poses.ini beside this file (read at start), load reads it back. Pipe `poses` prints the live tweaks.
+pose_edit = off
+pose_show = off
+pose_file = keep
+pose_thumb_bend = 0
+pose_thumb_side = 0
+pose_index_bend = 0
+pose_index_side = 0
+pose_middle_bend = 0
+pose_middle_side = 0
+pose_ring_bend = 0
+pose_ring_side = 0
+pose_pinky_bend = 0
+pose_pinky_side = 0
+pose_thumb_across = 0
+pose_thumb_out = 0
 # The drawn gun stops at walls (#63): a ray along the real gun's barrel (the game's own ray cast) pulls the
 # drawn gun back along its barrel so the muzzle stays 3 cm short of the wall; shots leave from the drawn
 # barrel, so from the near side. Never stuck: worked out from your real hand every frame, and past 30 cm it

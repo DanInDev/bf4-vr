@@ -18,6 +18,7 @@
 #include "body/finger_pose.hpp"
 #include "body/grasp_contact.hpp"
 #include "body/gun_recoil.hpp"
+#include "body/pose_book.hpp"
 #include "body/torso.hpp"
 #include "input/vr_controls.hpp"
 #include "common/config.hpp"
@@ -469,8 +470,11 @@ namespace bfvr::body
 		bone_memory slide_memory;
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
-		std::atomic<int> lab_hand{ -1 };            // pose lab: -1 off, 0 left, 1 right
-		std::atomic<float> lab_curls[fingers::count]{};
+		// Pose editor: a hand held in one grip (-1 off), and each hand's shown grip and eased tweak.
+		std::atomic<int> preview_hand{ -1 };
+		std::atomic<int> preview_grip{ static_cast<int>(poses::grip::none) };
+		poses::grip shown_grip[2]{ poses::grip::none, poses::grip::none };
+		poses::tweak shown_tweak[2];
 		std::atomic<int> off_task{ static_cast<int>(fingers::task::free) };
 		std::atomic<ULONGLONG> off_task_at{};       // a request older than task_max_age_ms counts as free
 		constexpr ULONGLONG task_max_age_ms = 250;
@@ -1834,6 +1838,105 @@ namespace bfvr::body
 			}
 		}
 
+		// Pose editor: the hand held in the previewed grip, as the real one would shape it (contact grips
+		// without their closing).
+		void preview_into(int hand, fingers::task& task, fingers::hand_shape& target)
+		{
+			const poses::grip which = static_cast<poses::grip>(preview_grip.load(std::memory_order_relaxed));
+			if (which == poses::grip::none)
+			{
+				return;
+			}
+			if (authored && authored_hand == hand)
+			{
+				authored = nullptr;
+			}
+			switch (which)
+			{
+			case poses::grip::relaxed: task = fingers::task::free; break;
+			case poses::grip::reach: task = fingers::task::reach; break;
+			case poses::grip::fist: task = fingers::task::magazine; break;
+			case poses::grip::cup:
+			case poses::grip::palm: task = fingers::task::cup; break;
+			case poses::grip::hook: task = fingers::task::handle; break;
+			case poses::grip::underhand: task = fingers::task::underhand; break;
+			case poses::grip::pinch:
+			case poses::grip::magazine_ak:
+			case poses::grip::magazine_ar:
+				task = which == poses::grip::pinch ? fingers::task::pinch : fingers::task::magazine;
+				if (rig.thumb_base[hand] > 0)
+				{
+					authored = which == poses::grip::pinch ? &pinch_grip : which == poses::grip::magazine_ak ? &magazine_grip_ak : &magazine_grip_ar;
+					authored_hand = hand;
+				}
+				break;
+			default: return;
+			}
+			target = fingers::shape_for(task, last_input[hand]);
+		}
+
+		// The grip a hand shows now, for its tweak: the game's captured grip while it is eased in, else the task's.
+		poses::grip grip_shown(int hand)
+		{
+			if (hand == preview_hand.load(std::memory_order_relaxed) && preview_grip.load(std::memory_order_relaxed) != static_cast<int>(poses::grip::none))
+			{
+				return static_cast<poses::grip>(preview_grip.load(std::memory_order_relaxed));
+			}
+			if (authored_shown && authored_hand_shown == hand && authored_weight >= 0.5f)
+			{
+				return authored_shown == &pinch_grip ? poses::grip::pinch : authored_shown == &magazine_grip_ak ? poses::grip::magazine_ak : poses::grip::magazine_ar;
+			}
+			switch (last_task[hand])
+			{
+			case fingers::task::free: return poses::grip::relaxed;
+			case fingers::task::reach: return poses::grip::reach;
+			case fingers::task::magazine: return poses::grip::fist;
+			case fingers::task::cup: return hand == 0 && palm_contact ? poses::grip::palm : poses::grip::cup;
+			case fingers::task::handle: return poses::grip::hook;
+			case fingers::task::pinch: return poses::grip::pinch;
+			case fingers::task::underhand: return poses::grip::underhand;
+			default: return poses::grip::none; // the gun's own grips and items: as the game animates them
+			}
+		}
+
+		// The pose editor's tweak for each hand's grip, on top of everything drawn so far, eased between grips.
+		void apply_tweaks(ik::bone_transform* local, float seconds)
+		{
+			const poses::table book = pose_book::current();
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				shown_grip[hand] = grip_shown(hand);
+				poses::ease(shown_tweak[hand], shown_grip[hand] == poses::grip::none ? poses::tweak{} : book[static_cast<int>(shown_grip[hand])], seconds);
+				const poses::tweak& value = shown_tweak[hand];
+				if (value.empty())
+				{
+					continue;
+				}
+				const bool right = hand == 1;
+				for (int finger = 0; finger < fingers::count; ++finger)
+				{
+					for (int joint = 0; joint < fingers::joints; ++joint)
+					{
+						const int bone = rig.finger_bones[hand][finger][joint];
+						if (bone <= 0)
+						{
+							continue;
+						}
+						local[bone].rotation = poses::tweaked(local[bone].rotation, static_cast<fingers::finger>(finger), joint, value, right);
+						finger_memory[hand][finger][joint].written = local[bone];
+						finger_memory[hand][finger][joint].has_written = true;
+					}
+				}
+				const int base = rig.thumb_base[hand];
+				if (base > 0 && (value.thumb_across != 0.0f || value.thumb_out != 0.0f))
+				{
+					local[base].rotation = poses::tweaked_thumb_base(local[base].rotation, value, right);
+					thumb_base_memory[hand].written = local[base];
+					thumb_base_memory[hand].has_written = true;
+				}
+			}
+		}
+
 		// Called with rig_lock held, after edit_arms: shapes the fingers (finger_poses), eased between tasks.
 		void edit_fingers(ik::bone_transform* local)
 		{
@@ -1925,15 +2028,9 @@ namespace bfvr::body
 				{
 					choose_rack_grip(local, hand, task, target);
 				}
-				if (hand == lab_hand.load(std::memory_order_relaxed))
+				if (hand == preview_hand.load(std::memory_order_relaxed))
 				{
-					// Pose lab: the panel's curls, nothing else (no authored grip either).
-					const float curls[fingers::count]{ lab_curls[0].load(), lab_curls[1].load(), lab_curls[2].load(), lab_curls[3].load(), lab_curls[4].load() };
-					target = fingers::lab_shape(curls);
-					if (authored && authored_hand == hand)
-					{
-						authored = nullptr;
-					}
+					preview_into(hand, task, target);
 				}
 				last_task[hand] = task;
 				const fingers::hand_shape& shape = finger_shapes[hand].update(target, seconds);
@@ -1957,6 +2054,7 @@ namespace bfvr::body
 				}
 			}
 			apply_authored(local, seconds);
+			apply_tweaks(local, seconds);
 			// The inside of the racking hand's index curl, for the next racking hold.
 			const int rack = racking_hand();
 			hook_hand = rack;
@@ -2916,21 +3014,27 @@ namespace bfvr::body
 		handle_request.pull = std::fmax(0.0f, pull);
 	}
 
-	void set_pose_lab(int hand, const float (&curls)[5])
+	void set_pose_preview(int hand, poses::grip which)
 	{
-		lab_hand = hand == 0 || hand == 1 ? hand : -1;
-		for (int finger = 0; finger < fingers::count; ++finger)
-		{
-			lab_curls[finger] = curls[finger];
-		}
+		preview_grip = static_cast<int>(which);
+		preview_hand = (hand == 0 || hand == 1) && which != poses::grip::none ? hand : -1;
 	}
 
-	std::string pose_lab_report()
+	std::string pose_grips_report()
 	{
-		char text[256];
-		std::snprintf(text, sizeof(text), "pose_lab hand=%s\nhand_shape{ { 0, 0, 0, 0, 0 }, { %.2ff, %.2ff, %.2ff, %.2ff, %.2ff } } // animated, curl: thumb, index, middle, ring, pinky",
-			lab_hand.load() == 0 ? "left" : lab_hand.load() == 1 ? "right" : "off", lab_curls[0].load(), lab_curls[1].load(), lab_curls[2].load(), lab_curls[3].load(),
-			lab_curls[4].load());
+		std::lock_guard lock(rig_lock);
+		const int hand = preview_hand.load();
+		std::string text = "preview=" + std::string(hand == 0 ? "left " : hand == 1 ? "right " : "off")
+			+ (hand >= 0 ? std::string(poses::name_of(static_cast<poses::grip>(preview_grip.load()))) : std::string());
+		for (int h = 0; h < 2; ++h)
+		{
+			const poses::tweak& t = shown_tweak[h];
+			char line[192];
+			std::snprintf(line, sizeof(line), "\n%s hand: grip=%s tweak bend thumb..pinky=%.0f %.0f %.0f %.0f %.0f across=%.0f out=%.0f", h == 0 ? "left" : "right",
+				std::string(poses::name_of(shown_grip[h])).c_str(), t.fingers[0].bend, t.fingers[1].bend, t.fingers[2].bend, t.fingers[3].bend, t.fingers[4].bend,
+				t.thumb_across, t.thumb_out);
+			text += line;
+		}
 		return text;
 	}
 
