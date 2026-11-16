@@ -612,6 +612,46 @@ namespace
 		const hand_result open = busy.update(busy_gun, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
 		expect(open.off_hand_busy && open.in_zone == hand_result::zone::handle && open.has_under_zone, "open hand in the underhand zone: the grip is the reload's (no handguard grab there)");
 
+		// #69 (owner 2026-11-15): per-gun zones. The AK-12's reach well under the gun; the SCAR-H's overhand zone
+		// sits higher, so a grab at the gun's bottom is not the handle.
+		rack_zone_shape ak12, scar, none;
+		expect(rack_zones_for("U_AK12", config, ak12) && rack_zones_for("U_SCAR-H", config, scar) && !rack_zones_for("U_M416", config, none), "per-gun zones for the AK-12 and SCAR-H only");
+		expect(scar.under_radii.y == config.rack_under_radii.y && scar.under_offset.y == config.rack_under_offset.y, "the SCAR-H keeps the default underhand zone (from hand_config, one source)");
+		// The AK-12's overhand reach (12 cm, default 9): 10.5 cm from the zone's centre, out on the handle's side.
+		const v3 ak_over_centre = knob + v3{ -0.03f, 0.03f, 0.0f };
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, config).over_distance > config.rack_over_reach, "default reach: 10.5 cm from the centre is outside");
+		hand_config with_ak = config;
+		with_ak.rack_over_offset = ak12.over_offset;
+		with_ak.rack_over_reach = ak12.over_reach;
+		with_ak.rack_under_offset = ak12.under_offset;
+		with_ak.rack_under_radii = ak12.under_radii;
+		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::under, "AK-12: 30 cm below the knob is still the underhand zone");
+		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, config).zone == rack_zone::none, "default zones: 30 cm below is out");
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::over, "AK-12: 10.5 cm from the overhand centre is in its 12 cm reach");
+		const v3 scar_knob{ 0.035f, 0.04f, 0.57f };
+		const float scar_side = rack_side(scar_knob, false);
+		hand_config with_scar = config;
+		with_scar.rack_over_offset = scar.over_offset;
+		with_scar.rack_over_reach = scar.over_reach;
+		const v3 low = scar_knob + v3{ 0.03f, -0.025f, 0.0f }; // a hand just under the knob's height (the gun's bottom grab)
+		// Overhand reach only (the underhand region exists only while the gun needs charging, decided in reload_hands).
+		expect(rack_zone_of(low, scar_knob, straight, scar_side, config).over_distance < config.rack_over_reach, "SCAR-H, default zones: a hand just under the knob was in the overhand zone");
+		expect(!(rack_zone_of(low, scar_knob, straight, scar_side, with_scar).over_distance < with_scar.rack_over_reach), "SCAR-H zones: not any more");
+		expect(rack_zone_of(scar_knob + v3{ 0.03f, 0.06f, 0.0f }, scar_knob, straight, scar_side, with_scar).zone == rack_zone::over, "SCAR-H: above and beside the knob is overhand");
+
+		// Through reload_hands: frame.has_rack_shape selects the gun's zones.
+		reload big(ak);
+		big.load(0, 60);
+		big.take_from_chest();
+		big.insert();
+		big.insert();
+		reload_hands big_hands(flat_hold());
+		hand_frame shaped = palm_at(handle + v3{ 0.04f, -0.30f, 0.0f }, false);
+		shaped.has_rack_shape = true;
+		shaped.rack_shape = ak12;
+		const hand_result deep = big_hands.update(big, shaped);
+		expect(deep.in_zone == hand_result::zone::handle && deep.under_radii.y == ak12.under_radii.y, "frame zones: the AK-12's reach 30 cm under the knob");
+
 		// Loaded and chambered, the space under the handle is the handguard's again (SCAR-H, monitor 2026-11-15);
 		// the overhand zone still racks.
 		reload loaded(ak);

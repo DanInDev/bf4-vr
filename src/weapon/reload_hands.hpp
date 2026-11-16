@@ -10,6 +10,16 @@
 // Engine-free, all positions in one space (OpenXR LOCAL, metres). Tested by tests/reload_test.cpp.
 namespace bfvr::weapon
 {
+	// The charging handle's two grab zones, per gun where they differ from hand_config's rack_* fields (#69;
+	// weapon/profiles rack_zones_for starts from those, so the defaults live in one place).
+	struct rack_zone_shape
+	{
+		v3 over_offset;
+		float over_reach{};
+		v3 under_offset;
+		v3 under_radii;
+	};
+
 	struct hand_frame
 	{
 		float seconds{};      // since the last update
@@ -43,6 +53,9 @@ namespace bfvr::weapon
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
 		v3 handle_point;
+		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
+		bool has_rack_shape{};
+		rack_zone_shape rack_shape;
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
 		// Empty hands (#38): the off hand holds the gun by the handguard and the free gun hand is passed as
