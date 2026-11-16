@@ -32,6 +32,9 @@ namespace bfvr::body
 	// The knife is in the gun hand: its animated hand is not a gun grip, so the knife itself is turned
 	// to the controller (blade along the aim, edge down) and the hand holds it as animated.
 	void set_knife_in_hand(bool knife);
+	// #68: the hand grenade or the C4 detonator is drawn in the gun hand; with gun_hand_pose neutral it is held by
+	// the controller grip. Other gadgets (launchers) keep their own hold.
+	void set_gun_hand_item(bool item);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).
 	void set_knife_pitch(float degrees);
 	// knife_yaw / knife_roll: further turns of the held knife about the controller's up and its ray, degrees.

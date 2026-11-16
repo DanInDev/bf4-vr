@@ -17,6 +17,7 @@
 #include "body/arm_ik.hpp"
 #include "body/finger_pose.hpp"
 #include "body/grasp_contact.hpp"
+#include "body/hand_rules.hpp"
 #include "body/gun_recoil.hpp"
 #include "body/pose_book.hpp"
 #include "body/scene_blend.hpp"
@@ -408,6 +409,7 @@ namespace bfvr::body
 		// Live setting gun_hand_pose (#68): the gun hand without a gun (the off hand carries it) or with a gadget
 		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
 		std::atomic<bool> gun_hand_neutral{ true };
+		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
 		bool cupped{};
@@ -1116,8 +1118,9 @@ namespace bfvr::body
 				// animated grip, turned by the controller), and a grenade or the C4 detonator in it sat oddly. Like the
 				// free off hand, it now holds as you hold the controller: the gun grip on the aim ray. Items keep their
 				// own place in the hand (the knife has its own frame below).
-				const bool item_in_gun_hand = gun_hand_carries && !gun_in_hand.load(std::memory_order_relaxed) && !knife_in_hand.load(std::memory_order_relaxed);
-				if (hand == 1 && gun_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim && (carrier == 0 || item_in_gun_hand))
+				// Only the hand grenade and the C4 detonator (set_gun_hand_item): a launcher in a gadget slot (M320) is
+				// gun-like and already follows the aim with its own hold (re/notes/weapon.md "Gadgets from the stash").
+				if (hand_rules::gun_hand_controller_grip(hand, carrier, gun_hand_carries, hand_item_in_gun_hand.load(std::memory_order_relaxed), gun_hand_neutral.load(std::memory_order_relaxed), has_gun_hand_in_aim))
 				{
 					goal.hand = frame * ik::normalize(aim) * gun_hand_in_aim;
 				}
@@ -1133,8 +1136,8 @@ namespace bfvr::body
 				{
 					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
 					// its +z barrel along -z), instead of the hip animation (its own angle, sway and bob)
-					// turned by the controller. The hand keeps the gun's authored grip. Guns only: a
-					// grenade or the C4 detonator keeps its own hold.
+					// turned by the controller. The hand keeps the gun's authored grip. Guns only: a grenade or the
+					// C4 detonator is held by the controller grip above (gun_hand_pose), the knife below.
 					goal.hand = frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
 				if (gun_hand_carries && knife_in_hand.load(std::memory_order_relaxed))
@@ -2783,6 +2786,11 @@ namespace bfvr::body
 	void set_knife_in_hand(bool knife)
 	{
 		knife_in_hand = knife;
+	}
+
+	void set_gun_hand_item(bool item)
+	{
+		hand_item_in_gun_hand = item;
 	}
 
 	void set_knife_pitch(float degrees)

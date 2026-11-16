@@ -49,7 +49,7 @@ namespace bfvr::settings
 			{ "torso_follow", "Body", "Body", "Body turns with you", "Follows your real body, not only the stick", "" },
 			{ "hide_legs", "Body", "Body", "Hide the legs", "They sit oddly under a tracked head", "" },
 			{ "soldier_radius", "Body", "Body", "Room to the walls", "Metres; 0 = the game's 0.35. From the next spawn", "" },
-			{ "gun_hand_pose", "Body", "Hands", "Gun hand without a gun", "Grenades, gadgets, the gun in the other hand", "neutral=As you hold the controller|animated=Animated (research)", true },
+			{ "gun_hand_pose", "Body", "Hands", "Gun hand without a gun", "Grenade, C4 detonator, the gun in the other hand", "neutral=As you hold the controller|animated=Animated (research)", true },
 			{ "off_hand_pose", "Body", "Hands", "Free hand pose", "Animated turns the hand with the game's rifle pose", "neutral=As you hold the controller|animated=Animated (research)", true },
 			{ "magazine_grip", "Body", "Hands", "Magazine grip", "Fist, or standing on the palm", "auto=Auto|wrap=Fist|cup=Palm" },
 			{ "rack_grip", "Body", "Hands", "Charging handle grip", "Fist: over or under, by where you grab", "fist=Fist|auto=Pinch or hook|pinch=Pinch|hook=Hook" },

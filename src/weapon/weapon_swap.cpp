@@ -586,8 +586,10 @@ namespace bfvr::weapon
 		// second after it came out (the gun is no longer drawn by then).
 		knife_out_since = knife_out ? (knife_out_since ? knife_out_since : now) : 0;
 		body::set_knife_weapon(knife_out, knife_out && now - knife_out_since >= 500);
-		// Slots 0 and 1 hold the primary and secondary guns; gadgets, grenades and the knife keep their own hold.
+		// Slots 0 and 1 hold the primary and secondary guns. The hand grenade (slot 6) and the C4 detonator are held by
+		// the controller grip (#68, gun_hand_pose); other gadgets and the knife keep their own hold.
 		body::set_gun_in_hand(held.valid && held.current >= 0 && held.current <= 1);
+		body::set_gun_hand_item(held.valid && (held.current == 6 || std::strstr(held.name, "_C4") != nullptr));
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
 		advance_grenade_capture(held, now);
 		capture_active = grenade_capture != capture_stage::idle;
