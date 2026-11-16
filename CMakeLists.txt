@@ -364,6 +364,9 @@ if(BFVR_BUILD_TESTS)
 	# The pose editor's tweaks and bfvr_poses.ini (src/body/pose_tweaks); exits non-zero on failure.
 	add_executable(bfvr_pose_tweaks_test tests/pose_tweaks_test.cpp src/body/pose_tweaks.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_pose_tweaks_test PRIVATE bfvr_common)
+	# #68: which hand pose rule applies (src/body/hand_rules.hpp); exits non-zero on failure.
+	add_executable(bfvr_hand_rules_test tests/hand_rules_test.cpp)
+	target_link_libraries(bfvr_hand_rules_test PRIVATE bfvr_common)
 	# The cutscene blend (src/body/scene_blend); exits non-zero on failure.
 	add_executable(bfvr_scene_blend_test tests/scene_blend_test.cpp src/body/scene_blend.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_scene_blend_test PRIVATE bfvr_common)
@@ -435,6 +438,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME pose_tweaks COMMAND bfvr_pose_tweaks_test)
+	add_test(NAME hand_rules COMMAND bfvr_hand_rules_test)
 	add_test(NAME scene_blend COMMAND bfvr_scene_blend_test)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 	add_test(NAME torso COMMAND bfvr_torso_test)

@@ -244,6 +244,7 @@ namespace bfvr::core
 			body::set_body_shoulders(true);
 			body::set_finger_poses(true);
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
+			body::set_gun_hand_neutral(store.text("gun_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
 			body::set_rack_grip(store.text("rack_grip", "fist"));
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
