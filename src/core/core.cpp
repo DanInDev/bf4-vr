@@ -39,6 +39,7 @@
 #include "weapon/grab_debug.hpp"
 #include "weapon/hip_accuracy.hpp"
 #include "weapon/unlock_all.hpp"
+#include "weapon/own_crate.hpp"
 #include "weapon/wall_stop_game.hpp"
 #include "weapon/zoom_mesh.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -269,6 +270,7 @@ namespace bfvr::core
 			weapon::set_slot_models_ahead(store.real("slot_models_ahead", 0.08f));
 			body::set_holster_knife_turn(store.real("knife_holster_turn", 90.0f), 0.0f, 0.0f);
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
+			weapon::own_crate_settings(store.text("crate_primary", "keep"), store.text("crate_secondary", "keep"));
 			weapon::set_action_aim(store.boolean("action_aim", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });

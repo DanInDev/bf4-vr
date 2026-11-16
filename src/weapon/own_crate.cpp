@@ -3,13 +3,16 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 #include "common/log.hpp"
+#include "weapon/crate_guns.hpp"
 #include "weapon/server_soldier.hpp"
 
 namespace bfvr::weapon
@@ -116,9 +119,12 @@ namespace bfvr::weapon
 			std::uintptr_t data_template{};
 			bool done{};
 			std::string result;
+			bool owned{}; // queued by the panel: the game thread deletes it
 		};
 		std::mutex lock;
 		std::vector<give_call*> queue;
+		std::atomic<int> pending{};
+		crate::change_watch primary_watch, secondary_watch;
 
 		bool verified()
 		{
@@ -210,6 +216,73 @@ namespace bfvr::weapon
 		}
 	}
 
+	namespace
+	{
+		// The heap scans (any thread): the gun's asset and a CustomizeSoldierData to copy. Empty when ready.
+		std::string prepare(give_call& call, const std::string& id)
+		{
+			if (!verified())
+			{
+				return "error: ServerSoldierEntity slot 100 does not match build 179547";
+			}
+			call.asset = find_unlock_asset(id);
+			if (!call.asset)
+			{
+				return "error: no SoldierWeaponUnlockAsset with id " + id;
+			}
+			// A level asset (header 0xB1000003/4), not the class's prototype (0x01000001, 2026-11-16): the copy is
+			// reference counted at +0x08 and the prototype's count let a release free our copy mid-call.
+			scan_heap(customize_data_vtable, [&](std::uintptr_t data) {
+				std::uint32_t header{};
+				if (read(data + 8, header) && (header >> 24) == 0xB1)
+				{
+					call.data_template = data;
+					return false;
+				}
+				return true;
+			});
+			return call.data_template ? std::string() : "error: no CustomizeSoldierData in memory to copy";
+		}
+
+		void give_later(std::string id, std::uint32_t slot)
+		{
+			if (pending.load() > 0 || !player_server_soldier())
+			{
+				log::write("own crate: %s for slot %u skipped (%s)", id.c_str(), slot, pending.load() > 0 ? "a give is still running" : "no player soldier");
+				return;
+			}
+			++pending;
+			std::thread([id, slot] {
+				auto* call = new give_call;
+				call->slot = slot;
+				call->owned = true;
+				const std::string error = prepare(*call, id);
+				if (!error.empty())
+				{
+					log::write("own crate: %s for slot %u: %s", id.c_str(), slot, error.c_str());
+					delete call;
+					--pending;
+					return;
+				}
+				log::write("own crate: %s for slot %u queued", id.c_str(), slot);
+				const std::lock_guard guard(lock);
+				queue.push_back(call);
+			}).detach();
+		}
+	}
+
+	void own_crate_settings(std::string_view primary, std::string_view secondary)
+	{
+		if (primary_watch.update(primary))
+		{
+			give_later(std::string(primary), 0);
+		}
+		if (secondary_watch.update(secondary))
+		{
+			give_later(std::string(secondary), 1);
+		}
+	}
+
 	std::string give_gun_pipe_command(const std::string& argument)
 	{
 		char id[64]{};
@@ -218,31 +291,11 @@ namespace bfvr::weapon
 		{
 			return "error: usage: givegun <debug id, e.g. U_M416> [slot 0..9]";
 		}
-		if (!verified())
-		{
-			return "error: ServerSoldierEntity slot 100 does not match build 179547";
-		}
 		give_call call;
 		call.slot = slot;
-		call.asset = find_unlock_asset(id);
-		if (!call.asset)
+		if (const std::string error = prepare(call, id); !error.empty())
 		{
-			return std::string("error: no SoldierWeaponUnlockAsset with id ") + id;
-		}
-		// A level asset (header 0xB1000003/4), not the class's prototype (0x01000001, 2026-11-16): the copy is
-		// reference counted at +0x08 and the prototype's count let a release free our copy mid-call.
-		scan_heap(customize_data_vtable, [&](std::uintptr_t data) {
-			std::uint32_t header{};
-			if (read(data + 8, header) && (header >> 24) == 0xB1)
-			{
-				call.data_template = data;
-				return false;
-			}
-			return true;
-		});
-		if (!call.data_template)
-		{
-			return "error: no CustomizeSoldierData in memory to copy";
+			return error;
 		}
 		{
 			const std::lock_guard guard(lock);
@@ -271,10 +324,16 @@ namespace bfvr::weapon
 		{
 			call->result = give(*call);
 			call->done = true;
+			if (call->owned)
+			{
+				delete call;
+				--pending;
+			}
 		}
 		queue.clear();
 	}
 #else
+	void own_crate_settings(std::string_view, std::string_view) {}
 	std::string give_gun_pipe_command(const std::string&) { return "error: x64 only"; }
 	void own_crate_on_game_thread() {}
 #endif

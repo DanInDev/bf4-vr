@@ -1,6 +1,7 @@
 #include "common/setting_catalog.hpp"
 
 #include "input/button_map.hpp"
+#include "weapon/crate_guns.hpp"
 
 namespace bfvr::settings
 {
@@ -71,6 +72,8 @@ namespace bfvr::settings
 			{ "sight_reticle", "Weapon", "Aiming", "Reticle stays on the sight", "Not on the centre of your view", "" },
 			{ "sight_dot_eyes", "Weapon", "Aiming", "Red dot shown to", "The sighting eye, or both", "" },
 			{ "sight_dot_test", "Weapon", "Aiming", "Red dot test", "Always on, both eyes", "" },
+			{ "crate_primary", "Weapon", "Weapons", "Own crate: primary", "Pick a gun: it is in your hand at once", weapon::crate::choices },
+			{ "crate_secondary", "Weapon", "Weapons", "Own crate: secondary", "Pick a gun for the second slot", weapon::crate::choices },
 			{ "unlock_all_weapons", "Weapon", "Weapons", "All crate weapons", "Every gun in the weapon crate can be picked", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
