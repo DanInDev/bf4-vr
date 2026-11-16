@@ -237,6 +237,7 @@ namespace bfvr::weapon
 			case reload_event::racked_empty: return "racked_empty";
 			case reload_event::round_ejected: return "round_ejected";
 			case reload_event::magazine_palmed: return "magazine_palmed";
+			case reload_event::racked_locked: return "racked_locked";
 			}
 			return "?";
 		}
@@ -259,7 +260,8 @@ namespace bfvr::weapon
 			case reload_event::magazine_palmed: play(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
-			case reload_event::racked_empty: play(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
+			case reload_event::racked_empty:
+			case reload_event::racked_locked: play(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
 			default: break;
 			}
 		}
@@ -281,6 +283,7 @@ namespace bfvr::weapon
 			case reload_event::magazine_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
+			case reload_event::racked_locked:
 			case reload_event::round_ejected:
 				input::haptic(reloading_hand, input::pulses::seat);
 				input::haptic(1 - reloading_hand, input::pulses::grab);

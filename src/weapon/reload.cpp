@@ -193,6 +193,11 @@ namespace bfvr::weapon
 		state_.chamber = false;
 		state_.bolt_locked = false;
 		const reload_event fed = feed();
-		return ejected ? reload_event::round_ejected : fed;
+		if (ejected)
+		{
+			return reload_event::round_ejected;
+		}
+		// #78: the hand pulled the handle; the bolt caught open is a rack, not a shot, and must sound like one.
+		return fed == reload_event::bolt_locked ? reload_event::racked_locked : fed;
 	}
 }

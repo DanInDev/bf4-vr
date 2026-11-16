@@ -58,6 +58,7 @@ namespace bfvr::weapon
 		racked_empty,     // rack without a round to feed
 		round_ejected,    // rack with a round in the chamber: that round is lost (state() shows what was fed)
 		magazine_palmed,  // AR palming: the seated magazine released into the hand that holds the new one
+		racked_locked,    // AR: a rack on an empty magazine, the follower holds the bolt open (#78: sounds like the bolt)
 	};
 
 	struct gun_state

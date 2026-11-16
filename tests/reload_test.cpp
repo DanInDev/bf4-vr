@@ -125,6 +125,14 @@ namespace
 		again.take_from_chest();
 		again.insert();
 		expect(again.rack() == reload_event::chambered && again.state().chamber && again.state().magazine_rounds == 29, "manual rack chambers");
+		// #78 (owner, headset): racking an AR whose magazine is empty made no sound. The rack locks the bolt open.
+		reload empty(ar);
+		empty.load(1, 30);
+		expect(empty.fire() == reload_event::bolt_locked, "the last round locks the bolt (no rack sound for a shot)");
+		const reload_event racked = empty.rack();
+		expect(racked == reload_event::racked_locked && empty.state().bolt_locked && !empty.state().chamber, "#78: a rack on the empty magazine is its own event");
+		sound_cue rack_cues[2]{};
+		expect(cues_for(racked, rack_cues) == 1 && rack_cues[0].event == reload_sound::bolt, "#78: and it sounds like the bolt");
 	}
 
 	void test_ak()
@@ -282,6 +290,7 @@ namespace
 				// A shot (bolt_locked from the trigger is one too) or a racked-out round costs one.
 				const bool spends = result == reload_event::shot || result == reload_event::round_ejected
 					|| (action == 0 && result == reload_event::bolt_locked);
+				// (racked_locked: a rack that found the magazine empty spends nothing)
 				const int lost = before - owned(gun);
 				if (lost != (spends ? 1 : 0))
 				{
