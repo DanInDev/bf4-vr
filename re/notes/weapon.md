@@ -941,6 +941,17 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   drawn every frame, not only while firing: none is the flash. Still open: `Draw`, `DrawInstanced` and the indirect
   draws (`DrawIndexedInstancedIndirect`, GPU particles), not hooked by the mod yet. The flash now follows the drawn torso
   at least (`aim_follows_torso`, main 4f3e8da): in front of the body, not on the gun.
+- **Found (same day):** the flash particles are BF3's layout after all: indexed draws of 48-byte quads (4 vertices each,
+  position first) from a 3 MB dynamic buffer, blended. The first try missed them because it read only each batch's first
+  16 quads: **BF4's indices are absolute vertex numbers** (`2948 2951 2950 2948 2949 2951`, then `2568 ...`), so one
+  batch's quads lie all over the buffer. The plain, non-indexed and indirect draws (now hooked for the survey) hold none:
+  no indirect draws and no buffer-less draws at all while firing. **The move now copies the whole particle buffer**, moves
+  every quad near the game's barrel line (TGD's shader) and draws with the game's own start, base and offset.
+  `flash check` (whole buffer, gun 45 cm right and turned 40 deg, muzzles 0.76 m apart): before, a quad 0.05 m from the
+  game's muzzle; after, the nearest quad 0.05 m from the drawn muzzle and none closer than 0.43 m to the game's. On by
+  default (`flash_at_gun`). Pictures at ~8 fps with the recoil climbing are not conclusive; the headset judges (GUN-30).
+  Cost: a 3 MB GPU copy and a 16k-thread dispatch per particle draw for 3 s after a shot. Like TGD's: dirt a shot throws
+  up within ~3 m in front of the barrel moves with the gun too.
 - **At 5 fps with recoil moving the view** the pictures cannot say more. Next: find the code that places the 1p fire
   effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
   the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn

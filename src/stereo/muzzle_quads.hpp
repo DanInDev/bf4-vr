@@ -20,6 +20,9 @@ namespace bfvr::stereo::muzzle_quads
 	// From eye_pass's DrawIndexedInstanced hook (research): during "flash survey", instanced draws are counted by kind
 	// (index count, the instance stream's stride) with how near their first instances' positions come to the muzzle.
 	void note_instanced(ID3D11DeviceContext* context, UINT count, UINT instances, UINT first_instance);
+	// The same for Draw / DrawInstanced (positions read from vertex stream 0) and the indirect draws (counted only).
+	void note_plain(ID3D11DeviceContext* context, UINT vertices, UINT instances, UINT start_vertex, UINT first_instance);
+	void note_indirect(ID3D11DeviceContext* context, bool indexed);
 
 	// Live setting flash_at_gun.
 	void set_on(bool on);

@@ -910,7 +910,27 @@ namespace bfvr::stereo
 			{
 				return;
 			}
+			muzzle_quads::note_plain(c, vertices, 1, start, 0);
 			original_draw(c, vertices, start);
+		}
+
+		// #65 research: the indirect draws (GPU-driven particles?), counted by the flash survey.
+		constexpr int draw_indexed_instanced_indirect_slot = 39;
+		constexpr int draw_instanced_indirect_slot = 40;
+		using draw_indirect_t = void(STDMETHODCALLTYPE*)(ID3D11DeviceContext*, ID3D11Buffer*, UINT);
+		draw_indirect_t original_draw_indexed_instanced_indirect{};
+		draw_indirect_t original_draw_instanced_indirect{};
+
+		void STDMETHODCALLTYPE draw_indexed_instanced_indirect_detour(ID3D11DeviceContext* c, ID3D11Buffer* args, UINT offset)
+		{
+			muzzle_quads::note_indirect(c, true);
+			original_draw_indexed_instanced_indirect(c, args, offset);
+		}
+
+		void STDMETHODCALLTYPE draw_instanced_indirect_detour(ID3D11DeviceContext* c, ID3D11Buffer* args, UINT offset)
+		{
+			muzzle_quads::note_indirect(c, false);
+			original_draw_instanced_indirect(c, args, offset);
 		}
 
 		void STDMETHODCALLTYPE draw_instanced_detour(ID3D11DeviceContext* c, UINT vertices, UINT instances, UINT start, UINT first)
@@ -919,6 +939,7 @@ namespace bfvr::stereo
 			{
 				return;
 			}
+			muzzle_quads::note_plain(c, vertices, instances, start, first);
 			original_draw_instanced(c, vertices, instances, start, first);
 		}
 
@@ -2073,6 +2094,8 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 				{ draw_indexed_instanced_slot, &draw_indexed_instanced_detour, reinterpret_cast<void**>(&original_draw_indexed_instanced) },
 				{ draw_slot, &draw_detour, reinterpret_cast<void**>(&original_draw) },
 				{ draw_instanced_slot, &draw_instanced_detour, reinterpret_cast<void**>(&original_draw_instanced) },
+				{ draw_indexed_instanced_indirect_slot, &draw_indexed_instanced_indirect_detour, reinterpret_cast<void**>(&original_draw_indexed_instanced_indirect) },
+				{ draw_instanced_indirect_slot, &draw_instanced_indirect_detour, reinterpret_cast<void**>(&original_draw_instanced_indirect) },
 			};
 			for (const auto& entry : table)
 			{
