@@ -332,7 +332,8 @@ namespace bfvr::body
 		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
 		// muzzle flash) and as drawn, from the same conversion.
 		ik::bone_transform muzzle_game{};
-		ik::bone_transform muzzle_drawn{};
+		ik::bone_transform root_game{};
+		ik::bone_transform root_drawn{};
 		ULONGLONG muzzle_at{};
 		// Extra meshes (#36): the second magazine (stereo/extra_mesh), and the held magazine's pose before
 		// the palming tilt (where a caught one sits).
@@ -2909,17 +2910,18 @@ namespace bfvr::body
 						{
 							std::memcpy(scene_animated, local, sizeof(ik::bone_transform) * static_cast<std::size_t>(count));
 						}
-						const bool has_aim = rig.aim >= 0;
+						const bool has_aim = rig.aim >= 0 && rig.weapon >= 0;
 						if (has_aim)
 						{
 							muzzle_game = ik::model_of(local, rig.parents, rig.aim);
+							root_game = ik::model_of(local, rig.parents, rig.weapon);
 						}
 						edit_arms(local);
 						edit_weapon(local);
 						edit_launcher(local);
 						if (has_aim)
 						{
-							muzzle_drawn = ik::model_of(local, rig.parents, rig.aim);
+							root_drawn = ik::model_of(local, rig.parents, rig.weapon);
 							muzzle_at = GetTickCount64();
 						}
 						edit_fingers(local);
@@ -3140,7 +3142,7 @@ namespace bfvr::body
 		return points;
 	}
 
-	bool muzzle_frames(muzzle_frame& game, muzzle_frame& drawn)
+	bool muzzle_frames(muzzle_frame& aim, muzzle_frame& game, muzzle_frame& drawn)
 	{
 		const std::lock_guard guard(rig_lock);
 		if (!muzzle_at || GetTickCount64() - muzzle_at > 250)
@@ -3157,8 +3159,9 @@ namespace bfvr::body
 			to.rotation[2] = from.rotation.z;
 			to.rotation[3] = from.rotation.w;
 		};
-		copy(muzzle_game, game);
-		copy(muzzle_drawn, drawn);
+		copy(muzzle_game, aim);
+		copy(root_game, game);
+		copy(root_drawn, drawn);
 		return true;
 	}
 

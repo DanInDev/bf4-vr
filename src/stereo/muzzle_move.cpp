@@ -43,10 +43,10 @@ namespace bfvr::stereo::muzzle_move
 	}
 
 	bool make(const float (&game_position)[3], const float (&game_rotation)[4], const float (&drawn_position)[3], const float (&drawn_rotation)[4],
-		float flash_along, move& out)
+		const float (&aim_position)[3], const float (&aim_rotation)[4], float flash_along, move& out)
 	{
-		float g[4], d[4];
-		if (!unit(game_rotation, g) || !unit(drawn_rotation, d))
+		float g[4], d[4], a[4];
+		if (!unit(game_rotation, g) || !unit(drawn_rotation, d) || !unit(aim_rotation, a))
 		{
 			return false;
 		}
@@ -69,10 +69,12 @@ namespace bfvr::stereo::muzzle_move
 			out.rows[row * 4 + 2] = r[row * 3 + 2];
 			out.rows[row * 4 + 3] = drawn_position[row] - (r[row * 3 + 0] * game_position[0] + r[row * 3 + 1] * game_position[1] + r[row * 3 + 2] * game_position[2]);
 		}
+		float ma[9];
+		matrix(a, ma);
 		for (int row = 0; row < 3; ++row)
 		{
-			out.axis[row] = mg[row * 3 + 2];
-			out.muzzle[row] = game_position[row] + mg[row * 3 + 1] * 0.019f + mg[row * 3 + 2] * flash_along;
+			out.axis[row] = ma[row * 3 + 2];
+			out.muzzle[row] = aim_position[row] + ma[row * 3 + 1] * 0.019f + ma[row * 3 + 2] * flash_along;
 		}
 		return true;
 	}

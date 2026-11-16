@@ -36,7 +36,7 @@ int main()
 	const float half = std::sqrt(0.5f);
 	const float drawn_rotation[4] = { 0, half, 0, half }; // +90 deg about y: +z goes to +x
 	move m;
-	expect(make(game_position, game_rotation, drawn_position, drawn_rotation, 0.9f, m), "a move from two frames");
+	expect(make(game_position, game_rotation, drawn_position, drawn_rotation, game_position, game_rotation, 0.9f, m), "a move from two frames");
 	expect(near(m.muzzle[0], 10.0f) && near(m.muzzle[1], 1.419f) && near(m.muzzle[2], 5.9f), "the game's muzzle 0.9 m along +z, 1.9 cm up");
 	expect(near(m.axis[2], 1.0f), "the game's barrel axis is +z");
 	float out[3];
@@ -46,9 +46,17 @@ int main()
 	apply(m, ahead, out);
 	expect(near(out[0], 11.9f) && near(out[1], 1.2f) && near(out[2], 5.0f), "a point along the game's barrel lands along the drawn one");
 
+	// Wep_Aim away from the gun's body: the muzzle comes from Wep_Aim, the move from the body.
+	const float aim_position[3] = { 10.1f, 1.5f, 5.2f };
+	move offset;
+	expect(make(game_position, game_rotation, drawn_position, drawn_rotation, aim_position, game_rotation, 0.9f, offset), "a move with Wep_Aim off the body");
+	expect(near(offset.muzzle[0], 10.1f) && near(offset.muzzle[1], 1.519f) && near(offset.muzzle[2], 6.1f), "the muzzle along Wep_Aim");
+	apply(offset, offset.muzzle, out);
+	expect(near(out[0], 11.5f) && near(out[1], 1.319f) && near(out[2], 4.9f), "the muzzle moved as the body is (0.1 left of it turns to 0.1 back)");
+
 	// The identity move.
 	move same;
-	expect(make(game_position, game_rotation, game_position, game_rotation, 0.9f, same), "same frames");
+	expect(make(game_position, game_rotation, game_position, game_rotation, game_position, game_rotation, 0.9f, same), "same frames");
 	apply(same, ahead, out);
 	expect(near(out[0], ahead[0]) && near(out[1], ahead[1]) && near(out[2], ahead[2]), "the same frame moves nothing");
 
@@ -70,7 +78,7 @@ int main()
 	// Bad frames.
 	const float zero[4] = { 0, 0, 0, 0 };
 	move bad;
-	expect(!make(game_position, zero, drawn_position, drawn_rotation, 0.9f, bad), "a zero rotation is refused");
+	expect(!make(game_position, zero, drawn_position, drawn_rotation, game_position, game_rotation, 0.9f, bad), "a zero rotation is refused");
 
 	if (failures == 0)
 	{

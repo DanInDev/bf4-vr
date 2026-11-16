@@ -23,8 +23,8 @@ namespace bfvr::stereo::muzzle_quads
 {
 	namespace
 	{
-		std::atomic<bool> enabled{ true };
-		std::atomic<UINT> quad_stride{ 48 };       // BF3's particle vertex (The Great Destroyer); BF4's from the survey
+		std::atomic<bool> enabled{ false }; // off until BF4's flash particles are found (the 176-byte batch is box geometry)
+		std::atomic<UINT> quad_stride{ 176 };      // BF4's particle vertex (survey 2026-11-16; BF3's was 48)
 		constexpr UINT quads_most = 4096;
 		constexpr UINT ring_bytes = 1024 * 1024;   // the particles' dynamic vertex buffer is at least this big
 		constexpr ULONGLONG after_shot_ms = 3000;  // smoke still rising
@@ -35,6 +35,14 @@ namespace bfvr::stereo::muzzle_quads
 		std::atomic<ULONGLONG> trigger_at{};
 		std::atomic<ULONGLONG> opened_at{};
 		std::atomic<std::uint64_t> moved_batches{}, not_moved{}, candidates{};
+		// pipe "flash check <batches>": how near the moved quads come to the drawn muzzle.
+		std::atomic<int> check_left{};
+		std::atomic<bool> force_test{};
+		std::mutex check_lock;
+		float check_before{ 1e9f }, check_after{ 1e9f }, check_after_game{ 1e9f }, check_shift{}, check_weight{}, check_moved{};
+		float check_vertices[4][3]{};
+		int check_indices[12]{ -1 };
+		int check_batches{};
 
 		ULONGLONG firing_ago()
 		{
@@ -67,8 +75,9 @@ namespace bfvr::stereo::muzzle_quads
 			const std::lock_guard guard(move_lock);
 			if (ago < live_ms || !have_move)
 			{
-				body::muzzle_frame game, drawn;
-				have_move = body::muzzle_frames(game, drawn) && muzzle_move::make(game.position, game.rotation, drawn.position, drawn.rotation, flash_along, current_move);
+				body::muzzle_frame aim, game, drawn;
+				have_move = body::muzzle_frames(aim, game, drawn)
+					&& muzzle_move::make(game.position, game.rotation, drawn.position, drawn.rotation, aim.position, aim.rotation, flash_along, current_move);
 				if (!have_move)
 				{
 					return false;
@@ -369,6 +378,18 @@ RWByteAddressBuffer vertices : register(u0);
 			cb[21] = across + grow(0.15f, whole.across_none - whole.across_full);
 			cb[22] = along;
 			cb[23] = along + grow(0.5f, whole.along_none - whole.along_full);
+			if (force_test.load(std::memory_order_relaxed))
+			{
+				// Research (pipe "flash force"): every quad lifted 1 m, whole.
+				const float lift[12] = { 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0 };
+				std::memcpy(cb, lift, sizeof(lift));
+				cb[15] = 100.0f;
+				cb[19] = 1.0f;
+				cb[20] = 100.0f;
+				cb[21] = 200.0f;
+				cb[22] = 100.0f;
+				cb[23] = 200.0f;
+			}
 			auto* counts = reinterpret_cast<UINT*>(cb + 24);
 			counts[0] = quads;
 			counts[1] = stride_wanted;
@@ -408,6 +429,95 @@ RWByteAddressBuffer vertices : register(u0);
 				{
 					p->Release();
 				}
+			}
+			if (check_left.load(std::memory_order_relaxed) > 0)
+			{
+				// Research (pipe "flash check"): the nearest quad to the game's muzzle before the move and to the
+				// drawn muzzle after it, from this batch's first 16 quads (a read-back stall).
+				--check_left;
+				float before[16][3], after[16][3];
+				const int read_before = read_quads(context, stream, offset, base, stride_wanted, quads, before);
+				const int read_after = read_quads(context, own.vertices, 0, 0, stride_wanted, quads, after);
+				float drawn_muzzle[3];
+				muzzle_move::apply(m, m.muzzle, drawn_muzzle);
+				const auto nearest = [](const float (&points)[16][3], int n, const float (&to)[3]) {
+					float best = 1e9f;
+					for (int q = 0; q < n; ++q)
+					{
+						const float d[3] = { points[q][0] - to[0], points[q][1] - to[1], points[q][2] - to[2] };
+						best = std::min(best, std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]));
+					}
+					return best;
+				};
+				// The CPU's weight for the quad nearest the game's muzzle (its first vertex standing for its centre).
+				int nearest_quad = -1;
+				float nearest_distance = 1e9f;
+				for (int q = 0; q < read_before; ++q)
+				{
+					const float d[3] = { before[q][0] - m.muzzle[0], before[q][1] - m.muzzle[1], before[q][2] - m.muzzle[2] };
+					const float distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+					if (distance < nearest_distance)
+					{
+						nearest_distance = distance;
+						nearest_quad = q;
+					}
+				}
+				const std::lock_guard guard(check_lock);
+				if (nearest_quad >= 0)
+				{
+					check_weight = std::max(check_weight, muzzle_move::weight(m, before[nearest_quad], muzzle_move::shape{}, fade(ago)));
+					const float moved_by[3] = { after[nearest_quad][0] - before[nearest_quad][0], after[nearest_quad][1] - before[nearest_quad][1],
+						after[nearest_quad][2] - before[nearest_quad][2] };
+					check_moved = std::max(check_moved, std::sqrt(moved_by[0] * moved_by[0] + moved_by[1] * moved_by[1] + moved_by[2] * moved_by[2]));
+				}
+				if (nearest_quad >= 0 && check_vertices[0][0] == 0.0f)
+				{
+					// The nearest quad's four vertices as the shader reads them (positions at each vertex's start).
+					D3D11_BUFFER_DESC desc;
+					stream->GetDesc(&desc);
+					const UINT at = offset + static_cast<UINT>(base) * stride_wanted + static_cast<UINT>(nearest_quad) * 4 * stride_wanted;
+					float quad_points[16][3]{};
+					if (read_quads(context, stream, at, 0, stride_wanted / 4, 4, quad_points) == 4)
+					{
+						for (int v = 0; v < 4; ++v)
+						{
+							for (int axis = 0; axis < 3; ++axis)
+							{
+								check_vertices[v][axis] = quad_points[v][axis] - m.muzzle[axis];
+							}
+						}
+					}
+				}
+				if (check_indices[0] < 0)
+				{
+					// The batch's first 12 indices (research: how its quads use the vertices).
+					ID3D11Buffer* indices = nullptr;
+					DXGI_FORMAT format{};
+					UINT index_offset = 0;
+					context->IAGetIndexBuffer(&indices, &format, &index_offset);
+					if (indices)
+					{
+						const UINT size = format == DXGI_FORMAT_R32_UINT ? 4 : 2;
+						float raw[16][3]{};
+						// read_quads copies 12 bytes per "quad" of 4 "vertices": a 3-byte stride makes the pieces follow each other.
+						if (read_quads(context, indices, index_offset + start * size, 0, 3, size, raw) == static_cast<int>(size))
+						{
+							const auto* bytes = reinterpret_cast<const std::uint8_t*>(raw);
+							for (int i = 0; i < 12; ++i)
+							{
+								check_indices[i] = size == 4 ? static_cast<int>(reinterpret_cast<const std::uint32_t*>(bytes)[i])
+									: static_cast<int>(reinterpret_cast<const std::uint16_t*>(bytes)[i]);
+							}
+						}
+						indices->Release();
+					}
+				}
+				check_before = std::min(check_before, nearest(before, read_before, m.muzzle));
+				check_after = std::min(check_after, nearest(after, read_after, drawn_muzzle));
+				check_after_game = std::min(check_after_game, nearest(after, read_after, m.muzzle));
+				const float shift[3] = { drawn_muzzle[0] - m.muzzle[0], drawn_muzzle[1] - m.muzzle[1], drawn_muzzle[2] - m.muzzle[2] };
+				check_shift = std::sqrt(shift[0] * shift[0] + shift[1] * shift[1] + shift[2] * shift[2]);
+				++check_batches;
 			}
 			const UINT zero = 0;
 			context->IASetVertexBuffers(0, 1, &own.vertices, &stride_wanted, &zero);
@@ -456,6 +566,22 @@ RWByteAddressBuffer vertices : register(u0);
 			survey_until = GetTickCount64() + value;
 			return "flash survey for " + std::to_string(value) + " ms";
 		}
+		if (argument == "force" || argument == "force off")
+		{
+			force_test = argument == "force";
+			return std::string("flash force ") + (force_test.load() ? "on: every moved quad lifted 1 m" : "off");
+		}
+		if (sscanf_s(argument.c_str(), "check %u", &value) == 1)
+		{
+			const std::lock_guard guard(check_lock);
+			check_before = check_after = check_after_game = 1e9f;
+			check_shift = check_weight = check_moved = 0.0f;
+			std::memset(check_vertices, 0, sizeof(check_vertices));
+			check_indices[0] = -1;
+			check_batches = 0;
+			check_left = static_cast<int>(value);
+			return "flash check: the next " + std::to_string(value) + " moved batches";
+		}
 		if (sscanf_s(argument.c_str(), "stride %u", &value) == 1)
 		{
 			quad_stride = value;
@@ -466,12 +592,31 @@ RWByteAddressBuffer vertices : register(u0);
 			static_cast<unsigned long long>(candidates.load()), static_cast<unsigned long long>(moved_batches.load()), static_cast<unsigned long long>(not_moved.load()),
 			static_cast<unsigned long long>(firing_ago()));
 		std::string out = line;
-		body::muzzle_frame game, drawn;
-		if (body::muzzle_frames(game, drawn))
+		body::muzzle_frame aim, game, drawn;
+		if (body::muzzle_frames(aim, game, drawn))
 		{
-			std::snprintf(line, sizeof(line), "\ngame_aim=(%.3f %.3f %.3f) drawn_aim=(%.3f %.3f %.3f)", game.position[0], game.position[1], game.position[2], drawn.position[0],
-				drawn.position[1], drawn.position[2]);
+			std::snprintf(line, sizeof(line), "\naim=(%.3f %.3f %.3f) root_game=(%.3f %.3f %.3f) root_drawn=(%.3f %.3f %.3f)", aim.position[0], aim.position[1], aim.position[2],
+				game.position[0], game.position[1], game.position[2], drawn.position[0], drawn.position[1], drawn.position[2]);
 			out += line;
+		}
+		{
+			const std::lock_guard guard(check_lock);
+			if (check_batches)
+			{
+				std::snprintf(line, sizeof(line), "\ncheck batches=%d muzzles_apart_m=%.2f nearest_to_game_before_m=%.2f nearest_to_drawn_after_m=%.2f nearest_to_game_after_m=%.2f cpu_weight=%.2f moved_m=%.3f",
+					check_batches, check_shift, check_before, check_after, check_after_game, check_weight, check_moved);
+				out += line;
+				out += "\n  first indices:";
+				for (int i = 0; i < 12; ++i)
+				{
+					out += " " + std::to_string(check_indices[i]);
+				}
+				for (int v = 0; v < 4; ++v)
+				{
+					std::snprintf(line, sizeof(line), "\n  nearest quad vertex %d from the game's muzzle: (%.3f %.3f %.3f)", v, check_vertices[v][0], check_vertices[v][1], check_vertices[v][2]);
+					out += line;
+				}
+			}
 		}
 		const std::lock_guard guard(survey_lock);
 		for (const auto& [key, k] : survey)

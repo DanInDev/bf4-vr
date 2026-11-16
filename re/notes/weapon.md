@@ -924,6 +924,17 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   pose's, both known in the pose hook; particle quads near G's barrel line are moved by D G^-1 (fully near the barrel,
   fading off along and across it), only while firing and shortly after. Needs a draw survey for BF4's particle
   batches (vertex stride, dynamic buffer) first.
+- **Draw-level port, first try (branch `weapon/flash-at-gun`, setting `flash_at_gun`, off by default):** the pose hook
+  records Wep_Root before and after the mod's edit (the move; Wep_Aim itself is not moved by the mod: game and drawn
+  Wep_Aim 3 cm apart with the gun 35 cm off) and Wep_Aim (the game's muzzle point and barrel); `stereo/muzzle_move`
+  (tested) and `stereo/muzzle_quads` (TGD's quad shader). Pipe `flash survey <ms>` during a SCAR-H burst, indexed
+  draws from dynamic vertex buffers by kind: strides 16/24/44/64 are in another space (~870 m off), stride 48 (3 MB,
+  BF3's particle layout) nearest 9.4 m, **stride 176 (1 MB, blended) nearest 0.21 m**. Moving stride 176 did nothing
+  (pipe `flash check`: the quad nearest the game's muzzle 0.22 m before and after; `flash force` lifting all of them
+  1 m did move them, so the shader writes): its indices are `0 1 5 5 4 0 2 6 7 7 3 2`, an 8-vertex box, not quads
+  (probably the flash's light volume or a decal box). **BF4's flash particles are not among the indexed quad batches.**
+  Next: survey `DrawIndexedInstanced`, `DrawInstanced` and `Draw` too (BF4 may instance its particles or draw them from
+  a structured buffer), then point the move at that batch.
 - **At 5 fps with recoil moving the view** the pictures cannot say more. Next: find the code that places the 1p fire
   effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
   the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn
