@@ -18,6 +18,9 @@ namespace bfvr::weapon
 	void set_zoom_mesh_always(bool always);
 	// weapon/two_handed, each update: an eye is behind the gun's sight (latched).
 	void set_sight_at_eye(bool at_eye);
+	// weapon/two_handed, each update: an eye looks into the lens from behind (latched; sight_lens_cone). With
+	// sight_lens the zoom mesh is shown only then (owner 2026-11-15: elsewhere it shows the optic open at the top).
+	void set_sight_in_view(bool in_view);
 	// Present thread, once per frame.
 	void update_zoom_mesh();
 	// Pipe "zoommesh [0..1|off]": state; research: hold the factor at a value whatever the eye does.

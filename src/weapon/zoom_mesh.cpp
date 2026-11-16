@@ -18,6 +18,7 @@ namespace bfvr::weapon
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> at_eye{};
 		std::atomic<bool> always{};
+		std::atomic<bool> in_view{};
 		std::atomic<float> forced{ -1.0f }; // research: >= 0 holds the factor there
 
 #if defined(_M_X64)
@@ -121,12 +122,17 @@ namespace bfvr::weapon
 		at_eye = eye;
 	}
 
+	void set_sight_in_view(bool view)
+	{
+		in_view = view;
+	}
+
 	void update_zoom_mesh()
 	{
 #if defined(_M_X64)
 		const std::lock_guard guard(lock_);
 		const float hold = forced.load(std::memory_order_relaxed);
-		const bool wanted = !safety::mod_disabled() && (hold >= 0.0f || (enabled.load(std::memory_order_relaxed) && (at_eye.load(std::memory_order_relaxed) || always.load(std::memory_order_relaxed))));
+		const bool wanted = !safety::mod_disabled() && (hold >= 0.0f || (enabled.load(std::memory_order_relaxed) && (at_eye.load(std::memory_order_relaxed) || (always.load(std::memory_order_relaxed) && in_view.load(std::memory_order_relaxed)))));
 		if (!wanted)
 		{
 			if (!patched.empty())
@@ -172,7 +178,7 @@ namespace bfvr::weapon
 #if defined(_M_X64)
 		const std::lock_guard guard(lock_);
 		char text[256];
-		std::snprintf(text, sizeof(text), "zoom_mesh=%d at_eye=%d forced=%.2f patched=%zu writes=%llu", enabled.load() ? 1 : 0, at_eye.load() ? 1 : 0,
+		std::snprintf(text, sizeof(text), "zoom_mesh=%d at_eye=%d in_view=%d forced=%.2f patched=%zu writes=%llu", enabled.load() ? 1 : 0, at_eye.load() ? 1 : 0, in_view.load() ? 1 : 0,
 			forced.load(), patched.size(), writes);
 		std::string out = text;
 		for (const patched_state& p : patched)

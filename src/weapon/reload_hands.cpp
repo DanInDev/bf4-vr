@@ -292,6 +292,7 @@ namespace bfvr::weapon
 		{
 			held_relative_ = multiply(conjugate(frame.gun_rotation), frame.magazine_rotation);
 			insert_armed_ = armed;
+			flick_rearm_ = flick_second_ = false; // a new magazine in the hand: no flick pending
 		};
 		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
 		const bool lockable = frame.grip_lock && frame.has_root && valid;
@@ -432,12 +433,18 @@ namespace bfvr::weapon
 		}
 		else if (gun.state().holding && valid)
 		{
-			if (distance(held_top, frame.magwell) > config_.rearm_distance)
+			// After a flick only a pull back down out of the well re-arms (along the magwell's down axis): pushing on up
+			// past the magwell, as the hand does after knocking the old one out, is no second motion (monitor 2026-11-16).
+			const bool pulled_back = flick_rearm_ ? rail_depth > config_.flick_rearm : distance(held_top, frame.magwell) > config_.rearm_distance;
+			if (pulled_back)
 			{
 				insert_armed_ = true;
+				flick_second_ = flick_rearm_;
+				flick_rearm_ = false;
 			}
 			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
-			bool push_home = frame.grip && insert_armed_ && held_at_magwell;
+			bool push_home = frame.grip && insert_armed_ && held_at_magwell
+				&& (!flick_second_ || rail_depth <= config_.flick_seat_reach); // the second push: back up to (or past) the magwell
 			if (lockable)
 			{
 				// Locks on near the rail when it is turned roughly as it sits; leaves off the rail, past its end
@@ -472,6 +479,9 @@ namespace bfvr::weapon
 					// #47, two steps: the old magazine flies first; the new one, still in the hand, seats a
 					// moment later if the hand keeps it at the magwell.
 					seat_pause_ = config_.flick_seat_delay;
+					// The second motion: away from the magwell and in again (not a seat while the hand just stays).
+					insert_armed_ = false;
+					flick_rearm_ = true;
 					// AK quick reload: the new magazine knocks the old one out of the magwell, downward out of the
 					// gun, carrying the sideways part of the hand's swing (the push itself goes up into the well).
 					const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
@@ -480,6 +490,7 @@ namespace bfvr::weapon
 				}
 				else if (event == reload_event::magazine_in)
 				{
+					flick_second_ = flick_rearm_ = false;
 					seating_ = true;
 					seat_time_ = 0.0f;
 					seat_from_ = guided_ ? rail_point : held_top;

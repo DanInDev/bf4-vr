@@ -18,6 +18,9 @@ namespace bfvr::weapon
 	void set_shot_from_gun(bool gun);
 	// two_hand_mode: lock (barrel on the line between the hands) or soft (the hand line steers).
 	void set_two_hand_lock(bool lock);
+	// Live setting sight_lens_cone (#39): the zoom mesh (clear lens, open at the top) only while an eye looks into
+	// the lens within this many degrees of the sight line; 0 = whenever a gun is held.
+	void set_sight_lens_cone(float degrees);
 	// accessory_toggle = trigger: off-hand trigger while holding the gun = D-pad up (laser, light, magnifier).
 	void set_accessory_trigger(bool enabled);
 	// Present thread, once per frame, after update_physical_reload and update_physical_grenades.
