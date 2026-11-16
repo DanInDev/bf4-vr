@@ -19,5 +19,6 @@ namespace bfvr::weapon
 	// #69 (owner 2026-11-15): the charging handle's grab zones where a gun needs its own (the SCAR-H's higher: a
 	// grab at the gun's bottom caught the handle; the AK-12's much larger and reaching under the gun, where the
 	// off hand racks it); false for the rest (hand_config's).
-	bool rack_zones_for(std::string_view unlock_name, rack_zone_shape& shape);
+	// shape starts as defaults' zones; only what a gun changes is written over it.
+	bool rack_zones_for(std::string_view unlock_name, const hand_config& defaults, rack_zone_shape& shape);
 }

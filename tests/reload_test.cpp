@@ -615,7 +615,11 @@ namespace
 		// #69 (owner 2026-11-15): per-gun zones. The AK-12's reach well under the gun; the SCAR-H's overhand zone
 		// sits higher, so a grab at the gun's bottom is not the handle.
 		rack_zone_shape ak12, scar, none;
-		expect(rack_zones_for("U_AK12", ak12) && rack_zones_for("U_SCAR-H", scar) && !rack_zones_for("U_M416", none), "per-gun zones for the AK-12 and SCAR-H only");
+		expect(rack_zones_for("U_AK12", config, ak12) && rack_zones_for("U_SCAR-H", config, scar) && !rack_zones_for("U_M416", config, none), "per-gun zones for the AK-12 and SCAR-H only");
+		expect(scar.under_radii.y == config.rack_under_radii.y && scar.under_offset.y == config.rack_under_offset.y, "the SCAR-H keeps the default underhand zone (from hand_config, one source)");
+		// The AK-12's overhand reach (12 cm, default 9): 10.5 cm from the zone's centre, out on the handle's side.
+		const v3 ak_over_centre = knob + v3{ -0.03f, 0.03f, 0.0f };
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, config).over_distance > config.rack_over_reach, "default reach: 10.5 cm from the centre is outside");
 		hand_config with_ak = config;
 		with_ak.rack_over_offset = ak12.over_offset;
 		with_ak.rack_over_reach = ak12.over_reach;
@@ -623,7 +627,7 @@ namespace
 		with_ak.rack_under_radii = ak12.under_radii;
 		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::under, "AK-12: 30 cm below the knob is still the underhand zone");
 		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, config).zone == rack_zone::none, "default zones: 30 cm below is out");
-		expect(rack_zone_of(knob + v3{ -0.11f, 0.02f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::over, "AK-12: 11 cm out on the handle's side is overhand");
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::over, "AK-12: 10.5 cm from the overhand centre is in its 12 cm reach");
 		const v3 scar_knob{ 0.035f, 0.04f, 0.57f };
 		const float scar_side = rack_side(scar_knob, false);
 		hand_config with_scar = config;

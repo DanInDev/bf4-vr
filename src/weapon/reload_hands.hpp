@@ -10,13 +10,14 @@
 // Engine-free, all positions in one space (OpenXR LOCAL, metres). Tested by tests/reload_test.cpp.
 namespace bfvr::weapon
 {
-	// The charging handle's two grab zones (hand_config's rack_* fields), per gun where they differ (#69).
+	// The charging handle's two grab zones, per gun where they differ from hand_config's rack_* fields (#69;
+	// weapon/profiles rack_zones_for starts from those, so the defaults live in one place).
 	struct rack_zone_shape
 	{
-		v3 over_offset{ 0.03f, 0.03f, 0.0f };
-		float over_reach{ 0.09f };
-		v3 under_offset{ 0.02f, -0.09f, 0.0f };
-		v3 under_radii{ 0.10f, 0.12f, 0.06f };
+		v3 over_offset;
+		float over_reach{};
+		v3 under_offset;
+		v3 under_radii;
 	};
 
 	struct hand_frame

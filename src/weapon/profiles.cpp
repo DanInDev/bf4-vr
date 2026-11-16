@@ -40,8 +40,9 @@ namespace bfvr::weapon
 		return false;
 	}
 
-	bool rack_zones_for(std::string_view unlock_name, rack_zone_shape& shape)
+	bool rack_zones_for(std::string_view unlock_name, const hand_config& defaults, rack_zone_shape& shape)
 	{
+		shape = { defaults.rack_over_offset, defaults.rack_over_reach, defaults.rack_under_offset, defaults.rack_under_radii };
 		if (unlock_name == "U_SCAR-H")
 		{
 			// Handle on the left, above the front of the handguard: the overhand zone sits higher (6 cm above the
