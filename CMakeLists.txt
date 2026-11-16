@@ -123,6 +123,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/muzzle_quads.cpp
 	src/input/physical_stance.cpp
 	src/input/trigger_latch.cpp
+	src/input/release_gate.cpp
 	src/input/right_stick.cpp
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
@@ -294,6 +295,8 @@ if(BFVR_BUILD_TESTS)
 	# Trigger press/release latch (a resting finger never fires).
 	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
 	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
+	add_executable(bfvr_release_gate_test tests/release_gate_test.cpp src/input/release_gate.cpp)
+	target_link_libraries(bfvr_release_gate_test PRIVATE bfvr_common)
 
 	# HUD gesture detectors and the laser-pointer hit on synthetic poses; exits non-zero on failure.
 	add_executable(bfvr_gestures_test tests/gestures_test.cpp src/input/gestures.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
@@ -427,6 +430,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME break_open COMMAND bfvr_break_open_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
+	add_test(NAME release_gate COMMAND bfvr_release_gate_test)
 	add_test(NAME mp_rules COMMAND bfvr_mp_rules_test)
 	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME aim_depth COMMAND bfvr_aim_depth_test)

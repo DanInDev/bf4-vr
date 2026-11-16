@@ -269,6 +269,7 @@ namespace bfvr::core
 			weapon::set_slot_models_ahead(store.real("slot_models_ahead", 0.08f));
 			body::set_holster_knife_turn(store.real("knife_holster_turn", 90.0f), 0.0f, 0.0f);
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
+			input::set_focus_release(store.boolean("focus_release", true));
 			weapon::set_action_aim(store.boolean("action_aim", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
@@ -379,7 +380,8 @@ namespace bfvr::core
 				+ " " + hooks::game_pointer_report()
 				+ "\nxr_focus session=" + (vr.session_state_name ? vr.session_state_name : "-") + " input_focus=" + (vr.input_focus ? "1" : "0")
 				+ " focus_losses=" + std::to_string(vr.focus_losses) + " unfocused_s=" + std::to_string(static_cast<int>(vr.unfocused_seconds))
-				+ (vr.session_state_name && !vr.input_focus && std::strcmp(vr.session_state_name, "VISIBLE") == 0 ? " (SteamVR has the controllers)" : "");
+				+ (vr.session_state_name && !vr.input_focus && std::strcmp(vr.session_state_name, "VISIBLE") == 0 ? " (SteamVR has the controllers)" : "")
+				+ "\n" + input::focus_release_report();
 		}
 
 		DWORD WINAPI start_thread(LPVOID)

@@ -152,6 +152,7 @@ namespace bfvr::settings
 			{ "physical_pad", kind::boolean, 0, 0, 0, "1", "", "a real gamepad on the first slot also reaches the game (off: only the VR controllers; a stuck trigger there fires the gun)" },
 			{ "grab_debug", kind::boolean, 0, 0, 0, "0", "", "draw every grab zone (magazine, handle, pouch, handguard, holsters) as a ring as large as its reach; green while a hand is inside" },
 			{ "menu_input", kind::choice, 0, 0, 0, "pointer", "pointer|stick|pad", "menus: point with a controller and pull the trigger, move a cursor with either thumbstick and click with a trigger (works whatever the controllers point at), or the pad only" },
+			{ "focus_release", kind::boolean, 0, 0, 0, "1", "", "after a system menu (SteamVR dashboard, Quest menu) had the controllers, a trigger, grip, button or stick still pressed stays away from the game until you let go of it once (#72)" },
 			{ "menu_grip_back", kind::boolean, 0, 0, 0, "1", "", "while a menu is up over the level (a crate, the pause menu), pressing the off-hand grip again backs out of it (Escape): close a crate the way you opened it (#34)" },
 			{ "aim", kind::choice, 0, 0, 0, "controller", "head|controller", "research: what aims the gun: the gun-hand controller, or the view (the game's own; tools/sight_probe.py needs it with gun_pose = animated)" },
 			{ "gun_pose", kind::choice, 0, 0, 0, "aim", "aim|animated", "research: where the drawn gun points: along the controller ray, or the game's hip pose turned by the controller" },

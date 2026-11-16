@@ -33,6 +33,7 @@
 #include "input/menu_back.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
+#include "input/release_gate.hpp"
 #include "input/stick_cursor.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/hud_layout.hpp"
@@ -135,6 +136,9 @@ namespace bfvr::xr
 		std::atomic<ULONGLONG> unfocused_since{}; // 0 while focused or never focused
 		ULONGLONG focused_since{};
 		std::atomic<bool> input_lost{};
+		stereo::hand_sample last_hands{};
+		ULONGLONG last_hands_tick{};
+		input::freeze_watch hands_frozen;
 
 		// Per-second worst-case timings of the work done inside the game's Present.
 		ULONGLONG timing_window_start{};
@@ -2842,11 +2846,27 @@ namespace bfvr::xr
 			if (s.actions_ready)
 			{
 				const input::gamepad_state pad = s.actions.sync(s.session);
-				input::publish(pad);
 				if (const XrTime time = s.latest_display_time.load(); time != 0)
 				{
-					stereo::publish_hand_sample(s.actions.locate(s.space, time));
+					const stereo::hand_sample hands = s.actions.locate(s.space, time);
+					stereo::publish_hand_sample(hands);
+					// #72: Steam Link repeats the last controller sample while the Quest menu is open, and the session
+					// stays FOCUSED; real tracking never repeats a pose bit for bit.
+					const bool changed = std::memcmp(hands.grip, s.last_hands.grip, sizeof(hands.grip)) != 0
+						|| std::memcmp(hands.aim, s.last_hands.aim, sizeof(hands.aim)) != 0;
+					const ULONGLONG tick = GetTickCount64();
+					const float seconds = s.last_hands_tick ? static_cast<float>(tick - s.last_hands_tick) / 1000.0f : 0.0f;
+					s.last_hands = hands;
+					s.last_hands_tick = tick;
+					if (s.hands_frozen.frozen() != s.hands_frozen.update(hands.valid[0] || hands.valid[1], changed, seconds))
+					{
+						log::write("theater: controller stream %s", s.hands_frozen.frozen() ? "frozen (identical poses for 0.5 s): a system menu has the controllers" : "moving again");
+					}
 				}
+				// #72: while the runtime has the controllers the pad is neutral; afterwards each input stays closed
+				// until it reads released (input/release_gate).
+				input::set_controllers_ours(s.session_state != XR_SESSION_STATE_VISIBLE && s.actions.focused() && !s.hands_frozen.frozen());
+				input::publish(pad);
 				const float since = s.last_haptics.QuadPart ? static_cast<float>(t0.QuadPart - s.last_haptics.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
 				s.last_haptics = t0;
 				s.actions.vibrate(s.session, input::haptics_frame(std::fmin(since, 0.1f)));
@@ -2885,6 +2905,7 @@ namespace bfvr::xr
 		}
 		else
 		{
+			input::set_controllers_ours(true);
 			input::publish({});
 			s.set_input_lost(false);
 		}

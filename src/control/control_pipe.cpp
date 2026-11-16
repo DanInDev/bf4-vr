@@ -890,6 +890,7 @@ namespace bfvr::control
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
+			if (command == "fakefocus") return input::fake_focus(argument);
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
 			if (command == "extramesh")
 			{
