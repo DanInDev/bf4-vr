@@ -383,7 +383,17 @@ namespace bfvr::body
 		// #41: the knife's model axes in the holster frame (degrees about x, y, z; pipe holsterknife). The holster places
 		// the knife's own captured bone frame (extra_mesh::item_anchor), not its Wep_Root: the mesh hangs 0.3-0.6 m from
 		// Wep_Root and moves against it with the animation (monitor 2026-11-16, extramesh from_root).
-		std::atomic<float> holster_knife_turn[3]{ 90.0f, 0.0f, 0.0f };
+		std::atomic<float> holster_knife_turn[3]{ 90.0f, 0.0f, 0.0f }; // [0]: about the vertical blade, degrees (setting knife_holster_turn; 0 = edge ahead, 90 = edge left)
+		// The gun hand's fist in the knife's Wep_Root frame at its capture (rig_lock), and from it the grip in the knife's
+		// own frame (the anchor): the point the holster keeps at the grab spot whichever way the knife is turned.
+		ik::vec3 knife_fist_in_root;
+		bool has_knife_fist{};
+		ik::vec3 knife_grip_in_anchor;
+		bool has_knife_grip{};
+		// Until measured in this run (a capture with the hand on it): the U_Knife's grip in its own frame (monitor 2026-11-16).
+		// Two captures gave (0.017 0.157 0.124) and (-0.016 0.006 0.124): the second, on the knife's axis, is used.
+		const ik::vec3 knife_grip_default{ -0.0161f, 0.0063f, 0.1241f };
+		std::atomic<float> holster_knife_shift[3]{}; // pipe only (extramesh knifeturn x y z dx dy dz): looking at it away from the body
 		ik::bone_transform fist_untilted;
 		bool has_fist_untilted{};
 		// #40, palming: the caught magazine beside the leaning new one (contact::beside_magazine), and the
@@ -2719,6 +2729,12 @@ namespace bfvr::body
 			// still be drawn under the hidden root and taken for the knife.
 			knife_capturing = knife_out && knife_capture_ready.load(std::memory_order_relaxed) && !grenade_weapon_now.load(std::memory_order_relaxed)
 				&& !em::item_captured(em::captured::knife);
+			ik::bone_transform fist;
+			if (knife_capturing && last_arms[1].solved && fist_transform(local, 1, fist))
+			{
+				knife_fist_in_root = ik::compose(ik::inverse(ik::model_of(local, rig.parents, rig.weapon)), fist).position;
+				has_knife_fist = true;
+			}
 			if (knife_capturing)
 			{
 				ik::bone_transform hidden;
@@ -2735,19 +2751,50 @@ namespace bfvr::body
 				anchor.rotation = ik::normalize(fingers::from_basis(ik::normalize(ik::vec3{ m[0], m[4], m[8] }), ik::normalize(ik::vec3{ m[1], m[5], m[9] }),
 					ik::normalize(ik::vec3{ m[2], m[6], m[10] })));
 				anchor.position = { m[3], m[7], m[11] };
+				if (has_knife_fist)
+				{
+					// The grip is a point of the knife's model, the same in every capture: measured once is enough.
+					ik::bone_transform fist_point;
+					fist_point.position = knife_fist_in_root;
+					knife_grip_in_anchor = ik::compose(ik::inverse(anchor), fist_point).position;
+					has_knife_grip = true;
+					has_knife_fist = false;
+				}
 				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 				const ik::quat frame = camera_frame(camera);
 				ik::bone_transform sheath;
 				sheath.position = tracking_origin(camera, frame)
-					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load(), holster_knife_at[1].load(), holster_knife_at[2].load() });
-				// The knife's own frame at the holster, facing ahead with the body, its model axes turned by
-				// holster_knife_turn (x, then y, then z, degrees).
+					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load() + holster_knife_shift[0].load(), holster_knife_at[1].load() + holster_knife_shift[1].load(),
+						holster_knife_at[2].load() + holster_knife_shift[2].load() });
+				// Held as in the hand, with the controller pointing straight down: in the hand the knife's Wep_Root is
+				// frame * aim * hold (edit_arms: the blade along the controller ray, edge toward its down), so the
+				// controller's axes in the knife's own frame are conj(anchor) * conj(hold). At the holster the ray
+				// points down and the controller's down (the edge) to the body's left (owner 2026-11-16: blade down,
+				// handle up, edge left), then spun about the blade by knife_holster_turn.
 				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
 				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
+				const float pitch_half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
+				const float turn_half = -0.5f * knife_yaw.load(std::memory_order_relaxed);
+				const float roll_half = -0.5f * knife_roll.load(std::memory_order_relaxed);
+				const ik::quat hold = ik::quat{ 0, std::sin(turn_half), 0, std::cos(turn_half) } * ik::quat{ 0, 0, std::sin(roll_half), std::cos(roll_half) }
+					* ik::quat{ std::sin(pitch_half), 0, 0, std::cos(pitch_half) } * ik::quat{ 0, 0, 1, 0 };
+				// Controller axes to the holster's: +z (behind the ray) up, +y (the controller's up) to the right.
+				const ik::quat ray_down = fingers::from_basis(ik::vec3{ 0, 0, 1 }, ik::vec3{ 1, 0, 0 }, ik::vec3{ 0, 1, 0 });
+				// In the hand the blade lies off the ray (the knife_pitch/yaw/roll tuning): with the controller turned
+				// half round about the ray and tilted 35 degrees about the body's left-right axis the blade hangs
+				// straight down, handle up (monitor 2026-11-16, front and side views). [0] (setting
+				// knife_holster_turn) then turns it about that vertical blade; [1] and [2] add tilt about the
+				// left-right and forward axes (pipe only, for tuning).
 				constexpr float half_radian = 0.5f * 3.14159265f / 180.0f;
-				const float tx = half_radian * holster_knife_turn[0].load(), ty = half_radian * holster_knife_turn[1].load(), tz = half_radian * holster_knife_turn[2].load();
-				const ik::quat turn = ik::quat{ std::sin(tx), 0, 0, std::cos(tx) } * ik::quat{ 0, std::sin(ty), 0, std::cos(ty) } * ik::quat{ 0, 0, std::sin(tz), std::cos(tz) };
-				sheath.rotation = ik::normalize(frame * body_yaw * turn);
+				const float about_half = half_radian * holster_knife_turn[0].load(std::memory_order_relaxed);
+				const float tilt_x_half = half_radian * (35.0f + holster_knife_turn[1].load(std::memory_order_relaxed));
+				const float tilt_z_half = half_radian * holster_knife_turn[2].load(std::memory_order_relaxed);
+				const ik::quat about_blade{ 0, std::sin(about_half), 0, std::cos(about_half) };
+				const ik::quat tilt{ ik::quat{ std::sin(tilt_x_half), 0, 0, std::cos(tilt_x_half) } * ik::quat{ 0, 0, std::sin(tilt_z_half), std::cos(tilt_z_half) } };
+				const ik::quat half_round{ 0, 0, 1, 0 };
+				sheath.rotation = ik::normalize(frame * body_yaw * about_blade * tilt * ray_down * half_round * hold * anchor.rotation);
+				// The grip, not the knife's own origin, at the grab spot.
+				sheath.position = sheath.position - ik::rotate(sheath.rotation, has_knife_grip ? knife_grip_in_anchor : knife_grip_default);
 				ik::bone_transform root = ik::compose(ik::compose(ik::inverse(local[0]), sheath), ik::inverse(anchor));
 				root.scale = 1.0f;
 				float matrix[12];
@@ -3249,6 +3296,13 @@ namespace bfvr::body
 		holster_knife_shown = shown;
 	}
 
+	void set_holster_knife_shift(float dx, float dy, float dz)
+	{
+		holster_knife_shift[0] = dx;
+		holster_knife_shift[1] = dy;
+		holster_knife_shift[2] = dz;
+	}
+
 	void set_holster_knife_turn(float x_degrees, float y_degrees, float z_degrees)
 	{
 		holster_knife_turn[0] = x_degrees;
@@ -3289,6 +3343,10 @@ namespace bfvr::body
 		{
 			text += "\n" + line("game_hold_in_fist", game_grenade_in_fist);
 		}
+		char grip[96];
+		std::snprintf(grip, sizeof(grip), "\nknife_grip_in_anchor=(%.4f %.4f %.4f) measured=%d", knife_grip_in_anchor.x, knife_grip_in_anchor.y, knife_grip_in_anchor.z,
+			has_knife_grip ? 1 : 0);
+		text += grip;
 		text += "\nholster_knife_turn=(" + std::to_string(holster_knife_turn[0].load()) + " " + std::to_string(holster_knife_turn[1].load()) + " "
 			+ std::to_string(holster_knife_turn[2].load()) + ")";
 		return text;

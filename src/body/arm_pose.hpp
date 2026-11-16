@@ -216,6 +216,8 @@ namespace bfvr::body
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
 	// #41: the holstered knife's model axes turned (degrees about x, then y, then z) in the holster frame.
 	void set_holster_knife_turn(float x_degrees, float y_degrees, float z_degrees);
+	// Pipe only: the holstered knife moved (metres, camera axes: +x right, +y up, -z ahead) to look at it away from the body.
+	void set_holster_knife_shift(float dx, float dy, float dz);
 	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
 	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.
 	void set_primary_capture(bool wanted);

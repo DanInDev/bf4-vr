@@ -897,9 +897,11 @@ namespace bfvr::control
 				if (argument.rfind("forget ", 0) == 0) return stereo::extra_mesh::forget_pipe_command(argument.substr(7));
 				if (argument.rfind("knifeturn ", 0) == 0)
 				{
-					float x{}, y{}, z{};
-					if (sscanf_s(argument.c_str() + 10, "%f %f %f", &x, &y, &z) != 3) return "extramesh knifeturn <x> <y> <z> (degrees)";
+					float x{}, y{}, z{}, dx{}, dy{}, dz{};
+					const int read = sscanf_s(argument.c_str() + 10, "%f %f %f %f %f %f", &x, &y, &z, &dx, &dy, &dz);
+					if (read != 3 && read != 6) return "extramesh knifeturn <x> <y> <z> (degrees) [dx dy dz (metres, camera axes)]";
 					body::set_holster_knife_turn(x, y, z);
+					body::set_holster_knife_shift(dx, dy, dz);
 					return body::grenade_hold_report();
 				}
 				return stereo::extra_mesh::report() + "\n" + body::grenade_hold_report();

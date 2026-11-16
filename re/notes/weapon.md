@@ -178,6 +178,20 @@ future two-hand grip.
     knife's own index buffer stay even when seen with the gun (`palette::keep_knife_draws`).
   - Not settled headless: -90 (blade down) left the knife out of every frame; the drawn left arm covers the area below
     the holster in these views, so it may simply be hidden. The headset decides (GRN-11).
+- **Blade down, handle up, edge left (owner 2026-11-16), same day:**
+  - Why -90 failed: the turn was about the knife's own origin, and the hand's grip sits 11-12 cm from it
+    (`knife_grip_in_anchor` (-0.032 -0.015 0.107) and (-0.016 0.006 0.124); one odd capture gave y 0.157), so turns
+    swung the knife into the body. The grip is now kept at the grab spot: measured from the fist at a capture with
+    hands, otherwise the default (-0.016 0.006 0.124).
+  - Orientation from the hand's hold: the knife's Wep_Root in the hand is `frame * aim * hold` (knife_pitch/yaw/roll),
+    so the controller's axes in the knife's frame are `conj(anchor) * conj(hold)`. The ray points down, the hold
+    half-turned about it, and a 35-degree tilt about the left-right axis makes the blade vertical: in the hand the blade
+    lies about 45 degrees off the ray. Checked by floating the copy 0.5 m ahead at eye height
+    (`extramesh knifeturn x y z dx dy dz`, pipe only) and shooting it from the front and the side.
+  - Side view at turn 0: the bayonet's saw-tooth spine faces back, so the edge faces ahead; `knife_holster_turn` 90
+    (default) turns it to the left. On the chest the knife then hangs handle up, ring guard below, blade down.
+  - Flake: once in five runs the level-start knife capture took other meshes (no 6000/4380-index draws, two draws from
+    another buffer kept). Drawing the knife once (`extramesh forget knife` first) recaptures it.
 
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 
