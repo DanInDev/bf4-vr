@@ -909,6 +909,21 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   barrel nor the shot frame places it; it follows the camera and the game's aim mostly.
 - **Poking the shared offsets** (both 1p entries to 0, restored after): no visible change; the effect most likely takes
   its offset when the weapon is set up, not per shot.
+- **Pinned down (second pass, same day):** projected with the game view's view-projection (RenderView +0x420), the
+  flame lands on the flat gun's muzzle: rig bone **`Wep_Aim` (161)** plus the offset along its axes (gun straight:
+  computed (1169, 1124), flame ~(1170, 1150); gun turned 50 deg right: drawn muzzle (1938, 1306), flame still at
+  (1169, 1187), a jet ~90 px right of it, so its rotation may follow the drawn barrel). Raising Wep_Aim 0.3 m with
+  pipe `bone 161 0.3 0 0` (local, model and FK copy all moved) left the flame where it was: the effect does not read
+  the pose the mod edits. Read watches during 12-16 shot bursts on the FireEffects1p entries, the effect blueprint and
+  Wep_Aim/Wep_Root in both poses found only per-frame animation readers, nothing firing-specific; full heap scans
+  for a transform at the flat muzzle found casings, smoke and impacts only. The unedited animation pose lives at the
+  rig's `+0x30` (re/symbols). The flash's transform is likely inside the emitter system (strings `EmitterSystem`,
+  `EmitterManager`): not found.
+- **Way forward:** move it at draw time, as The Great Destroyer does (src/effects.cpp `DrawQuadsMoved`, its quad
+  compute shader; reuse allowed): the game's muzzle G = the unedited Wep_Aim x offset and the drawn one D = the edited
+  pose's, both known in the pose hook; particle quads near G's barrel line are moved by D G^-1 (fully near the barrel,
+  fading off along and across it), only while firing and shortly after. Needs a draw survey for BF4's particle
+  batches (vertex stride, dynamic buffer) first.
 - **At 5 fps with recoil moving the view** the pictures cannot say more. Next: find the code that places the 1p fire
   effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
   the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn
