@@ -79,8 +79,8 @@ namespace
 		hand_collider collider;
 		resolve_palm(collider, { 0.0f, 0.1f, 0.0f });
 		// The controller far below: holding the drawn hand on top would stretch the arm; it is let through.
-		const ik::vec3 at = resolve_palm(collider, { 0.0f, -0.2f, 0.0f });
-		expect(near(at.y, -0.2f), "a push beyond give_up lets the hand through");
+		const ik::vec3 at = resolve_palm(collider, { 0.0f, -0.35f, 0.0f });
+		expect(near(at.y, -0.35f), "a push beyond give_up_through lets the hand through");
 		const ik::vec3 next = resolve_palm(collider, { 0.0f, -0.07f, 0.0f });
 		expect(near(next.y, -0.07f), "and the side is forgotten: from below it stays below");
 	}
@@ -125,6 +125,45 @@ namespace
 		expect(near(0.04f + shift.y, 0.065f), "the handguard pushes the hand onto its own top");
 	}
 
+	// The SCAR-H's receiver as built on the monitor (2026-11-16): half (0.025, 0.035, 0.149).
+	const box receiver{ { 0, 0, 0 }, level, { 0.025f, 0.035f, 0.149f } };
+
+	float palm_y_through_receiver(hand_collider& collider, float y)
+	{
+		const sphere palm[1]{ { { 0.0f, y, 0.0f }, 0.035f } };
+		return y + collider.resolve(&receiver, 1, palm, 1).y;
+	}
+
+	void test_slap_through_receiver()
+	{
+		// Slaps from above that carry on 2, 8 and 23 cm past the receiver's far side (face -0.035, palm 3.5 cm).
+		const float past[] = { 0.02f, 0.08f, 0.23f };
+		const float expected[] = { 0.07f, 0.07f, -0.30f };
+		for (int i = 0; i < 3; ++i)
+		{
+			hand_collider collider;
+			palm_y_through_receiver(collider, 0.12f);
+			const float end = -0.07f - past[i];
+			const float at = palm_y_through_receiver(collider, end);
+			expect(near(at, i < 2 ? expected[i] : end), i == 0 ? "a slap 2 cm through the receiver ends on top"
+				: i == 1 ? "a slap 8 cm through the receiver ends on top" : "23 cm through: let go (the arm would stretch)");
+		}
+		hand_collider collider;
+		palm_y_through_receiver(collider, 0.12f);
+		expect(near(palm_y_through_receiver(collider, 0.0f), 0.07f), "slap frame 1: inside, back on top");
+		expect(near(palm_y_through_receiver(collider, -0.15f), 0.07f), "slap frame 2: past, still on top");
+	}
+
+	void test_push_up_from_below()
+	{
+		hand_collider collider;
+		palm_y_through_receiver(collider, -0.15f);
+		expect(near(palm_y_through_receiver(collider, -0.05f), -0.07f), "pushed up into the bottom: held under it");
+		expect(near(palm_y_through_receiver(collider, 0.03f), -0.07f), "past the middle: still under it");
+		expect(near(palm_y_through_receiver(collider, 0.2f), -0.07f), "above the gun: still under it");
+		expect(near(palm_y_through_receiver(collider, 0.3f), 0.3f), "far above: let go");
+	}
+
 	void test_gun_boxes()
 	{
 		// AR-like bones in the gun frame (+z muzzle, +y up): magazine top, gun hand at the grip, support hand.
@@ -152,6 +191,8 @@ int main()
 	test_rotated();
 	test_two_spheres();
 	test_two_boxes();
+	test_slap_through_receiver();
+	test_push_up_from_below();
 	test_gun_boxes();
 	if (failures == 0)
 	{

@@ -297,6 +297,8 @@ namespace bfvr::body
 			// #62: Wep_Mag (the magazine's top in the magwell) in Wep_Root axes, taken while the magazine is in the gun.
 			ik::vec3 magazine_top;
 			bool has_magazine_top{};
+			ik::vec3 support_reach; // #62: LeftHand at its furthest forward, Wep_Root axes (the handguard's end)
+			bool has_support_reach{};
 			double aiming_since{ -1.0 };
 			double fired_at{ -100.0 };
 		};
@@ -823,13 +825,16 @@ namespace bfvr::body
 		}
 
 		// #62: the drawn hand (palm and knuckles, from its own bones) pushed out of the receiver and handguard, which are
-		// built from the gun's bones; the whole hand moves, its turn stays.
-		void apply_hand_collision(const ik::bone_transform* local, int hand, ik::arm_goal& goal)
+		// built from the gun's bones; the whole hand moves, its turn stays. push false: only the side the hand is on is
+		// followed (the hand is held by something else this frame).
+		void apply_hand_collision(const ik::bone_transform* local, int hand, ik::arm_goal& goal, bool push)
 		{
 			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
-			const contact::gun_points gun_at{ geometry.magazine_top, geometry.hand[1].position, geometry.hand[0].position };
+			const contact::gun_points gun_at{ geometry.magazine_top, geometry.hand[1].position,
+				geometry.has_support_reach ? geometry.support_reach : geometry.hand[0].position };
 			contact::box boxes[contact::hand_collider::max_boxes];
 			const int count = contact::gun_boxes(gun_at, contact::gun_shape{}, boxes);
+			hand_collision_receiver = boxes[0];
 			for (int b = 0; b < count; ++b)
 			{
 				boxes[b].centre = gun.position + ik::rotate(gun.rotation, boxes[b].centre);
@@ -853,9 +858,10 @@ namespace bfvr::body
 				{ goal.wrist + ik::rotate(goal.hand, knuckle_in_hand * 0.55f), 0.035f },
 				{ goal.wrist + ik::rotate(goal.hand, knuckle_in_hand), 0.025f },
 			};
-			const ik::vec3 shift = hand_colliders[hand].resolve(boxes, count, spheres, 2);
-			hand_collision_touch[hand] = hand_colliders[hand].touching();
-			hand_collision_depth[hand] = hand_colliders[hand].depth();
+			const ik::vec3 resolved = hand_colliders[hand].resolve(boxes, count, spheres, 2);
+			const ik::vec3 shift = push ? resolved : ik::vec3{};
+			hand_collision_touch[hand] = push && hand_colliders[hand].touching();
+			hand_collision_depth[hand] = push ? hand_colliders[hand].depth() : 0.0f;
 			if (hand_collision_touch[hand])
 			{
 				++hand_collision_pushes;
@@ -866,11 +872,8 @@ namespace bfvr::body
 				hand_collision_box[b] = boxes[b];
 			}
 			hand_collision_palm_in_gun[hand] = ik::rotate(ik::conjugate(gun.rotation), spheres[0].centre + shift - gun.position);
-			contact::box local_boxes[contact::hand_collider::max_boxes];
-			contact::gun_boxes(gun_at, contact::gun_shape{}, local_boxes);
-			hand_collision_receiver = local_boxes[0];
 			hand_collision_knuckle[hand] = knuckle_in_hand;
-			hand_collision_checked[hand] = true;
+			hand_collision_checked[hand] = push;
 		}
 
 		// #62, pipe `fingers`: how deep the hand as drawn (after the arm's solve) still is in the gun, metres.
@@ -953,8 +956,20 @@ namespace bfvr::body
 				}
 				if (rig.magazine >= 0 && !magazine_request.detached)
 				{
-					geometry.magazine_top = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.magazine)).position;
-					geometry.has_magazine_top = true;
+					// The highest sample per gun: a seated magazine is as high as it goes, and the game's own reload animation
+					// (reload = button) moves it down and out (monitor 2026-11-16: a 2 cm window crept along with it).
+					const ik::vec3 top = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.magazine)).position;
+					if (!geometry.has_magazine_top || top.y > geometry.magazine_top.y)
+					{
+						geometry.magazine_top = top;
+						geometry.has_magazine_top = true;
+					}
+				}
+				// The support hand's furthest-forward sample per gun: animations take it back towards the magazine.
+				if (!geometry.has_support_reach || geometry.hand[0].position.z > geometry.support_reach.z)
+				{
+					geometry.support_reach = geometry.hand[0].position;
+					geometry.has_support_reach = true;
 				}
 				if (rig.camera >= 0)
 				{
@@ -969,7 +984,8 @@ namespace bfvr::body
 					{
 						geometry.has_sight = false;
 						geometry.has_ads_sight = false;
-						geometry.has_magazine_top = rig.magazine >= 0 && !magazine_request.detached;
+						geometry.has_magazine_top = false; // another gun: its magwell and handguard are sampled afresh
+						geometry.has_support_reach = false;
 						geometry.sampled_gun = gun_grip;
 					}
 					const double now = steady_seconds();
@@ -1346,10 +1362,12 @@ namespace bfvr::body
 					apply_magazine_lock(local, goal);
 				}
 				// #62: the free hand stays out of the gun; not while it holds the handguard or the charging handle.
-				if (hand != carrier && gun_placed && geometry.valid && geometry.has_magazine_top && hand_collision_on.load(std::memory_order_relaxed)
-					&& !(support > 0.0f) && !(handle_request.weight > 0.0f))
+				// Nor while a magazine is placed at the magwell (the snap and the grip lock); meanwhile the side the hand is
+				// on is still followed, so a hand that leaves such a hold and slaps through the gun still meets it.
+				if (hand != carrier && gun_placed && geometry.valid && geometry.has_magazine_top && hand_collision_on.load(std::memory_order_relaxed))
 				{
-					apply_hand_collision(local, hand, goal);
+					const bool held_elsewhere = support > 0.0f || handle_request.weight > 0.0f || snap_request.weight > 0.0f || lock_request.weight > 0.0f;
+					apply_hand_collision(local, hand, goal, !held_elsewhere);
 				}
 				else
 				{

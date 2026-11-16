@@ -22,8 +22,9 @@ namespace bfvr::body::contact
 		// remembers the face the hand was last outside of and pushes out through that face, so a hand moved
 		// through a thin part within one frame (a slap) ends on the side it came from, while a hand moved round
 		// the box may come out anywhere. A push longer than give_up lets the hand through (the controller is far
-		// beyond: holding the drawn hand back would stretch the arm) and forgets the side.
-		ik::vec3 resolve(const box* boxes, int box_count, const sphere* spheres, int sphere_count, float give_up = 0.15f);
+		// beyond: holding the drawn hand back would stretch the arm) and forgets the side; a hand that went through
+		// from a known side is held back up to give_up_through (a slap carries on past the gun).
+		ik::vec3 resolve(const box* boxes, int box_count, const sphere* spheres, int sphere_count, float give_up = 0.15f, float give_up_through = 0.35f);
 		void reset();
 
 		bool touching() const { return touching_; } // the last resolve pushed the hand

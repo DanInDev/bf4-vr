@@ -183,9 +183,14 @@ skeleton.md) need a checkpoint whose kit has one.
   the gun's boxes (body/hand_collision `gun_boxes`) are built from the bones (magazine top, the animated hand
   wrists), never from fixed numbers. Receiver from that: centre (0, 0.026, 0.396), half (0.025, 0.035, 0.149).
 - `Wep_Mag` moves with the hand during a physical reload: it is sampled only while no magazine is detached.
-- Monitor: `fakehand` left at x 0.15, z -0.45, raised y -0.25 to 0: from y -0.16 the palm (r 3.5 cm) is held
-  at gun y -0.044 (the receiver bottom minus the radius) while the controller goes 41 / 89 / 129 mm in; the
-  solved hand is 0 mm inside (`fingers`: `drawn_mm=0`). At y -0.04 the push would exceed 0.15 m: let through.
+- Monitor: `fakehand` left at x 0.15, z -0.45, raised y -0.25 to 0: from y -0.12 the palm (r 3.5 cm) is held
+  at gun y -0.044 (the receiver bottom minus the radius) while the controller goes 89..209 mm in; the solved hand
+  is 0 mm inside (`fingers`: `drawn_mm=0`). A hand that went through from a known side is held up to 0.35 m
+  (a first build let go at 0.15 m: shorter than the receiver plus the palm, so slaps went through).
+- The off hand near the magazine engages the magazine snap (#40): the push pauses there, but the side the hand is
+  on must still be followed (a first build forgot it, and a slap from there went through).
+- The game's reload (reload = button) moves `Wep_Mag` down: a sampling window of 2 cm crept along with it
+  (-0.009 -> -0.043). Kept now: the highest magazine top and the furthest-forward support wrist per gun.
 - Fake-hand sweeps sideways at y -0.25 never touch: that height is the magazine's, 15 cm below the magwell.
 
 ## Recoil data (2026-11-03, tools/recoil_probe.py, campaign checkpoint "Get Grenade Launcher")

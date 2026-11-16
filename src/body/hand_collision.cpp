@@ -52,7 +52,7 @@ namespace bfvr::body::contact
 		}
 	}
 
-	ik::vec3 hand_collider::resolve(const box* boxes, int box_count, const sphere* spheres, int sphere_count, float give_up)
+	ik::vec3 hand_collider::resolve(const box* boxes, int box_count, const sphere* spheres, int sphere_count, float give_up, float give_up_through)
 	{
 		touching_ = false;
 		depth_ = 0.0f;
@@ -99,6 +99,13 @@ namespace bfvr::body::contact
 				side_[b] = outside_face(reference_local, reference_expanded);
 				continue;
 			}
+			// Through from a known side: past the box's middle along that axis (or beyond it) counts as through.
+			if (inside && face != 0)
+			{
+				const int axis = std::abs(face) - 1;
+				const float sign = face > 0 ? 1.0f : -1.0f;
+				passed = sign * axis_of(reference_local, axis) < 0.0f;
+			}
 			if (face == 0)
 			{
 				face = nearest_face(reference_local, reference_expanded);
@@ -129,7 +136,7 @@ namespace bfvr::body::contact
 				side_[b] = face;
 				continue;
 			}
-			if (need > give_up)
+			if (need > (passed ? give_up_through : give_up))
 			{
 				side_[b] = 0;
 				continue;
