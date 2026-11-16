@@ -96,9 +96,12 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   the last shot uses, which has no cue. Now `racked_locked`, with the bolt cue. The bolt catch pressed on an empty
   magazine drops the bolt home (`racked_empty`, bolt cue), as a firm press does on a real AR.
 - **Release while the off hand holds the new magazine** (the usual empty reload): the drop event has no cue and the
-  fallback (`sound_if_magazine_left`) skipped it while a hand held a magazine. Now any seated magazine leaving the gun
-  sounds unless a pull, flick or palming already played the cue this frame (`release_needs_out_cue`).
-- Recorded with `tools/sound_probe.py empty_ar` / `empty_ak`.
+  fallback (`sound_if_magazine_left`) skipped it while a hand held a magazine. Now the cue is sent for any seated
+  magazine leaving the gun unless a pull, flick or palming already played it this frame (`release_needs_out_cue`).
+  **Sent, not shown audible:** for the SCAR-H the counter went 11 -> 12, but the one recording of that release heard
+  nothing (and two other steps right after a pouch take were silent in that run, audible in others). Open: does the
+  SCAR-H graph drop a cue that follows a take within ~2.5 s? Next: `entityevent` the out event by hand after a take.
+- Recorded with `tools/sound_probe.py empty_ar` / `empty_ak` / `order_ak` (AK-12: an out after two takes, +17.6 dB).
 
 ## The player's own foley (2026-11-03, #33)
 
