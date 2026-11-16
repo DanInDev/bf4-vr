@@ -853,6 +853,29 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 - Since #37 the game's aim stays with the body (`aim_with_body`): the bullet direction comes from the
   shot frame alone (holes follow the gun 15 degrees left and right with the aimer fixed).
 
+## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
+
+Owner (headset): the flash comes from in front of the player, not from the barrel; it may show where the game
+thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at the drawn gun, the flash not caught.
+
+- **Data** (`tools/fire_effect_probe.py`, typeinfo `FiringFunctionData` +0x150 `FireEffects1p`, +0x158 `3p`; each
+  `FireEffectData` 0x50: Offset, Rotation, ZoomOffset, ZoomRotation, Effect, flags): SCAR-H three 1p effects at
+  offsets (0, 0.019, 0.925) `UpdateTransform=1`, (-0.012, 0.022, 0.451) and (0, 0.019, 0.925) `StopLoopingEffects=1`;
+  AK-12 the same at 0.890 / 0.440. The 3p list has the same offsets. Shot: `InitialPosition` (0, -0.064, 0),
+  `SpawnVisualAtWeaponBone=1`, `ActiveForceSpawnToCamera=1`. So the flash is ~0.9 m straight ahead of some frame.
+- **Where it shows** (fake head and hands, SCAR-H bursts, back-buffer shots during the burst): with the gun held 30-40
+  cm right of and below the eyes and parallel to the view, the flash (the centre flame and the brake's two side jets)
+  sat near the view's centre, about 1 m ahead, off the drawn barrel's line; turning the gun 50 deg right moved it only
+  ~15 deg right; the shot frame meanwhile started at the drawn sight line (36 cm right, 20 cm down, 18 cm ahead of the
+  camera) and points along the barrel, so a flash 0.925 m along it would have sat ~43 deg right. Neither the drawn
+  barrel nor the shot frame places it; it follows the camera and the game's aim mostly.
+- **Poking the shared offsets** (both 1p entries to 0, restored after): no visible change; the effect most likely takes
+  its offset when the weapon is set up, not per shot.
+- **At 5 fps with recoil moving the view** the pictures cannot say more. Next: find the code that places the 1p fire
+  effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
+  the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn
+  muzzle, as `weapon/shot_origin` does for the bullets.
+
 ## Empty hands: the gun in the off hand (#38, 2026-11-09, monitor)
 
 - `weapon/free_hands` (with `free_hands = 1`) has a third holder besides the gun hand and the floor: the

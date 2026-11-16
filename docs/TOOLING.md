@@ -261,6 +261,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `tools/weapon_sound_probe.py [--slot n]` | Live: the gun's sound asset, its sound patch graph events and parameters with hash-matched names |
 | `tools/sight_probe.py [--ads s]` | Live: the camera joint in Wep_Root axes (the sight's eye point and line), optionally after holding the aim button; run with `armik 0`, `aim head`, `gun_pose animated` for the game's own pose (`re/notes/weapon.md` "Sights") |
 | `tools/recoil_probe.py [--watch s]` | Live: every gun's GunSwayData recoil per stance and zoom, first-shot multiplier, fire logic, the stance; `--watch` samples the aiming sway/recoil offset (`re/notes/weapon.md` "Recoil data") |
+| `tools/fire_effect_probe.py` | Live, read only: each gun's muzzle flash data (`FireEffects1p` / `3p`: offset, rotation, zoom offset, flags) and its `ShotConfigData` spawn flags (`re/notes/weapon.md` "The muzzle flash") |
 | `tools/grenade_probe.py [--slot 6]` | Live: the grenade weapon's launch data (shot, hold-and-release, projectile) and its count (`re/notes/weapon.md` "Grenades") |
 | `tools/ammo_probe.py` | Live: fires and reloads with the pad and lists int fields that follow the magazine and reserve (`re/notes/weapon.md`) |
 | `tools/soak.ps1 [-Minutes 10] [-MinFps 60] [-Command 'eyepass 1']` | Samples `status` once a second while the game sits in a level; fails on a stall, low fps or rejected eye pairs and saves a `threads` sample (`re/dumps/soak-*`) |
