@@ -90,6 +90,16 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   Recorded through the pipe: AK-12 grab +24 dB, insert +23/+28 dB, rack +34 dB; SCAR-H release +24,
   insert +29, rack +32, catch +23, stow +22; 0 refused.
 
+## Silent bolt and magazine with an empty magazine (#78, 2026-11-16)
+
+- **Rack on an empty AR magazine:** the state machine returned `bolt_locked` (the follower holds the bolt open), the event
+  the last shot uses, which has no cue. Now `racked_locked`, with the bolt cue. The bolt catch pressed on an empty
+  magazine drops the bolt home (`racked_empty`, bolt cue), as a firm press does on a real AR.
+- **Release while the off hand holds the new magazine** (the usual empty reload): the drop event has no cue and the
+  fallback (`sound_if_magazine_left`) skipped it while a hand held a magazine. Now any seated magazine leaving the gun
+  sounds unless a pull, flick or palming already played the cue this frame (`release_needs_out_cue`).
+- Recorded with `tools/sound_probe.py empty_ar` / `empty_ak`.
+
 ## The player's own foley (2026-11-03, #33)
 
 - Loaded in the campaign (memory scan for `Sound/Character/` names): waves

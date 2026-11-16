@@ -292,8 +292,14 @@ namespace bfvr::weapon
 			}
 		}
 
+		bool out_cue_played{}; // this frame: a magazine-out cue already sounded (#78)
+
 		void remember(reload_event event)
 		{
+			if (event == reload_event::magazine_out || event == reload_event::flicked_out || event == reload_event::magazine_palmed)
+			{
+				out_cue_played = true;
+			}
 			sound_for(event);
 			feel(event);
 			if (event == reload_event::none || event == reload_event::shot)
@@ -309,13 +315,14 @@ namespace bfvr::weapon
 		}
 
 		// AR: the release drops the magazine out of the gun (magazine_dropped), which must sound like a
-		// magazine coming out; a magazine dropped from the hand must not.
+		// magazine coming out, also while the other hand holds the new one (#78); a magazine dropped from the hand must not.
 		void sound_if_magazine_left(bool was_in, const reload& gun)
 		{
-			if (was_in && !gun.state().magazine_in && !gun.state().holding)
+			if (release_needs_out_cue(was_in, gun.state().magazine_in, out_cue_played))
 			{
 				sound_for(reload_event::magazine_out);
 			}
+			out_cue_played = false;
 		}
 
 		// The game's magazine for our state: rounds in the gun plus the spare (empty: only the

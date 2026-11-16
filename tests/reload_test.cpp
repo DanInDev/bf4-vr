@@ -148,10 +148,28 @@ namespace
 		empty_catch.fire();            // bolt locked on the empty magazine still seated
 		empty_catch.press_button(true); // hold it in the hand (magazine out)
 		empty_catch.insert();          // the same empty magazine back in
-		const reload_event stays = empty_catch.press_button(false);
-		sound_cue none_cues[2]{};
-		expect(stays == reload_event::bolt_locked && empty_catch.state().bolt_locked && cues_for(stays, none_cues) == 0,
-			"#78: the catch pressed on an empty magazine leaves the bolt locked, silently");
+		const reload_event dropped = empty_catch.press_button(false);
+		sound_cue catch_cues[2]{};
+		// Review 2: the owner asked for the bolt release to sound every time; a firm press drops the bolt on an empty
+		// magazine too. It rides home on an empty chamber.
+		expect(dropped == reload_event::racked_empty && !empty_catch.state().bolt_locked && !empty_catch.state().chamber
+				&& cues_for(dropped, catch_cues) == 1 && catch_cues[0].event == reload_sound::bolt,
+			"#78: the catch pressed on an empty magazine drops the bolt home, with the bolt sound");
+		expect(empty_catch.fire() == reload_event::dry_fire, "and the chamber stays empty");
+		// Review 2: releasing the empty magazine while the off hand already holds the new one (the usual empty reload)
+		// was silent: the drop event has no cue and the fallback skipped it while a hand held a magazine.
+		expect(release_needs_out_cue(true, false, false), "#78: the seated magazine left the gun, nothing sounded yet: magazine out");
+		expect(!release_needs_out_cue(true, false, true), "already sounded (pulled into the hand, flicked, palmed): not twice");
+		expect(!release_needs_out_cue(false, false, false), "a magazine dropped from the hand, none was seated: silent");
+		expect(!release_needs_out_cue(true, true, false), "still seated: silent");
+		reload swap(ar);
+		swap.load(1, 30);
+		swap.fire();
+		swap.take_from_chest();        // the new one in the off hand first
+		const bool was_in = swap.state().magazine_in;
+		const reload_event released = swap.press_button(false);
+		expect(released == reload_event::magazine_dropped && swap.state().holding, "the empty one drops while the hand holds the new one");
+		expect(release_needs_out_cue(was_in, swap.state().magazine_in, false), "#78: and it sounds like a magazine coming out");
 	}
 
 	void test_ak()

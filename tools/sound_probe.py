@@ -80,7 +80,14 @@ SCENARIOS = {
         ('bolt catch: chambers (reference bolt)', ['reload catch'], 2.5),
         ('fire the state empty (no sound expected)', ['reload fire'] * 40, 2.5),
         ('rack on the empty magazine (#78: bolt)', ['reload rack'], 2.5),
-        ('release the empty magazine (#78: magazine out)', ['reload button'], 2.5),
+        ('take the new one first', ['reload take'], 2.5),
+        ('release the empty one, new one in hand (#78: magazine out)', ['reload button'], 2.5),
+        ('insert the new one', ['reload insert'], 2.5),
+        ('bolt catch: chambers', ['reload catch'], 2.5),
+        ('fire the state empty again (no sound expected)', ['reload fire'] * 40, 2.5),
+        ('pull the empty one into the hand (magazine out)', ['reload catch'], 2.5),
+        ('push the same empty one back in', ['reload insert'], 2.5),
+        ('bolt catch on the empty magazine (#78: bolt)', ['reload button'], 2.5),
     ],
     # #78 (AK-12 in hand): the magazine pulled out by hand when it is empty.
     'empty_ak': [
@@ -91,6 +98,20 @@ SCENARIOS = {
         ('take a full one', ['reload take'], 2.5),
         ('insert it', ['reload insert'], 2.5),
         ('rack: chambers (bolt)', ['reload rack'], 2.5),
+    ],
+    # #78: does the game's reload sound play a magazine-out that follows a pouch take (settle)? AK-12 in hand.
+    'order_ak': [
+        ('setup: physical reload', ['setting set reload physical'], 3.0),
+        ('pull the magazine out, nothing before (reference)', ['reload grab'], 3.0),
+        ('drop it', ['reload letgo'], 3.0),
+        ('take one from the pouch (settle)', ['reload take'], 3.0),
+        ('insert it', ['reload insert'], 3.0),
+        ('take the next one first (settle)', ['reload take'], 4.0),
+        ('stow it back (settle)', ['reload stow'], 4.0),
+        ('pull the magazine out after two settles', ['reload grab'], 3.0),
+        ('insert it again', ['reload insert'], 3.0),
+        ('pull it out once more, nothing just before', ['reload grab'], 3.0),
+        ('insert', ['reload insert'], 3.0),
     ],
     # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
     'physical_ar': [
