@@ -142,4 +142,10 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
 - Open: play that wave (trigger the M67 patch while the grenade weapon exists, e.g. during the grenade
   capture, or decode the wave from the game files as the BF3 VR mod does). Until then the synthesised
   `cue::pin` plays.
-
+- **#66 next step (2026-11-16):** the grenade's `FiringFunctionData.Sound` (+0x160) is the asset
+  `Sound/Weapons/Handheld/M67/M67` (0x...c4d0 in that session), but not a `SoundPatchConfigurationAsset`: read as one, its
+  "patch" at +0x28 has no name and its graph's event list is garbage (`tools/weapon_sound_probe.py --slot 6`).
+  `object_probe.py` finds no vtable for it (data assets carry none). Next: type it through the type registry's data layout
+  (which class has a SoundGraph where this one does), list its graph events, and look for the pin event; or record the
+  game's own grenade (pipe `holster` to the grenade, pull the pin by the game) with `tools/sound_probe.py` to see which
+  SoundEntity plays it.

@@ -63,7 +63,7 @@ def u32(address):
 
 def cstring(pointer):
     try:
-        return peek(pointer, 128).split(b'\0')[0].decode(errors='replace') if pointer else ''
+        return peek(pointer, 128).split(b'\0')[0].decode('ascii', errors='replace').replace('�', '?') if pointer else ''
     except RuntimeError:
         return '?'
 
