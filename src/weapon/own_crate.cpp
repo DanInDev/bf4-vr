@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "common/log.hpp"
+#include "common/settings_store.hpp"
 #include "weapon/crate_guns.hpp"
 #include "weapon/server_soldier.hpp"
 
@@ -96,20 +97,15 @@ namespace bfvr::weapon
 			return found;
 		}
 
-		// A Frostbite array: the pointer is to element 0, the count sits in the 4 bytes before it.
-		std::uintptr_t make_array(const void* elements, std::uint32_t count, std::size_t element_size)
+		// A Frostbite array at `at` in our block: the pointer is to element 0, the count sits in the 4 bytes before it.
+		std::uintptr_t make_array(std::uint8_t* at, const void* elements, std::uint32_t count, std::size_t element_size)
 		{
-			auto* block = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, 0x20 + count * element_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-			if (!block)
-			{
-				return 0;
-			}
-			std::memcpy(block + 0x0C, &count, sizeof(count));
+			std::memcpy(at - 4, &count, sizeof(count));
 			if (count)
 			{
-				std::memcpy(block + 0x10, elements, count * element_size);
+				std::memcpy(at, elements, count * element_size);
 			}
-			return reinterpret_cast<std::uintptr_t>(block + 0x10);
+			return reinterpret_cast<std::uintptr_t>(at);
 		}
 
 		struct give_call
@@ -161,7 +157,15 @@ namespace bfvr::weapon
 			{
 				return "error: template unreadable";
 			}
-			const std::uintptr_t empty = make_array(nullptr, 0, 8);
+			// One 4 KB page per pick, never freed on purpose: the engine may keep pointers to the data (the soldier's
+			// kit for a respawn), and a pick is a rare, deliberate act. Layout: empty array +0x10, weapons +0x40,
+			// data +0x100.
+			auto* block = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+			if (!block)
+			{
+				return "error: allocation";
+			}
+			const std::uintptr_t empty = make_array(block + 0x10, nullptr, 0, 8);
 			struct unlock_weapon_and_slot
 			{
 				std::uintptr_t weapon;
@@ -171,12 +175,8 @@ namespace bfvr::weapon
 				std::uintptr_t unlocks;
 			} entry{ call.asset, call.slot, 0, empty, empty };
 			static_assert(sizeof(unlock_weapon_and_slot) == 32);
-			const std::uintptr_t weapons = make_array(&entry, 1, sizeof(entry));
-			auto* data = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, 0x100, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-			if (!empty || !weapons || !data)
-			{
-				return "error: allocation";
-			}
+			const std::uintptr_t weapons = make_array(block + 0x40, &entry, 1, sizeof(entry));
+			std::uint8_t* const data = block + 0x100;
 			std::memcpy(data, data_bytes, customize_data_size);
 			const std::uint32_t header = 0xB1000000u | 0x1000u; // the asset flags with a count no release brings to 0
 			std::memcpy(data + 8, &header, 4);
@@ -246,9 +246,9 @@ namespace bfvr::weapon
 
 		void give_later(std::string id, std::uint32_t slot)
 		{
-			if (pending.load() > 0 || !player_server_soldier())
+			if (!player_server_soldier())
 			{
-				log::write("own crate: %s for slot %u skipped (%s)", id.c_str(), slot, pending.load() > 0 ? "a give is still running" : "no player soldier");
+				log::write("own crate: %s for slot %u skipped (no player soldier)", id.c_str(), slot);
 				return;
 			}
 			++pending;
@@ -273,13 +273,14 @@ namespace bfvr::weapon
 
 	void own_crate_settings(std::string_view primary, std::string_view secondary)
 	{
-		if (primary_watch.update(primary))
+		const std::uint64_t now = GetTickCount64();
+		if (const std::string gun = primary_watch.update(primary, now, pending.load() > 0); !gun.empty())
 		{
-			give_later(std::string(primary), 0);
+			give_later(gun, 0);
 		}
-		if (secondary_watch.update(secondary))
+		if (const std::string gun = secondary_watch.update(secondary, now, pending.load() > 0); !gun.empty())
 		{
-			give_later(std::string(secondary), 1);
+			give_later(gun, 1);
 		}
 	}
 
@@ -319,6 +320,8 @@ namespace bfvr::weapon
 
 	void own_crate_on_game_thread()
 	{
+		// Every frame (settings are applied only when they change, and a pick must settle first).
+		own_crate_settings(settings::global().text("crate_primary", "keep"), settings::global().text("crate_secondary", "keep"));
 		const std::lock_guard guard(lock);
 		for (give_call* call : queue)
 		{

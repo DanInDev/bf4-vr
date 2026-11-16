@@ -1243,7 +1243,7 @@ the clicks a position without the laser: either thumbstick moves a dot over the 
   did not react, and a click on an item flipped the Primary/Secondary tab instead (as in the gadget stash, #34).
   Pad D-pad does not move the selection. `pipe watch <UnlockEverything> rw` saw no read while the menu was idle.
 
-## Own crate: a gun into a slot without the game's menu (2026-11-16 night, monitor, Baku tunnel, #34)
+## Own crate: a gun into a slot without the game's menu (2026-11-16 night, monitor, Baku tunnel, #80)
 
 The owner wants our own crate instead of the game's menu (which takes clicks only with BF4 in front). The level scripts
 hand out kits with `ServerCustomizeSoldierEntity` (vtable `0x141E695A0`): its event `0x0C487271` passes its
@@ -1258,8 +1258,11 @@ the weapons component (`0x140F7FDC0`) puts each `UnlockWeaponAndSlot` of `data+0
 - **Dead end:** copying the first `CustomizeSoldierData` found (the class prototype, header `0x01000001`) let a
   release free our copy during the call (`C0000005` at `0x140F7FE6F`, our object filled with `cc`/`fe`). Copy a level
   asset (top byte `0xB1`) and give the copy a large count (`0xB1001000`); the call is under `__try`.
+- **The picker (#80):** settings `crate_primary` / `crate_secondary` (Weapon > Weapons). The panel row is a stepper,
+  so a choice is given only after it has rested 1.2 s and no give runs (latest wins; `crate::change_watch`).
+  MP412 Rex into slot 1 and 870 into slot 0 worked too. Each pick keeps one 4 KB page (the engine may keep pointers).
 - **Not done yet:** attachments (`CustomizationUnlockAssets`, e.g. the crate list's attachment arrays at widget
-  `+0x148`), sidearms into slot 1, and the in-VR picker.
+  `+0x148`).
 
 ## Fist rack, two handle zones (2026-11-15, monitor: fakehead + fakehand, AK-12 from the crate)
 

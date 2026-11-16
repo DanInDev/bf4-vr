@@ -1,4 +1,4 @@
-// Checks the own crate's gun list and its change watch (src/weapon/crate_guns, #34): 51 guns plus "keep", the panel's
+// Checks the own crate's gun list and its change watch (src/weapon/crate_guns, #80): 51 guns plus "keep", the panel's
 // choices in the same order, the settings using exactly these values, and a give only on a real change to a gun.
 #include <cstdio>
 #include <string>
@@ -66,13 +66,46 @@ int main()
 		expect(shown && std::string(shown->choices) == weapon::crate::choices, "the panel shows the readable names");
 	}
 
-	weapon::crate::change_watch watch;
-	expect(!watch.update("U_M416"), "the first value seen (the ini's) gives nothing");
-	expect(!watch.update("U_M416"), "unchanged: nothing");
-	expect(watch.update("U_AK12"), "a new gun picked: give it");
-	expect(!watch.update("U_AK12"), "once");
-	expect(!watch.update("keep"), "keep gives nothing");
-	expect(watch.update("U_AK12"), "the same gun again after keep: give it again");
+	weapon::crate::change_watch watch(1000);
+	expect(watch.update("U_M416", 0, false).empty(), "the first value seen (the ini's) gives nothing");
+	expect(watch.update("U_M416", 5000, false).empty(), "unchanged: nothing");
+	expect(watch.update("U_AK12", 6000, false).empty(), "a new gun: not before it has settled");
+	expect(watch.update("U_AK12", 7000, false) == "U_AK12", "settled for 1 s: give it");
+	expect(watch.update("U_AK12", 9000, false).empty(), "once");
+	expect(watch.update("keep", 10000, false).empty() && watch.update("keep", 12000, false).empty(), "keep gives nothing");
+	expect(watch.update("U_AK12", 13000, false).empty() && watch.update("U_AK12", 14000, false) == "U_AK12", "the same gun again after keep: give it again");
+
+	// Stepping on the panel: Keep -> A-91 -> ACE 52 -> AK 5C, 200 ms apart, then it rests.
+	weapon::crate::change_watch steps(1000);
+	steps.update("keep", 0, false);
+	int given = 0;
+	std::string last;
+	std::uint64_t t = 100;
+	for (const char* gun : { "U_A91", "U_GalilACE52", "U_AK5C" })
+	{
+		const std::string out = steps.update(gun, t, false);
+		given += out.empty() ? 0 : 1;
+		t += 200;
+	}
+	for (; t < 3000; t += 100)
+	{
+		const std::string out = steps.update("U_AK5C", t, false);
+		if (!out.empty())
+		{
+			++given;
+			last = out;
+		}
+	}
+	expect(given == 1 && last == "U_AK5C", "stepping past guns gives only the one it rests on");
+
+	// A give still running: the newest choice waits for it and then wins.
+	weapon::crate::change_watch busy(1000);
+	busy.update("keep", 0, false);
+	busy.update("U_M416", 0, false);
+	expect(busy.update("U_M416", 1500, false) == "U_M416", "first pick given");
+	busy.update("U_P90", 1600, true);
+	expect(busy.update("U_P90", 3000, true).empty(), "the next waits while the first give runs");
+	expect(busy.update("U_P90", 3100, false) == "U_P90", "and is given once it is done (latest wins)");
 	if (failures == 0)
 	{
 		std::printf("crate_guns: all checks passed\n");

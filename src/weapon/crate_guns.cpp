@@ -2,12 +2,24 @@
 
 namespace bfvr::weapon::crate
 {
-	bool change_watch::update(std::string_view value)
+	std::string change_watch::update(std::string_view value, std::uint64_t now_ms, bool busy)
 	{
-		const bool first = !seen_;
-		const bool changed = value != last_;
-		seen_ = true;
-		last_ = value;
-		return !first && changed && value != "keep" && !value.empty();
+		if (!seen_)
+		{
+			seen_ = true;
+			applied_ = current_ = value;
+			return {};
+		}
+		if (value != current_)
+		{
+			current_ = value;
+			since_ = now_ms;
+		}
+		if (current_ == applied_ || busy || now_ms - since_ < settle_ms_)
+		{
+			return {};
+		}
+		applied_ = current_;
+		return current_ == "keep" ? std::string() : current_;
 	}
 }

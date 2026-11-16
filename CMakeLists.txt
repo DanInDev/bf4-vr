@@ -293,9 +293,10 @@ if(BFVR_BUILD_TESTS)
 	# Campaign-only rules: command lines and level paths, both games.
 	add_executable(bfvr_mp_rules_test tests/mp_rules_test.cpp src/safety/mp_rules.cpp)
 	target_link_libraries(bfvr_mp_rules_test PRIVATE bfvr_common)
-	# Trigger press/release latch (a resting finger never fires).
+	# The own crate's gun list and its settle-then-give watch (#80).
 	add_executable(bfvr_crate_guns_test tests/crate_guns_test.cpp)
 	target_link_libraries(bfvr_crate_guns_test PRIVATE bfvr_common)
+	# Trigger press/release latch (a resting finger never fires).
 	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
 	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
 
