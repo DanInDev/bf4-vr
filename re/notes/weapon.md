@@ -173,6 +173,27 @@ skeleton.md) need a checkpoint whose kit has one.
   remote-in-hand pose and turns with the hand (unlike the knife). The M320's Wep_Root is gun-like:
   (0,-1,0,0) ahead, follows pitch/yaw exactly (up 60 -> (0,-0.868,-0.496,0)). No per-item fix needed.
 
+### The M320's own reload, bone by bone (2026-11-16, monitor, #64)
+
+The standalone M320 (`U_SP_M320_HE`, slot 5) fired once down the Baku room (free hands off, RT only; the game reloads
+it by itself right after the shot). Live local pose of the weapon bones every 120 ms (scratch tool `bone_series.py`),
+translations in the parent in cm, the shot at ~0.9 s:
+
+| Bone | At rest | During the game's reload | Is |
+| --- | --- | --- | --- |
+| 131 `Wep_Mag` | (-1.9, 3.9, 51.3) under Wep_Root | turns 15 deg about the gun's up axis 1.1 s -> 3.4 s, back by 3.5 s | **the barrel**, pivot at its front; the back end swings to the gun's left (+x), as the real one |
+| 136 `Wep_Belt1`, 159 `Wep_Extra4` | | the same 15 deg with the barrel | parts of the barrel |
+| 137 `Wep_Belt2` (child of Belt1) | (0, -1, 0) | 1.1-2.8 s: back and down to (15, -34, -55), tumbling up to 145 deg, then reset | **the spent case** falling out |
+| 132 `Wep_Mag_Ammo` (child of Mag) | (3.5, 0.4, -5.0) | at the shot to z +11.4 (out of sight), 1.95-3.0 s in from below-left (-13, -12, -13) to its rest | **the new round** going in |
+| 157 `Wep_Extra2` | (1.5, 4.3, 46.3) | to z 67.9 at 2.8-3.5 s | not identified (a hand target?) |
+
+Ammo: server soldier (pipe `serversoldier`) weapons `+0x828 + 8*5` -> `+0x200` -> `+0x1A0`: 1 in the gun, 11-12 in
+reserve (C4 slot 2: 1 and 5). The game reloads after every shot by itself, so a reload by hand must keep the game's
+count from reaching 0, as `physical_reload` does for magazines. Test pitfalls: each `pad` command lets go of the held
+grip for a moment and the fake gun hand, if in a holster or pouch zone, re-grips there (C4, M67 drawn instead); with
+`free_hands 0` and no grip the trigger works alone. Weapon keys need BF4 in front (`game.ps1 keys -Keys 4`); it stays
+on the M320 while BF4 stays in front.
+
 - **The keyboard is Raw Input**: the image imports `GetRawInputData` / `RegisterRawInputDevices`; no
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
