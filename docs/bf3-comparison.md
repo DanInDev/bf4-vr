@@ -2,8 +2,8 @@
 
 Written 2026-11-13 from the BF3 campaign mod's shared code and notes (local copy at commit `07e1bbb`;
 the GitHub repo `criminalvictory/Battlefield-3-VR-The-Great-Destroyer-Source` is 5 commits newer: the
-EoTech reticle, a recoil-drift fix, aim for picked-up guns). The repo has **no licence**: we study the ideas
-and never copy code, the same rule as Overlord.
+EoTech reticle, a recoil-drift fix, aim for picked-up guns). The repo has no licence file, but its maintainer
+allows copying its code and setup (owner, 2026-11-16): reuse it with credit. Overlord stays design-only (GPLv3).
 
 ## Summary
 

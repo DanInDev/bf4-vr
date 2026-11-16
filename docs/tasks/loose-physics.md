@@ -42,7 +42,7 @@ written down in `re/notes/`.
 
 ## The reference: the BF3 single-player VR mod (`..\BF3-VR-code-and-notes-2026-11-13`)
 
-**No licence: ideas only, never copy code.** It is a 32-bit BF3 mod, so its addresses mean nothing here. Its user
+**Its maintainer allows copying its code (owner, 2026-11-16); credit it.** It is a 32-bit BF3 mod, so its addresses mean nothing here. Its user
 confirmed it in the headset ("it works really well", "the 40 mm casing shells do stay on the ground").
 
 - **`code/src/loose.h` / `loose.cpp`**, pure rigid bodies with offline tests (`code/tools/loosetest.cpp`, 128 checks).

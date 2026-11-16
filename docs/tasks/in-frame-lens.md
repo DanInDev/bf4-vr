@@ -6,7 +6,7 @@ Written 2026-11-13. Revised the same day after step 0. Branch `fix/sights-in-fra
 
 ## The idea
 
-The BF3 single-player VR mod (its code was shared on 2026-11-13; it has no licence, so ideas only) makes sights
+The BF3 single-player VR mod (its code was shared on 2026-11-13; its maintainer allows copying it, owner 2026-11-16) makes sights
 work by drawing them **in the game's frame, on the optic's own glass**, never as OpenXR quads:
 - the lens keeps the game's vertex shader and depth test;
 - per pixel, the ray's slope off the sight's axis, divided by the magnification, picks what the glass shows;

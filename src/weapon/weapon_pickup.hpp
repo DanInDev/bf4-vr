@@ -8,8 +8,8 @@
 // while its prompt shows ("HOLD TO PICKUP AK-12": within the pickup's InteractionRadius, 2.5 m in Baku).
 // Held for 1.5 s through the game's Raw Input it took the AK-12 into slot 1, the game not even in front
 // (live 2026-11-13). R is also reload, so it is held only while a hand that has just squeezed reaches a
-// pickup. The reach is the BF3 single-player VR mod's magnetic take, which its user approved (ideas only,
-// that code has no licence): a fresh squeeze within 35 cm of the gun, or a hand lowered beside the body
+// pickup. The reach is the BF3 single-player VR mod's magnetic take, which its user approved (its maintainer
+// allows reuse with credit): a fresh squeeze within 35 cm of the gun, or a hand lowered beside the body
 // over it (up to 1.2 m above it, 50 cm around). re/notes/weapon.md "Weapons from the ground".
 namespace bfvr::weapon
 {

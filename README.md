@@ -123,6 +123,12 @@ works with the Frostbite engine, the reverse-engineering notes, the tools and th
 
 Battlefield 3 and multiplayer through Venice Unleashed are researched in a separate repository.
 
+## Licence
+
+The mod's code is under the [MIT licence](LICENSE): use it, change it and build on it however you like, keeping
+the copyright notice. Credit is welcome, and so is any other Frostbite mod using it as a reference. The licence
+covers this project's own code only, not the game or its files.
+
 ## Disclaimer
 
 BF4-VR is a fan project. It is not affiliated with or endorsed by Electronic Arts or DICE. Battlefield is a

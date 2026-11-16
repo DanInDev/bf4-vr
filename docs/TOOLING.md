@@ -54,7 +54,7 @@ HEAD carries the tag `v<version>`): `bfvr_launcher.exe`,
 `dinput8.dll`, `bfvr.ini.example`, `README.txt` and `LICENSE.txt` (from `tools/package/`) and
 `THIRD-PARTY-NOTICES.txt` (MinHook, OpenXR loader and JsonCpp licences from the fetched sources). The contents
 are an allow-list, checked again inside the finished zip: game files, dumps, screenshots, PDBs, `bfvr.ini` and
-logs can never end up in it. `LICENSE.txt` is a placeholder until a licence is chosen. There is no installer
+logs can never end up in it. `LICENSE.txt` is the MIT licence (the same as `LICENSE` at the root). There is no installer
 exe yet: the zip plus the launcher's install/remove is the release format.
 
 **Publishing:** bump `project(bfvr VERSION x.y.z)` in `CMakeLists.txt`, then push the tag `vx.y.z`. The `release`
