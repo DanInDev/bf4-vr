@@ -1243,6 +1243,24 @@ the clicks a position without the laser: either thumbstick moves a dot over the 
   did not react, and a click on an item flipped the Primary/Secondary tab instead (as in the gadget stash, #34).
   Pad D-pad does not move the selection. `pipe watch <UnlockEverything> rw` saw no read while the menu was idle.
 
+## Own crate: a gun into a slot without the game's menu (2026-11-16 night, monitor, Baku tunnel, #34)
+
+The owner wants our own crate instead of the game's menu (which takes clicks only with BF4 in front). The level scripts
+hand out kits with `ServerCustomizeSoldierEntity` (vtable `0x141E695A0`): its event `0x0C487271` passes its
+`CustomizeSoldierData` to the soldier's `customize` (ServerSoldierEntity slot 100, `0x140FC0F30`), args
+`{soldier, player (soldier+0x240), data, 0}`. With a player the call goes to every soldier component (slot 17) and
+the weapons component (`0x140F7FDC0`) puts each `UnlockWeaponAndSlot` of `data+0x38` into its slot.
+
+- **Works:** `weapon/own_crate`, pipe `givegun <debug id> <slot>` (research), run on the game thread (camera hook).
+  `givegun U_M416 0` with the SCAR-H in slot 0: `ok`, 3.5 s later `reload: U_M416 slot 0 AR, capacity 30, gun 31,
+  reserve 124`, slot listing `0 U_M416, 1 U_AK12, ...`, the M416 in hand on screen (carry handle, no attachments).
+  A gun the level had never spawned: its bundle loads by itself (the 3.5 s).
+- **Dead end:** copying the first `CustomizeSoldierData` found (the class prototype, header `0x01000001`) let a
+  release free our copy during the call (`C0000005` at `0x140F7FE6F`, our object filled with `cc`/`fe`). Copy a level
+  asset (top byte `0xB1`) and give the copy a large count (`0xB1001000`); the call is under `__try`.
+- **Not done yet:** attachments (`CustomizationUnlockAssets`, e.g. the crate list's attachment arrays at widget
+  `+0x148`), sidearms into slot 1, and the in-VR picker.
+
 ## Fist rack, two handle zones (2026-11-15, monitor: fakehead + fakehand, AK-12 from the crate)
 
 - `rack_grip = fist`: the grab's zone decides the hold. AK-12 (handle on the right, (-0.02, 0.06, 0.53)): the left

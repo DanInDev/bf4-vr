@@ -46,6 +46,7 @@
 #include "stereo/world_pass.hpp"
 #include "weapon/hit_feedback.hpp"
 #include "weapon/hip_accuracy.hpp"
+#include "weapon/own_crate.hpp"
 #include "weapon/unlock_all.hpp"
 #include "weapon/server_soldier.hpp"
 #include "weapon/weapon_pickup.hpp"
@@ -583,7 +584,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe", "givegun" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -890,6 +891,7 @@ namespace bfvr::control
 			}
 			if (command == "setting") return settings::pipe_command(argument);
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
+			if (command == "givegun") return weapon::give_gun_pipe_command(argument);
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
 			if (command == "extramesh")
 			{

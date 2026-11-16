@@ -213,6 +213,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/hip_accuracy.cpp
 	src/weapon/hip_accuracy_math.cpp
 	src/weapon/unlock_all.cpp
+	src/weapon/own_crate.cpp
 	src/weapon/unlock_all_math.cpp
 	src/weapon/server_soldier.cpp
 	src/weapon/server_soldier_math.cpp
