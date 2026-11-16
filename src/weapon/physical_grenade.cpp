@@ -352,6 +352,7 @@ namespace bfvr::weapon
 			float yaw{};
 			weapon::v3 at;
 			const bool shown = frame.hands_valid && frame.have_grenade && !result.holding && body_rig_point(weapon::grenade_pouch, at, yaw);
+			at = weapon::slot_model_point(at, yaw, weapon::slot_models_ahead());
 			const float position[3] = { at.x, at.y, at.z };
 			body::set_pouch_grenade(shown, position, yaw);
 		}

@@ -167,6 +167,7 @@ namespace bfvr::weapon
 		melee_gesture melee;
 		// Free hands (#35).
 		std::atomic<bool> free_hands_on{};
+		std::atomic<float> slot_models_ahead_m{ 0.08f }; // live setting slot_models_ahead (#41)
 		std::atomic<float> free_hands_release{}; // live setting free_hands_release, seconds
 		std::atomic<bool> sling_on{ true }; // #38: a let-go gun hangs on the sling, not on the floor
 		std::atomic<bool> sling_primary_on{ true }; // #58: the primary drawn on the sling while another weapon is out
@@ -901,7 +902,8 @@ namespace bfvr::weapon
 		// ring is left out while that is drawn.
 		{
 			constexpr int knife_zone = static_cast<int>(holster::knife) - static_cast<int>(holster::primary);
-			const float at[3]{ result.centres[knife_zone].x, result.centres[knife_zone].y, result.centres[knife_zone].z };
+			const v3 model = slot_model_point(result.centres[knife_zone], zones.body_yaw(), slot_models_ahead());
+			const float at[3]{ model.x, model.y, model.z };
 			const bool shown = result.has_centres && !knife_out && zones.body_known();
 			body::set_holster_knife(shown, at, zones.body_yaw());
 		}
@@ -1016,6 +1018,16 @@ namespace bfvr::weapon
 			out.left_trigger = 0;
 		}
 		return out;
+	}
+
+	void set_slot_models_ahead(float metres)
+	{
+		slot_models_ahead_m = std::isfinite(metres) ? std::fmax(0.0f, std::fmin(0.3f, metres)) : 0.0f;
+	}
+
+	float slot_models_ahead()
+	{
+		return slot_models_ahead_m.load(std::memory_order_relaxed);
 	}
 
 	void set_free_hands(bool on)

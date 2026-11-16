@@ -33,4 +33,9 @@ namespace bfvr::weapon
 
 	// body_yaw: radians, 0 = facing -z, + = turned left (holsters::body_yaw). Mirrored when left-handed.
 	v3 body_point(const v3& head, float body_yaw, const v3& offset, bool left_handed, const body::body_size& size = {});
+
+	// #41 (owner 2026-11-15: the knife and grenades were drawn inside the body): where the copy of an item is drawn
+	// for its slot at point, moved ahead along the body's facing so it sits on the chest, not in it. The grab zone
+	// stays at point.
+	v3 slot_model_point(const v3& point, float body_yaw, float ahead);
 }

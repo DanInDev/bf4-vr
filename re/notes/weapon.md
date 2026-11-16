@@ -136,6 +136,20 @@ future two-hand grip.
   player has the `_SP` variant); still restore the data right after the spawn.
 - Lesson: a grenade bouncing off the ceiling indoors killed the player (checkpoint reload).
 
+### Slot copies ahead of the chest (#41, 2026-11-16, monitor, Baku "Get Grenade Launcher")
+
+- `slot_models_ahead` moves the copies, not the grab zones, along the body's facing. Pipe `extramesh` `at`
+  is in a world frame turned 180 deg from the rig (`holster` body_yaw 0 = rig -z): offsets 0 / 0.08 / 0.14
+  gave grenade and knife z 0.236 / 0.316 / 0.376, x unchanged.
+- Pictures need the plain `shot` (pair rendering): `eyeshot` never showed either copy. Without a capture
+  (`extramesh` grenade `captured=0`) the pouch draws nothing; `pipe grenade capture` first.
+- Grenade copy: fakehead `0.064 0 0 -70`, it sits under the view at 0, further ahead at 0.08, out of the
+  frame at 0.3. Follows the offset as intended.
+- **Knife copy (open):** a black knife grip drawn beside the grenade moved with neither
+  `slot_models_ahead` (0 to 0.3) nor `knife_pitch` (+60), though `extramesh` reported the knife's `at`
+  moving. Either that grip is not the copy, or the captured knife mesh follows a bone the copy's root
+  matrix does not drive. Not caused by #41 (`knife_pitch` is older); look at the knife capture's draws first.
+
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 
 Slots in this checkpoint: 0 `U_SCAR-H`, 1 `U_AK12`, 6 `U_M67_SP`, 7 `U_Knife`, 8 `U_SP_Visor`; 2-5 empty.

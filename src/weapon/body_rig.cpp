@@ -33,6 +33,12 @@ namespace bfvr::weapon
 		return { neck.x + fx * eye_ahead_of_neck, neck.y + eye_above_neck, neck.z + fz * eye_ahead_of_neck };
 	}
 
+	v3 slot_model_point(const v3& point, float body_yaw, float ahead)
+	{
+		// Facing -z at yaw 0, turning left with +yaw.
+		return { point.x - std::sin(body_yaw) * ahead, point.y, point.z - std::cos(body_yaw) * ahead };
+	}
+
 	v3 body_point(const v3& head, float body_yaw, const v3& offset, bool left_handed, const body::body_size& size)
 	{
 		// Same axes as holsters::update: right = (cos, 0, -sin), back = (sin, 0, cos).

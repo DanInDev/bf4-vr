@@ -537,6 +537,18 @@ namespace
 		expect(r.count == 0, "16 cm below the magazine is out of reach");
 	}
 
+	// #41 (owner 2026-11-15): the grenade and knife copies are drawn ahead of their grab points, on the chest.
+	void test_slot_model_point()
+	{
+		const v3 point{ 0.1f, -0.3f, -0.1f };
+		const v3 ahead = slot_model_point(point, 0.0f, 0.08f);
+		expect(close(ahead.x, 0.1f) && close(ahead.y, -0.3f) && close(ahead.z, -0.18f), "slot model: facing -z, 8 cm further along -z");
+		const v3 left = slot_model_point(point, 1.5707963f, 0.08f);
+		expect(close(left.x, 0.02f) && close(left.z, -0.1f), "slot model: turned 90 degrees left, 8 cm along -x");
+		const v3 same = slot_model_point(point, 0.7f, 0.0f);
+		expect(close(same.x, point.x) && close(same.z, point.z), "slot model: 0 ahead keeps the grab point");
+	}
+
 	// Owner 2026-11-15: the charging handle has an overhand zone at its level, out on its side and a little
 	// above, and a larger underhand zone below it, short along the barrel (the handguard ahead stays the
 	// two-handed grab's). Gun frame as the identity here: +x left, +y up, +z along the barrel.
@@ -2040,6 +2052,7 @@ int main()
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
 	test_rack_zones();
+	test_slot_model_point();
 	test_hands_ar_drop_and_fall();
 	test_eject_flight();
 	test_hands_flick();

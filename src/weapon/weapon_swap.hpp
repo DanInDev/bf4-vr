@@ -31,6 +31,10 @@ namespace bfvr::weapon
 	// free_hands (#35, weapon/free_hands): the gun is held only while the gun hand grips; let go and it
 	// lies on the floor (drawn there, no firing) until gripped again.
 	void set_free_hands(bool enabled);
+	// Live setting slot_models_ahead (#41): the grenade and knife copies are drawn this far (metres) ahead of their
+	// grab points along the body's facing, on the chest instead of inside it.
+	void set_slot_models_ahead(float metres);
+	float slot_models_ahead();
 	// Live setting free_hands_release: the gun hand's grip open this long (seconds) before the gun drops or goes to
 	// the off hand; 0 (default) at once.
 	void set_free_hands_release(float seconds);

@@ -121,6 +121,7 @@ namespace bfvr::settings
 			{ "sling", "Weapon", "Hands and melee", "Gun on a sling", "With free hands: it hangs at your belly", "" },
 			{ "weapon_pickup", "Weapon", "Hands and melee", "Grab weapons from the ground", "Either hand: grip it or reach down over it", "" },
 			{ "sling_show_primary", "Weapon", "Hands and melee", "Rifle on the sling", "Shown while the pistol is out", "" },
+			{ "slot_models_ahead", "Weapon", "Hands and melee", "Grenade and knife on the chest", "Metres ahead of their grab spots", "", true },
 			{ "slot_models_at_start", "Weapon", "Hands and melee", "Grenade and knife at their slots", "From level start: both are drawn once", "" },
 			{ "use_reach", "Weapon", "Hands and melee", "Reach to use", "Off hand ahead + grip: pick up, doors", "" },
 			{ "melee_gesture", "Weapon", "Hands and melee", "Stab by thrusting", "A quick push of the gun hand", "" },
