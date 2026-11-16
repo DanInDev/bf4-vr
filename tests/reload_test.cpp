@@ -307,6 +307,9 @@ namespace
 		const reload_profile scar = profile_for("U_SCAR-H", 21);
 		expect(scar.kind == variant::ar && scar.capacity == 20 && !scar.flick, "SCAR-H: AR, 20 rounds");
 		expect(profile_for("U_M416", 1).capacity == 1, "capacity never below 1");
+		// #64: the standalone M320 is a break-open launcher; rifles and the M320 under a rifle are not.
+		expect(is_break_open("U_SP_M320_HE") && is_break_open("U_SP_M320_SMK"), "the stash's M320 is break-open");
+		expect(!is_break_open("U_SCAR-H") && !is_break_open("U_M416_M320_HE") && !is_break_open("U_SP_C4"), "rifles, the underslung M320 and C4 are not");
 	}
 
 	v3 operator+(v3 a, v3 b)

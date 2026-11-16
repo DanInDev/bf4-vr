@@ -166,6 +166,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/tracking.cpp
 	src/stereo/world_pass.cpp
 	src/weapon/accessory_touch.cpp
+	src/weapon/break_open.cpp
 	src/weapon/grab_debug.cpp
 	src/weapon/grenade_hands.cpp
 	src/weapon/hand_signal.cpp

@@ -119,6 +119,11 @@ namespace bfvr::body
 		// rotate(world_to_local, world - world_origin) (#54: pickups lie in the world).
 		float world_origin[3]{};
 		float world_to_local[4]{ 0, 0, 0, 1 };
+		// #64 (launcher_pose active): the barrel's back end where a round goes in (the round's place in the barrel as
+		// drawn) and a point on the barrel's left side, where a push shuts it; OpenXR LOCAL.
+		bool has_launcher{};
+		float barrel_mouth[3]{};
+		float barrel_side[3]{};
 	};
 	weapon_points latest_weapon_points();
 
@@ -142,6 +147,24 @@ namespace bfvr::body
 		float tilt_pivot{ 0.07f };
 	};
 	void set_magazine_pose(const magazine_pose& pose);
+
+	// #64: the M320, a break-open launcher reloaded by hand (weapon/physical_reload). Its barrel (Wep_Mag, pivot at its
+	// front) turned open by `open` (0 shut .. 1 the game's own 15 degrees, the back end to the gun's left) with the barrel
+	// parts Wep_Belt1 and Wep_Extra4; the round (Wep_Mag_Ammo) and the spent case (Wep_Belt2) in the barrel as animated,
+	// hidden, or at a pose in OpenXR LOCAL (in the hand, falling). re/notes/weapon.md "The M320's own reload".
+	struct launcher_pose
+	{
+		bool active{};
+		float open{};
+		enum class place { in_barrel, hidden, at_pose };
+		place round{ place::in_barrel };
+		place spent_case{ place::hidden };
+		float round_position[3]{};
+		float round_rotation[4]{ 0, 0, 0, 1 };
+		float case_position[3]{};
+		float case_rotation[4]{ 0, 0, 0, 1 };
+	};
+	void set_launcher_pose(const launcher_pose& pose);
 
 	// Extra meshes (#36): a second magazine, drawn by stereo::extra_mesh as a copy of the game's magazine
 	// draw: where the gun holds it (seated), in the drawn off-hand fist untilted (the caught one while

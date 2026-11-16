@@ -91,6 +91,11 @@ namespace bfvr::body
 			int slide{ -1 };       // Wep_Slide: bolt / charging handle
 			int optic{ -1 };       // Wep_Scope1: sight / magnifier (accessory toggle)
 			int rail{ -1 };        // Wep_Extra1: forward rail accessory (light / laser)
+			// #64, the M320 (re/notes/weapon.md "The M320's own reload"): the round in its barrel, the spent case, and
+			// the barrel parts that turn with Wep_Mag.
+			int launcher_round{ -1 };    // Wep_Mag_Ammo
+			int launcher_case{ -1 };     // Wep_Belt2
+			int launcher_parts[2]{ -1, -1 }; // Wep_Belt1, Wep_Extra4
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
 			int ground{ -1 };      // AITrajectory: the soldier's ground point (free hands drop the gun onto it)
@@ -317,6 +322,10 @@ namespace bfvr::body
 		weapon_points points;
 		magazine_pose magazine_request;
 		bone_memory magazine_memory;
+		// #64: the M320 by hand; Wep_Mag (the barrel) keeps magazine_memory, the other four bones these.
+		launcher_pose launcher_request;
+		bone_memory launcher_memory[4];
+		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
 		// Extra meshes (#36): the second magazine (stereo/extra_mesh), and the held magazine's pose before
 		// the palming tilt (where a caught one sits).
 		extra_magazine_pose extra_request;
@@ -630,6 +639,10 @@ namespace bfvr::body
 			fresh.slide = find_bone(bone_names, fresh.bones, "Wep_Slide");
 			fresh.optic = find_bone(bone_names, fresh.bones, "Wep_Scope1");
 			fresh.rail = find_bone(bone_names, fresh.bones, "Wep_Extra1");
+			fresh.launcher_round = find_bone(bone_names, fresh.bones, "Wep_Mag_Ammo");
+			fresh.launcher_case = find_bone(bone_names, fresh.bones, "Wep_Belt2");
+			fresh.launcher_parts[0] = find_bone(bone_names, fresh.bones, "Wep_Belt1");
+			fresh.launcher_parts[1] = find_bone(bone_names, fresh.bones, "Wep_Extra4");
 			fresh.ik_hand[0] = find_bone(bone_names, fresh.bones, "IK_Joint_LeftHand");
 			fresh.ik_hand[1] = find_bone(bone_names, fresh.bones, "IK_Joint_RightHand");
 			fresh.legs[0] = find_bone(bone_names, fresh.bones, "LeftUpLeg");
@@ -1496,6 +1509,92 @@ namespace bfvr::body
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = local[rig.magazine];
 			magazine_memory.has_written = true;
+		}
+
+		// Called with rig_lock held, after edit_weapon: the M320 by hand (#64). Turns the barrel open about its front
+		// pivot (the back end to the gun's left, as the game's own reload does it), places the round and the spent case,
+		// and publishes the barrel's mouth and left side for weapon/physical_reload.
+		void edit_launcher(ik::bone_transform* local)
+		{
+			const int bones[4] = { rig.launcher_round, rig.launcher_case, rig.launcher_parts[0], rig.launcher_parts[1] };
+			for (int i = 0; i < 4; ++i)
+			{
+				if (bones[i] < 0)
+				{
+					continue;
+				}
+				ik::bone_transform& current = local[bones[i]];
+				if (launcher_memory[i].has_written && std::memcmp(&current, &launcher_memory[i].written, sizeof(current)) == 0)
+				{
+					current = launcher_memory[i].animated;
+				}
+				else
+				{
+					launcher_memory[i].animated = current;
+				}
+				launcher_memory[i].has_written = false;
+			}
+			points.has_launcher = false;
+			if (!launcher_request.active || rig.magazine < 0 || rig.weapon < 0 || rig.launcher_round < 0 || rig.launcher_case < 0)
+			{
+				return;
+			}
+			const float angle = std::fmin(std::fmax(launcher_request.open, 0.0f), 1.0f) * launcher_open_radians;
+			// About the parent's up axis: the game's reload turns Wep_Mag by (0, -0.131, 0, 0.991) fully open.
+			const ik::quat turn{ 0.0f, -std::sin(0.5f * angle), 0.0f, std::cos(0.5f * angle) };
+			local[rig.magazine].rotation = ik::normalize(turn * local[rig.magazine].rotation);
+			magazine_memory.written = local[rig.magazine];
+			magazine_memory.has_written = true;
+			for (int part = 0; part < 2; ++part)
+			{
+				if (rig.launcher_parts[part] >= 0)
+				{
+					local[rig.launcher_parts[part]].rotation = ik::normalize(turn * local[rig.launcher_parts[part]].rotation);
+				}
+			}
+
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const ik::quat to_xr = ik::conjugate(frame);
+			const ik::vec3 origin = tracking_origin(camera, frame);
+			// The mouth: where the round sits in the (turned) barrel; the side: 5 cm to the gun's left of it, 10 cm on.
+			const ik::vec3 mouth = ik::model_of(local, rig.parents, rig.launcher_round).position;
+			const ik::quat root = ik::model_of(local, rig.parents, rig.weapon).rotation;
+			const ik::vec3 side = mouth + ik::rotate(root, ik::vec3{ 0.05f, 0.0f, 0.10f });
+			const ik::vec3 mouth_xr = ik::rotate(to_xr, mouth - origin);
+			const ik::vec3 side_xr = ik::rotate(to_xr, side - origin);
+			points.has_launcher = true;
+			points.barrel_mouth[0] = mouth_xr.x;
+			points.barrel_mouth[1] = mouth_xr.y;
+			points.barrel_mouth[2] = mouth_xr.z;
+			points.barrel_side[0] = side_xr.x;
+			points.barrel_side[1] = side_xr.y;
+			points.barrel_side[2] = side_xr.z;
+
+			const auto place = [&](int bone, launcher_pose::place where, const float (&p)[3], const float (&q)[4])
+			{
+				if (where == launcher_pose::place::hidden)
+				{
+					local[bone].scale = 0.001f;
+				}
+				else if (where == launcher_pose::place::at_pose)
+				{
+					ik::bone_transform placed = ik::model_of(local, rig.parents, bone);
+					placed.position = origin + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+					placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+					ik::set_model_transform(local, rig.parents, bone, placed);
+				}
+			};
+			place(rig.launcher_round, launcher_request.round, launcher_request.round_position, launcher_request.round_rotation);
+			place(rig.launcher_case, launcher_request.spent_case, launcher_request.case_position, launcher_request.case_rotation);
+			for (int i = 0; i < 4; ++i)
+			{
+				if (bones[i] >= 0)
+				{
+					launcher_memory[i].written = local[bones[i]];
+					launcher_memory[i].has_written = true;
+				}
+			}
 		}
 
 		// Called with rig_lock held, after edit_arms: publishes the magazine and slide in OpenXR LOCAL
@@ -2803,6 +2902,7 @@ namespace bfvr::body
 						}
 						edit_arms(local);
 						edit_weapon(local);
+						edit_launcher(local);
 						edit_fingers(local);
 						attach_held_magazine(local);
 						if (weight < 1.0f)
@@ -3013,6 +3113,12 @@ namespace bfvr::body
 	{
 		const std::lock_guard guard(rig_lock);
 		return points;
+	}
+
+	void set_launcher_pose(const launcher_pose& pose)
+	{
+		const std::lock_guard guard(rig_lock);
+		launcher_request = pose;
 	}
 
 	void set_magazine_pose(const magazine_pose& pose)

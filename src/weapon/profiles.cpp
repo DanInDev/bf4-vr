@@ -63,6 +63,11 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	bool is_break_open(std::string_view unlock_name)
+	{
+		return unlock_name.substr(0, 9) == "U_SP_M320";
+	}
+
 	reload_profile profile_for(std::string_view unlock_name, int game_capacity)
 	{
 		reload_profile profile;

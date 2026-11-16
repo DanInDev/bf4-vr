@@ -22,6 +22,7 @@
 #include "stereo/eye_math.hpp"
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
+#include "weapon/break_open.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
@@ -91,6 +92,7 @@ namespace bfvr::weapon
 			int slot{ -1 };
 			char name[48]{};
 			int capacity{};          // game MagazineCapacity
+			bool launcher{};         // #64: a break-open launcher (weapon/profiles is_break_open), one round
 			std::uintptr_t ammo{};   // server weapon firing + 0x1A0
 			int magazine{};
 			int reserve{};
@@ -159,7 +161,8 @@ namespace bfvr::weapon
 				return weapon;
 			}
 			// Grenades, the knife and gadgets carry -1: no magazine to reload.
-			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && weapon.capacity > 1 && weapon.capacity <= 500;
+			weapon.launcher = is_break_open(weapon.name);
+			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && (weapon.capacity > 1 || weapon.launcher) && weapon.capacity <= 500;
 			weapon.slot = static_cast<int>(index);
 			weapon.ammo = server_ammo + firing_magazine;
 			return weapon;
@@ -190,6 +193,7 @@ namespace bfvr::weapon
 			std::string name;
 			std::uintptr_t ammo{}; // server weapon ammo: a new object (respawn, level) starts fresh
 			reload gun;
+			break_open launcher;   // #64: used instead of gun when the weapon is a break-open launcher
 			int written{ -1 };     // magazine value we last wrote into the game
 			int written_reserve{ -1 };
 		};
@@ -443,6 +447,253 @@ namespace bfvr::weapon
 		{
 			return weapon::body_rig_point(weapon::magazine_pouch, chest);
 		}
+
+		// ---- #64: the M320 reloaded by hand (weapon/break_open; design after The Great Destroyer's src/m320.h) ----
+		// The trigger pulled while it is not ready works the release; a spent case slides out with the muzzle up or is
+		// pulled out at the barrel's back end; a round from the chest pouch goes into the open, empty barrel; the open
+		// hand pushed onto the barrel's left side swings it shut. The game's count is kept at ours + spare_rounds, so
+		// its own reload (after every shot) never starts.
+		constexpr float launcher_grab_reach = 0.08f;   // the off palm this near the barrel's back end takes from it
+		constexpr float launcher_insert_reach = 0.05f; // a held round this near the open, empty barrel goes in
+		constexpr float launcher_push_reach = 0.05f;   // the open palm this near the barrel's left side shuts it ...
+		constexpr float launcher_push_arm = 0.12f;     // ... once it was this far from it since the barrel opened
+		constexpr float launcher_swing_seconds = 0.12f;
+		constexpr float launcher_case_seconds = 0.8f;   // a spent case falls this long, then it is gone
+		bool launcher_shown{};
+		bool launcher_trigger_was{};
+		bool launcher_grip_was{};
+		bool launcher_side_armed{};
+		float launcher_open{};
+		float case_fall{ -1.0f };
+		weapon::v3 case_at{};
+
+		float distance(const weapon::v3& a, const weapon::v3& b)
+		{
+			const float x = a.x - b.x, y = a.y - b.y, z = a.z - b.z;
+			return std::sqrt(x * x + y * y + z * z);
+		}
+
+		const char* launcher_event_name(launcher_event event)
+		{
+			switch (event)
+			{
+			case launcher_event::none: return "none";
+			case launcher_event::shot: return "shot";
+			case launcher_event::opened: return "opened";
+			case launcher_event::case_out: return "case_out";
+			case launcher_event::round_taken: return "round_taken";
+			case launcher_event::round_seated: return "round_seated";
+			case launcher_event::round_out: return "round_out";
+			case launcher_event::round_stowed: return "round_stowed";
+			case launcher_event::round_dropped: return "round_dropped";
+			case launcher_event::closed: return "closed";
+			}
+			return "?";
+		}
+
+		void note_launcher(launcher_event event, const weapon::v3& mouth)
+		{
+			switch (event)
+			{
+			case launcher_event::opened:
+				play(cue::magazine_out);
+				input::haptic(1, input::pulses::click);
+				break;
+			case launcher_event::case_out:
+				case_fall = 0.0f;
+				case_at = mouth;
+				input::haptic(1, input::pulses::tick);
+				break;
+			case launcher_event::round_taken:
+			case launcher_event::round_out:
+				play(cue::cloth);
+				input::haptic(0, input::pulses::grab);
+				break;
+			case launcher_event::round_stowed:
+				play(cue::cloth);
+				input::haptic(0, input::pulses::tick);
+				break;
+			case launcher_event::round_seated:
+				play(cue::magazine_in);
+				input::haptic(0, input::pulses::seat);
+				break;
+			case launcher_event::closed:
+				play(cue::chamber);
+				input::haptic(0, input::pulses::seat);
+				input::haptic(1, input::pulses::grab);
+				break;
+			default:
+				break;
+			}
+			if (event == launcher_event::none || event == launcher_event::shot)
+			{
+				return;
+			}
+			if (recent_count == static_cast<int>(std::size(recent)))
+			{
+				std::memmove(recent, recent + 1, sizeof(recent) - sizeof(recent[0]));
+				--recent_count;
+			}
+			recent[recent_count++] = launcher_event_name(event);
+		}
+
+		void hide_launcher()
+		{
+			if (launcher_shown)
+			{
+				body::set_launcher_pose({});
+				launcher_shown = false;
+			}
+			launcher_open = 0.0f;
+			case_fall = -1.0f;
+		}
+
+		void update_launcher(const game_weapon& weapon, slot_memory& memory, const body::weapon_points& points, const input::gamepad_state& pad,
+			bool grip, bool hands_valid, float seconds)
+		{
+			break_open& m = memory.launcher;
+			const weapon::v3 mouth = v(points.barrel_mouth);
+			// Shots: the game counted down from what we wrote; the game raising it (a pickup) is taken as given.
+			if (memory.written >= 0)
+			{
+				const int fired = memory.written - weapon.magazine;
+				for (int shot = 0; shot < fired && shot < 4; ++shot)
+				{
+					note_launcher(m.trigger(), mouth);
+					++shots;
+				}
+				if (fired > 0)
+				{
+					input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
+					body::kick_gun(1, weapon.recoil);
+				}
+				if (weapon.magazine > memory.written)
+				{
+					m.load(weapon.magazine - spare_rounds, weapon.reserve);
+				}
+				else if (memory.written_reserve >= 0 && weapon.reserve != memory.written_reserve)
+				{
+					m.set_reserve(m.state().reserve + weapon.reserve - memory.written_reserve);
+				}
+			}
+			// The release: a fresh pull while it is not ready (when ready, the pull goes to the game and fires).
+			const bool trigger = pad.right_trigger > 128;
+			if (trigger && !launcher_trigger_was && !m.ready())
+			{
+				note_launcher(m.trigger(), mouth);
+			}
+			launcher_trigger_was = trigger;
+
+			const bool usable = hands_valid && points.has_launcher;
+			const bool grip_pressed = grip && !launcher_grip_was;
+			launcher_grip_was = grip;
+			const weapon::v3 palm = v(points.palm[0]);
+			weapon::v3 chest{};
+			const bool at_chest = chest_point(chest) && distance(palm, chest) <= magazine_reach.load(std::memory_order_relaxed);
+			if (usable)
+			{
+				const float to_mouth = distance(palm, mouth);
+				const float to_side = distance(palm, v(points.barrel_side));
+				if (m.state().open && points.has_root)
+				{
+					// The barrel's forward (Wep_Root +z) height: how far the muzzle points up.
+					const float* r = points.root_rotation;
+					const float up = 2.0f * (r[1] * r[2] + r[3] * r[0]);
+					note_launcher(m.tip(std::asin(std::clamp(up, -1.0f, 1.0f)) * 57.29578f), mouth);
+				}
+				if (grip_pressed)
+				{
+					if (at_chest)
+					{
+						note_launcher(m.take_from_chest(), mouth);
+					}
+					else if (m.state().open && to_mouth <= launcher_grab_reach)
+					{
+						note_launcher(m.grab_barrel(), mouth);
+					}
+				}
+				if (m.state().holding && to_mouth <= launcher_insert_reach)
+				{
+					note_launcher(m.insert(), mouth);
+				}
+				if (!m.state().open)
+				{
+					launcher_side_armed = false;
+				}
+				else if (to_side > launcher_push_arm)
+				{
+					launcher_side_armed = true;
+				}
+				else if (launcher_side_armed && !grip && !m.state().holding && to_side <= launcher_push_reach)
+				{
+					note_launcher(m.close(), mouth);
+				}
+			}
+			if (!grip && m.state().holding)
+			{
+				note_launcher(m.let_go(at_chest), mouth);
+			}
+
+			// Drawing: the barrel swings over launcher_swing_seconds; the case falls for a moment once out.
+			const float target = m.state().open ? 1.0f : 0.0f;
+			const float step = seconds / launcher_swing_seconds;
+			launcher_open += std::clamp(target - launcher_open, -step, step);
+			body::launcher_pose pose;
+			pose.active = true;
+			pose.open = launcher_open;
+			using place = body::launcher_pose::place;
+			const barrel_load load = m.state().load;
+			pose.round = load == barrel_load::live ? place::in_barrel : place::hidden;
+			if (m.state().holding)
+			{
+				pose.round = place::at_pose;
+				std::copy(std::begin(points.palm[0]), std::end(points.palm[0]), pose.round_position);
+				std::copy(std::begin(points.root_rotation), std::end(points.root_rotation), pose.round_rotation);
+			}
+			pose.spent_case = load == barrel_load::empty ? place::hidden : place::in_barrel;
+			if (m.state().holding)
+			{
+				pose.spent_case = place::hidden;
+			}
+			if (case_fall >= 0.0f)
+			{
+				case_fall += seconds;
+				if (case_fall > launcher_case_seconds)
+				{
+					case_fall = -1.0f;
+				}
+				else
+				{
+					pose.spent_case = place::at_pose;
+					pose.case_position[0] = case_at.x;
+					pose.case_position[1] = case_at.y - 4.9f * case_fall * case_fall;
+					pose.case_position[2] = case_at.z;
+					std::copy(std::begin(points.root_rotation), std::end(points.root_rotation), pose.case_rotation);
+				}
+			}
+			body::set_launcher_pose(pose);
+			launcher_shown = true;
+
+			const int wanted = m.rounds_in_gun() + spare_rounds;
+			if (wanted != weapon.magazine)
+			{
+				write(weapon.ammo, wanted);
+			}
+			if (m.game_reserve() != weapon.reserve)
+			{
+				write(weapon.ammo + 4, m.game_reserve());
+			}
+			memory.written = wanted;
+			memory.written_reserve = m.game_reserve();
+
+			active = true;
+			block_trigger = !m.ready();
+			block_grip = usable && (m.state().holding || at_chest || (m.state().open && distance(palm, mouth) <= launcher_grab_reach));
+			hand_engaged = m.state().holding;
+			claims_free_hand = false;
+			draw_off_hand(m.state().holding ? body::fingers::task::magazine : body::fingers::task::free, nullptr, points.has_root, seconds);
+			attach_magazine();
+		}
 	}
 
 	void set_physical_reload(bool enabled)
@@ -563,6 +814,7 @@ namespace bfvr::weapon
 				hands.reset();
 				attach_magazine();
 			}
+			hide_launcher();
 			active = false;
 			block_trigger = false;
 			block_grip = false;
@@ -576,11 +828,13 @@ namespace bfvr::weapon
 		auto found = slots.find(weapon.slot);
 		if (found == slots.end() || found->second.name != weapon.name || found->second.ammo != weapon.ammo)
 		{
-			slot_memory fresh{ weapon.name, weapon.ammo, reload(profile_for(weapon.name, weapon.capacity)), -1 };
+			slot_memory fresh{ weapon.name, weapon.ammo, reload(profile_for(weapon.name, weapon.capacity)), break_open{}, -1 };
 			fresh.gun.load(weapon.magazine, weapon.reserve);
+			fresh.launcher.load(weapon.magazine, weapon.reserve);
 			found = slots.insert_or_assign(weapon.slot, std::move(fresh)).first;
 			log::write("reload: %s slot %d %s, capacity %d, gun %d, reserve %d", weapon.name, weapon.slot,
-				found->second.gun.profile().kind == variant::ak ? "AK" : "AR", found->second.gun.profile().capacity, weapon.magazine, weapon.reserve);
+				weapon.launcher ? "launcher" : found->second.gun.profile().kind == variant::ak ? "AK" : "AR", found->second.gun.profile().capacity,
+				weapon.magazine, weapon.reserve);
 		}
 		if (weapon.slot != current_slot)
 		{
@@ -589,6 +843,12 @@ namespace bfvr::weapon
 		}
 		game_reload_sounds_weapon(weapon.name);
 		slot_memory& memory = found->second;
+		if (weapon.launcher)
+		{
+			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
+			return;
+		}
+		hide_launcher();
 		reload& gun = memory.gun;
 		gun.configure({ discard.load(std::memory_order_relaxed) });
 
@@ -958,6 +1218,29 @@ namespace bfvr::weapon
 			sound_if_magazine_left(magazine_was_in, gun);
 		}
 		const body::weapon_points points = body::latest_weapon_points();
+		if (found != slots.end() && launcher_shown)
+		{
+			// #64: the M320 by hand.
+			const launcher_state& s = found->second.launcher.state();
+			const char* const loads[]{ "empty", "live", "spent" };
+			const weapon::v3 palm = v(points.palm[0]);
+			std::string events;
+			for (int i = 0; i < recent_count; ++i)
+			{
+				events += std::string(i ? " " : "") + recent[i];
+			}
+			char text[640];
+			std::snprintf(text, sizeof(text),
+				"reload=physical launcher weapon=%s slot=%d open=%d load=%s holding=%d reserve=%d game_reserve=%d ready=%d written=%d shots=%llu\n"
+				"drawn_open=%.2f case_fall=%.2f has_launcher=%d mouth=(%.3f,%.3f,%.3f) side=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) to_mouth=%.3f to_side=%.3f side_armed=%d\n"
+				"recent: %s",
+				found->second.name.c_str(), current_slot, s.open ? 1 : 0, loads[static_cast<int>(s.load)], s.holding ? 1 : 0, s.reserve,
+				found->second.launcher.game_reserve(), found->second.launcher.ready() ? 1 : 0, found->second.written, static_cast<unsigned long long>(shots),
+				launcher_open, case_fall, points.has_launcher ? 1 : 0, points.barrel_mouth[0], points.barrel_mouth[1], points.barrel_mouth[2],
+				points.barrel_side[0], points.barrel_side[1], points.barrel_side[2], palm.x, palm.y, palm.z, distance(palm, v(points.barrel_mouth)),
+				distance(palm, v(points.barrel_side)), launcher_side_armed ? 1 : 0, events.c_str());
+			return text;
+		}
 		const hand_result& r = last_result;
 		const int hand = reloading_hand; // the reloading hand
 		const char* const zone_names[]{ "none", "magazine", "handle", "chest" };
