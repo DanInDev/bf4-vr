@@ -236,8 +236,16 @@ namespace bfvr::weapon
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
-			rack_test = rack_zone_of(reach, handle, frame.root_rotation, rack_side(handle_in_gun, ak), config_);
-			handle_reach = config_.rack_over_reach;
+			hand_config zones = config_;
+			if (frame.has_rack_shape)
+			{
+				zones.rack_over_offset = frame.rack_shape.over_offset;
+				zones.rack_over_reach = frame.rack_shape.over_reach;
+				zones.rack_under_offset = frame.rack_shape.under_offset;
+				zones.rack_under_radii = frame.rack_shape.under_radii;
+			}
+			rack_test = rack_zone_of(reach, handle, frame.root_rotation, rack_side(handle_in_gun, ak), zones);
+			handle_reach = zones.rack_over_reach;
 			handle_grab = rack_test.over_centre;
 			// The large underhand zone only while the gun needs charging: below the handle is the handguard on
 			// guns like the SCAR-H, whose two-handed grab it took (monitor 2026-11-15).
@@ -292,6 +300,7 @@ namespace bfvr::weapon
 		{
 			held_relative_ = multiply(conjugate(frame.gun_rotation), frame.magazine_rotation);
 			insert_armed_ = armed;
+			flick_rearm_ = flick_second_ = false; // a new magazine in the hand: no flick pending
 		};
 		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
 		const bool lockable = frame.grip_lock && frame.has_root && valid;
@@ -432,12 +441,18 @@ namespace bfvr::weapon
 		}
 		else if (gun.state().holding && valid)
 		{
-			if (distance(held_top, frame.magwell) > config_.rearm_distance)
+			// After a flick only a pull back down out of the well re-arms (along the magwell's down axis): pushing on up
+			// past the magwell, as the hand does after knocking the old one out, is no second motion (monitor 2026-11-16).
+			const bool pulled_back = flick_rearm_ ? rail_depth > config_.flick_rearm : distance(held_top, frame.magwell) > config_.rearm_distance;
+			if (pulled_back)
 			{
 				insert_armed_ = true;
+				flick_second_ = flick_rearm_;
+				flick_rearm_ = false;
 			}
 			seat_pause_ = std::fmax(0.0f, seat_pause_ - frame.seconds);
-			bool push_home = frame.grip && insert_armed_ && held_at_magwell;
+			bool push_home = frame.grip && insert_armed_ && held_at_magwell
+				&& (!flick_second_ || rail_depth <= config_.flick_seat_reach); // the second push: back up to (or past) the magwell
 			if (lockable)
 			{
 				// Locks on near the rail when it is turned roughly as it sits; leaves off the rail, past its end
@@ -472,6 +487,9 @@ namespace bfvr::weapon
 					// #47, two steps: the old magazine flies first; the new one, still in the hand, seats a
 					// moment later if the hand keeps it at the magwell.
 					seat_pause_ = config_.flick_seat_delay;
+					// The second motion: away from the magwell and in again (not a seat while the hand just stays).
+					insert_armed_ = false;
+					flick_rearm_ = true;
 					// AK quick reload: the new magazine knocks the old one out of the magwell, downward out of the
 					// gun, carrying the sideways part of the hand's swing (the push itself goes up into the well).
 					const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
@@ -480,6 +498,7 @@ namespace bfvr::weapon
 				}
 				else if (event == reload_event::magazine_in)
 				{
+					flick_second_ = flick_rearm_ = false;
 					seating_ = true;
 					seat_time_ = 0.0f;
 					seat_from_ = guided_ ? rail_point : held_top;
@@ -523,7 +542,7 @@ namespace bfvr::weapon
 		result.has_handle = frame.has_root || frame.has_slide;
 		result.has_under_zone = frame.has_root && needs_rack(gun.state());
 		result.under_centre = rack_test.under_centre;
-		result.under_radii = config_.rack_under_radii;
+		result.under_radii = frame.has_rack_shape ? frame.rack_shape.under_radii : config_.rack_under_radii;
 		if (racking_ && valid)
 		{
 			result.racking = true;

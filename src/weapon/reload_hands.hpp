@@ -10,6 +10,16 @@
 // Engine-free, all positions in one space (OpenXR LOCAL, metres). Tested by tests/reload_test.cpp.
 namespace bfvr::weapon
 {
+	// The charging handle's two grab zones, per gun where they differ from hand_config's rack_* fields (#69;
+	// weapon/profiles rack_zones_for starts from those, so the defaults live in one place).
+	struct rack_zone_shape
+	{
+		v3 over_offset;
+		float over_reach{};
+		v3 under_offset;
+		v3 under_radii;
+	};
+
 	struct hand_frame
 	{
 		float seconds{};      // since the last update
@@ -43,6 +53,9 @@ namespace bfvr::weapon
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
 		v3 handle_point;
+		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
+		bool has_rack_shape{};
+		rack_zone_shape rack_shape;
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
 		// Empty hands (#38): the off hand holds the gun by the handguard and the free gun hand is passed as
@@ -159,6 +172,10 @@ namespace bfvr::weapon
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
+		// AK quick reload, two motions (owner 2026-11-15: it flicked the old one away and the new one was in at once):
+		// after the flick the new magazine seats only once it has left the magwell this far and is pushed in again.
+		float flick_rearm{ 0.05f };
+		float flick_seat_reach{ 0.03f }; // ... and is pushed back up to within this below the magwell (or past it)
 		float flick_speed{ 1.2f };     // AK quick reload: the old magazine is pushed out of the magwell this fast (m/s)
 		float eject_speed{ 1.0f };     // a released magazine not caught leaves the magwell this fast (m/s), plus the gun's motion (1.5 felt too fast)
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
@@ -268,6 +285,8 @@ namespace bfvr::weapon
 		bool rack_full_{};
 		v3 rack_start_;
 		bool insert_armed_{};
+		bool flick_rearm_{}; // after an AK flick: armed again at flick_rearm from the magwell (not rearm_distance)
+		bool flick_second_{}; // re-armed after a flick: it seats only within flick_seat_reach (the second push)
 		q4 held_relative_; // the held magazine's rotation relative to the gun hand
 		magazine_flight flight_;
 		physics::loose_body loose_; // #61: on the real ground (world)

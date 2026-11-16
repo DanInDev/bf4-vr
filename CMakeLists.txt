@@ -135,6 +135,7 @@ add_library(bfvr_runtime STATIC
 	src/body/gun_recoil.cpp
 	src/body/torso.cpp
 	src/body/grasp_contact.cpp
+	src/body/hand_collision.cpp
 	src/body/body_calibration.cpp
 	src/body/soldier_radius.cpp
 	src/body/soldier_radius_game.cpp
@@ -368,6 +369,9 @@ if(BFVR_BUILD_TESTS)
 	# #70: the action aim timing (src/weapon/action_aim); exits non-zero on failure.
 	add_executable(bfvr_action_aim_test tests/action_aim_test.cpp src/weapon/action_aim.cpp)
 	target_link_libraries(bfvr_action_aim_test PRIVATE bfvr_common)
+	# #68: which hand pose rule applies (src/body/hand_rules.hpp); exits non-zero on failure.
+	add_executable(bfvr_hand_rules_test tests/hand_rules_test.cpp)
+	target_link_libraries(bfvr_hand_rules_test PRIVATE bfvr_common)
 	# The cutscene blend (src/body/scene_blend); exits non-zero on failure.
 	add_executable(bfvr_scene_blend_test tests/scene_blend_test.cpp src/body/scene_blend.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_scene_blend_test PRIVATE bfvr_common)
@@ -385,6 +389,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_torso_test PRIVATE bfvr_common)
 	add_executable(bfvr_grasp_contact_test tests/grasp_contact_test.cpp src/body/grasp_contact.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_grasp_contact_test PRIVATE bfvr_common)
+	add_executable(bfvr_hand_collision_test tests/hand_collision_test.cpp src/body/hand_collision.cpp src/body/grasp_contact.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_hand_collision_test PRIVATE bfvr_common)
 
 	# Sound research (re/notes/sound.md): records the default playback device; not a test.
 	add_executable(bfvr_audio_loopback tools/audio_loopback.cpp)
@@ -440,6 +446,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME pose_tweaks COMMAND bfvr_pose_tweaks_test)
 	add_test(NAME action_aim COMMAND bfvr_action_aim_test)
+	add_test(NAME hand_rules COMMAND bfvr_hand_rules_test)
 	add_test(NAME scene_blend COMMAND bfvr_scene_blend_test)
 	add_test(NAME gun_recoil COMMAND bfvr_gun_recoil_test)
 	add_test(NAME torso COMMAND bfvr_torso_test)
@@ -447,6 +454,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME steady_camera COMMAND bfvr_steady_camera_test)
 	add_test(NAME stream_math COMMAND bfvr_stream_math_test)
 	add_test(NAME grasp_contact COMMAND bfvr_grasp_contact_test)
+	add_test(NAME hand_collision COMMAND bfvr_hand_collision_test)
 endif()
 
 # Desktop launcher (an x64 program, built with the bf4 preset): installs the proxy, edits bfvr.ini and

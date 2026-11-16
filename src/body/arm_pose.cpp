@@ -17,6 +17,8 @@
 #include "body/arm_ik.hpp"
 #include "body/finger_pose.hpp"
 #include "body/grasp_contact.hpp"
+#include "body/hand_rules.hpp"
+#include "body/hand_collision.hpp"
 #include "body/gun_recoil.hpp"
 #include "body/pose_book.hpp"
 #include "body/scene_blend.hpp"
@@ -293,6 +295,11 @@ namespace bfvr::body
 			ik::vec3 ads_eye;
 			ik::vec3 ads_direction{ 0, 0, 1 };
 			ik::vec3 sampled_gun;    // IK_Joint_RightHand in Wep_Root axes: another gun resets the samples
+			// #62: Wep_Mag (the magazine's top in the magwell) in Wep_Root axes, taken while the magazine is in the gun.
+			ik::vec3 magazine_top;
+			bool has_magazine_top{};
+			ik::vec3 support_reach; // #62: LeftHand at its furthest forward, Wep_Root axes (the handguard's end)
+			bool has_support_reach{};
 			double aiming_since{ -1.0 };
 			double fired_at{ -100.0 };
 		};
@@ -377,6 +384,19 @@ namespace bfvr::body
 		std::atomic<float> support_back{ 0.06f };
 		std::atomic<float> support_forward{ 0.08f };
 		contact::support_slide support_place; // under rig_lock
+		// #62: the free hand kept out of the gun (live setting hand_collision); under rig_lock.
+		std::atomic<bool> hand_collision_on{ true };
+		contact::hand_collider hand_colliders[2];
+		bool hand_collision_touch[2]{};
+		float hand_collision_depth[2]{};
+		int hand_collision_boxes{};
+		unsigned hand_collision_pushes{};
+		contact::box hand_collision_box[contact::hand_collider::max_boxes]; // the last boxes, posed in the model
+		ik::vec3 hand_collision_knuckle[2];
+		bool hand_collision_checked[2]{}; // this evaluation ran the push for the hand
+		float hand_collision_drawn[2]{};  // the drawn hand's depth in the gun after the solve (metres)
+		ik::vec3 hand_collision_palm_in_gun[2]; // the palm sphere after the push, Wep_Root axes (pipe fingers)
+		contact::box hand_collision_receiver;   // Wep_Root axes
 		handle_hold handle_request;
 		// #40: the open off hand snapping onto the seated magazine (set_magazine_snap). delta: the snapped
 		// hand pose less the controller's (model space), kept from the last seated frame so the hand eases
@@ -405,6 +425,10 @@ namespace bfvr::body
 		// Live setting off_hand_pose: the free off hand's wrist from the mirrored gun grip (true) or the
 		// animated handguard hold turned by the controller (false).
 		std::atomic<bool> off_hand_neutral{};
+		// Live setting gun_hand_pose (#68): the gun hand without a gun (the off hand carries it) or with a gadget
+		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
+		std::atomic<bool> gun_hand_neutral{ true };
+		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
 		bool cupped{};
@@ -805,6 +829,77 @@ namespace bfvr::body
 			}
 		}
 
+		// #62: the drawn hand (palm and knuckles, from its own bones) pushed out of the receiver and handguard, which are
+		// built from the gun's bones; the whole hand moves, its turn stays. push false: only the side the hand is on is
+		// followed (the hand is held by something else this frame).
+		void apply_hand_collision(const ik::bone_transform* local, int hand, ik::arm_goal& goal, bool push)
+		{
+			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
+			const contact::gun_points gun_at{ geometry.magazine_top, geometry.hand[1].position,
+				geometry.has_support_reach ? geometry.support_reach : geometry.hand[0].position };
+			contact::box boxes[contact::hand_collider::max_boxes];
+			const int count = contact::gun_boxes(gun_at, contact::gun_shape{}, boxes);
+			hand_collision_receiver = boxes[0];
+			for (int b = 0; b < count; ++b)
+			{
+				boxes[b].centre = gun.position + ik::rotate(gun.rotation, boxes[b].centre);
+				boxes[b].frame = ik::normalize(gun.rotation * boxes[b].frame);
+			}
+			hand_collision_boxes = count;
+			// The middle finger's knuckle in the hand bone's axes (the metacarpals are not bent by the mod).
+			const int knuckle_bone = rig.finger_bones[hand][fingers::middle][0];
+			ik::vec3 knuckle_in_hand{ 0.0f, 0.0f, 0.0f };
+			if (knuckle_bone > 0)
+			{
+				const ik::bone_transform hand_bone = ik::model_of(local, rig.parents, rig.arms[hand].hand);
+				knuckle_in_hand = ik::rotate(ik::conjugate(hand_bone.rotation), ik::model_of(local, rig.parents, knuckle_bone).position - hand_bone.position);
+			}
+			if (ik::length(knuckle_in_hand) < 0.03f)
+			{
+				hand_colliders[hand].reset();
+				return;
+			}
+			const contact::sphere spheres[2]{
+				{ goal.wrist + ik::rotate(goal.hand, knuckle_in_hand * 0.55f), 0.035f },
+				{ goal.wrist + ik::rotate(goal.hand, knuckle_in_hand), 0.025f },
+			};
+			const ik::vec3 resolved = hand_colliders[hand].resolve(boxes, count, spheres, 2);
+			const ik::vec3 shift = push ? resolved : ik::vec3{};
+			hand_collision_touch[hand] = push && hand_colliders[hand].touching();
+			hand_collision_depth[hand] = push ? hand_colliders[hand].depth() : 0.0f;
+			if (hand_collision_touch[hand])
+			{
+				++hand_collision_pushes;
+				goal.wrist = goal.wrist + shift;
+			}
+			for (int b = 0; b < count; ++b)
+			{
+				hand_collision_box[b] = boxes[b];
+			}
+			hand_collision_palm_in_gun[hand] = ik::rotate(ik::conjugate(gun.rotation), spheres[0].centre + shift - gun.position);
+			hand_collision_knuckle[hand] = knuckle_in_hand;
+			hand_collision_checked[hand] = push;
+		}
+
+		// #62, pipe `fingers`: how deep the hand as drawn (after the arm's solve) still is in the gun, metres.
+		float drawn_hand_depth(const ik::bone_transform* local, int hand)
+		{
+			const ik::bone_transform drawn = ik::model_of(local, rig.parents, rig.arms[hand].hand);
+			const contact::sphere spheres[2]{
+				{ drawn.position + ik::rotate(drawn.rotation, hand_collision_knuckle[hand] * 0.55f), 0.035f },
+				{ drawn.position + ik::rotate(drawn.rotation, hand_collision_knuckle[hand]), 0.025f },
+			};
+			float deepest = 0.0f;
+			for (int b = 0; b < hand_collision_boxes; ++b)
+			{
+				for (const contact::sphere& s : spheres)
+				{
+					deepest = std::fmax(deepest, s.radius - contact::signed_distance(hand_collision_box[b], s.centre));
+				}
+			}
+			return deepest;
+		}
+
 		// Grip lock: the off hand's goal where the game's magazine grip holds the magazine at the locked pose
 		// (on the magwell's rail, sliding home, or seated), blended by the lock's weight.
 		void apply_magazine_lock(const ik::bone_transform* local, ik::arm_goal& goal)
@@ -864,6 +959,23 @@ namespace bfvr::body
 						geometry.ik_hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.ik_hand[hand]));
 					}
 				}
+				if (rig.magazine >= 0 && !magazine_request.detached)
+				{
+					// The highest sample per gun: a seated magazine is as high as it goes, and the game's own reload animation
+					// (reload = button) moves it down and out (monitor 2026-11-16: a 2 cm window crept along with it).
+					const ik::vec3 top = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.magazine)).position;
+					if (!geometry.has_magazine_top || top.y > geometry.magazine_top.y)
+					{
+						geometry.magazine_top = top;
+						geometry.has_magazine_top = true;
+					}
+				}
+				// The support hand's furthest-forward sample per gun: animations take it back towards the magazine.
+				if (!geometry.has_support_reach || geometry.hand[0].position.z > geometry.support_reach.z)
+				{
+					geometry.support_reach = geometry.hand[0].position;
+					geometry.has_support_reach = true;
+				}
 				if (rig.camera >= 0)
 				{
 					// The joint's z looks forward. Samples are taken only while steady: never while firing or
@@ -877,6 +989,8 @@ namespace bfvr::body
 					{
 						geometry.has_sight = false;
 						geometry.has_ads_sight = false;
+						geometry.has_magazine_top = false; // another gun: its magwell and handguard are sampled afresh
+						geometry.has_support_reach = false;
 						geometry.sampled_gun = gun_grip;
 					}
 					const double now = steady_seconds();
@@ -1109,6 +1223,16 @@ namespace bfvr::body
 				{
 					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim);
 				}
+				// #68 (owner 2026-11-15): the gun hand turned itself round once the gun went to the off hand (the game's
+				// animated grip, turned by the controller), and a grenade or the C4 detonator in it sat oddly. Like the
+				// free off hand, it now holds as you hold the controller: the gun grip on the aim ray. Items keep their
+				// own place in the hand (the knife has its own frame below).
+				// Only the hand grenade and the C4 detonator (set_gun_hand_item): a launcher in a gadget slot (M320) is
+				// gun-like and already follows the aim with its own hold (re/notes/weapon.md "Gadgets from the stash").
+				if (hand_rules::gun_hand_controller_grip(hand, carrier, gun_hand_carries, hand_item_in_gun_hand.load(std::memory_order_relaxed), gun_hand_neutral.load(std::memory_order_relaxed), has_gun_hand_in_aim))
+				{
+					goal.hand = frame * ik::normalize(aim) * gun_hand_in_aim;
+				}
 				const bool off_grip_carries = carry_weapon && hand == 0 && off_by_grip.load(std::memory_order_relaxed);
 				if (carry_weapon && hand == 0)
 				{
@@ -1121,8 +1245,8 @@ namespace bfvr::body
 				{
 					// gun_pose = aim: Wep_Root lies on the aim ray, upright ((0,1,0,0) in camera axes points
 					// its +z barrel along -z), instead of the hip animation (its own angle, sway and bob)
-					// turned by the controller. The hand keeps the gun's authored grip. Guns only: a
-					// grenade or the C4 detonator keeps its own hold.
+					// turned by the controller. The hand keeps the gun's authored grip. Guns only: a grenade or the
+					// C4 detonator is held by the controller grip above (gun_hand_pose), the knife below.
 					goal.hand = frame * ik::normalize(aim) * ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation);
 				}
 				if (gun_hand_carries && knife_in_hand.load(std::memory_order_relaxed))
@@ -1252,6 +1376,21 @@ namespace bfvr::body
 					apply_magazine_snap(local, goal);
 					apply_magazine_lock(local, goal);
 				}
+				// #62: the free hand stays out of the gun; not while it holds the handguard or the charging handle.
+				// Nor while a magazine is placed at the magwell (the snap and the grip lock); meanwhile the side the hand is
+				// on is still followed, so a hand that leaves such a hold and slaps through the gun still meets it.
+				if (hand != carrier && gun_placed && geometry.valid && geometry.has_magazine_top && hand_collision_on.load(std::memory_order_relaxed))
+				{
+					const bool held_elsewhere = support > 0.0f || handle_request.weight > 0.0f || snap_request.weight > 0.0f || lock_request.weight > 0.0f;
+					apply_hand_collision(local, hand, goal, !held_elsewhere);
+				}
+				else
+				{
+					hand_colliders[hand].reset();
+					hand_collision_touch[hand] = false;
+					hand_collision_depth[hand] = 0.0f;
+					hand_collision_checked[hand] = false;
+				}
 				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
 				// the hand lies along the first, the belt and hip for the default hint.
 				const ik::quat body_frame = torso_turn * frame;
@@ -1268,6 +1407,7 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_drawn_hand[hand] = ik::model_of(local, rig.parents, bones.hand).rotation;
+					hand_collision_drawn[hand] = hand_collision_checked[hand] ? drawn_hand_depth(local, hand) : 0.0f;
 					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
 					last_arms[hand].goal_xr = wrist;
@@ -2773,6 +2913,11 @@ namespace bfvr::body
 		knife_in_hand = knife;
 	}
 
+	void set_gun_hand_item(bool item)
+	{
+		hand_item_in_gun_hand = item;
+	}
+
 	void set_knife_pitch(float degrees)
 	{
 		knife_pitch = degrees * 3.14159265f / 180.0f;
@@ -3099,10 +3244,20 @@ namespace bfvr::body
 		off_hand_neutral = neutral;
 	}
 
+	void set_gun_hand_neutral(bool neutral)
+	{
+		gun_hand_neutral = neutral;
+	}
+
 	void set_off_hand_task(fingers::task task)
 	{
 		off_task = static_cast<int>(task);
 		off_task_at = GetTickCount64();
+	}
+
+	void set_hand_collision(bool on)
+	{
+		hand_collision_on = on;
 	}
 
 	void set_support_slide(bool lock, float back, float forward)
@@ -3244,6 +3399,24 @@ namespace bfvr::body
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
 				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
+		}
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += static_cast<int>(std::strlen(text + length));
+		}
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			std::snprintf(text + length, sizeof(text) - length,
+				"\nhand_collision=%d boxes=%d magazine_top=%d (%.3f,%.3f,%.3f) pushes=%u"
+				" receiver=(%.3f,%.3f,%.3f)+-(%.3f,%.3f,%.3f) palm_in_gun off=(%.3f,%.3f,%.3f) gun=(%.3f,%.3f,%.3f)"
+				"\n off checked=%d touch=%d depth_mm=%.0f drawn_mm=%.0f; gun checked=%d touch=%d depth_mm=%.0f drawn_mm=%.0f",
+				hand_collision_on.load() ? 1 : 0, hand_collision_boxes, geometry.has_magazine_top ? 1 : 0, geometry.magazine_top.x,
+				geometry.magazine_top.y, geometry.magazine_top.z, hand_collision_pushes, hand_collision_receiver.centre.x,
+				hand_collision_receiver.centre.y, hand_collision_receiver.centre.z, hand_collision_receiver.half.x, hand_collision_receiver.half.y,
+				hand_collision_receiver.half.z, hand_collision_palm_in_gun[0].x, hand_collision_palm_in_gun[0].y, hand_collision_palm_in_gun[0].z,
+				hand_collision_palm_in_gun[1].x, hand_collision_palm_in_gun[1].y, hand_collision_palm_in_gun[1].z,
+				hand_collision_checked[0] ? 1 : 0, hand_collision_touch[0] ? 1 : 0, hand_collision_depth[0] * 1000.0f, hand_collision_drawn[0] * 1000.0f,
+				hand_collision_checked[1] ? 1 : 0, hand_collision_touch[1] ? 1 : 0, hand_collision_depth[1] * 1000.0f, hand_collision_drawn[1] * 1000.0f);
 		}
 		return text;
 	}

@@ -32,6 +32,9 @@ namespace bfvr::body
 	// The knife is in the gun hand: its animated hand is not a gun grip, so the knife itself is turned
 	// to the controller (blade along the aim, edge down) and the hand holds it as animated.
 	void set_knife_in_hand(bool knife);
+	// #68: the hand grenade or the C4 detonator is drawn in the gun hand; with gun_hand_pose neutral it is held by
+	// the controller grip. Other gadgets (launchers) keep their own hold.
+	void set_gun_hand_item(bool item);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).
 	void set_knife_pitch(float degrees);
 	// knife_yaw / knife_roll: further turns of the held knife about the controller's up and its ray, degrees.
@@ -224,6 +227,9 @@ namespace bfvr::body
 	// (neutral: how a hand holds the controller) instead of the animated handguard hold turned by the
 	// controller (animated). Needs a gun drawn once.
 	void set_off_hand_neutral(bool neutral);
+	// Live setting gun_hand_pose (#68): the gun hand while the off hand carries the gun, or holding a grenade or a
+	// gadget, takes the gun grip as you hold the controller (neutral) or the game's animated hold (animated).
+	void set_gun_hand_neutral(bool neutral);
 	// Live setting magazine_grip: how the off hand holds a magazine. "auto" = wrapped in the fist, cupped
 	// on the palm (base plate in the palm, fingers closing on it by contact) once the palm faces up;
 	// "wrap" / "cup" = always that grip.
@@ -248,6 +254,9 @@ namespace bfvr::body
 	// Live settings support_lock / support_slide_back / support_slide_forward: the off hand on the handguard stays
 	// where it grabbed (lock) and within back..forward metres of the gun's own support spot (body/grasp_contact).
 	void set_support_slide(bool lock, float back, float forward);
+	// #62, live setting hand_collision: the free hand is drawn on the gun's surface instead of inside its receiver and
+	// handguard (body/hand_collision); pipe `fingers` shows the contact.
+	void set_hand_collision(bool on);
 	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.

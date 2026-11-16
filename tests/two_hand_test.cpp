@@ -393,6 +393,26 @@ namespace
 	}
 }
 
+// #39: the zoom mesh (the optic open at the top) only while an eye looks into the lens from behind.
+static void test_lens_cone()
+{
+	const float sight_eye[3]{ 0.0f, 0.0f, 0.0f };
+	const float ahead[3]{ 0.0f, 0.0f, -1.0f }; // the sight line runs along -z; the lens 15 cm ahead of the eye point
+	const float tan15 = std::tan(15.0f * 3.14159265f / 180.0f);
+	const auto in = [&](float x, float y, float z) {
+		const float eye[3]{ x, y, z };
+		return eye_in_lens_cone(eye, sight_eye, ahead, 0.15f, tan15, 0.015f, 0.7f);
+	};
+	expect(in(0.0f, 0.0f, 0.0f), "lens cone: at the game's eye point");
+	expect(in(0.0f, 0.0f, 0.25f), "lens cone: the gun held out, 40 cm behind the lens on the line");
+	expect(in(0.10f, 0.0f, 0.25f), "lens cone: 10 cm off the line at 40 cm (14 degrees)");
+	expect(!in(0.14f, 0.0f, 0.25f), "lens cone: 14 cm off at 40 cm (19 degrees) is outside");
+	expect(!in(0.0f, 0.20f, -0.10f), "lens cone: from above the optic, outside (the housing shows)");
+	expect(!in(0.0f, 0.0f, -0.20f), "lens cone: in front of the lens, outside");
+	expect(!in(0.0f, 0.0f, 0.60f), "lens cone: 75 cm behind the lens, outside");
+	expect(in(0.012f, 0.0f, -0.145f), "lens cone: the lens radius right behind the glass");
+}
+
 int main()
 {
 	test_handguard_zone();
@@ -407,6 +427,7 @@ int main()
 	test_sight_dot();
 	test_ads_sample();
 	test_sight_ads_latch();
+	test_lens_cone();
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

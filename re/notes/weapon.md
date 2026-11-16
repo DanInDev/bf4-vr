@@ -177,6 +177,22 @@ skeleton.md) need a checkpoint whose kit has one.
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
 
+## The free hand kept out of the gun (#62, 2026-11-16, monitor, Baku, SCAR-H)
+
+- `Wep_Root` is not at the grip: the SCAR-H's `Wep_Mag` (magazine top) sits at (0, -0.009, 0.465) in its axes, so
+  the gun's boxes (body/hand_collision `gun_boxes`) are built from the bones (magazine top, the animated hand
+  wrists), never from fixed numbers. Receiver from that: centre (0, 0.026, 0.396), half (0.025, 0.035, 0.149).
+- `Wep_Mag` moves with the hand during a physical reload: it is sampled only while no magazine is detached.
+- Monitor: `fakehand` left at x 0.15, z -0.45, raised y -0.25 to 0: from y -0.12 the palm (r 3.5 cm) is held
+  at gun y -0.044 (the receiver bottom minus the radius) while the controller goes 89..209 mm in; the solved hand
+  is 0 mm inside (`fingers`: `drawn_mm=0`). A hand that went through from a known side is held up to 0.35 m
+  (a first build let go at 0.15 m: shorter than the receiver plus the palm, so slaps went through).
+- The off hand near the magazine engages the magazine snap (#40): the push pauses there, but the side the hand is
+  on must still be followed (a first build forgot it, and a slap from there went through).
+- The game's reload (reload = button) moves `Wep_Mag` down: a sampling window of 2 cm crept along with it
+  (-0.009 -> -0.043). Kept now: the highest magazine top and the furthest-forward support wrist per gun.
+- Fake-hand sweeps sideways at y -0.25 never touch: that height is the magazine's, 15 cm below the magwell.
+
 ## Recoil data (2026-11-03, tools/recoil_probe.py, campaign checkpoint "Get Grenade Launcher")
 
 ```
@@ -782,6 +798,23 @@ rolled 20 degrees: the eye 1 cm off the line, an arc of the ring at the window's
 near and far, its own ring and dot, art size 0.040. Not checked: the colour per optic (all drawn red: `t3` RGB
 is white, the game's tint not found yet), the magnifier with the zoom mesh always on (hidden at the hip), other
 optics, the headset.
+
+## The AK-12's optic "missing its top" (2026-11-16 night, monitor, Baku, #39)
+
+Owner, headset 2026-11-15: the AK's scope shows a visual glitch, a missing texture on top. With `sight_lens` on
+(default) the zoom mesh was shown **whenever a gun is held** (`set_zoom_mesh_always`): that is the optic as the
+game's own ADS camera sees it, built without the parts that camera never sees, so from anywhere else the PK-AS
+housing looks gutted. Pipe `zoommesh 1` (hip model) against `zoommesh 0` (zoom model) from above shows the
+difference on the optic. Now the zoom mesh shows only while an eye looks into the lens from behind
+(`weapon::eye_in_lens_cone`: up to 70 cm behind the lens, within `sight_lens_cone` degrees of the sight line
+plus the lens radius; latched with 4 degrees more to leave). 15 degrees still caught a head looking down at the
+gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): default 8.
+
+| Pose (fake head and hands) | `zoommesh` | Picture |
+| --- | --- | --- |
+| Head pitched 35 deg down at the gun at the hip | `in_view=0`, nothing patched | full optic (hip model) |
+| Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
+| Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
 ## Open
 

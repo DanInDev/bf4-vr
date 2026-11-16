@@ -612,6 +612,46 @@ namespace
 		const hand_result open = busy.update(busy_gun, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
 		expect(open.off_hand_busy && open.in_zone == hand_result::zone::handle && open.has_under_zone, "open hand in the underhand zone: the grip is the reload's (no handguard grab there)");
 
+		// #69 (owner 2026-11-15): per-gun zones. The AK-12's reach well under the gun; the SCAR-H's overhand zone
+		// sits higher, so a grab at the gun's bottom is not the handle.
+		rack_zone_shape ak12, scar, none;
+		expect(rack_zones_for("U_AK12", config, ak12) && rack_zones_for("U_SCAR-H", config, scar) && !rack_zones_for("U_M416", config, none), "per-gun zones for the AK-12 and SCAR-H only");
+		expect(scar.under_radii.y == config.rack_under_radii.y && scar.under_offset.y == config.rack_under_offset.y, "the SCAR-H keeps the default underhand zone (from hand_config, one source)");
+		// The AK-12's overhand reach (12 cm, default 9): 10.5 cm from the zone's centre, out on the handle's side.
+		const v3 ak_over_centre = knob + v3{ -0.03f, 0.03f, 0.0f };
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, config).over_distance > config.rack_over_reach, "default reach: 10.5 cm from the centre is outside");
+		hand_config with_ak = config;
+		with_ak.rack_over_offset = ak12.over_offset;
+		with_ak.rack_over_reach = ak12.over_reach;
+		with_ak.rack_under_offset = ak12.under_offset;
+		with_ak.rack_under_radii = ak12.under_radii;
+		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::under, "AK-12: 30 cm below the knob is still the underhand zone");
+		expect(rack_zone_of(knob + v3{ -0.04f, -0.30f, 0.0f }, knob, straight, side, config).zone == rack_zone::none, "default zones: 30 cm below is out");
+		expect(rack_zone_of(ak_over_centre + v3{ -0.105f, 0.0f, 0.0f }, knob, straight, side, with_ak).zone == rack_zone::over, "AK-12: 10.5 cm from the overhand centre is in its 12 cm reach");
+		const v3 scar_knob{ 0.035f, 0.04f, 0.57f };
+		const float scar_side = rack_side(scar_knob, false);
+		hand_config with_scar = config;
+		with_scar.rack_over_offset = scar.over_offset;
+		with_scar.rack_over_reach = scar.over_reach;
+		const v3 low = scar_knob + v3{ 0.03f, -0.025f, 0.0f }; // a hand just under the knob's height (the gun's bottom grab)
+		// Overhand reach only (the underhand region exists only while the gun needs charging, decided in reload_hands).
+		expect(rack_zone_of(low, scar_knob, straight, scar_side, config).over_distance < config.rack_over_reach, "SCAR-H, default zones: a hand just under the knob was in the overhand zone");
+		expect(!(rack_zone_of(low, scar_knob, straight, scar_side, with_scar).over_distance < with_scar.rack_over_reach), "SCAR-H zones: not any more");
+		expect(rack_zone_of(scar_knob + v3{ 0.03f, 0.06f, 0.0f }, scar_knob, straight, scar_side, with_scar).zone == rack_zone::over, "SCAR-H: above and beside the knob is overhand");
+
+		// Through reload_hands: frame.has_rack_shape selects the gun's zones.
+		reload big(ak);
+		big.load(0, 60);
+		big.take_from_chest();
+		big.insert();
+		big.insert();
+		reload_hands big_hands(flat_hold());
+		hand_frame shaped = palm_at(handle + v3{ 0.04f, -0.30f, 0.0f }, false);
+		shaped.has_rack_shape = true;
+		shaped.rack_shape = ak12;
+		const hand_result deep = big_hands.update(big, shaped);
+		expect(deep.in_zone == hand_result::zone::handle && deep.under_radii.y == ak12.under_radii.y, "frame zones: the AK-12's reach 30 cm under the knob");
+
 		// Loaded and chambered, the space under the handle is the handguard's again (SCAR-H, monitor 2026-11-15);
 		// the overhand zone still racks.
 		reload loaded(ak);
@@ -953,8 +993,26 @@ namespace
 		expect(has(r, reload_event::flicked_out) && r.draw == magazine_draw::in_hand, "#47 step one: the new magazine knocks the old one out and stays in the hand");
 		expect(r.extra == hand_result::extra_magazine::falling && r.extra_position.y <= magwell.y + 1e-4f, "extra meshes: the knocked-out one falls from the magwell");
 		bool seated = false;
+		for (int i = 0; i < 60 && !seated; ++i) // held at the magwell: no second motion
+		{
+			r = hands.update(gun, at(magwell, true));
+			seated = has(r, reload_event::magazine_in);
+		}
+		expect(!seated && gun.state().holding, "#47 step two needs its own motion: held still at the magwell, the new one does not seat (owner 2026-11-15)");
+		for (int i = 1; i <= 6 && !seated; ++i) // pushing on up past the magwell, 1 cm a frame (monitor 2026-11-16)
+		{
+			r = hands.update(gun, at({ magwell.x, magwell.y + 0.01f * static_cast<float>(i), magwell.z }, true));
+			seated = has(r, reload_event::magazine_in);
+		}
+		r = hands.update(gun, at(magwell, true)); // and back down to the magwell without leaving it downwards
+		seated = seated || has(r, reload_event::magazine_in);
+		expect(!seated, "#47: pushing on up past the magwell after the flick is no second motion");
+		r = hands.update(gun, at({ magwell.x, magwell.y - 0.03f, magwell.z }, true));
+		r = hands.update(gun, at(magwell, true));
+		expect(!has(r, reload_event::magazine_in), "3 cm away and back is not yet the second motion");
+		r = hands.update(gun, at({ magwell.x, magwell.y - 0.07f, magwell.z }, true));
 		int seat_frame = -1;
-		for (int i = 0; i < 60 && !seated; ++i) // held at the magwell
+		for (int i = 0; i < 30 && !seated; ++i)
 		{
 			r = hands.update(gun, at(magwell, true));
 			if (has(r, reload_event::magazine_in))
@@ -963,7 +1021,7 @@ namespace
 				seat_frame = i;
 			}
 		}
-		expect(seated && seat_frame >= 18 && seat_frame <= 26, "#47 step two: the new one seats about 0.25 s later");
+		expect(seated && seat_frame == 0, "#47 step two: brought 7 cm away and pushed in again, the new one seats");
 		for (int i = 0; i < 200 && r.extra != hand_result::extra_magazine::none; ++i)
 		{
 			r = hands.update(gun, at(magwell, false));
@@ -1750,18 +1808,39 @@ namespace
 		f.held_top = { magwell.x + 0.02f, magwell.y - 0.06f, magwell.z };
 		hand_result r = hands.update(gun, f);
 		expect(r.guided, "hold: locked on from the fist's magazine");
-		bool stayed = true, flicked = false, seated = false;
-		for (int i = 0; i < 40; ++i)
+		bool stayed = true, flicked = false, seated = false, seated_early = false;
+		float y = hand.y;
+		int pull_back = 0;
+		int past = 0;
+		for (int i = 0; i < 120 && !seated; ++i)
 		{
-			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame.
-			hand_frame g = locked_at({ hand.x, hand.y + 0.01f * static_cast<float>(i), hand.z }, true);
+			// Now drawn on the rail (no fist); the hand pushes up 1 cm a frame. After the flick (#47, two motions) it
+			// comes down 8 cm and pushes up again.
+			if (flicked && past < 12)
+			{
+				y += 0.01f; // after the flick the hand pushes on 12 cm (the flick comes 3 cm below the magwell: ~9 cm past it, as on the monitor 2026-11-16)
+				++past;
+			}
+			else if (flicked && pull_back < 22)
+			{
+				y -= 0.01f;
+				++pull_back;
+			}
+			else
+			{
+				y += 0.01f;
+			}
+			hand_frame g = locked_at({ hand.x, y, hand.z }, true);
 			r = hands.update(gun, g);
 			stayed = stayed && (r.guided || r.hand_lock > 0.0f || has(r, reload_event::magazine_in) || flicked);
+			const bool now_seated = has(r, reload_event::magazine_in);
+			seated_early = seated_early || (now_seated && flicked && pull_back < 22);
 			flicked = flicked || has(r, reload_event::flicked_out);
-			seated = seated || has(r, reload_event::magazine_in);
+			seated = seated || now_seated;
 		}
 		expect(stayed, "hold: stays locked while pushed up (no flicker off the rail)");
-		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then the new one seats");
+		expect(!seated_early, "hold: after the flick, pushing on past the magwell and coming back without the pull-back does not seat (#47)");
+		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then, pulled back and pushed in again, the new one seats");
 	}
 
 	void test_grip_lock()
