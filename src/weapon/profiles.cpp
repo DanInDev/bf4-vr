@@ -40,6 +40,28 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	bool rack_zones_for(std::string_view unlock_name, rack_zone_shape& shape)
+	{
+		if (unlock_name == "U_SCAR-H")
+		{
+			// Handle on the left, above the front of the handguard: the overhand zone sits higher (6 cm above the
+			// knob, was 3) and tighter (7 cm), so a hand under the gun is the handguard's.
+			shape.over_offset = { 0.03f, 0.06f, 0.0f };
+			shape.over_reach = 0.07f;
+			return true;
+		}
+		if (unlock_name == "U_AK12")
+		{
+			// Handle on the right: a larger overhand zone (12 cm) and an underhand region reaching well below the
+			// gun (centre 14 cm under the knob, 14 cm out, 20 cm down, 9 cm along the barrel).
+			shape.over_reach = 0.12f;
+			shape.under_offset = { 0.03f, -0.14f, 0.0f };
+			shape.under_radii = { 0.14f, 0.20f, 0.09f };
+			return true;
+		}
+		return false;
+	}
+
 	reload_profile profile_for(std::string_view unlock_name, int game_capacity)
 	{
 		reload_profile profile;

@@ -655,6 +655,7 @@ namespace bfvr::weapon
 				frame.has_handle_point = true;
 			}
 			frame.handle_point = { point[0], point[1], point[2] };
+			frame.has_rack_shape = rack_zones_for(weapon.name, frame.rack_shape);
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
