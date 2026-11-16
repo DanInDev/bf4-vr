@@ -27,7 +27,9 @@ Read those instead of reconstructing history.
   a BF3 campaign VR mod on the same Frostbite generation (OpenXR on the game's D3D11 device, free hands,
   per-joint finger poses in `src/handpose.cpp`, hand reloads incl. bolt and charging handle in `src/reload.cpp`,
   scopes, stereo via `SplitScreenTestViewCount`). **Before starting anything new, check whether it already
-  solved it** and note what was learned. No licence stated (2026-11-15): read for design, never copy its code.
+  solved it** and note what was learned. No licence file, but its maintainer allows copying its code and setup
+  (owner, 2026-11-16; the hope is that the projects merge or serve as the reference for future Frostbite mods):
+  reuse is fine, credit it in the code comment and the note (file and function it came from).
 - **Reverse engineering.** The decrypted image comes from `pipe dump re\dumps\bf4-179547-mem.exe` (git-ignored,
   never committed). Quick and enough for single functions: `python -E tools\disasm.py <dump> <address> --full`
   (capstone + `.pdata`), `tools\callers.py`, plus the pipe's `watch <address> 4 <ms>` (hardware write watch with
