@@ -17,6 +17,10 @@ namespace bfvr::stereo::muzzle_quads
 	// hook must not draw it again. Cheap when nothing was fired lately.
 	bool draw(ID3D11DeviceContext* context, UINT count, UINT start, INT base, draw_indexed_fn original);
 
+	// From eye_pass's DrawIndexedInstanced hook (research): during "flash survey", instanced draws are counted by kind
+	// (index count, the instance stream's stride) with how near their first instances' positions come to the muzzle.
+	void note_instanced(ID3D11DeviceContext* context, UINT count, UINT instances, UINT first_instance);
+
 	// Live setting flash_at_gun.
 	void set_on(bool on);
 

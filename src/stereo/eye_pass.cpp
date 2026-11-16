@@ -2024,6 +2024,7 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			{
 				probe_bindings.push_back({ 'D', count, nullptr, 0, instances });
 			}
+			muzzle_quads::note_instanced(c, count, instances, first);
 			original_draw_indexed_instanced(c, count, instances, start, base, first);
 			extra_mesh::after_draw(c, count, start, base, instances);
 		}

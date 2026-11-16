@@ -548,6 +548,68 @@ RWByteAddressBuffer vertices : register(u0);
 		return draw_moved(context, count, start, base, ago, original);
 	}
 
+	void note_instanced(ID3D11DeviceContext* context, UINT count, UINT instances, UINT first_instance)
+	{
+		if (GetTickCount64() >= survey_until.load(std::memory_order_relaxed) || !instances)
+		{
+			return;
+		}
+		ID3D11Buffer* streams[2]{};
+		UINT strides[2]{}, offsets[2]{};
+		context->IAGetVertexBuffers(0, 2, streams, strides, offsets);
+		const int slot = streams[1] ? 1 : 0; // the instance stream, else the only one
+		float nearest = 1e9f, nearest_along = 0.0f;
+		bool read = false;
+		muzzle_move::move m;
+		if (streams[slot] && strides[slot] >= 12 && survey_reads < 400 && move_now(0, m))
+		{
+			// read_quads takes "quads" of 4 vertices: a quarter stride makes each read one instance.
+			float points[16][3];
+			const UINT stride = strides[slot];
+			const int got = stride % 4 == 0 ? read_quads(context, streams[slot], offsets[slot] + first_instance * stride, 0, stride / 4, std::min<UINT>(instances, 16), points) : 0;
+			read = got > 0;
+			++survey_reads;
+			for (int i = 0; i < got; ++i)
+			{
+				const float rel[3] = { points[i][0] - m.muzzle[0], points[i][1] - m.muzzle[1], points[i][2] - m.muzzle[2] };
+				const float distance = std::sqrt(rel[0] * rel[0] + rel[1] * rel[1] + rel[2] * rel[2]);
+				if (distance < nearest)
+				{
+					nearest = distance;
+					nearest_along = rel[0] * m.axis[0] + rel[1] * m.axis[1] + rel[2] * m.axis[2];
+				}
+			}
+		}
+		D3D11_BUFFER_DESC desc{};
+		if (streams[slot])
+		{
+			streams[slot]->GetDesc(&desc);
+		}
+		const bool blend = blended(context);
+		for (ID3D11Buffer* s : streams)
+		{
+			if (s)
+			{
+				s->Release();
+			}
+		}
+		// Kind: bit 63 marks instanced; the instance stride, the index count, blending.
+		const std::uint64_t key = (1ull << 63) | (static_cast<std::uint64_t>(strides[slot]) << 40) | (static_cast<std::uint64_t>(std::min<UINT>(count, 0xFFFFF)) << 1)
+			| (blend ? 1u : 0u);
+		const std::lock_guard guard(survey_lock);
+		kind_stats& k = survey[key];
+		++k.draws;
+		k.blended += blend ? 1 : 0;
+		k.read += read ? 1 : 0;
+		k.largest_count = std::max(k.largest_count, instances);
+		if (nearest < k.nearest)
+		{
+			k.nearest = nearest;
+			k.nearest_along = nearest_along;
+		}
+		(void)desc;
+	}
+
 	void set_on(bool on)
 	{
 		enabled = on;
@@ -621,9 +683,18 @@ RWByteAddressBuffer vertices : register(u0);
 		const std::lock_guard guard(survey_lock);
 		for (const auto& [key, k] : survey)
 		{
-			std::snprintf(line, sizeof(line), "\nkind stride=%u buffer_kb=%llu blended=%llu draws=%llu read=%llu largest_count=%u nearest_m=%.2f along_m=%.2f",
-				static_cast<UINT>(key >> 40), static_cast<unsigned long long>((key >> 1) & 0x7FFFFFFFFFull), static_cast<unsigned long long>(k.blended),
-				static_cast<unsigned long long>(k.draws), static_cast<unsigned long long>(k.read), k.largest_count, k.nearest, k.nearest_along);
+			if (key >> 63)
+			{
+				std::snprintf(line, sizeof(line), "\ninstanced instance_stride=%u index_count=%llu blended=%llu draws=%llu read=%llu most_instances=%u nearest_m=%.2f along_m=%.2f",
+					static_cast<UINT>((key >> 40) & 0x7FFFFF), static_cast<unsigned long long>((key >> 1) & 0xFFFFF), static_cast<unsigned long long>(k.blended),
+					static_cast<unsigned long long>(k.draws), static_cast<unsigned long long>(k.read), k.largest_count, k.nearest, k.nearest_along);
+			}
+			else
+			{
+				std::snprintf(line, sizeof(line), "\nkind stride=%u buffer_kb=%llu blended=%llu draws=%llu read=%llu largest_count=%u nearest_m=%.2f along_m=%.2f",
+					static_cast<UINT>(key >> 40), static_cast<unsigned long long>((key >> 1) & 0x7FFFFFFFFFull), static_cast<unsigned long long>(k.blended),
+					static_cast<unsigned long long>(k.draws), static_cast<unsigned long long>(k.read), k.largest_count, k.nearest, k.nearest_along);
+			}
 			out += line;
 		}
 		return out;

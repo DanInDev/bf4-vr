@@ -935,6 +935,12 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   (probably the flash's light volume or a decal box). **BF4's flash particles are not among the indexed quad batches.**
   Next: survey `DrawIndexedInstanced`, `DrawInstanced` and `Draw` too (BF4 may instance its particles or draw them from
   a structured buffer), then point the move at that batch.
+- **Instanced draws (same day, `note_instanced` from eye_pass's DrawIndexedInstanced):** BF4's instance streams are 4 bytes
+  (an instance number: the per-instance data, positions included, is in shader buffers), so positions cannot be read
+  from the vertex streams. The blended instanced kinds (instance stride 28 or 40, 12-2310 indices, 2-21 instances) are
+  drawn every frame, not only while firing: none is the flash. Still open: `Draw`, `DrawInstanced` and the indirect
+  draws (`DrawIndexedInstancedIndirect`, GPU particles), not hooked by the mod yet. The flash now follows the drawn torso
+  at least (`aim_follows_torso`, main 4f3e8da): in front of the body, not on the gun.
 - **At 5 fps with recoil moving the view** the pictures cannot say more. Next: find the code that places the 1p fire
   effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
   the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn
