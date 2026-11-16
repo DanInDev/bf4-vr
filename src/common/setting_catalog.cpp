@@ -82,6 +82,7 @@ namespace bfvr::settings
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
+			{ "hand_collision", "Weapon", "Hands and melee", "Hand stays out of the gun", "Rests on its surface instead", "" },
 			{ "support_lock", "Weapon", "Hands and melee", "Handguard hand stays put", "Where you grab, until you let go", "" },
 			{ "support_slide_back", "Weapon", "Hands and melee", "Handguard reach back", "Metres behind the game's grip spot", "", true },
 			{ "support_slide_forward", "Weapon", "Hands and melee", "Handguard reach forward", "Metres ahead of the game's grip spot", "", true },

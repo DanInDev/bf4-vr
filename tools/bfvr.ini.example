@@ -301,6 +301,9 @@ rack_grip = fist
 # with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
 # muzzle) metres of the game's own handguard spot.
 support_lock = 1
+# #62: the free hand is drawn on the gun's surface, never inside its receiver or handguard (the boxes come from the
+# gun's own bones); a fast slap through the gun ends on the side it came from. Pipe `fingers` shows the contact.
+hand_collision = 1
 support_slide_back = 0.06
 support_slide_forward = 0.08
 # rack_grip fist: where the fist sits against the charging handle's knob (metres, the gun's frame): overhand out on

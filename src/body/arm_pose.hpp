@@ -254,6 +254,9 @@ namespace bfvr::body
 	// Live settings support_lock / support_slide_back / support_slide_forward: the off hand on the handguard stays
 	// where it grabbed (lock) and within back..forward metres of the gun's own support spot (body/grasp_contact).
 	void set_support_slide(bool lock, float back, float forward);
+	// #62, live setting hand_collision: the free hand is drawn on the gun's surface instead of inside its receiver and
+	// handguard (body/hand_collision); pipe `fingers` shows the contact.
+	void set_hand_collision(bool on);
 	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.
