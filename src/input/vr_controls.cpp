@@ -327,6 +327,13 @@ namespace bfvr::input
 			{
 				angle = yaw_left(hands.aim[1]);
 			}
+			// The game moves along its aim: when that is turned from the snap-turned body (the aim following the
+			// drawn torso, camera_hook), the stick is turned back by the same, so it still moves where asked.
+			float aimer_yaw_now{}, aimer_pitch_now{};
+			if (!steered && angle != 0.0f && body_yaw_now(body) && aim_angles(aimer_yaw_now, aimer_pitch_now))
+			{
+				angle = wrap_angle(angle - wrap_angle(-aimer_yaw_now - body));
+			}
 		}
 		if (!steered)
 		{

@@ -44,6 +44,10 @@ namespace bfvr::stereo
 
 	// Apparent size of the first-person gun and arms (1 = the game's; config key gun_scale).
 	void set_gun_scale(float scale);
+	// Live setting aim_follows_torso (owner 2026-11-16): the game's aim (with aim_with_body) faces the drawn torso, which
+	// turns when the player turns in the room, not only the snap-turned body; the knife, C4, squad order and the muzzle
+	// flash go the way the body faces.
+	void set_aim_follows_torso(bool on);
 	// Eye distance multiplier (world scale), 0.5..2; 1 = the runtime's IPD.
 	void set_ipd_scale(float scale);
 	float current_gun_scale();

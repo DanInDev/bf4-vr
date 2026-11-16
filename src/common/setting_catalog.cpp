@@ -47,6 +47,7 @@ namespace bfvr::settings
 			{ "arm_length", "Body", "Size", "Arm length", "Longer arms reach further", "" },
 			{ "torso_hands", "Body", "Body", "Lean towards both hands", "Off: the body turns only with your head", "" },
 			{ "torso_follow", "Body", "Body", "Body turns with you", "Follows your real body, not only the stick", "" },
+			{ "aim_follows_torso", "Body", "Body", "Game aim turns with you", "Knife, C4, orders go where your body faces", "" },
 			{ "hide_legs", "Body", "Body", "Hide the legs", "They sit oddly under a tracked head", "" },
 			{ "soldier_radius", "Body", "Body", "Room to the walls", "Metres; 0 = the game's 0.35. From the next spawn", "" },
 			{ "gun_hand_pose", "Body", "Hands", "Gun hand without a gun", "Grenade, C4 detonator, the gun in the other hand", "neutral=As you hold the controller|animated=Animated (research)", true },

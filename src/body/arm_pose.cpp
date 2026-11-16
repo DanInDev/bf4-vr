@@ -229,6 +229,7 @@ namespace bfvr::body
 		torso_yaw torso_estimate{ head_only_torso() }; // pose-hook thread only
 		double torso_time{};
 		std::atomic<float> torso_report{};       // radians, for the pipe
+		std::atomic<ULONGLONG> torso_reported_at{}; // the drawn torso's yaw is current (drawn_torso_yaw)
 		constexpr float torso_spine_back = 0.10f; // the turning axis, behind the eyes (tracking z is back)
 
 		// Torso yaw in tracking space (radians, left positive) from this frame's head and hands; 0 when off.
@@ -267,6 +268,7 @@ namespace bfvr::body
 			torso_time = now;
 			const float yaw = torso_estimate.update(yaw_of(head_rotation.x, head_rotation.y, head_rotation.z, head_rotation.w), input, seconds);
 			torso_report = yaw;
+			torso_reported_at = GetTickCount64();
 			return yaw;
 		}
 		// Normalised linear blend on the shorter arc.
@@ -3052,6 +3054,12 @@ namespace bfvr::body
 	void set_torso_follow(bool follow)
 	{
 		torso_follow = follow;
+	}
+
+	bool drawn_torso_yaw(float& yaw)
+	{
+		yaw = torso_report.load(std::memory_order_relaxed);
+		return torso_follow.load(std::memory_order_relaxed) && GetTickCount64() - torso_reported_at.load(std::memory_order_relaxed) < 250;
 	}
 
 	void set_torso_hands(bool lean)

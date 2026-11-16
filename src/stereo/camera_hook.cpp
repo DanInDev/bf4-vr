@@ -205,6 +205,7 @@ namespace bfvr::stereo
 		// The turn aim_with_controller gave the first-person camera, for the arm IK (pose thread).
 		// Valid briefly after each copy, so a frame without controller aim falls back to the game's.
 		std::atomic<float> fp_turn_yaw{};
+		std::atomic<bool> aim_follows_torso{ true }; // live setting aim_follows_torso
 		std::atomic<ULONGLONG> fp_turn_until{};
 		constexpr ULONGLONG fp_turn_hold_ms = 200;
 
@@ -462,10 +463,22 @@ namespace bfvr::stereo
 			{
 				// #37: shots take their frame from the gun (weapon/shot_origin), so the game's aim stays with
 				// the body, level: the game no longer turns its first-person body with the gun (a gun hand swung
-				// round the head spun the drawn body).
-				local[0] = 0.0f;
-				local[1] = 0.0f;
-				local[2] = -1.0f;
+				// round the head spun the drawn body). Owner 2026-11-16: with the body that is the drawn torso, which
+				// also turns when the player turns in the room (#13), not only the snap-turned game body; else the
+				// knife, the C4, the squad order and the muzzle flash went along the old way after a turn in the room.
+				float torso{};
+				if (aim_follows_torso.load(std::memory_order_relaxed) && body::drawn_torso_yaw(torso))
+				{
+					local[0] = -std::sin(torso);
+					local[1] = 0.0f;
+					local[2] = -std::cos(torso);
+				}
+				else
+				{
+					local[0] = 0.0f;
+					local[1] = 0.0f;
+					local[2] = -1.0f;
+				}
 			}
 			else if (!input::aim_direction(local))
 			{
@@ -897,6 +910,11 @@ namespace bfvr::stereo
 		pin_value[slot] = value;
 		pin_offset[slot] = offset;
 		return true;
+	}
+
+	void set_aim_follows_torso(bool on)
+	{
+		aim_follows_torso = on;
 	}
 
 	void set_gun_scale(float scale)

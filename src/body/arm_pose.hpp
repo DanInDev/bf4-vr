@@ -51,6 +51,9 @@ namespace bfvr::body
 	// The shoulders turn with the body the tracked head and hands imply (body/torso), not only with
 	// the game body (which turns with the stick).
 	void set_torso_follow(bool follow);
+	// The drawn torso's yaw from the torso follow: radians, left positive, in tracking space (0 = the way the
+	// snap-turned game body faces); false while torso_follow is off or it was not updated in the last 250 ms.
+	bool drawn_torso_yaw(float& yaw);
 	// Live setting torso_hands: the torso also leans towards two hands held together in front (off: head only).
 	void set_torso_hands(bool lean);
 	// The shoulder joints where a body has them (either side of the neck, below the eyes), not where

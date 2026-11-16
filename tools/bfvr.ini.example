@@ -274,6 +274,9 @@ soldier_radius = 0
 # on its own before it drags the torso along), so turning in the room does not leave the arms reaching
 # across the chest. 0 = shoulders fixed to the game body (turns with the stick).
 torso_follow = 1
+# The game's own aim faces the drawn body as it turns in the room (needs torso_follow): the knife, C4 throws, the squad
+# order and the muzzle flash go the way the body faces after a turn in the room. 0 = only the stick turns it.
+aim_follows_torso = 1
 # The torso also leans towards two hands held together in front. 0 = like a native VR game: it turns
 # only when your head turns past ~40 degrees from it, or with the stick.
 torso_hands = 0

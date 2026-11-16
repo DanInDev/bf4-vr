@@ -106,3 +106,15 @@ Monitor, Baku, body facing the gadget stash (game yaw 120):
 
 Not shown: the order finding targets and a strike hitting (no enemies in the checkpoint room). The melee needs the
 gun in the hand: with the C4 out or the rifle on the sling the same thrust (6 m/s) did not count.
+## The game's aim follows the drawn torso (2026-11-16, monitor, owner's diagnosis)
+
+Owner (headset): knifing, C4 throws, squad orders and the muzzle flash all default to the same direction. Turning only
+with the snap turn, they go ahead (the flash still not on the gun, but in front); turning in the room, which turns the
+drawn torso and arms (#13 torso follow), they go the old way. Cause: with `aim_with_body` (#37) the game's aim was held
+along tracking -z, the snap-turned game body, while the drawn torso turns past a 40 deg slack with the real body.
+Now (`aim_follows_torso`, default on) the aim faces `body::drawn_torso_yaw` (the torso follow's yaw, tracking space, left
+positive); the action aims (#70) still override it for their moment. The stick's walking direction, when it is turned
+by the head or the gun (sprint steer off), is turned back by the aim's offset from the snap body, so walking goes where
+asked; the sprint steer already used the live aim.
+Monitor (fake head): head 90 deg -> torso 49.9, game aim 310.1 (= -49.9); head back to 0 -> torso 40.1, aim 319.9;
+the arms drawn normally with head and hands 90 deg round.

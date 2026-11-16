@@ -240,6 +240,7 @@ namespace bfvr::core
 			body::set_legs_hidden(store.boolean("hide_legs", true));
 			body::set_soldier_radius(store.real("soldier_radius", 0.0f));
 			body::set_torso_follow(store.boolean("torso_follow", true));
+			stereo::set_aim_follows_torso(store.boolean("aim_follows_torso", true));
 			body::set_torso_hands(store.boolean("torso_hands", false));
 			body::set_body_shoulders(true);
 			body::set_finger_poses(true);
