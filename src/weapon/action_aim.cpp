@@ -9,19 +9,39 @@ namespace bfvr::weapon
 			return false;
 		}
 		active_ = true;
+		pressed_ = released_ = false;
 		down_at_ = now + config_.lead_ms;
-		up_at_ = down_at_ + hold_ms;
-		until_ = up_at_ + config_.tail_ms;
+		hold_ms_ = hold_ms;
 		return true;
 	}
 
-	bool action_aim::button(std::uint64_t now) const
+	action_button action_aim::update(std::uint64_t now)
 	{
-		return active_ && now >= down_at_ && now < up_at_;
+		if (!active_ || released_)
+		{
+			return action_button::none;
+		}
+		if (!pressed_)
+		{
+			if (now < down_at_)
+			{
+				return action_button::none;
+			}
+			pressed_ = true;
+			pressed_at_ = now;
+			return action_button::press;
+		}
+		if (now < pressed_at_ + hold_ms_)
+		{
+			return action_button::none;
+		}
+		released_ = true;
+		released_at_ = now;
+		return action_button::release;
 	}
 
 	bool action_aim::aiming(std::uint64_t now) const
 	{
-		return active_ && now < until_;
+		return active_ && !done(now);
 	}
 }
