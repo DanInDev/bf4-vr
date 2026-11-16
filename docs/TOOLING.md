@@ -238,6 +238,8 @@ records constant-buffer bindings and uploads that contain the camera position (`
 first-eye render's constant bindings, every bound buffer (GPU readback) and view slot 0 to `re/dumps`;
 `fakehead <ipd> [yaw] [height] [pitch]|off` publishes a fixed head sample so stereo paths run without a
 headset (pitch in degrees, up positive: look down at the floor or the chest rig);
+`fakefocus lost|back|off` simulates a system menu taking the controllers (#72: the pad goes neutral, held inputs stay
+closed after `back` until released; publish a neutral `pad` while `lost`, as the XR loop does); always end with `off`;
 `stereorender aer|pair` switches between alternate-eye and both-eyes-per-frame rendering. In pair
 rendering `shot` is not the left eye's headset image (the second eye's gun ends up in it): judge per-eye
 geometry with `eyeshot` / `eyeshot2`. `bodyturn 0|1` A/B-tests turning the first-person body back from the

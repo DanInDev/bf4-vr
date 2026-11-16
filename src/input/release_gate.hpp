@@ -7,9 +7,12 @@
 // #72: a system menu (the SteamVR dashboard, the Quest menu through Steam Link) takes the controllers. Presses
 // made there must not reach the game, and a release the runtime swallowed must not leave a trigger or grip
 // held: while the runtime has the controllers the pad is neutral, and afterwards every input that still reads
-// pressed stays closed until it has been seen released once. Engine-free; tested by tests/release_gate_test.cpp.
+// pressed stays closed until it has been seen released once. A grip held when the menu opened stays held through it
+// (review 2026-11-16: letting go would drop an armed grenade live at the feet or sling the gun); it lets go when the
+// grip reads released after the return. Engine-free; tested by tests/release_gate_test.cpp.
 namespace bfvr::input
 {
+	constexpr std::uint16_t gate_grip_buttons = 0x0100 | 0x0200; // the grips as the pad's shoulder buttons (controller_actions)
 	constexpr std::uint8_t gate_trigger_released = 30; // of 255: a resting finger reads more on the Quest, but the latch has already cut it
 	constexpr int gate_stick_released = 8000;          // of 32767: inside the game's own dead zone
 
@@ -30,6 +33,8 @@ namespace bfvr::input
 
 	private:
 		std::uint16_t buttons_{};
+		std::uint16_t last_buttons_{}; // the last pad seen while ours
+		std::uint16_t kept_grips_{};   // grips held when the runtime took the controllers
 		bool left_trigger_{};
 		bool right_trigger_{};
 		bool left_stick_{};

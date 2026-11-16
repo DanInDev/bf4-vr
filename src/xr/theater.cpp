@@ -2869,7 +2869,8 @@ namespace bfvr::xr
 				}
 				// #72: while the runtime has the controllers the pad is neutral; afterwards each input stays closed
 				// until it reads released (input/release_gate).
-				input::set_controllers_ours(s.session_state != XR_SESSION_STATE_VISIBLE && s.actions.focused() && !s.hands_frozen.frozen());
+				const bool frozen_counts = s.hands_frozen.frozen() && settings::global().boolean("focus_freeze", true);
+				input::set_controllers_ours(s.session_state != XR_SESSION_STATE_VISIBLE && s.actions.focused() && !frozen_counts);
 				input::publish(pad);
 				const float since = s.last_haptics.QuadPart ? static_cast<float>(t0.QuadPart - s.last_haptics.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
 				s.last_haptics = t0;

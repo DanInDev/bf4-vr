@@ -46,31 +46,45 @@ int main()
 		expect(!gate.holding() && gate.times_closed() == 0, "nothing closed before a focus loss");
 	}
 	{
-		// The trigger is held when the dashboard opens; SteamVR swallows the release and reports it held after.
+		// The trigger and the right grip (an armed grenade, the gun) are held when the dashboard opens; SteamVR swallows
+		// the trigger's release and reports it held after; the left grip is squeezed in the menu and still held on return.
 		release_gate gate;
 		gate.apply(pad(right_grip, 0, 255), true);
-		const gamepad_state away = gate.apply(pad(right_grip | a_button, 255, 255, 20000, -30000), false);
-		expect(away.connected && away.buttons == 0 && away.left_trigger == 0 && away.right_trigger == 0 && away.left_x == 0 && away.right_y == 0,
-			"while the runtime has the controllers the game gets a neutral, connected pad");
+		const gamepad_state away = gate.apply(pad(right_grip | left_grip | a_button, 255, 255, 20000, -30000), false);
+		expect(away.connected && away.left_trigger == 0 && away.right_trigger == 0 && away.left_x == 0 && away.right_y == 0,
+			"while the runtime has the controllers: no trigger, no stick, still connected");
+		expect(away.buttons == right_grip, "the grip held when the menu opened stays held (no grenade dropped live)");
 		expect(gate.times_closed() == 1, "one closure counted");
 		gate.apply(pad(0, 0, 0), false);
 		expect(gate.times_closed() == 1, "a long focus loss is one closure");
-		const gamepad_state back = gate.apply(pad(right_grip, 200, 255, 20000, 0), true);
+		expect(gate.apply(pad(0, 0, 0), false).buttons == right_grip, "the kept grip stays held while the runtime reads neutral");
+		const gamepad_state back = gate.apply(pad(right_grip | left_grip, 200, 255, 20000, 0), true);
 		expect(back.right_trigger == 0 && back.left_trigger == 0, "a trigger still reading pressed after the menu stays closed (no endless fire)");
-		expect(back.buttons == 0, "a grip still reading pressed stays closed");
+		expect(back.buttons == right_grip, "the kept grip, still squeezed, holds on; the grip squeezed in the menu stays closed");
 		expect(back.left_x == 0, "a stick still pushed stays closed");
 		expect(gate.holding(), "the gate reports what it holds");
-		const gamepad_state still = gate.apply(pad(right_grip, 200, 255, 20000, 0), true);
-		expect(still.right_trigger == 0 && still.buttons == 0, "and stays closed while the input reads pressed");
-		const gamepad_state released = gate.apply(pad(right_grip, 200, 10, 20000, 0), true);
+		const gamepad_state still = gate.apply(pad(right_grip | left_grip, 200, 255, 20000, 0), true);
+		expect(still.right_trigger == 0 && still.buttons == right_grip, "and stays closed while the input reads pressed");
+		const gamepad_state released = gate.apply(pad(right_grip | left_grip, 200, 10, 20000, 0), true);
 		expect(released.right_trigger == 10 && !gate.closed_right_trigger(), "the right trigger let out opens it");
-		expect(released.buttons == 0 && released.left_trigger == 0 && released.left_x == 0, "the others stay closed until their own release");
-		const gamepad_state pulled = gate.apply(pad(right_grip, 200, 255, 20000, 0), true);
+		expect(released.buttons == right_grip && released.left_trigger == 0 && released.left_x == 0, "the others stay closed until their own release");
+		const gamepad_state pulled = gate.apply(pad(right_grip | left_grip, 200, 255, 20000, 0), true);
 		expect(pulled.right_trigger == 255, "a fresh pull fires again");
 		gate.apply(pad(0, 0, 255, 0, 0), true);
 		const gamepad_state open = gate.apply(pad(right_grip | left_grip, 255, 255, 20000, 0), true);
 		expect(open.buttons == (right_grip | left_grip) && open.left_trigger == 255 && open.left_x == 20000, "all open after each was released once");
 		expect(!gate.holding(), "nothing held any more");
+	}
+	{
+		// The kept grip let go after the return lets go in the game too, and a new squeeze takes again.
+		release_gate gate;
+		gate.apply(pad(right_grip, 0, 0), true);
+		gate.apply(pad(0, 0, 0), false);
+		expect(gate.apply(pad(0, 0, 0), true).buttons == 0, "kept grip released after the return: released");
+		expect(gate.apply(pad(right_grip, 0, 0), true).buttons == right_grip, "squeezed again: held");
+		gate.apply(pad(0, 0, 0), false);
+		gate.apply(pad(0, 0, 0), true);
+		expect(gate.apply(pad(0, 0, 0), false).buttons == 0, "a later menu keeps only what was held at its own start");
 	}
 	{
 		// A button released in the menu but another still held when coming back.

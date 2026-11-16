@@ -475,6 +475,9 @@ haptics_gestures = 1
 # #72: while a system menu (SteamVR dashboard, Quest menu) has the controllers the game gets an idle pad; afterwards a
 # trigger, grip, button or stick still pressed stays away from the game until it was let go once (no endless fire).
 focus_release = 1
+# Also treat a frozen controller stream (both poses identical for 0.5 s: Steam Link while the Quest menu is open) as a
+# system menu. Off if triggers or sticks ever cut out for a moment in normal play.
+focus_freeze = 1
 # While a menu is up over the level (a crate, the pause menu), pressing the off-hand grip again backs out of it
 # (Escape): close a crate the way you opened it, without aiming at Done (#34).
 menu_grip_back = 1

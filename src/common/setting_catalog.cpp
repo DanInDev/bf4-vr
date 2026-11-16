@@ -188,6 +188,7 @@ namespace bfvr::settings
 			{ "haptics_gestures", "Controls", "Vibration", "Taps for gestures", "Holsters, magazines, grabs, clicks", "" },
 			{ "menu_input", "Controls", "Menus", "Menu pointer", "Point and pull the trigger, a stick cursor, or the pad", "pointer=Pointer|stick=Stick|pad=Pad" },
 			{ "focus_release", "Controls", "Menus", "Release after system menus", "Let go once before triggers and grips work again", "" },
+			{ "focus_freeze", "Controls", "Menus", "Detect the Quest menu", "Frozen controllers count as a system menu", "" },
 			{ "menu_grip_back", "Controls", "Menus", "Off-hand grip closes menus", "Press it again to close a crate or resume", "" },
 			{ "vr_panel", "Controls", "Menus", "Hold the menu button for this panel", "A short press stays the game's pause", "" },
 			{ "stick_menu", "Controls", "Menus", "Both stick clicks for this panel", "Hold them half a second", "" },

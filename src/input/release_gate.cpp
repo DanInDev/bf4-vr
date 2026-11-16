@@ -19,15 +19,22 @@ namespace bfvr::input
 			if (was_ours_)
 			{
 				++closures_;
+				kept_grips_ = static_cast<std::uint16_t>(last_buttons_ & gate_grip_buttons);
 			}
 			was_ours_ = false;
-			buttons_ = 0xFFFF;
+			buttons_ = static_cast<std::uint16_t>(0xFFFF & ~kept_grips_);
 			left_trigger_ = right_trigger_ = left_stick_ = right_stick_ = true;
 			gamepad_state neutral{};
 			neutral.connected = raw.connected;
+			neutral.buttons = kept_grips_;
 			return neutral;
 		}
+		if (!was_ours_)
+		{
+			kept_grips_ = 0; // back: a kept grip now follows the controller (still held, or released)
+		}
 		was_ours_ = true;
+		last_buttons_ = raw.buttons;
 
 		gamepad_state out = raw;
 		buttons_ &= raw.buttons; // a closed button opens once it reads released

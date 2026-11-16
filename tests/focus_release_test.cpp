@@ -45,20 +45,23 @@ int main()
 
 	frame(false, pad(0, 0)); // the dashboard opens: every action inactive, sync returns neutral
 	frame(false, pad(0, 0));
-	expect(latest().right_trigger == 0 && latest().buttons == 0 && latest().connected, "unfocused: neutral, still connected");
+	expect(latest().right_trigger == 0 && latest().buttons == grip && latest().connected, "unfocused: no trigger, still connected; the grip held at the start stays held");
 
 	frame(true, pad(grip, 255)); // back, the release swallowed: the runtime reports both still pressed
 	expect(latest().right_trigger == 0, "first frame back: the stale-held trigger stays closed");
-	expect(latest().buttons == 0, "first frame back: the grip stays closed");
+	expect(latest().buttons == grip, "first frame back: the kept grip holds on");
 	frame(true, pad(grip, 255));
-	expect(latest().right_trigger == 0 && latest().buttons == 0, "and on the frames after");
+	expect(latest().right_trigger == 0 && latest().buttons == grip, "and on the frames after");
 
 	frame(true, pad(grip, 0));
 	frame(true, pad(grip, 255));
-	expect(latest().right_trigger == 255 && latest().buttons == 0, "a fresh pull fires; the grip still waits for its release");
+	expect(latest().right_trigger == 255 && latest().buttons == grip, "a fresh pull fires");
 	frame(true, pad(0, 255));
 	frame(true, pad(grip, 255));
 	expect(latest().buttons == grip, "the grip works after its release");
+	frame(false, pad(0, 0));
+	frame(true, pad(0x1000, 0));
+	expect(latest().buttons == 0, "a button squeezed in the menu stays closed after it");
 
 	// The pipe's simulation takes the same path.
 	fake_focus("lost");
@@ -66,7 +69,7 @@ int main()
 	fake_focus("back");
 	expect(latest().right_trigger == 0, "fakefocus back alone opens nothing");
 	publish(pad(grip, 255));
-	expect(latest().right_trigger == 0 && latest().buttons == 0, "fakefocus: a held trigger after the return stays closed");
+	expect(latest().right_trigger == 0, "fakefocus: a held trigger after the return stays closed");
 	fake_focus("off");
 
 	set_focus_release(false);
