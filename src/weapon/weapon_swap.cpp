@@ -23,6 +23,7 @@
 #include "stereo/extra_mesh.hpp"
 #include "stereo/tracking.hpp"
 #include "ui/vr_panel.hpp"
+#include "weapon/action_aim.hpp"
 #include "weapon/body_rig.hpp"
 #include "weapon/free_hands.hpp"
 #include "weapon/grab_debug.hpp"
@@ -135,6 +136,19 @@ namespace bfvr::weapon
 		std::atomic<bool> signal_raised{};
 		hand_signal signal;
 		ULONGLONG order_up_at{};
+		// #70: the squad order and a melee strike turn the game's aim to where the head looks first; the C4 throw
+		// along the off hand's ray while its trigger is held (live setting action_aim).
+		action_aim order_aim;
+		action_aim melee_aim;               // with the lead and tail (action_aim on)
+		action_aim melee_plain{ { 0, 0 } }; // action_aim off: the stab at once, no aim
+		std::atomic<bool> action_aim_on{ true };
+		std::atomic<bool> head_aim_now{};   // the order's or the strike's aim window (advance), read by the camera hook
+		std::atomic<bool> melee_down{};     // the stab's button (advance), read by the pad filter
+		std::atomic<ULONGLONG> c4_aim_until{};
+		ULONGLONG c4_trigger_since{};       // the C4's left trigger went down (0: up)
+		constexpr ULONGLONG action_lead_ms = 100;
+		constexpr ULONGLONG c4_tail_ms = 300;
+		constexpr std::uint8_t c4_touch = 8; // a left trigger above this counts as pulled (C4 throw)
 		std::uint64_t orders{};
 
 		// Melee by hand (#15): pad right-stick click for one stab.
@@ -173,7 +187,6 @@ namespace bfvr::weapon
 		float last_dropped_at[3]{};
 		bool last_slung{};
 		bool holster_take{}; // #49: the gun hand gripped at the out-of-hand selected weapon's holster (next frame's free hands)
-		std::atomic<ULONGLONG> melee_until{};
 		constexpr ULONGLONG melee_pulse_ms = 80;
 		constexpr ULONGLONG after_holster_ms = 600; // bringing a drawn gun forward is not a strike
 		ULONGLONG last_in_holster{};
@@ -224,11 +237,24 @@ namespace bfvr::weapon
 		// Called with lock held: Q down now, up after key_hold_ms (advance).
 		void give_order(ULONGLONG now)
 		{
-			if (order_up_at || !hooks::press_game_key(order_key, true))
+			if (action_aim_on.load(std::memory_order_relaxed))
 			{
-				return;
+				// #70: aim first, Q after the lead (advance presses and releases it). The aim is on from now, so even
+				// when the next frame comes after the lead, the aim reaches the game before Q does.
+				if (order_up_at || !order_aim.start(now, key_hold_ms))
+				{
+					return;
+				}
+				head_aim_now = true;
 			}
-			order_up_at = now + key_hold_ms;
+			else
+			{
+				if (order_up_at || !hooks::press_game_key(order_key, true))
+				{
+					return;
+				}
+				order_up_at = now + key_hold_ms;
+			}
 			++orders;
 			input::haptic(0, input::pulses::click);
 			log::write("squad: order given (Q)");
@@ -253,6 +279,30 @@ namespace bfvr::weapon
 		// Called with lock held.
 		void advance(ULONGLONG now)
 		{
+			// #70: the press and release come as events, so a slow frame delays them but never skips them.
+			switch (order_aim.update(now))
+			{
+			case action_button::press:
+				hooks::press_game_key(order_key, true);
+				log::write("squad: Q down");
+				break;
+			case action_button::release:
+				hooks::press_game_key(order_key, false);
+				log::write("squad: Q up");
+				break;
+			default: break;
+			}
+			const action_button stab = melee_aim.update(now);
+			const action_button plain = melee_plain.update(now);
+			if (stab == action_button::press || plain == action_button::press)
+			{
+				melee_down = true;
+			}
+			if (stab == action_button::release || plain == action_button::release)
+			{
+				melee_down = false;
+			}
+			head_aim_now = order_aim.aiming(now) || melee_aim.aiming(now);
 			if (order_up_at && now >= order_up_at)
 			{
 				hooks::press_game_key(order_key, false);
@@ -598,7 +648,17 @@ namespace bfvr::weapon
 		update_sling_primary(held);
 		update_slot_captures(held, now);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
-		input::set_item_left_trigger(c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr);
+		const bool c4_out = c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr;
+		// #70: while the C4's throw (left trigger) is held, the game's aim goes along the off hand's ray. The trigger
+		// stays closed to the game until it has been held for the lead (the game polls on its own thread, so an
+		// open gate would let a fresh pull through before this frame sees it), so the throw already reads that aim.
+		const bool c4_aims = c4_out && action_aim_on.load(std::memory_order_relaxed);
+		c4_trigger_since = c4_aims && input::latest().left_trigger > c4_touch ? (c4_trigger_since ? c4_trigger_since : now) : 0;
+		if (c4_trigger_since)
+		{
+			c4_aim_until = now + c4_tail_ms;
+		}
+		input::set_item_left_trigger(c4_out && (!c4_aims || (c4_trigger_since && now - c4_trigger_since >= action_lead_ms)));
 		LARGE_INTEGER counter{}, frequency{};
 		QueryPerformanceCounter(&counter);
 		QueryPerformanceFrequency(&frequency);
@@ -622,7 +682,13 @@ namespace bfvr::weapon
 			if (melee_enabled.load(std::memory_order_relaxed) && head_sample.valid
 				&& melee.update(stereo::eye_math::centre_pose(head_sample), hands.grip[1].position, hands.valid[1], busy, seconds))
 			{
-				melee_until = now + melee_pulse_ms;
+				// #70: the game's aim to where the head looks first, the stab after the lead (advance).
+				const bool aimed = action_aim_on.load(std::memory_order_relaxed);
+				action_aim& stab = aimed ? melee_aim : melee_plain;
+				if (stab.start(now, melee_pulse_ms) && aimed)
+				{
+					head_aim_now = true; // as for the order: the aim before the stab even at a low frame rate
+				}
 				++strikes;
 				input::haptic(1, input::pulses::strike);
 			}
@@ -929,7 +995,7 @@ namespace bfvr::weapon
 		{
 			out.buttons &= static_cast<std::uint16_t>(~XINPUT_GAMEPAD_LEFT_SHOULDER);
 		}
-		if (GetTickCount64() < melee_until.load(std::memory_order_relaxed))
+		if (melee_down.load(std::memory_order_relaxed))
 		{
 			out.buttons |= XINPUT_GAMEPAD_RIGHT_THUMB;
 			out.connected = true;
@@ -990,6 +1056,46 @@ namespace bfvr::weapon
 	bool gun_in_off_grip()
 	{
 		return off_grip_now.load(std::memory_order_relaxed);
+	}
+
+	bool action_aim_direction(float (&direction)[3])
+	{
+		const ULONGLONG now = GetTickCount64();
+		const bool c4 = now < c4_aim_until.load(std::memory_order_relaxed);
+		if (!c4 && !head_aim_now.load(std::memory_order_relaxed))
+		{
+			return false;
+		}
+		float q[4];
+		if (c4)
+		{
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			if (!hands.valid[0])
+			{
+				return false;
+			}
+			std::copy(std::begin(hands.aim[0].orientation), std::end(hands.aim[0].orientation), q);
+		}
+		else
+		{
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (!head.valid)
+			{
+				return false;
+			}
+			const stereo::pose centre = stereo::eye_math::centre_pose(head);
+			std::copy(std::begin(centre.orientation), std::end(centre.orientation), q);
+		}
+		// -z of the rotation (OpenXR: forward).
+		direction[0] = -2.0f * (q[0] * q[2] + q[1] * q[3]);
+		direction[1] = -2.0f * (q[1] * q[2] - q[0] * q[3]);
+		direction[2] = -(1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]));
+		return true;
+	}
+
+	void set_action_aim(bool on)
+	{
+		action_aim_on = on;
 	}
 
 	bool use_reach_direction(float (&direction)[3])
@@ -1072,7 +1178,13 @@ namespace bfvr::weapon
 			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses), use_offset[0], use_offset[1], use_offset[2],
 			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
 			body::latest_weapon_points().floor_y, last_grip_point[0], last_grip_point[1], last_grip_point[2], last_grip_in_reach ? 1 : 0, last_slung ? 1 : 0, last_dropped_at[0], last_dropped_at[1], last_dropped_at[2]);
-		return std::string(text) + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;
+		float aim_yaw{}, aim_pitch{};
+		const bool aim_known = input::aim_angles(aim_yaw, aim_pitch);
+		const ULONGLONG tick = GetTickCount64();
+		char aim[160];
+		std::snprintf(aim, sizeof(aim), "\naction_aim=%d head_aim=%d c4_aim=%d game_aim_yaw_deg=%.1f pitch_deg=%.1f%s", action_aim_on.load() ? 1 : 0,
+			head_aim_now.load() ? 1 : 0, tick < c4_aim_until.load() ? 1 : 0, aim_yaw * 57.29578f, aim_pitch * 57.29578f, aim_known ? "" : " (unknown)");
+		return std::string(text) + aim + "\ngrenade_capture stage=" + std::to_string(static_cast<int>(grenade_capture)) + " last=" + capture_result;
 	}
 
 	void request_grenade_capture()

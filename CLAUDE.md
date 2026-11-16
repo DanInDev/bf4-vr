@@ -139,5 +139,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-15: the weapon crate opens with `game.ps1 keys -Keys E` (focus), not `pipe key 69`; in its menu
   keyboard Down scrolls the rows. With BF4 in front, `pipe pad` stick turns stopped turning the soldier and
   `fakeyaw` turns only the camera: face the crate before taking focus (`re/notes/weapon.md` "Fist rack").
+- 2026-11-16: `fakehand <yaw> <pitch> ...` turns only the right controller; the left one points straight ahead
+  unless its own yaw, pitch, roll follow as arguments 9-11 (`fakehand '0 0 lx ly lz rx ry rz -60 0 0'`). A C4
+  "along the off hand" test without them aims along the body.
+- 2026-11-16: the gadget stash ignores the game's pad (stick, D-pad, RB) and the arrow keys, also with BF4 in front;
+  only mouse clicks work (pipe `pointer`, also behind other windows). Open it with the use reach (off hand ~45 cm
+  ahead and low toward it, `pad 0 0 0 0 800 0100`) with the body facing it; E alone did not open it.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

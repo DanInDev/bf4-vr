@@ -264,6 +264,7 @@ namespace bfvr::core
 			weapon::set_sling_show_primary(store.boolean("sling_show_primary", true));
 			weapon::set_slot_models_at_start(store.boolean("slot_models_at_start", true));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
+			weapon::set_action_aim(store.boolean("action_aim", true));
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
 			body::set_knife_pitch(store.real("knife_pitch", 145.0f));

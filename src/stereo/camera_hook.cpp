@@ -440,7 +440,12 @@ namespace bfvr::stereo
 			// -z), then in world axes (camera local axes = OpenXR axes).
 			float local[3];
 			float steer_yaw{};
-			if (input::sprint_steer_yaw(steer_yaw))
+			if (weapon::action_aim_direction(local))
+			{
+				// #70: the squad order, a melee strike or a C4 throw: the game's target along the head or the hand, also
+				// while sprinting (it comes before the sprint steer).
+			}
+			else if (input::sprint_steer_yaw(steer_yaw))
 			{
 				// #52: sprinting or vaulting: the soldier faces the move direction (the gun is lowered in a
 				// sprint). The world camera keeps the body yaw, so the view does not turn with it.
