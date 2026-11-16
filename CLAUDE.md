@@ -151,5 +151,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-16 (#41): positions in palette space (`extramesh` `at`, copy matrices) are relative to the root bone, which
   sits on a whole-metre grid point, not at the feet: y ~1.8 is chest height there. Compare with `arms` `palette camera`.
   An item's Wep_Root can be far from its mesh (the knife: 0.3-0.6 m, `extramesh` `from_root`).
+- 2026-11-16: a headset row added on a branch needs an ID that is free on `main` (`git show main:docs/HEADSET-TESTS.md`):
+  a GUN-29 written on a branch overwrote #64's GUN-29 row.
+- 2026-11-16: during a run the stop hook reported "Sources changed since the last gate run" after turns where
+  `gate.ps1 -Status` matched in every worktree (one of its git calls exits 128). It objects once per stop.
+- Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
