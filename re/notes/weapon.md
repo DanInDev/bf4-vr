@@ -1243,6 +1243,35 @@ the clicks a position without the laser: either thumbstick moves a dot over the 
   did not react, and a click on an item flipped the Primary/Secondary tab instead (as in the gadget stash, #34).
   Pad D-pad does not move the selection. `pipe watch <UnlockEverything> rw` saw no read while the menu was idle.
 
+## Own crate: a gun into a slot without the game's menu (2026-11-16 night, monitor, Baku tunnel, #80)
+
+The owner wants our own crate instead of the game's menu (which takes clicks only with BF4 in front). The level scripts
+hand out kits with `ServerCustomizeSoldierEntity` (vtable `0x141E695A0`): its event `0x0C487271` passes its
+`CustomizeSoldierData` to the soldier's `customize` (ServerSoldierEntity slot 100, `0x140FC0F30`), args
+`{soldier, player (soldier+0x240), data, 0}`. With a player the call goes to every soldier component (slot 17) and
+the weapons component (`0x140F7FDC0`) puts each `UnlockWeaponAndSlot` of `data+0x38` into its slot.
+
+- **Works:** `weapon/own_crate`, pipe `givegun <debug id> <slot>` (research). The call runs on the camera hook's thread
+  (the view-params copy, the one pipe `entityevent` uses). **Not established** whether that is the thread that updates the
+  server soldier: a write watch on the soldier's feet (+0x720) while walking caught `rip 0x140FCE9AC`, call chain
+  `0x1409FCF27 0x1409764E3 0x1407EC922 0x140988E3F 0x1409D6ADC 0x1409D7E23`, without a thread id. Eight gives so far ran
+  without a fault; a race stays possible.
+  `givegun U_M416 0` with the SCAR-H in slot 0: `ok`, 3.5 s later `reload: U_M416 slot 0 AR, capacity 30, gun 31,
+  reserve 124`, slot listing `0 U_M416, 1 U_AK12, ...`, the M416 in hand on screen (carry handle, no attachments).
+  A gun the level had never spawned: its bundle loads by itself (the 3.5 s).
+- **Dead end:** copying the first `CustomizeSoldierData` found (the class prototype, header `0x01000001`) let a
+  release free our copy during the call (`C0000005` at `0x140F7FE6F`, our object filled with `cc`/`fe`). Copy a level
+  asset (top byte `0xB1`) and give the copy a large count (`0xB1001000`); the call is under `__try`.
+- **The picker (#80):** settings `crate_primary` / `crate_secondary` (Weapon > Weapons). The panel row is a stepper,
+  so a choice is given only after it has rested 1.2 s and no give runs (latest wins; `crate::change_watch`).
+  MP412 Rex into slot 1 and 870 into slot 0 worked too. Each pick keeps one 4 KB page (the engine may keep pointers).
+  A pick due while there is no soldier (cutscene, respawn) is offered again after another settle.
+- **Known limit:** some given guns have no reload SoundEntity in the level (AK 5C, 2026-11-16; the M416 had one). The
+  lookup stops after 3 searches (`game_reload_sounds`, it repeated a full heap search every 7.5 s before) and the
+  synthesised reload cues play.
+- **Not done yet:** attachments (`CustomizationUnlockAssets`, e.g. the crate list's attachment arrays at widget
+  `+0x148`).
+
 ## Fist rack, two handle zones (2026-11-15, monitor: fakehead + fakehand, AK-12 from the crate)
 
 - `rack_grip = fist`: the grab's zone decides the hold. AK-12 (handle on the right, (-0.02, 0.06, 0.53)): the left
