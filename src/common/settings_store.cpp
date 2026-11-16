@@ -85,6 +85,7 @@ namespace bfvr::settings
 			{ "torso_follow", kind::boolean, 0, 0, 0, "1", "", "the shoulders turn with your real body (the head past ~40 degrees), not only with the stick" },
 			{ "off_hand_pose", kind::choice, 0, 0, 0, "neutral", "animated|neutral", "the free off hand's wrist: the gun hand's grip mirrored, as you hold the controller, a held magazine upright in the fist (neutral), or the game's handguard hold turned by the controller (animated)" },
 			{ "magazine_grip", kind::choice, 0, 0, 0, "auto", "auto|wrap|cup", "a held magazine: wrapped in the fist, or standing on the upturned palm with the fingers closing on it (auto: cup once the palm faces up)" },
+			{ "hand_collision", kind::boolean, 0, 0, 0, "1", "", "the free hand is drawn on the gun's surface, never inside its receiver or handguard; a fast slap through the gun ends on the side it came from" },
 			{ "support_lock", kind::boolean, 0, 0, 0, "1", "", "two-handed: the off hand stays on the handguard where it grabbed until you let go (off: it slides along with the controller within the range)" },
 			{ "support_slide_back", kind::real, 0.0f, 0.2f, 0.01f, "0.06", "", "two-handed: the off hand may hold the gun up to this far behind the game's own handguard spot, metres (towards the magazine)" },
 			{ "support_slide_forward", kind::real, 0.0f, 0.3f, 0.01f, "0.08", "", "two-handed: the off hand may hold the gun up to this far ahead of the game's own handguard spot, metres (towards the muzzle)" },

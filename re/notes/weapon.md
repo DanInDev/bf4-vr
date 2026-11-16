@@ -177,6 +177,17 @@ skeleton.md) need a checkpoint whose kit has one.
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).
 
+## The free hand kept out of the gun (#62, 2026-11-16, monitor, Baku, SCAR-H)
+
+- `Wep_Root` is not at the grip: the SCAR-H's `Wep_Mag` (magazine top) sits at (0, -0.009, 0.465) in its axes, so
+  the gun's boxes (body/hand_collision `gun_boxes`) are built from the bones (magazine top, the animated hand
+  wrists), never from fixed numbers. Receiver from that: centre (0, 0.026, 0.396), half (0.025, 0.035, 0.149).
+- `Wep_Mag` moves with the hand during a physical reload: it is sampled only while no magazine is detached.
+- Monitor: `fakehand` left at x 0.15, z -0.45, raised y -0.25 to 0: from y -0.16 the palm (r 3.5 cm) is held
+  at gun y -0.044 (the receiver bottom minus the radius) while the controller goes 41 / 89 / 129 mm in; the
+  solved hand is 0 mm inside (`fingers`: `drawn_mm=0`). At y -0.04 the push would exceed 0.15 m: let through.
+- Fake-hand sweeps sideways at y -0.25 never touch: that height is the magazine's, 15 cm below the magwell.
+
 ## Recoil data (2026-11-03, tools/recoil_probe.py, campaign checkpoint "Get Grenade Launcher")
 
 ```
