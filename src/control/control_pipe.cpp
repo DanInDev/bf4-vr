@@ -33,6 +33,7 @@
 #include "control/watchpoint.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/muzzle_quads.hpp"
 #include "stereo/aim_depth.hpp"
 #include "stereo/extra_mesh.hpp"
 #include "stereo/gun_pass_fov.hpp"
@@ -897,6 +898,7 @@ namespace bfvr::control
 			}
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);
 			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
+			if (command == "flash") return stereo::muzzle_quads::pipe_command(argument);
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
 			if (command == "unlocks") return weapon::unlock_all_report();
 			if (command == "serversoldier") return weapon::server_soldier_report();

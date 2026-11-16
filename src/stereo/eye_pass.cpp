@@ -27,6 +27,7 @@
 #include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/extra_mesh.hpp"
+#include "stereo/muzzle_quads.hpp"
 #include "stereo/scope.hpp"
 #include "stereo/scope_compose.hpp"
 #include "stereo/scope_math.hpp"
@@ -1980,6 +1981,11 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 				probe_bindings.push_back({ 'D', count, nullptr, 0, 0 });
 			}
 			dump_draw_state(c, count, start);
+			if (muzzle_quads::draw(c, count, start, base, original_draw_indexed))
+			{
+				extra_mesh::after_draw(c, count, start, base, 1);
+				return;
+			}
 			if (reticle_draw(c, count))
 			{
 				++reticle_draws;

@@ -307,6 +307,9 @@ support_lock = 1
 # #62: the free hand is drawn on the gun's surface, never inside its receiver or handguard (the boxes come from the
 # gun's own bones); a fast slap through the gun ends on the side it came from. Pipe `fingers` shows the contact.
 hand_collision = 1
+# #65: the muzzle flash, its smoke and sparks drawn at the gun in your hand; the game puts them where its own flat gun
+# would be (in front of your chest). Pipe `flash` shows the state, `flash survey <ms>` the particle batches.
+flash_at_gun = 1
 support_slide_back = 0.06
 support_slide_forward = 0.08
 # rack_grip fist: where the fist sits against the charging handle's knob (metres, the gun's frame): overhand out on

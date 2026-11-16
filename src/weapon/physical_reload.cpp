@@ -169,6 +169,7 @@ namespace bfvr::weapon
 		}
 
 		std::atomic<bool> physical{};
+		std::atomic<ULONGLONG> last_shot_at{}; // #65: the muzzle flash move's clock
 		std::atomic<bool> discard{ true };
 		std::atomic<bool> palming{ true };
 		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
@@ -564,6 +565,7 @@ namespace bfvr::weapon
 				}
 				if (fired > 0)
 				{
+					last_shot_at = GetTickCount64();
 					input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
 					body::kick_gun(1, weapon.recoil);
 				}
@@ -799,6 +801,7 @@ namespace bfvr::weapon
 			{
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
 				body::kick_gun(std::min(seen_magazine - weapon.magazine, 3), weapon.recoil);
+				last_shot_at = GetTickCount64();
 			}
 			seen_ammo = weapon.valid ? weapon.ammo : 0;
 			seen_magazine = weapon.valid ? weapon.magazine : -1;
@@ -862,6 +865,7 @@ namespace bfvr::weapon
 			}
 			if (memory.written > weapon.magazine)
 			{
+				last_shot_at = GetTickCount64();
 				input::recoil(input::firing_pulse(weapon.rumble[0], weapon.rumble[1], weapon.rumble[2]));
 				body::kick_gun(std::min(memory.written - weapon.magazine, 3), weapon.recoil);
 			}
@@ -1116,6 +1120,11 @@ namespace bfvr::weapon
 		hand_engaged = gun.state().holding || result.racking;
 		claims_free_hand = swapped && (gun.state().holding || result.racking || (result.off_hand_busy && !grip_first));
 #endif
+	}
+
+	unsigned long long last_shot_tick()
+	{
+		return last_shot_at.load(std::memory_order_relaxed);
 	}
 
 	bool reload_engages_off_hand()

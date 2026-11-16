@@ -45,6 +45,8 @@ namespace bfvr::weapon
 	bool reload_owns_off_hand();
 	// Stricter: the off hand holds a magazine or racks (a hand merely inside a reload zone does not count).
 	bool reload_engages_off_hand();
+	// #65: GetTickCount64 of the last shot of the gun in hand seen (the game's count going down), 0 before any.
+	unsigned long long last_shot_tick();
 
 	// #56: the magazine in the off hand (taken from the gun or the pouch), for the magazine check on the
 	// HUD. Positions in OpenXR LOCAL; held is false when nothing is held or the last update is stale.

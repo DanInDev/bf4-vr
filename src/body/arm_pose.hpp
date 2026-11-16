@@ -130,6 +130,17 @@ namespace bfvr::body
 	};
 	weapon_points latest_weapon_points();
 
+	// #65: the muzzle flash. The game places it from Wep_Aim as its animation has it (the flat gun), not as the mod
+	// draws it (re/notes/weapon.md "The muzzle flash"). Both frames in the game's world (the rig's model space, the
+	// same space the world pass draws particles in), from the last pose conversion; false when none is recent.
+	// Wep_Aim's +z is the barrel; the flash sits about 0.9 m along it (FireEffects1p offset).
+	struct muzzle_frame
+	{
+		float position[3]{};
+		float rotation[4]{ 0, 0, 0, 1 };
+	};
+	bool muzzle_frames(muzzle_frame& game, muzzle_frame& drawn);
+
 	// Free hands (#35): the drawn gun lies at this OpenXR LOCAL point on its side, barrel along yaw
 	// (atan2(-forward.x, -forward.z)), instead of in the gun hand; active = false puts it back.
 	// hanging (#38): on the sling at position (the body point), barrel down, facing yaw; else lying on the floor.

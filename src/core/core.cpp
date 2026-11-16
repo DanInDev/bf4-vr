@@ -31,6 +31,7 @@
 #include "stereo/aim_depth.hpp"
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
+#include "stereo/muzzle_quads.hpp"
 #include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/stream_view.hpp"
@@ -250,6 +251,7 @@ namespace bfvr::core
 			body::set_rack_grip(store.text("rack_grip", "fist"));
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
+			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
 			body::set_rack_fist_offsets(store.real("rack_over_out", 0.05f), store.real("rack_over_up", 0.01f), store.real("rack_under_out", 0.03f),
 				store.real("rack_under_down", 0.04f));
 			body::set_gun_recoil(store.real("recoil", 1.0f));

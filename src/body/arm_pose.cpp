@@ -96,6 +96,7 @@ namespace bfvr::body
 			int launcher_round{ -1 };    // Wep_Mag_Ammo
 			int launcher_case{ -1 };     // Wep_Belt2
 			int launcher_parts[2]{ -1, -1 }; // Wep_Belt1, Wep_Extra4
+			int aim{ -1 };               // Wep_Aim: the game places the muzzle flash from it, unedited (#65)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
 			int ground{ -1 };      // AITrajectory: the soldier's ground point (free hands drop the gun onto it)
@@ -328,6 +329,11 @@ namespace bfvr::body
 		launcher_pose launcher_request;
 		bone_memory launcher_memory[4];
 		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
+		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
+		// muzzle flash) and as drawn, from the same conversion.
+		ik::bone_transform muzzle_game{};
+		ik::bone_transform muzzle_drawn{};
+		ULONGLONG muzzle_at{};
 		// Extra meshes (#36): the second magazine (stereo/extra_mesh), and the held magazine's pose before
 		// the palming tilt (where a caught one sits).
 		extra_magazine_pose extra_request;
@@ -645,6 +651,7 @@ namespace bfvr::body
 			fresh.launcher_case = find_bone(bone_names, fresh.bones, "Wep_Belt2");
 			fresh.launcher_parts[0] = find_bone(bone_names, fresh.bones, "Wep_Belt1");
 			fresh.launcher_parts[1] = find_bone(bone_names, fresh.bones, "Wep_Extra4");
+			fresh.aim = find_bone(bone_names, fresh.bones, "Wep_Aim");
 			fresh.ik_hand[0] = find_bone(bone_names, fresh.bones, "IK_Joint_LeftHand");
 			fresh.ik_hand[1] = find_bone(bone_names, fresh.bones, "IK_Joint_RightHand");
 			fresh.legs[0] = find_bone(bone_names, fresh.bones, "LeftUpLeg");
@@ -2902,9 +2909,19 @@ namespace bfvr::body
 						{
 							std::memcpy(scene_animated, local, sizeof(ik::bone_transform) * static_cast<std::size_t>(count));
 						}
+						const bool has_aim = rig.aim >= 0;
+						if (has_aim)
+						{
+							muzzle_game = ik::model_of(local, rig.parents, rig.aim);
+						}
 						edit_arms(local);
 						edit_weapon(local);
 						edit_launcher(local);
+						if (has_aim)
+						{
+							muzzle_drawn = ik::model_of(local, rig.parents, rig.aim);
+							muzzle_at = GetTickCount64();
+						}
 						edit_fingers(local);
 						attach_held_magazine(local);
 						if (weight < 1.0f)
@@ -3121,6 +3138,28 @@ namespace bfvr::body
 	{
 		const std::lock_guard guard(rig_lock);
 		return points;
+	}
+
+	bool muzzle_frames(muzzle_frame& game, muzzle_frame& drawn)
+	{
+		const std::lock_guard guard(rig_lock);
+		if (!muzzle_at || GetTickCount64() - muzzle_at > 250)
+		{
+			return false;
+		}
+		const auto copy = [](const ik::bone_transform& from, muzzle_frame& to)
+		{
+			to.position[0] = from.position.x;
+			to.position[1] = from.position.y;
+			to.position[2] = from.position.z;
+			to.rotation[0] = from.rotation.x;
+			to.rotation[1] = from.rotation.y;
+			to.rotation[2] = from.rotation.z;
+			to.rotation[3] = from.rotation.w;
+		};
+		copy(muzzle_game, game);
+		copy(muzzle_drawn, drawn);
+		return true;
 	}
 
 	void set_launcher_pose(const launcher_pose& pose)

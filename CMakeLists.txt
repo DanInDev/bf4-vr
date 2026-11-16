@@ -119,6 +119,8 @@ add_library(bfvr_runtime STATIC
 	src/input/handedness.cpp
 	src/input/pointer.cpp
 	src/input/stick_cursor.cpp
+	src/stereo/muzzle_move.cpp
+	src/stereo/muzzle_quads.cpp
 	src/input/physical_stance.cpp
 	src/input/trigger_latch.cpp
 	src/input/right_stick.cpp
@@ -268,6 +270,9 @@ if(BFVR_BUILD_TESTS)
 	# #34: the menu cursor moved with a thumbstick and the dot's point on the screen; exits non-zero on failure.
 	add_executable(bfvr_stick_cursor_test tests/stick_cursor_test.cpp src/input/stick_cursor.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_stick_cursor_test PRIVATE bfvr_common)
+	# #65: the muzzle flash moved from the game's flat gun onto the drawn one; exits non-zero on failure.
+	add_executable(bfvr_muzzle_move_test tests/muzzle_move_test.cpp src/stereo/muzzle_move.cpp)
+	target_link_libraries(bfvr_muzzle_move_test PRIVATE bfvr_common)
 	# #64: the break-open launcher (the M320) reloaded by hand; exits non-zero on failure.
 	add_executable(bfvr_break_open_test tests/break_open_test.cpp src/weapon/break_open.cpp)
 	target_link_libraries(bfvr_break_open_test PRIVATE bfvr_common)
@@ -418,6 +423,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME menu_back COMMAND bfvr_menu_back_test)
 	add_test(NAME stick_cursor COMMAND bfvr_stick_cursor_test)
+	add_test(NAME muzzle_move COMMAND bfvr_muzzle_move_test)
 	add_test(NAME break_open COMMAND bfvr_break_open_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
