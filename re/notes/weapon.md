@@ -145,10 +145,13 @@ future two-hand grip.
   (`extramesh` grenade `captured=0`) the pouch draws nothing; `pipe grenade capture` first.
 - Grenade copy: fakehead `0.064 0 0 -70`, it sits under the view at 0, further ahead at 0.08, out of the
   frame at 0.3. Follows the offset as intended.
-- **Knife copy (open):** a black knife grip drawn beside the grenade moved with neither
-  `slot_models_ahead` (0 to 0.3) nor `knife_pitch` (+60), though `extramesh` reported the knife's `at`
-  moving. Either that grip is not the copy, or the captured knife mesh follows a bone the copy's root
-  matrix does not drive. Not caused by #41 (`knife_pitch` is older); look at the knife capture's draws first.
+- **Knife copy (open):** captured and replayed (`knife_copy captured=1 draws=2..5`, `copies` climbing, `at` moving
+  with the offset), yet in no frame on the monitor at 0 / 0.14 / 0.3, also with the left arm swung out of the way
+  and the head turned to the holster (2026-11-16, three runs). The black knife-like grip seen beside the grenade in
+  one run moved with neither `slot_models_ahead` nor `knife_pitch`: not the copy (likely part of the gun seen from
+  above). Copies are replayed right after a magazine draw of the same pass; with the arms forward and the gun out of
+  view even the captured grenade copy did not show. Next: log which pass (targets / format) each knife replay lands
+  in; a depth-only pass (targets=1, format 34) would explain draws without a picture.
 
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 
