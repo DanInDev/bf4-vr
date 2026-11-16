@@ -22,10 +22,17 @@ namespace bfvr::input
 		std::atomic<std::uint64_t> masked_frames{};
 
 		// Under the lock.
-		void refresh()
+		bool ours_now()
 		{
 			const int force = forced.load(std::memory_order_relaxed);
-			const bool ours = force >= 0 ? force == 1 : controllers_ours;
+			return force >= 0 ? force == 1 : controllers_ours;
+		}
+
+		// Under the lock. Only a fresh sample may open the gate: the last one was taken while the runtime had the
+		// controllers (a neutral pad), so judging it as ours would open everything before the held trigger arrives.
+		void refresh()
+		{
+			const bool ours = ours_now();
 			if (!release_on.load(std::memory_order_relaxed))
 			{
 				current = last_raw;
@@ -72,7 +79,10 @@ namespace bfvr::input
 		{
 			log::write("input: %s", ours ? "controllers back from the runtime" : "the runtime has the controllers (system menu or a frozen stream): neutral pad");
 			controllers_ours = ours;
-			refresh();
+			if (!ours_now())
+			{
+				refresh(); // neutral at once; coming back waits for the next publish
+			}
 		}
 	}
 
@@ -101,7 +111,10 @@ namespace bfvr::input
 		}
 		{
 			const std::lock_guard guard(lock);
-			refresh();
+			if (!ours_now())
+			{
+				refresh(); // like the XR loop: lost neutralises now, back waits for the next sample
+			}
 		}
 		return focus_release_report();
 	}

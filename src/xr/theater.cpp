@@ -138,6 +138,7 @@ namespace bfvr::xr
 		std::atomic<bool> input_lost{};
 		stereo::hand_sample last_hands{};
 		ULONGLONG last_hands_tick{};
+		XrTime last_hands_time{};
 		input::freeze_watch hands_frozen;
 
 		// Per-second worst-case timings of the work done inside the game's Present.
@@ -2858,7 +2859,10 @@ namespace bfvr::xr
 					const float seconds = s.last_hands_tick ? static_cast<float>(tick - s.last_hands_tick) / 1000.0f : 0.0f;
 					s.last_hands = hands;
 					s.last_hands_tick = tick;
-					if (s.hands_frozen.frozen() != s.hands_frozen.update(hands.valid[0] || hands.valid[1], changed, seconds))
+					const bool was_frozen = s.hands_frozen.frozen();
+					const bool same_time = time == s.last_hands_time; // a hitch: the same pose is expected, it neither counts nor resets
+					s.last_hands_time = time;
+					if (!same_time && was_frozen != s.hands_frozen.update(hands.valid[0] || hands.valid[1], changed, seconds))
 					{
 						log::write("theater: controller stream %s", s.hands_frozen.frozen() ? "frozen (identical poses for 0.5 s): a system menu has the controllers" : "moving again");
 					}
