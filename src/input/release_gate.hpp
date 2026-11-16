@@ -44,8 +44,8 @@ namespace bfvr::input
 	};
 
 	// A controller stream that stopped: both controllers report the same pose, bit for bit, for `after` seconds.
-	// Real tracking never repeats a float exactly frame after frame; Steam Link repeats the last sample while the
-	// Quest menu is open (the session stays FOCUSED, so the runtime never says so).
+	// Live tracking should never repeat a float exactly frame after frame. Hypothesis (#72, not yet seen in the headset):
+	// Steam Link repeats the last sample while the Quest menu is open, and the session stays FOCUSED.
 	class freeze_watch
 	{
 	public:

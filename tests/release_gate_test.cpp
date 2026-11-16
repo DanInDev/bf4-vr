@@ -98,6 +98,17 @@ int main()
 		expect(gate.apply(pad(a_button | right_grip, 0, 0), true).buttons == (a_button | right_grip), "A opens after its release");
 	}
 	{
+		// Review 3: a grip squeezed in menu 1 and still held (closed) when menu 2 opens must not be kept by menu 2.
+		release_gate gate;
+		gate.apply(pad(0, 0, 0), true);
+		gate.apply(pad(0, 0, 0), false);
+		expect(gate.apply(pad(left_grip, 0, 0), true).buttons == 0, "menu 1: the grip squeezed in it stays closed");
+		expect(gate.apply(pad(left_grip, 0, 0), false).buttons == 0, "menu 2 opens with it still closed: not kept");
+		expect(gate.apply(pad(left_grip, 0, 0), true).buttons == 0, "and after menu 2 it still waits for its release");
+		gate.apply(pad(0, 0, 0), true);
+		expect(gate.apply(pad(left_grip, 0, 0), true).buttons == left_grip, "released once: it works");
+	}
+	{
 		freeze_watch watch(0.5f);
 		expect(!watch.update(true, true, 0.011f), "a moving controller is alive");
 		bool frozen = false;

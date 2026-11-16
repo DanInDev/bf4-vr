@@ -2851,8 +2851,8 @@ namespace bfvr::xr
 				{
 					const stereo::hand_sample hands = s.actions.locate(s.space, time);
 					stereo::publish_hand_sample(hands);
-					// #72: Steam Link repeats the last controller sample while the Quest menu is open, and the session
-					// stays FOCUSED; real tracking never repeats a pose bit for bit.
+					// #72 (hypothesis, not yet seen in the headset): Steam Link may repeat the last controller sample while the
+					// Quest menu is open with the session still FOCUSED; live tracking should never repeat a pose bit for bit.
 					const bool changed = std::memcmp(hands.grip, s.last_hands.grip, sizeof(hands.grip)) != 0
 						|| std::memcmp(hands.aim, s.last_hands.aim, sizeof(hands.aim)) != 0;
 					const ULONGLONG tick = GetTickCount64();

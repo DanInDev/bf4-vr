@@ -34,11 +34,11 @@ namespace bfvr::input
 			kept_grips_ = 0; // back: a kept grip now follows the controller (still held, or released)
 		}
 		was_ours_ = true;
-		last_buttons_ = raw.buttons;
 
 		gamepad_state out = raw;
 		buttons_ &= raw.buttons; // a closed button opens once it reads released
 		out.buttons = static_cast<std::uint16_t>(raw.buttons & ~buttons_);
+		last_buttons_ = out.buttons; // what the game got: a grip still closed is not kept by the next menu (review 3)
 		if (left_trigger_ && raw.left_trigger <= gate_trigger_released)
 		{
 			left_trigger_ = false;
