@@ -82,6 +82,16 @@ SCENARIOS = {
         ('rack on the empty magazine (#78: bolt)', ['reload rack'], 2.5),
         ('release the empty magazine (#78: magazine out)', ['reload button'], 2.5),
     ],
+    # #78 (AK-12 in hand): the magazine pulled out by hand when it is empty.
+    'empty_ak': [
+        ('setup: physical reload', ['setting set reload physical'], 3.0),
+        ('fire the state empty (no sound expected)', ['reload fire'] * 40, 2.5),
+        ('pull the empty magazine out (#78: magazine out)', ['reload grab'], 2.5),
+        ('drop it', ['reload letgo'], 2.5),
+        ('take a full one', ['reload take'], 2.5),
+        ('insert it', ['reload insert'], 2.5),
+        ('rack: chambers (bolt)', ['reload rack'], 2.5),
+    ],
     # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
     'physical_ar': [
         ('setup: physical reload', ['setting set reload physical'], 3.0),

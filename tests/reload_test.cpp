@@ -133,6 +133,25 @@ namespace
 		expect(racked == reload_event::racked_locked && empty.state().bolt_locked && !empty.state().chamber, "#78: a rack on the empty magazine is its own event");
 		sound_cue rack_cues[2]{};
 		expect(cues_for(racked, rack_cues) == 1 && rack_cues[0].event == reload_sound::bolt, "#78: and it sounds like the bolt");
+		// The bolt catch pressed with an empty magazine seated: on a real AR the follower holds the catch up, the bolt
+		// does not move, so there is nothing to hear (review 2026-11-16: stated, not an oversight).
+		reload seated(ar);
+		seated.load(1, 30);
+		seated.fire();                 // empty, bolt locked
+		seated.press_button(false);    // the empty one drops
+		seated.take_from_chest();
+		seated.insert();               // a full one: the catch chambers
+		const reload_event caught = seated.press_button(false);
+		expect(caught == reload_event::chambered, "the bolt catch on a full magazine chambers (bolt cue)");
+		reload empty_catch(ar);
+		empty_catch.load(1, 0);
+		empty_catch.fire();            // bolt locked on the empty magazine still seated
+		empty_catch.press_button(true); // hold it in the hand (magazine out)
+		empty_catch.insert();          // the same empty magazine back in
+		const reload_event stays = empty_catch.press_button(false);
+		sound_cue none_cues[2]{};
+		expect(stays == reload_event::bolt_locked && empty_catch.state().bolt_locked && cues_for(stays, none_cues) == 0,
+			"#78: the catch pressed on an empty magazine leaves the bolt locked, silently");
 	}
 
 	void test_ak()

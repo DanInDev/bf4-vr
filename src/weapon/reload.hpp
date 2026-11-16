@@ -47,7 +47,7 @@ namespace bfvr::weapon
 		none,             // the event did nothing in this state
 		shot,
 		dry_fire,         // trigger on an empty chamber
-		bolt_locked,      // AR: the last round went (or a rack found the magazine empty), bolt held open
+		bolt_locked,      // AR: the last round went, or the bolt catch was pressed on an empty magazine: the follower keeps the bolt open (no sound)
 		magazine_out,     // into the off hand
 		magazine_dropped, // fell through the floor (AR release without the hand on it, or let go)
 		magazine_stowed,  // back at the chest, rounds to the reserve
