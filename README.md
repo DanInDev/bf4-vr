@@ -70,10 +70,29 @@ It runs on a Meta Quest 3 through Steam Link and SteamVR, with your own copy of 
 
 ## Status
 
-The campaign is **playable in VR with physical gun handling**. Still open: magnified scopes and sights, laser
-sights, some gadgets, and proper models for the grab zones. Progress and plans are tracked in the
-[roadmap issue](https://github.com/DanInDev/bf4-vr/issues/21); headset test results are in
-[docs/HEADSET-TESTS.md](docs/HEADSET-TESTS.md).
+**Work in progress: no campaign mission can be played through in VR yet.** The parts tested so far play in the
+headset with free hands and physical gun handling, but every mission still has stretches nobody has played in
+VR, or something that does not work there yet.
+
+| Mission | In VR |
+| --- | --- |
+| Baku (prologue) | Played in parts (the opening rooms, the gadget stash); not finished |
+| Shanghai | Played in parts (the tower checkpoint with the weapon crate); not finished |
+| South China Sea | Not tested |
+| Singapore | Not tested |
+| Kunlun Mountains | Not tested |
+| Tashgar | Not tested |
+| Suez | Not tested |
+
+**Weapons tested in the headset:** 2 of the 51 guns in the campaign's weapon crate, the **SCAR-H** and the
+**AK-12** (physical reload, charging handle, two-handed hold, sights); the **M67 grenade** and the **knife**.
+Being worked on: the **C4** (thrown along the hand, checked on the monitor) and the **M320** grenade launcher
+(reloaded by hand). The other guns get the generic rifle handling (an AR- or AK-style reload) and the other
+gadgets the game's own; none of them has been tested yet. How each gun should handle is planned in
+[docs/tasks/all-weapons.md](docs/tasks/all-weapons.md).
+
+Progress and plans are tracked in the [roadmap issue](https://github.com/DanInDev/bf4-vr/issues/21); headset test
+results are in [docs/HEADSET-TESTS.md](docs/HEADSET-TESTS.md).
 
 ## Requirements
 
