@@ -51,7 +51,7 @@ function Click-Relative([double]$x, [double]$y) {
 # The launcher's Normal play mode keeps a flat 1920x1080 profile live and removes the mod. Deployed anyway,
 # the mod renders that under a 2160x2160 window and every menu click misses (2026-11-15 and -16).
 $modeFile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Battlefield 4\settings\PROFSAVE_profile.bfvr-mode'
-if (-not $UseRunning -and (Test-Path $modeFile) -and (([string](Get-Content $modeFile -Raw)).Trim() -eq 'normal')) {
+if (-not $UseRunning -and (Test-Path $modeFile) -and ("$(Get-Content $modeFile -Raw)".Trim() -eq 'normal')) {
 	throw "The launcher is in Normal play mode ($modeFile says 'normal'): switch to VR on its Play page (or put PROFSAVE_profile.bfvr-vr live and write 'vr' there, BF4 closed) before a dev-run."
 }
 
