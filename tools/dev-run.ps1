@@ -4,6 +4,8 @@
 #   tools\dev-run.ps1 -NoBuild -Resume
 #   tools\dev-run.ps1 -NoBuild -UseRunning -Resume   navigate a BF4 that is already running
 # Menus are clicked through the mod's pointer (no focus needed; you can keep working).
+# Refuses (exit 1) while the launcher is in Normal play mode (PROFSAVE_profile.bfvr-mode = normal; no marker or
+# -UseRunning: not checked). -Resume ends with 'loaded: <level>' and exits 2 when still in the main menu.
 
 param(
 	[string]$Preset = 'bf4-debug',
