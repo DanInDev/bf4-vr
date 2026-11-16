@@ -78,8 +78,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 
 ## Working with the user
 
-- One branch per task, from `main`. Merge into `main` (fast-forward) only when the user asks, then delete
-  the branch locally and on GitHub.
+- One branch per task, from `main`. **Claude is the main worker on this repository** (owner, 2026-11-16): it
+  decides when to merge into `main` and push, as it sees fit: the gate green, the monitor check done, and what
+  only the headset can judge named in `docs/HEADSET-TESTS.md`. After a merge, delete the branch locally and on
+  GitHub, and tell the owner what was merged in the report. Unattended runs keep their own rules
+  (`docs/UNATTENDED.md`: no pushes or merges into `main` during a run; the report lists what to merge).
 - Every new feature gets a live on/off setting (`src/common/settings_store.cpp`), a row on the in-VR panel
   (`src/ui/settings_panel.cpp`) and a line in `tools/bfvr.ini.example`.
 - New engine-free logic gets a unit test under `tests/` (ctest runs them for both presets).

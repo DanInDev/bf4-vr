@@ -123,6 +123,15 @@ works with the Frostbite engine, the reverse-engineering notes, the tools and th
 
 Battlefield 3 and multiplayer through Venice Unleashed are researched in a separate repository.
 
+## Credits
+
+- **[BF3 VR: The Great Destroyer](https://github.com/criminalvictory/Battlefield-3-VR-The-Great-Destroyer)**, a
+  Battlefield 3 campaign VR mod on the same Frostbite generation, has helped with many of this mod's problems,
+  among them the muzzle flashes, the physics of loose objects, and the scopes and sights; its maintainer allows
+  its code and setup to be reused. Where code or a design comes from it, the comment and the note name the file.
+- **[Overlord](https://github.com/Aeka0/Overlord)** set the bar for the skeleton, weapon handling and interactions
+  (studied for its design only).
+
 ## Licence
 
 The mod's code is under the [MIT licence](LICENSE): use it, change it and build on it however you like, keeping
