@@ -123,6 +123,9 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-13: `dev-run.ps1 -Resume` stopped at the main menu twice in a row (2160x2160 window, also with
   `-MenuWaitSeconds 90`), though `menu:`/`level:` lines were printed. Clicking by hand works: pipe `pointer`
   at (0.254, 0.2556) Campaign tab, (0.306, 0.402) the BF4 Campaign tile, then `pad 0 0 0 0 200 1000` on Resume.
+  2026-11-15 and -16: the cause was the launcher's **Normal** play mode (flat 1920x1080 profile live, mod removed):
+  deployed anyway, the mod draws 1920x1080 under a 2160x2160 window and every click misses. `dev-run` now refuses while
+  `PROFSAVE_profile.bfvr-mode` says `normal` and ends with `loaded: <level>` (exit 2 when still in the menu).
   Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run. One cause seen: a
   "connection with EA Online was lost" dialog over the menu eats the first click (its OK: pointer 0.5 0.583).
 - 2026-11-13: weapon switches (holsters, captures, `holster <name>`) only happen while BF4 is the foreground

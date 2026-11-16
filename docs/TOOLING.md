@@ -145,6 +145,11 @@ over, so screenshots and `dev-run` show the eye image as before).
 `dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks (through the mod's pointer, no focus needed; RESUME by pad A)
 Campaign → BF4 Campaign → Resume, then waits for the level and saves `re/screenshots/dev-run-level.png`.
 Menu clicks are scaled from 1920×1080 to the current back buffer. Total ≈ 3.5 minutes.
+It refuses to start (exit 1, nothing stopped or deployed) while the launcher is in its Normal play mode
+(`Documents\Battlefield 4\settings\PROFSAVE_profile.bfvr-mode` says `normal`): the flat 1920×1080 profile under the
+mod's 2160×2160 window makes every menu click miss (#79). A missing marker file and `-UseRunning` skip the check.
+With `-Resume` it ends with `loaded: <level>` from `bfvr.log` and exits 2 when that is not a `Levels/SP/` level
+(still in the main menu).
 
 Startup settings: `E:\EA\Battlefield 4\user.cfg` runs console commands at launch (verified:
 `GameTime.MaxVariableFps 77` capped the game at 77 fps). Command-line `-Setting value` arguments are ignored.
