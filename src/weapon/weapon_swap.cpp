@@ -148,6 +148,7 @@ namespace bfvr::weapon
 		ULONGLONG c4_trigger_since{};       // the C4's left trigger went down (0: up)
 		constexpr ULONGLONG action_lead_ms = 100;
 		constexpr ULONGLONG c4_tail_ms = 300;
+		constexpr std::uint8_t c4_touch = 8; // a left trigger above this counts as pulled (C4 throw)
 		std::uint64_t orders{};
 
 		// Melee by hand (#15): pad right-stick click for one stab.
@@ -238,11 +239,13 @@ namespace bfvr::weapon
 		{
 			if (action_aim_on.load(std::memory_order_relaxed))
 			{
-				// #70: aim first, Q after the lead (advance presses and releases it).
+				// #70: aim first, Q after the lead (advance presses and releases it). The aim is on from now, so even
+				// when the next frame comes after the lead, the aim reaches the game before Q does.
 				if (order_up_at || !order_aim.start(now, key_hold_ms))
 				{
 					return;
 				}
+				head_aim_now = true;
 			}
 			else
 			{
@@ -644,15 +647,16 @@ namespace bfvr::weapon
 		update_slot_captures(held, now);
 		// BF4's C4: the aim button (left trigger) throws one, fire (on the detonator) sets them off.
 		const bool c4_out = c4_trigger.load(std::memory_order_relaxed) && held.valid && std::strstr(held.name, "_C4") != nullptr;
-		// #70: while the C4's throw (left trigger) is held, the game's aim goes along the off hand's ray; the trigger
-		// reaches the game only after the lead, so the throw already reads that aim.
+		// #70: while the C4's throw (left trigger) is held, the game's aim goes along the off hand's ray. The trigger
+		// stays closed to the game until it has been held for the lead (the game polls on its own thread, so an
+		// open gate would let a fresh pull through before this frame sees it), so the throw already reads that aim.
 		const bool c4_aims = c4_out && action_aim_on.load(std::memory_order_relaxed);
-		c4_trigger_since = c4_aims && input::latest().left_trigger > 64 ? (c4_trigger_since ? c4_trigger_since : now) : 0;
+		c4_trigger_since = c4_aims && input::latest().left_trigger > c4_touch ? (c4_trigger_since ? c4_trigger_since : now) : 0;
 		if (c4_trigger_since)
 		{
 			c4_aim_until = now + c4_tail_ms;
 		}
-		input::set_item_left_trigger(c4_out && (!c4_trigger_since || now - c4_trigger_since >= action_lead_ms));
+		input::set_item_left_trigger(c4_out && (!c4_aims || (c4_trigger_since && now - c4_trigger_since >= action_lead_ms)));
 		LARGE_INTEGER counter{}, frequency{};
 		QueryPerformanceCounter(&counter);
 		QueryPerformanceFrequency(&frequency);
@@ -677,8 +681,12 @@ namespace bfvr::weapon
 				&& melee.update(stereo::eye_math::centre_pose(head_sample), hands.grip[1].position, hands.valid[1], busy, seconds))
 			{
 				// #70: the game's aim to where the head looks first, the stab after the lead (advance).
-				action_aim& stab = action_aim_on.load(std::memory_order_relaxed) ? melee_aim : melee_plain;
-				stab.start(now, melee_pulse_ms);
+				const bool aimed = action_aim_on.load(std::memory_order_relaxed);
+				action_aim& stab = aimed ? melee_aim : melee_plain;
+				if (stab.start(now, melee_pulse_ms) && aimed)
+				{
+					head_aim_now = true; // as for the order: the aim before the stab even at a low frame rate
+				}
 				++strikes;
 				input::haptic(1, input::pulses::strike);
 			}
