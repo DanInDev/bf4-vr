@@ -135,6 +135,21 @@ int main()
 	expect(!palette::tagged(plain, tag), "scale 1 is not the tag");
 	make(plain, 0.1f, 0.2f, 0.3f, 0.9f, 0.001f, 0, 2, 0);
 	expect(!palette::tagged(plain, tag), "the hidden legs' 0.001 is not the tag");
+	{
+		// #41 (monitor 2026-11-16): the knife's pre-pass and depth draws were listed among the gun's (level start with the
+		// knife out); its G-buffer draw from the same index buffer was not. All three stay; a gun-only buffer goes.
+		int knife_buffer = 0, glove_buffer = 0;
+		const std::vector<const void*> buffers = { &knife_buffer, &knife_buffer, &knife_buffer, &glove_buffer };
+		const std::vector<bool> keep = { true, true, true, true };
+		const std::vector<bool> seen = { true, false, true, true };
+		const std::vector<bool> kept = palette::keep_knife_draws(keep, seen, buffers);
+		expect(kept[0] && kept[1] && kept[2], "the knife's own draws seen with the gun stay");
+		expect(!kept[3], "a draw seen with the gun from another buffer is left out");
+		const std::vector<bool> all_seen = palette::keep_knife_draws(keep, { true, true, true, true }, buffers);
+		expect(!all_seen[0] && !all_seen[1] && !all_seen[2] && !all_seen[3], "draws all seen with the gun are left out");
+		const std::vector<bool> one_pass = palette::keep_knife_draws({ false, true, true, true }, seen, buffers);
+		expect(!one_pass[0], "a draw already left out stays out");
+	}
 	std::printf(failures ? "palette_copy_test: %d failures\n" : "palette_copy_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

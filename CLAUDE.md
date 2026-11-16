@@ -145,5 +145,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-16: the gadget stash ignores the game's pad (stick, D-pad, RB) and the arrow keys, also with BF4 in front;
   only mouse clicks work (pipe `pointer`, also behind other windows). Open it with the use reach (off hand ~45 cm
   ahead and low toward it, `pad 0 0 0 0 800 0100`) with the body facing it; E alone did not open it.
+- 2026-11-16 (#41): positions in palette space (`extramesh` `at`, copy matrices) are relative to the root bone, which
+  sits on a whole-metre grid point, not at the feet: y ~1.8 is chest height there. Compare with `arms` `palette camera`.
+  An item's Wep_Root can be far from its mesh (the knife: 0.3-0.6 m, `extramesh` `from_root`).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

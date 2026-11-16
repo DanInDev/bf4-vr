@@ -894,6 +894,14 @@ namespace bfvr::control
 			if (command == "extramesh")
 			{
 				if (argument.rfind("pin ", 0) == 0) return stereo::extra_mesh::set_grenade_pin_entries(argument.substr(4));
+				if (argument.rfind("forget ", 0) == 0) return stereo::extra_mesh::forget_pipe_command(argument.substr(7));
+				if (argument.rfind("knifeturn ", 0) == 0)
+				{
+					float x{}, y{}, z{};
+					if (sscanf_s(argument.c_str() + 10, "%f %f %f", &x, &y, &z) != 3) return "extramesh knifeturn <x> <y> <z> (degrees)";
+					body::set_holster_knife_turn(x, y, z);
+					return body::grenade_hold_report();
+				}
 				return stereo::extra_mesh::report() + "\n" + body::grenade_hold_report();
 			}
 			if (command == "grenade") return weapon::grenade_pipe_command(argument);

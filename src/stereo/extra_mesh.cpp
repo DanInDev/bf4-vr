@@ -295,6 +295,10 @@ namespace bfvr::stereo::extra_mesh
 
 		// The magazine copy: requested by the pose thread, taken once per render by the render thread.
 		std::mutex request_lock;
+		// #41: each capture's first bone (its first draw's lowest palette entry, relative to Wep_Root): the item's own
+		// frame, for placing it where its mesh is rather than where its Wep_Root is.
+		float anchor_rows[item_count][12]{};
+		bool has_anchor[item_count]{};
 		bool request_active{};
 		float request_matrix[12]{};
 		ULONGLONG request_at{};
@@ -546,7 +550,7 @@ namespace bfvr::stereo::extra_mesh
 		bool capture_saw_gun{}; // render thread: a draw of this capturing render carried the gun's mark
 		std::vector<known_mesh> magazine_meshes; // render thread: the gun magazine draws seen (compared by value only)
 		std::mutex summary_lock;
-		std::string capture_summary; // the last capture's draws, for the pipe
+		std::string capture_summary[item_count]; // each item's last capture's draws, for the pipe
 
 		// Render thread: an index buffer of the captured primary (#58), i.e. the rifle's own meshes.
 		bool primary_mesh(ID3D11Buffer* index_buffer)
@@ -754,18 +758,28 @@ namespace bfvr::stereo::extra_mesh
 				}
 			}
 			bool gun = capture_saw_gun && !knife && !primary;
+			std::vector<bool> seen_with_gun(grenade_capturing.size(), false);
 			for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
 			{
 				for (const known_mesh& magazine : magazine_meshes)
 				{
 					const grenade_draw& d = grenade_capturing[i];
-					const bool seen_with_gun = d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count;
-					if (seen_with_gun && knife)
-					{
-						keep[i] = false;
-					}
-					gun = gun || (keep[i] && seen_with_gun && !primary);
+					const bool seen = d.index_buffer.Get() == magazine.index_buffer && d.start_index == magazine.start && d.index_count == magazine.count;
+					seen_with_gun[i] = seen_with_gun[i] || seen;
+					gun = gun || (keep[i] && seen && !knife && !primary);
 				}
+			}
+			if (knife)
+			{
+				// #41 (monitor 2026-11-16): the level can start with the knife out, so its own pre-pass draw was listed
+				// among the gun's and dropped, and the G-buffer draw alone drew nothing. A draw from the index buffer of
+				// a kept draw not seen with the gun is the knife's.
+				std::vector<const void*> buffers;
+				for (const grenade_draw& d : grenade_capturing)
+				{
+					buffers.push_back(d.index_buffer.Get());
+				}
+				keep = palette::keep_knife_draws(keep, seen_with_gun, buffers);
 			}
 			if (!grenade_capturing.empty())
 			{
@@ -773,14 +787,28 @@ namespace bfvr::stereo::extra_mesh
 				for (std::size_t i = 0; i < grenade_capturing.size(); ++i)
 				{
 					const grenade_draw& d = grenade_capturing[i];
-					char line[220];
-					std::snprintf(line, sizeof(line), "\n  draw ib=%p count=%u start=%u targets=%u format=%d blend=%p entries=%llx ps_cb_owned=%x ps_views_owned=%x vs_views_owned=%x%s",
+					// #41: the first entry's translation from the root (metres): where the bone sits from Wep_Root.
+					float offset[3]{};
+					for (int e = 0; e < palette::entries; ++e)
+					{
+						if (d.entries & (1ull << e))
+						{
+							const float* entry = d.palette.data() + e * palette::floats_per_entry;
+							offset[0] = entry[3];
+							offset[1] = entry[7];
+							offset[2] = entry[11];
+							break;
+						}
+					}
+					char line[300];
+					std::snprintf(line, sizeof(line), "\n  draw ib=%p count=%u start=%u targets=%u format=%d blend=%p entries=%llx ps_cb_owned=%x ps_views_owned=%x vs_views_owned=%x from_root=(%.3f %.3f %.3f)%s",
 						static_cast<void*>(d.index_buffer.Get()), d.index_count, d.start_index, d.pass.targets, static_cast<int>(d.pass.format), d.pass.blend,
-						static_cast<unsigned long long>(d.entries), d.ps_cb_owned, d.ps_owned, d.vs_owned, keep[i] ? "" : " (one pass only: left out)");
+						static_cast<unsigned long long>(d.entries), d.ps_cb_owned, d.ps_owned, d.vs_owned, offset[0], offset[1], offset[2],
+						keep[i] ? "" : " (one pass only: left out)");
 					summary += line;
 				}
 				const std::lock_guard guard(summary_lock);
-				capture_summary = summary;
+				capture_summary[capturing_item] = summary;
 			}
 			{
 				std::vector<grenade_draw> kept;
@@ -814,6 +842,19 @@ namespace bfvr::stereo::extra_mesh
 				if (item == static_cast<int>(captured::grenade))
 				{
 					grenade_entries_seen = seen;
+				}
+				{
+					const grenade_draw& first = captured_items[item].front();
+					for (int e = 0; e < palette::entries; ++e)
+					{
+						if (first.entries & (1ull << e))
+						{
+							const std::lock_guard guard(request_lock);
+							std::memcpy(anchor_rows[item], first.palette.data() + e * palette::floats_per_entry, sizeof(anchor_rows[item]));
+							has_anchor[item] = true;
+							break;
+						}
+					}
 				}
 				has_capture[item] = true;
 				++captures[item];
@@ -1086,6 +1127,8 @@ namespace bfvr::stereo::extra_mesh
 				captured_items[item].clear();
 				captured_draws[item] = 0;
 				has_capture[item] = false;
+				const std::lock_guard guard(request_lock);
+				has_anchor[item] = false;
 			}
 		}
 		capturing_render = eye == 0 && now - capture_wanted_at.load(std::memory_order_relaxed) < request_stale_ms && now - last_capture > capture_interval_ms;
@@ -1308,6 +1351,18 @@ namespace bfvr::stereo::extra_mesh
 		}
 	}
 
+	bool item_anchor(captured item, float (&rows)[12])
+	{
+		const int i = static_cast<int>(item);
+		const std::lock_guard guard(request_lock);
+		if (!has_anchor[i])
+		{
+			return false;
+		}
+		std::memcpy(rows, anchor_rows[i], sizeof(rows));
+		return true;
+	}
+
 	bool item_drawn(captured item)
 	{
 		return GetTickCount64() - item_drawn_at[static_cast<int>(item)].load(std::memory_order_relaxed) < 150;
@@ -1421,8 +1476,31 @@ namespace bfvr::stereo::extra_mesh
 			static_cast<unsigned long long>(grenade_entries_seen.load()),
 			static_cast<unsigned long long>(pin_entries.load()), item_name(static_cast<captured>(capture_wanted_item.load())),
 			static_cast<unsigned long long>(GetTickCount64() - capture_wanted_at.load()));
+		out += text;
 		const std::lock_guard guard(summary_lock);
-		return out + text + capture_summary;
+		for (int item = 0; item < item_count; ++item)
+		{
+			if (!capture_summary[item].empty())
+			{
+				out += "\n  last ";
+				out += item_name(static_cast<captured>(item));
+				out += " capture:" + capture_summary[item];
+			}
+		}
+		return out;
+	}
+
+	std::string forget_pipe_command(const std::string& name)
+	{
+		for (int item = 0; item < item_count; ++item)
+		{
+			if (name == item_name(static_cast<captured>(item)))
+			{
+				forget_item(static_cast<captured>(item));
+				return std::string("extramesh forgot ") + name + ": captured again the next time it is out";
+			}
+		}
+		return "extramesh forget grenade|knife|primary";
 	}
 
 	std::string report()

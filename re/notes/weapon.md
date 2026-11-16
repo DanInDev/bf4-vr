@@ -159,6 +159,25 @@ future two-hand grip.
   reads y 1.73-1.76 for both, and did not follow `slot_models_ahead 0.5` (capped). Next: work out the frame `at` and
   `frame_item_matrix` are in (the copies may sit at head height, inside the near plane), e.g. by placing an item at the
   drawn gun's own Wep_Root matrix and checking it lands on the gun.
+- **Solved (2026-11-16, third pass; pipe `arms` now prints `palette camera/wep_root/reference`, `extramesh` each
+  draw's `from_root` and a per-item `last <item> capture`, `extramesh forget <item>` recaptures):**
+  - The frame was right. Palette space is relative to the root (`local[0]`), which sits on a whole-metre grid point
+    (reference = -437, 397, -649), not at the feet: camera y 2.05, so `at` y 1.7-1.9 is chest height. The knife's `at`
+    was 11 cm left, 17 cm below and 17 cm ahead of the eye, as asked; the grenade mirrored it on the right.
+  - Cause 1: the knife's mesh hangs 0.3-0.6 m from its Wep_Root (`from_root` (-0.43 0.43 -0.18), (0.05 0.36 -0.12),
+    (-0.23 0.39 -0.02) in different captures: it moves against Wep_Root with the knife animation). Placing Wep_Root at
+    the holster put the knife up to 60 cm away. The grenade avoids this through `grenade_in_fist`.
+  - Cause 2: a level that starts with the knife out lists the knife's own pre-pass and depth draws among the gun's
+    meshes, so the knife capture dropped them ("seen with the gun") and kept the G-buffer draw alone.
+  - Dead ends: the hand's fist at the capture (position, then the whole transform with a guessed fist frame) put the
+    knife beside the holster or out of view; its bind origin is 12.5 cm from the fist centre, and the fist frame's
+    axes against the blade are unknown.
+  - Fix: extra_mesh keeps each capture's first palette entry (`item_anchor`: the knife's bone frame, bind included);
+    the holster puts that frame at the holster point (`root = sheath * anchor^-1`), turned by `knife_holster_turn`
+    about x (default 90: blade up, handle down, flat side out, on the monitor beside the grenade). Draws from the
+    knife's own index buffer stay even when seen with the gun (`palette::keep_knife_draws`).
+  - Not settled headless: -90 (blade down) left the knife out of every frame; the drawn left arm covers the area below
+    the holster in these views, so it may simply be hidden. The headset decides (GRN-11).
 
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 

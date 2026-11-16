@@ -456,6 +456,9 @@ slot_models_at_start = 1
 # #41: the grenade and knife at their slots are drawn this far (metres) ahead of their grab spots, on the chest
 # instead of inside it; the grab zones stay where they are.
 slot_models_ahead = 0.08
+# #41: the knife on the chest turned about the body's left-right axis, degrees: 90 = blade up, handle down;
+# -90 = blade down.
+knife_holster_turn = 90
 # With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
 # ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
 c4_trigger = 1

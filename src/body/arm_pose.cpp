@@ -152,6 +152,9 @@ namespace bfvr::body
 			ik::quat weapon_in_camera; // Wep_Root, OpenXR camera axes ((0,1,0,0) = pointing ahead, upright)
 			ik::quat weapon_in_game;   // the same in the game's own camera frame (aimer yaw and pitch)
 			ik::vec3 weapon_position;  // Wep_Root, OpenXR camera axes, from the camera
+			ik::vec3 palette_camera;   // #41: the camera joint and Wep_Root in palette space (the extra_mesh copies' frame)
+			ik::vec3 palette_weapon;
+			ik::vec3 reference;        // local[0], the root
 			arm_report arms[2];
 		};
 
@@ -377,6 +380,10 @@ namespace bfvr::body
 		ik::bone_transform grenade_in_fist{ { 0.0061f, -0.0131f, -0.0020f }, 1.0f, { 0.0007f, 0.3770f, 0.0049f, 0.9262f } };
 		ik::bone_transform game_grenade_in_fist; // rig_lock: last seen while the game's grenade was out
 		bool has_game_grenade_in_fist{};
+		// #41: the knife's model axes in the holster frame (degrees about x, y, z; pipe holsterknife). The holster places
+		// the knife's own captured bone frame (extra_mesh::item_anchor), not its Wep_Root: the mesh hangs 0.3-0.6 m from
+		// Wep_Root and moves against it with the animation (monitor 2026-11-16, extramesh from_root).
+		std::atomic<float> holster_knife_turn[3]{ 90.0f, 0.0f, 0.0f };
 		ik::bone_transform fist_untilted;
 		bool has_fist_untilted{};
 		// #40, palming: the caught magazine beside the leaning new one (contact::beside_magazine), and the
@@ -2720,29 +2727,28 @@ namespace bfvr::body
 				ik::set_model_transform(local, rig.parents, rig.weapon, ik::compose(local[0], hidden));
 				em::set_item_capture(em::captured::knife, true);
 			}
-			if (on && !knife_out && holster_knife_shown.load(std::memory_order_relaxed) && rig.camera >= 0)
+			float anchor_rows[12];
+			if (on && !knife_out && holster_knife_shown.load(std::memory_order_relaxed) && rig.camera >= 0 && em::item_anchor(em::captured::knife, anchor_rows))
 			{
+				const float* m = anchor_rows;
+				ik::bone_transform anchor;
+				anchor.rotation = ik::normalize(fingers::from_basis(ik::normalize(ik::vec3{ m[0], m[4], m[8] }), ik::normalize(ik::vec3{ m[1], m[5], m[9] }),
+					ik::normalize(ik::vec3{ m[2], m[6], m[10] })));
+				anchor.position = { m[3], m[7], m[11] };
 				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 				const ik::quat frame = camera_frame(camera);
 				ik::bone_transform sheath;
 				sheath.position = tracking_origin(camera, frame)
 					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load(), holster_knife_at[1].load(), holster_knife_at[2].load() });
-				// As in the hand (edit_arms: the blade along the controller's ray after knife_pitch), with that ray
-				// turned straight down (-90 degrees about x) and facing ahead with the body.
-				// The whole in-hand turn (knife_yaw, knife_roll, knife_pitch, edit_arms) so the blade lies along the
-				// downward ray with any tuning: with the pitch alone the owner's 145/-15/170 laid it sideways
-				// (monitor 2026-11-13).
+				// The knife's own frame at the holster, facing ahead with the body, its model axes turned by
+				// holster_knife_turn (x, then y, then z, degrees).
 				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
-				const float pitch_half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
-				const float turn_half = -0.5f * knife_yaw.load(std::memory_order_relaxed);
-				const float roll_half = -0.5f * knife_roll.load(std::memory_order_relaxed);
 				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
-				const ik::quat down{ -0.70710678f, 0.0f, 0.0f, 0.70710678f };
-				const ik::quat level{ std::sin(pitch_half), 0, 0, std::cos(pitch_half) };
-				const ik::quat turn{ 0, std::sin(turn_half), 0, std::cos(turn_half) };
-				const ik::quat roll{ 0, 0, std::sin(roll_half), std::cos(roll_half) };
-				sheath.rotation = ik::normalize(frame * body_yaw * down * turn * roll * level * ik::quat{ 0, 0, 1, 0 });
-				ik::bone_transform root = ik::compose(ik::inverse(local[0]), sheath);
+				constexpr float half_radian = 0.5f * 3.14159265f / 180.0f;
+				const float tx = half_radian * holster_knife_turn[0].load(), ty = half_radian * holster_knife_turn[1].load(), tz = half_radian * holster_knife_turn[2].load();
+				const ik::quat turn = ik::quat{ std::sin(tx), 0, 0, std::cos(tx) } * ik::quat{ 0, std::sin(ty), 0, std::cos(ty) } * ik::quat{ 0, 0, std::sin(tz), std::cos(tz) };
+				sheath.rotation = ik::normalize(frame * body_yaw * turn);
+				ik::bone_transform root = ik::compose(ik::compose(ik::inverse(local[0]), sheath), ik::inverse(anchor));
 				root.scale = 1.0f;
 				float matrix[12];
 				palette_rows(root, matrix);
@@ -2837,6 +2843,8 @@ namespace bfvr::body
 			report.fk_error = error;
 			report.fk_error_conjugate = error_conjugate;
 			report.camera = ik::model_of(local, rig.parents, rig.camera);
+			report.palette_camera = ik::compose(ik::inverse(local[0]), report.camera).position;
+			report.reference = local[0].position;
 			const ik::quat to_camera = ik::conjugate(camera_frame(report.camera));
 			if (rig.weapon >= 0)
 			{
@@ -2844,6 +2852,7 @@ namespace bfvr::body
 				report.weapon_in_camera = to_camera * weapon.rotation;
 				report.weapon_in_game = ik::conjugate(camera_frame(report.camera, false)) * weapon.rotation;
 				report.weapon_position = ik::rotate(to_camera, weapon.position - report.camera.position);
+				report.palette_weapon = ik::compose(ik::inverse(local[0]), weapon).position;
 			}
 			for (int hand = 0; hand < 2; ++hand)
 			{
@@ -3240,6 +3249,13 @@ namespace bfvr::body
 		holster_knife_shown = shown;
 	}
 
+	void set_holster_knife_turn(float x_degrees, float y_degrees, float z_degrees)
+	{
+		holster_knife_turn[0] = x_degrees;
+		holster_knife_turn[1] = y_degrees;
+		holster_knife_turn[2] = z_degrees;
+	}
+
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw)
 	{
 		for (int axis = 0; axis < 3; ++axis)
@@ -3273,6 +3289,8 @@ namespace bfvr::body
 		{
 			text += "\n" + line("game_hold_in_fist", game_grenade_in_fist);
 		}
+		text += "\nholster_knife_turn=(" + std::to_string(holster_knife_turn[0].load()) + " " + std::to_string(holster_knife_turn[1].load()) + " "
+			+ std::to_string(holster_knife_turn[2].load()) + ")";
 		return text;
 	}
 
@@ -3682,13 +3700,16 @@ namespace bfvr::body
 			"controllers left=%d right=%d targets left=%d right=%d\n"
 			"fk_error=%.5f fk_error_conjugate=%.5f check_age_ms=%llu\n"
 			"camera_joint pos=%s rot=(%.4f,%.4f,%.4f,%.4f) right=%s up=%s back=%s scale=%.3f\n"
-			"knife=%d wep_root_in_camera=(%.3f,%.3f,%.3f,%.3f) torso_follow=%d torso_deg=%.1f\n",
+			"knife=%d wep_root_in_camera=(%.3f,%.3f,%.3f,%.3f) torso_follow=%d torso_deg=%.1f\n"
+			"palette camera=(%.3f,%.3f,%.3f) wep_root=(%.3f,%.3f,%.3f) reference=(%.3f,%.3f,%.3f)\n",
 			ik_enabled.load() ? 1 : 0, rig.camera >= 0 ? rig.name : "-", rig.bones, conversions.load(), matched.load(), solved.load(),
 			hands.valid[0] ? 1 : 0, hands.valid[1] ? 1 : 0, hand_targets[0].active ? 1 : 0, hand_targets[1].active ? 1 : 0,
 			r.fk_error, r.fk_error_conjugate, r.at ? GetTickCount64() - r.at : 0ull,
 			v(r.camera.position, a), q.x, q.y, q.z, q.w, v(ik::rotate(q, { 1, 0, 0 }), b), v(ik::rotate(q, { 0, 1, 0 }), c),
 			v(ik::rotate(q, { 0, 0, 1 }), d), r.camera.scale, knife_in_hand.load() ? 1 : 0, r.weapon_in_camera.x, r.weapon_in_camera.y,
-			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f);
+			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f,
+			r.palette_camera.x, r.palette_camera.y, r.palette_camera.z, r.palette_weapon.x, r.palette_weapon.y, r.palette_weapon.z,
+			r.reference.x, r.reference.y, r.reference.z);
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];

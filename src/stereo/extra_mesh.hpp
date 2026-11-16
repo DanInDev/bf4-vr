@@ -78,6 +78,9 @@ namespace bfvr::stereo::extra_mesh
 	bool item_drawn(captured item); // a copy drawn within the last 150 ms
 	bool item_captured(captured item);
 	std::uint64_t item_captures(captured item);
+	// #41: the captured item's first bone relative to its Wep_Root (3x4 rows: the palette entry, bind pose included).
+	// Its mesh sits around this frame, which can be far from Wep_Root (the knife: 0.3-0.6 m).
+	bool item_anchor(captured item, float (&rows)[12]);
 	// Pose thread: the game's grenade is out and tagged (a capture is wanted).
 	void set_grenade_capture(bool wanted);
 	// Pose thread: the held grenade's Wep_Root (3x4 rows, palette space, scale 1); armed: the pin is out
@@ -89,6 +92,8 @@ namespace bfvr::stereo::extra_mesh
 	std::uint64_t grenade_captures(); // accepted captures so far
 	// Pipe "extramesh pin <hex mask>": which palette entries of the captured grenade are its pin (research).
 	std::string set_grenade_pin_entries(const std::string& mask);
+	// Pipe extramesh forget <item>: drops that item's capture so the next time it is out it is captured again (#41).
+	std::string forget_pipe_command(const std::string& name);
 
 	std::string report();
 

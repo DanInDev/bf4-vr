@@ -214,6 +214,8 @@ namespace bfvr::body
 	// capture_ready: out long enough (#41) that the gun is no longer drawn; only then is it recorded.
 	void set_knife_weapon(bool out, bool capture_ready);
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
+	// #41: the holstered knife's model axes turned (degrees about x, then y, then z) in the holster frame.
+	void set_holster_knife_turn(float x_degrees, float y_degrees, float z_degrees);
 	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
 	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.
 	void set_primary_capture(bool wanted);

@@ -64,4 +64,24 @@ namespace bfvr::stereo::palette
 			r[3] = (r[3] - root[row]) * inverse;
 		}
 	}
+
+	std::vector<bool> keep_knife_draws(const std::vector<bool>& keep, const std::vector<bool>& seen_with_gun, const std::vector<const void*>& buffers)
+	{
+		const std::size_t count = keep.size();
+		std::vector<bool> kept(count, false);
+		if (seen_with_gun.size() != count || buffers.size() != count)
+		{
+			return kept;
+		}
+		for (std::size_t i = 0; i < count; ++i)
+		{
+			bool own_buffer = false;
+			for (std::size_t j = 0; j < count; ++j)
+			{
+				own_buffer = own_buffer || (j != i && keep[j] && !seen_with_gun[j] && buffers[j] == buffers[i]);
+			}
+			kept[i] = keep[i] && (!seen_with_gun[i] || own_buffer);
+		}
+		return kept;
+	}
 }
