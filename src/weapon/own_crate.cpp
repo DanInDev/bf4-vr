@@ -244,12 +244,13 @@ namespace bfvr::weapon
 			return call.data_template ? std::string() : "error: no CustomizeSoldierData in memory to copy";
 		}
 
-		void give_later(std::string id, std::uint32_t slot)
+		// False when it cannot run now (no player soldier): the caller offers the pick again later.
+		bool give_later(std::string id, std::uint32_t slot)
 		{
 			if (!player_server_soldier())
 			{
-				log::write("own crate: %s for slot %u skipped (no player soldier)", id.c_str(), slot);
-				return;
+				log::write("own crate: %s for slot %u waits (no player soldier yet)", id.c_str(), slot);
+				return false;
 			}
 			++pending;
 			std::thread([id, slot] {
@@ -268,19 +269,20 @@ namespace bfvr::weapon
 				const std::lock_guard guard(lock);
 				queue.push_back(call);
 			}).detach();
+			return true;
 		}
 	}
 
 	void own_crate_settings(std::string_view primary, std::string_view secondary)
 	{
 		const std::uint64_t now = GetTickCount64();
-		if (const std::string gun = primary_watch.update(primary, now, pending.load() > 0); !gun.empty())
+		if (const std::string gun = primary_watch.update(primary, now, pending.load() > 0); !gun.empty() && !give_later(gun, 0))
 		{
-			give_later(gun, 0);
+			primary_watch.retry(now);
 		}
-		if (const std::string gun = secondary_watch.update(secondary, now, pending.load() > 0); !gun.empty())
+		if (const std::string gun = secondary_watch.update(secondary, now, pending.load() > 0); !gun.empty() && !give_later(gun, 1))
 		{
-			give_later(gun, 1);
+			secondary_watch.retry(now);
 		}
 	}
 

@@ -22,4 +22,10 @@ namespace bfvr::weapon::crate
 		applied_ = current_;
 		return current_ == "keep" ? std::string() : current_;
 	}
+
+	void change_watch::retry(std::uint64_t now_ms)
+	{
+		applied_.clear();
+		since_ = now_ms;
+	}
 }

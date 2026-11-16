@@ -60,6 +60,11 @@ namespace bfvr::weapon
 		bool searching{};
 		ULONGLONG last_search{};
 		constexpr ULONGLONG retry_ms = 5000; // a gun's entity may appear after it is picked up
+		// A gun given by the own crate (#80) that the level never spawned may have no reload entity at all (AK 5C,
+		// 2026-11-16: a full heap search every 7.5 s for as long as it was held). After this many misses the gun
+		// keeps the synthesised cues until the gun changes.
+		constexpr int max_misses = 3;
+		int misses{};
 		std::uint64_t lookups{};
 		std::uint64_t sent{};
 		std::uint64_t refused{};
@@ -140,7 +145,11 @@ namespace bfvr::weapon
 				entity = found;
 				entity_data = found_data;
 			}
-			if (!found)
+			if (!found && weapon == wanted && ++misses == max_misses)
+			{
+				log::write("reload sounds: no reload SoundEntity for %s after %d searches; its synthesised cues play", wanted.c_str(), max_misses);
+			}
+			else if (!found)
 			{
 				log::write("reload sounds: no reload SoundEntity for %s", wanted.c_str());
 			}
@@ -195,8 +204,9 @@ namespace bfvr::weapon
 			entity = entity_data = 0;
 			queue.clear();
 			last_search = 0;
+			misses = 0;
 		}
-		if (!entity && !searching && now - last_search >= retry_ms && handler_verified())
+		if (!entity && !searching && misses < max_misses && now - last_search >= retry_ms && handler_verified())
 		{
 			searching = true;
 			last_search = now;

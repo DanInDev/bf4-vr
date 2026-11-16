@@ -106,6 +106,16 @@ int main()
 	busy.update("U_P90", 1600, true);
 	expect(busy.update("U_P90", 3000, true).empty(), "the next waits while the first give runs");
 	expect(busy.update("U_P90", 3100, false) == "U_P90", "and is given once it is done (latest wins)");
+
+	// No soldier when it was due (a cutscene): offered again after another settle, not lost.
+	weapon::crate::change_watch later(1000);
+	later.update("keep", 0, false);
+	later.update("U_SV98", 0, false);
+	expect(later.update("U_SV98", 1000, false) == "U_SV98", "due");
+	later.retry(1000);
+	expect(later.update("U_SV98", 1500, false).empty(), "the retry waits another settle");
+	expect(later.update("U_SV98", 2000, false) == "U_SV98", "and offers the same gun again");
+	expect(later.update("U_SV98", 3000, false).empty(), "once");
 	if (failures == 0)
 	{
 		std::printf("crate_guns: all checks passed\n");
