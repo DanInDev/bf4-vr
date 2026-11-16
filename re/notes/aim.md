@@ -88,3 +88,21 @@ rendered camera by exactly that angle and the value persists (the game integrate
 - **Phantom fire (not the mod):** a real "Xbox 360 Controller for Windows" on XInput slot 0 reported
   RT = 124/255 at rest; the mod merges a real pad on its slot, so the gun emptied its reserve with no
   input. `physical_pad = 0` ignores it; `status` prints `physical_pad merged|ignored ... rt=`.
+
+## Actions where the head or hand points (#70, 2026-11-16, monitor)
+
+With the aim held on the body (`aim_with_body`), the game picks the squad order's targets, the melee's target and
+the C4's throw along the body. `weapon/action_aim` turns the game's aim for the moment of the action: the order (Q)
+and a melee strike to where the head looks (100 ms before the button, 150 ms after), the C4 throw (left trigger)
+along the off hand's ray (the trigger reaches the game only after it has been held 100 ms; 300 ms after it lets go).
+Monitor, Baku, body facing the gadget stash (game yaw 120):
+
+| Action | Fake pose | Game aim during | After |
+| --- | --- | --- | --- |
+| C4 throw, LT 700 ms | left controller 60 deg right of the body | 180 / 0 | 120 / 0 (300 ms after) |
+| C4 throw | left controller along the body | 120 / 0 | the pack stuck to the wall ahead |
+| Melee strike (gun hand 0.5 m along the head in one step, 8 m/s) | head 50 deg left, 15 down | 70 / -15 for ~500 ms | 120 / 0 |
+| Squad order (`pipe holster order`) | head 50 deg left, 15 down | head direction ~300 ms | body |
+
+Not shown: the order finding targets and a strike hitting (no enemies in the checkpoint room). The melee needs the
+gun in the hand: with the C4 out or the rifle on the sling the same thrust (6 m/s) did not count.
