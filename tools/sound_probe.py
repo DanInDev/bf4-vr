@@ -72,6 +72,16 @@ SCENARIOS = {
         ('RB hold, grips on', [pad(RB, 1200)], 4.0),
         ('grips_to_game back off', ['setting set grips_to_game 0'], 2.0),
     ],
+    # #78 (SCAR-H in hand, physical reload): the bolt and the magazine-out sounds with an EMPTY magazine.
+    'empty_ar': [
+        ('setup: physical reload', ['setting set reload physical'], 3.0),
+        ('take a magazine', ['reload take'], 2.5),
+        ('insert it', ['reload insert'], 2.5),
+        ('bolt catch: chambers (reference bolt)', ['reload catch'], 2.5),
+        ('fire the state empty (no sound expected)', ['reload fire'] * 40, 2.5),
+        ('rack on the empty magazine (#78: bolt)', ['reload rack'], 2.5),
+        ('release the empty magazine (#78: magazine out)', ['reload button'], 2.5),
+    ],
     # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
     'physical_ar': [
         ('setup: physical reload', ['setting set reload physical'], 3.0),
