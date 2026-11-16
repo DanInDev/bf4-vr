@@ -1262,12 +1262,12 @@ namespace bfvr::weapon
 		std::snprintf(zones, sizeof(zones),
 			"\ngrip_lock=%d guided=%d rail=%.3f lock=%.2f/%.2f probe depth=%.3f off=%.3f deg=%.0f flags=%d"
 			"\nzone=%s snap=%.2f/%.2f busy=%d racking=%d pull=%.3f magazine_zone=(%.3f,%.3f,%.3f) r=%.2f handle_zone=(%.3f,%.3f,%.3f) r=%.2f chest=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) hand=%d"
-			"\npalm_reload=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f) held_top=(%.3f,%.3f,%.3f)%s",
+			"\npalm_reload=%d palm_lock=%d palm_stage=%s tilt_deg=%.0f lean_deg=%.0f off_deg=%.0f gap=(%.3f,%.3f,%.3f) held_top=(%.3f,%.3f,%.3f)%s",
 			grip_lock_on.load() ? 1 : 0, r.guided ? 1 : 0, r.rail_depth, r.hand_lock, lock_weight, r.rail_probe_depth, r.rail_probe_off, r.rail_probe_degrees, r.rail_probe_flags,
 			zone_names[static_cast<int>(r.in_zone)], r.magazine_snap, snap_weight, r.off_hand_busy ? 1 : 0, r.racking ? 1 : 0, r.rack_pull, r.zone_centre[0].x, r.zone_centre[0].y,
 			r.zone_centre[0].z, r.zone_reach[0], r.zone_centre[1].x, r.zone_centre[1].y, r.zone_centre[1].z, r.zone_reach[1], r.zone_centre[2].x,
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
-			palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
+			r.palm_locked ? 1 : 0, palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
 			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
 		char rack[160];
 		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f)", r.rack_underhand ? 1 : 0, r.under_centre.x,

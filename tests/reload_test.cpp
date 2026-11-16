@@ -1846,6 +1846,77 @@ namespace
 		expect(flicked && seated, "hold: the AK's old magazine is knocked out, then, pulled back and pushed in again, the new one seats");
 	}
 
+	// Owner 2026-11-16: gripping the magazine in the gun felt floaty and did not always take the fingers onto it. Now it
+	// locks the hand on it like the handguard: a grip on the seated magazine holds the hand there (the game's grip)
+	// until the grip opens or the controller is far off.
+	void test_seated_hold()
+	{
+		reload gun(ar);
+		gun.load(31, 60);
+		reload_hands hands(flat_hold());
+		hands.update(gun, locked_at(away, false));
+		const v3 on_body{ magwell.x, magwell.y - 0.08f, magwell.z };
+		hand_result r = hands.update(gun, locked_at(on_body, true));
+		expect(r.count == 0 && gun.state().magazine_in, "seated hold: an AR's magazine stays in the gun when gripped");
+		expect(r.hand_lock == 1.0f && r.draw == magazine_draw::with_gun && close(r.lock_position.y, magwell.y), "seated hold: the grip locks the hand on it");
+		r = hands.update(gun, locked_at({ magwell.x + 0.08f, magwell.y - 0.10f, magwell.z }, true));
+		expect(r.hand_lock == 1.0f && close(r.lock_position.y, magwell.y), "seated hold: the controller 8 cm off, the hand stays on it");
+		r = hands.update(gun, locked_at({ magwell.x + 0.30f, magwell.y - 0.08f, magwell.z }, true));
+		expect(r.hand_lock == 0.0f, "seated hold: 30 cm off, it lets go");
+		r = hands.update(gun, locked_at(on_body, false));
+		r = hands.update(gun, locked_at(on_body, true));
+		expect(r.hand_lock == 1.0f, "seated hold: gripped again, locked again");
+		r = hands.update(gun, locked_at(on_body, false));
+		expect(r.hand_lock == 0.0f, "seated hold: the open hand lets go");
+		reload_hands unlocked(flat_hold());
+		unlocked.update(gun, locked_at(away, false, false));
+		r = unlocked.update(gun, locked_at(on_body, true, false));
+		expect(r.hand_lock == 0.0f, "seated hold: with grip_lock off nothing locks");
+	}
+
+	// Owner 2026-11-16: a new magazine brought to an AR with the old one still in should lock in a place where it can be
+	// palmed: once palming is ready, the new magazine and the hand stay put on the gun until the controller leaves.
+	void test_palm_lock()
+	{
+		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f };
+		const auto palm_frame = [&](v3 hand, bool grip, bool button) {
+			hand_frame f = at(hand, grip, button);
+			f.has_root = true;
+			f.root = { 0.0f, -0.2f, -0.2f };
+			f.root_rotation = gun_frame;
+			f.magazine_rotation = gun_frame;
+			f.palming = true;
+			f.grip_lock = true;
+			return f;
+		};
+		reload gun(ar);
+		gun.load(31, 60);
+		gun.fire();
+		reload_hands hands(flat_hold());
+		hand_result r = hands.update(gun, palm_frame(chest, true, false));
+		expect(has(r, reload_event::magazine_taken), "palm lock: a new magazine from the pouch");
+		r = hands.update(gun, palm_frame(magwell, true, false));
+		expect(r.palm == hand_result::palm_stage::ready && r.hand_lock == 1.0f, "palm lock: ready at the magwell, the hand locked");
+		for (int i = 0; i < 60; ++i)
+		{
+			r = hands.update(gun, palm_frame(magwell, true, false));
+		}
+		const v3 held = r.magazine_position;
+		r = hands.update(gun, palm_frame({ magwell.x + 0.05f, magwell.y - 0.04f, magwell.z }, true, false));
+		expect(r.palm == hand_result::palm_stage::ready && r.hand_lock == 1.0f && close(r.magazine_position.x, held.x, 1e-3f) && close(r.magazine_position.y, held.y, 1e-3f),
+			"palm lock: the controller 6 cm off, the new magazine stays where it was on the gun");
+		r = hands.update(gun, palm_frame({ magwell.x + 0.05f, magwell.y - 0.04f, magwell.z }, true, true));
+		expect(has(r, reload_event::magazine_palmed), "palm lock: B still catches the old one");
+		reload gun2(ar);
+		gun2.load(31, 60);
+		gun2.fire();
+		reload_hands hands2(flat_hold());
+		hands2.update(gun2, palm_frame(chest, true, false));
+		r = hands2.update(gun2, palm_frame(magwell, true, false));
+		r = hands2.update(gun2, palm_frame({ magwell.x + 0.30f, magwell.y, magwell.z }, true, false));
+		expect(r.palm == hand_result::palm_stage::none && r.hand_lock == 0.0f, "palm lock: the controller 30 cm off, it lets go");
+	}
+
 	void test_grip_lock()
 	{
 		{
@@ -1988,6 +2059,8 @@ int main()
 	test_seating();
 	test_hands_palming();
 	test_grip_lock();
+	test_seated_hold();
+	test_palm_lock();
 	test_grip_lock_keeps_the_hold();
 	if (failures == 0)
 	{

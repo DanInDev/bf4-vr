@@ -189,8 +189,30 @@ namespace bfvr::weapon
 		flight_.start(from, rotation, frame.throw_flight ? velocity : v3{}, frame.throw_flight && frame.floor_valid, frame.floor_y);
 	}
 
-	hand_result reload_hands::update(reload& gun, const hand_frame& frame)
+	hand_result reload_hands::update(reload& gun, const hand_frame& frame_in)
 	{
+		// Palming lock (owner 2026-11-16): while a new magazine is ready to palm, everything below sees the off hand where it
+		// was on the gun when it got ready; only the real controller leaving that place lets go.
+		hand_frame frame = frame_in;
+		if (palm_lock_on_ && (palm_ != hand_result::palm_stage::ready || !frame_in.has_root || !frame_in.hands_valid || !frame_in.grip))
+		{
+			palm_lock_on_ = false;
+		}
+		if (palm_lock_on_)
+		{
+			const v3 real = frame_in.has_palm ? frame_in.off_palm : frame_in.off_hand;
+			const v3 locked_palm = frame_in.root + rotate(frame_in.root_rotation, palm_lock_palm_);
+			if (distance(real, locked_palm) > config_.palm_lock_leave)
+			{
+				palm_lock_on_ = false;
+			}
+			else
+			{
+				frame.off_hand = frame_in.root + rotate(frame_in.root_rotation, palm_lock_hand_);
+				frame.off_palm = locked_palm;
+				frame.off_rotation = multiply(frame_in.root_rotation, palm_lock_rotation_);
+			}
+		}
 		hand_result result;
 		const bool grip_pressed = frame.grip && !last_grip_;
 		const bool grip_released = !frame.grip && last_grip_;
@@ -355,6 +377,18 @@ namespace bfvr::weapon
 		{
 			palm_ = palm_stage::ready;
 			result.palm_ready_now = true;
+			if (frame.grip_lock)
+			{
+				const q4 to_gun = conjugate(frame.root_rotation);
+				palm_lock_on_ = true;
+				palm_lock_hand_ = rotate(to_gun, frame.off_hand - frame.root);
+				palm_lock_palm_ = rotate(to_gun, (frame.has_palm ? frame.off_palm : frame.off_hand) - frame.root);
+				palm_lock_rotation_ = multiply(to_gun, frame.off_rotation);
+			}
+		}
+		if (palm_ != palm_stage::ready)
+		{
+			palm_lock_on_ = false;
 		}
 
 		if (button_pressed)
@@ -398,6 +432,12 @@ namespace bfvr::weapon
 					start_holding(false);
 					keep_snap_ = true;
 					start_pull_out();
+				}
+				else if (lockable && gun.state().magazine_in)
+				{
+					// Owner 2026-11-16: a grip on the seated magazine (an AR's, which stays in) locks the hand on it like
+					// the handguard grab, with the game's grip, until the grip opens or the controller is lock_leave off.
+					lock_hold_ = true;
 				}
 				emit(result, event);
 			}
@@ -588,6 +628,7 @@ namespace bfvr::weapon
 			tilt_ = tilt_target;
 		}
 		result.palm = palm_;
+		result.palm_locked = palm_lock_on_;
 		result.magazine_tilt = tilt_;
 
 		if (gun.state().holding && valid && !kept_old_ && guided_)
@@ -608,6 +649,13 @@ namespace bfvr::weapon
 			result.in_fist = true;
 			result.magazine_position = held_top;
 			result.magazine_rotation = held_rotation;
+			if (palm_lock_on_)
+			{
+				// Palming lock: the drawn hand holds the new magazine where it was on the gun.
+				result.hand_lock = 1.0f;
+				result.lock_position = held_top;
+				result.lock_rotation = held_rotation;
+			}
 		}
 		else if (gun.state().magazine_in)
 		{

@@ -137,6 +137,7 @@ namespace bfvr::weapon
 		// magazine mesh: the new magazine is drawn, the caught one is not.
 		enum class palm_stage { none, ready, caught } palm{ palm_stage::none };
 		bool palm_ready_now{}; // this update the hand became ready (a tick)
+		bool palm_locked{};    // owner 2026-11-16: the palming lock holds the off hand on the gun
 		float magazine_tilt{}; // radians the held magazine is turned aside (tilt_magazine)
 		float palm_misalign_degrees{}; // caught: the new magazine's lean about the barrel from the catch pose
 		float palm_off_degrees{};      // caught: its whole angle from the catch pose
@@ -217,6 +218,9 @@ namespace bfvr::weapon
 		float palm_pivot_drop{ 0.07f };
 		float palm_tilt_seconds{ 0.12f };
 		float palm_leave{ 0.16f };
+		// Owner 2026-11-16 (with grip_lock): once palming is ready, the off hand is held where it was on the gun; the
+		// controller this far from that place lets go.
+		float palm_lock_leave{ 0.12f };
 		float palm_seat_reach{ 0.08f };
 		float palm_align_degrees{ 15.0f };
 		float palm_max_degrees{ 45.0f }; // and its whole angle from the catch pose stays within this
@@ -310,6 +314,11 @@ namespace bfvr::weapon
 		bool guided_{};         // grip lock: the held magazine rides the rail
 		bool pulling_out_{};    // grip lock: guided out of the gun after a grab (not armed to seat)
 		bool lock_hold_{};      // grip lock: seated by the locked hand, the grip still held on it
+		// Palming lock: the off hand where it was on the gun when palming got ready (gun frame).
+		bool palm_lock_on_{};
+		v3 palm_lock_hand_;
+		v3 palm_lock_palm_;
+		q4 palm_lock_rotation_;
 		// Grip lock: where the magazine sat against the off hand when it locked (the hand's aim axes). Locked, the
 		// fist no longer draws it, and the controller's fixed guess can be far off it (headset 2026-11-14: off the
 		// rail, unlocked, locked again: a flicker that never seated).

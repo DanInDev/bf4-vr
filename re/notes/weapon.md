@@ -1140,6 +1140,19 @@ the clicks a position without the laser: either thumbstick moves a dot over the 
 0.6 screen widths per second at full tilt, squared response, dead zone 0.15), either trigger clicks through
 `hooks::point_game_cursor`; while it is active the sticks are kept from the game's pad.
 
+### The hand locked on the magazine (owner 2026-11-16: "floaty", fingers not always on it)
+
+- **Seated magazine:** the snap onto the seated magazine (#40) was a pure distance blend, so the drawn hand drifted with
+  the controller even while gripping. Now a grip on the seated magazine that does not pull it out (an AR's) sets the
+  grip lock's hold (`lock_hold_`): the drawn hand holds it at the magwell with the game's grip until the grip opens or the
+  controller is `lock_leave` (16 cm) off. Monitor (SCAR-H): `lock=1.00/1.00`, the drawn left wrist unchanged to the mm
+  with the controller 8 cm one way and 7 cm the other; let go released it. Unit test `seated hold`.
+- **Palming (AR):** once palming is ready (a new magazine beside the seated one) and `grip_lock` is on, the off hand's
+  pose is stored in the gun frame and the whole reload logic sees that frozen hand; the drawn hand is locked on the new
+  magazine (`hand_lock`). The real controller `palm_lock_leave` (12 cm) away lets go; B still catches. Unit test
+  `palm lock`; pipe `reload` shows `palm_lock=`. Not shown live: headless the fake hand reached palming-ready in one of
+  two runs.
+
 ## The weapon crate and unlocks (2026-11-15, monitor, Shanghai-tower checkpoint "Reach the VIPs")
 
 - **Weapon census**: every `SoldierWeaponUnlockAsset` (vtable `0x141E76F40`) is in memory during a level: 259 assets,
