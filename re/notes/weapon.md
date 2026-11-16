@@ -152,6 +152,13 @@ future two-hand grip.
   above). Copies are replayed right after a magazine draw of the same pass; with the arms forward and the gun out of
   view even the captured grenade copy did not show. Next: log which pass (targets / format) each knife replay lands
   in; a depth-only pass (targets=1, format 34) would explain draws without a picture.
+- **Second pass (2026-11-16, `extramesh` now lists each captured draw's pass and scale and the passes the magazine is
+  drawn in):** ruled out the pass and the capture. The knife's draw is in the G-buffer pass (4 targets, format 28)
+  that the magazine is drawn in, with a full-size palette (scale 1.000), and is replayed (`copies` climbing). Yet neither
+  the knife nor the grenade copy shows looking down (pitch -70) or ahead, with the arms raised out of the way; `at`
+  reads y 1.73-1.76 for both, and did not follow `slot_models_ahead 0.5` (capped). Next: work out the frame `at` and
+  `frame_item_matrix` are in (the copies may sit at head height, inside the near plane), e.g. by placing an item at the
+  drawn gun's own Wep_Root matrix and checking it lands on the gun.
 
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 

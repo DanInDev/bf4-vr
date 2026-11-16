@@ -975,6 +975,59 @@ namespace bfvr::stereo::extra_mesh
 			item_drawn_at[item] = GetTickCount64();
 		}
 
+		// #41 research: the passes the magazine is drawn in (render thread) and a text snapshot for the pipe, written every
+		// 120 renders: each captured item's draws with their pass (targets, format, blend state).
+		std::vector<pass_key> magazine_passes_seen;
+		std::mutex pass_report_lock;
+		std::string pass_report;
+		unsigned pass_report_tick{};
+
+		void note_magazine_pass(ID3D11DeviceContext* context)
+		{
+			const pass_key pass = current_pass(context);
+			if (magazine_passes_seen.size() < 8 && std::find(magazine_passes_seen.begin(), magazine_passes_seen.end(), pass) == magazine_passes_seen.end())
+			{
+				magazine_passes_seen.push_back(pass);
+			}
+		}
+
+		void write_pass_report()
+		{
+			if (++pass_report_tick % 120 != 0)
+			{
+				return;
+			}
+			std::string text;
+			char line[96];
+			for (int item = 0; item < item_count; ++item)
+			{
+				text += std::string("\n  ") + item_name(static_cast<captured>(item)) + " draws:";
+				for (const grenade_draw& draw : captured_items[item])
+				{
+					// The scale of the first used palette entry (its first row's length): near 0 is a draw captured hidden.
+					float scale = -1.0f;
+					for (int e = 0; e < palette::entries && scale < 0.0f; ++e)
+					{
+						if (draw.entries & (1ull << e))
+						{
+							const float* p = draw.palette.data() + e * palette::floats_per_entry;
+							scale = sqrtf(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+						}
+					}
+					std::snprintf(line, sizeof(line), " [t%u f%d b%p s%.3f]", draw.pass.targets, static_cast<int>(draw.pass.format), draw.pass.blend, scale);
+					text += line;
+				}
+			}
+			text += "\n  magazine passes:";
+			for (const pass_key& pass : magazine_passes_seen)
+			{
+				std::snprintf(line, sizeof(line), " [t%u f%d b%p]", pass.targets, static_cast<int>(pass.format), pass.blend);
+				text += line;
+			}
+			const std::lock_guard guard(pass_report_lock);
+			pass_report = text;
+		}
+
 		// After a magazine draw: each wanted item's captured draws of this pass, once per render.
 		void replay_items(ID3D11DeviceContext* context)
 		{
@@ -1009,6 +1062,7 @@ namespace bfvr::stereo::extra_mesh
 
 	void begin_render(int eye)
 	{
+		write_pass_report();
 		render_eye = eye;
 		copy_offset = 0;
 		copy_discarded = false;
@@ -1186,6 +1240,7 @@ namespace bfvr::stereo::extra_mesh
 					}
 					magazine_meshes.push_back({ ib.Get(), start_index, index_count, magazine_bit });
 				}
+				note_magazine_pass(context);
 				if (grenade_replay)
 				{
 					replay_items(context);
@@ -1355,6 +1410,10 @@ namespace bfvr::stereo::extra_mesh
 				static_cast<unsigned long long>(age), has_capture[item].load() ? 1 : 0, static_cast<unsigned long long>(captures[item].load()),
 				static_cast<unsigned long long>(capture_attempts[item].load()), captured_draws[item].load(), static_cast<unsigned long long>(item_copies[item].load()));
 			out += text;
+		}
+		{
+			const std::lock_guard guard(pass_report_lock);
+			out += pass_report;
 		}
 		char text[200];
 		std::snprintf(text, sizeof(text), "\nrejected=%llu rifle_draws_dropped=%llu grenade_entries=%llx pin=%llx capture_wanted=%s %llu ms ago",
