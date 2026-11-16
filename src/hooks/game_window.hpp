@@ -32,6 +32,10 @@ namespace bfvr::hooks
 	// is the click, so the triggers are kept from the game's pad (#34: in the gadget stash the pad's
 	// triggers switch the slot tabs, and each laser click flipped the tab instead of choosing an item).
 	bool game_pointer_active();
+	// menu_input = stick (#34): the thumbsticks move the menu cursor, so while it is active they are kept from the
+	// game's pad too (the stash otherwise moves its own pad cursor with them).
+	void set_pointer_owns_sticks(bool owns);
+	bool pointer_owns_sticks();
 	// #34 diagnostics (status): cursor deliveries with the game in front / behind, clicks, active now.
 	std::string game_pointer_report();
 

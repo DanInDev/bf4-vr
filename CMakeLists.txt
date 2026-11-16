@@ -118,6 +118,7 @@ add_library(bfvr_runtime STATIC
 	src/input/gestures.cpp
 	src/input/handedness.cpp
 	src/input/pointer.cpp
+	src/input/stick_cursor.cpp
 	src/input/physical_stance.cpp
 	src/input/trigger_latch.cpp
 	src/input/right_stick.cpp
@@ -263,6 +264,9 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_physical_stance_test PRIVATE bfvr_common)
 	add_executable(bfvr_menu_back_test tests/menu_back_test.cpp)
 	target_link_libraries(bfvr_menu_back_test PRIVATE bfvr_common)
+	# #34: the menu cursor moved with a thumbstick and the dot's point on the screen; exits non-zero on failure.
+	add_executable(bfvr_stick_cursor_test tests/stick_cursor_test.cpp src/input/stick_cursor.cpp src/input/pointer.cpp src/body/arm_ik.cpp)
+	target_link_libraries(bfvr_stick_cursor_test PRIVATE bfvr_common)
 	add_executable(bfvr_move_steer_test tests/move_steer_test.cpp src/input/move_steer.cpp)
 	target_link_libraries(bfvr_move_steer_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
@@ -409,6 +413,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME physical_stance COMMAND bfvr_physical_stance_test)
 	add_test(NAME right_stick COMMAND bfvr_right_stick_test)
 	add_test(NAME menu_back COMMAND bfvr_menu_back_test)
+	add_test(NAME stick_cursor COMMAND bfvr_stick_cursor_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME mp_rules COMMAND bfvr_mp_rules_test)

@@ -33,6 +33,7 @@
 #include "input/menu_back.hpp"
 #include "input/haptics.hpp"
 #include "input/pointer.hpp"
+#include "input/stick_cursor.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/hud_layout.hpp"
 #include "stereo/camera_hook.hpp"
@@ -1918,6 +1919,11 @@ namespace bfvr::xr
 		// Laser pointer on the theater screen (#23, menu_input = pointer): the hand whose trigger was
 		// pulled last aims; its trigger is the left mouse button.
 		int pointer_hand{ 1 };
+		// #34 (owner 2026-11-16), menu_input = stick: either thumbstick moves the menu cursor, either trigger clicks.
+		// Nothing depends on where a controller points; the clicks go the same way as the laser's (posted when BF4
+		// is behind other windows). The status line shows it as hand=-1.
+		input::stick_cursor menu_stick;
+		ULONGLONG menu_stick_at{};
 		// #34: the off-hand grip pressed again backs out of a menu over the level (Escape).
 		input::menu_back menu_back_gesture;
 		ULONGLONG escape_release_at{};
@@ -2017,10 +2023,65 @@ namespace bfvr::xr
 			}
 			letterbox_pending = true;
 		}
+		void stick_at_screen(float width, float height, const stereo::pose& screen_pose)
+		{
+			const ULONGLONG now = GetTickCount64();
+			// A menu that has just come up (the flat screen was not shown for a moment) starts in the middle.
+			if (!menu_stick_at || now - menu_stick_at > 500)
+			{
+				menu_stick.reset();
+			}
+			const float seconds = menu_stick_at ? static_cast<float>(now - menu_stick_at) / 1000.0f : 0.0f;
+			menu_stick_at = now;
+			const input::gamepad_state pad = input::latest();
+			const float left[2] = { pad.left_x / 32767.0f, pad.left_y / 32767.0f };
+			const float right[2] = { pad.right_x / 32767.0f, pad.right_y / 32767.0f };
+			const float* stick = right[0] * right[0] + right[1] * right[1] > left[0] * left[0] + left[1] * left[1] ? right : left;
+			menu_stick.update(stick[0], stick[1], seconds, width / height);
+			const float u = menu_stick.u();
+			const float v = menu_stick.v();
+			++pointer_frames;
+			++pointer_hits;
+			pointer_hand = -1;
+			pointer_last_u = u;
+			pointer_last_v = v;
+			if (ensure_pointer_swapchain())
+			{
+				input::quad_target screen;
+				screen.pose = screen_pose;
+				screen.width = width;
+				screen.height = height;
+				float point[3];
+				input::point_on_quad(screen, u, v, point);
+				const float* q = screen_pose.orientation;
+				const float n[3] = { 2.0f * (q[0] * q[2] + q[1] * q[3]), 2.0f * (q[1] * q[2] - q[0] * q[3]), 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]) };
+				pointer_dot = { XR_TYPE_COMPOSITION_LAYER_QUAD };
+				pointer_dot.space = space;
+				pointer_dot.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+				pointer_dot.subImage.swapchain = pointer_swapchain;
+				pointer_dot.subImage.imageRect.extent = { 4, 4 };
+				pointer_dot.pose.position = { point[0] + 0.005f * n[0], point[1] + 0.005f * n[1], point[2] + 0.005f * n[2] };
+				pointer_dot.pose.orientation = { q[0], q[1], q[2], q[3] };
+				pointer_dot.size = { 0.03f, 0.03f };
+				pointer_dot_visible = true;
+			}
+			if (now >= laser_paused_until)
+			{
+				hooks::point_game_cursor(u, v, pad.left_trigger > 128 || pad.right_trigger > 128);
+			}
+		}
+
 		void point_at_screen(float width, float height, const stereo::pose& screen_pose)
 		{
 			pointer_beam_visible = pointer_dot_visible = false;
-			if (settings::global().text("menu_input", "pointer") != "pointer")
+			const std::string mode = settings::global().text("menu_input", "pointer");
+			hooks::set_pointer_owns_sticks(mode == "stick");
+			if (mode == "stick")
+			{
+				stick_at_screen(width, height, screen_pose);
+				return;
+			}
+			if (mode != "pointer")
 			{
 				return;
 			}

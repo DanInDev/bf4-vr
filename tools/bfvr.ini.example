@@ -480,3 +480,6 @@ mark_tap = 1
 panel_opacity = 0.6
 # After a level loads, "Hold both sticks: VR settings" shows below the view for 8 s.
 menu_hint = 1
+# Game menus over a level (the gadget stash, the pause menu): pointer = point a controller and pull the trigger;
+# stick = either thumbstick moves a cursor, either trigger clicks; pad = the game's own pad only.
+menu_input = pointer

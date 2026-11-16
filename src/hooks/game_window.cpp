@@ -430,6 +430,21 @@ namespace bfvr::hooks
 		return GetTickCount64() - pointer_at.load(std::memory_order_relaxed) < 150;
 	}
 
+	namespace
+	{
+		std::atomic<bool> sticks_owned{};
+	}
+
+	void set_pointer_owns_sticks(bool owns)
+	{
+		sticks_owned.store(owns, std::memory_order_relaxed);
+	}
+
+	bool pointer_owns_sticks()
+	{
+		return sticks_owned.load(std::memory_order_relaxed);
+	}
+
 	std::string game_pointer_report()
 	{
 		return "cursor front=" + std::to_string(pointer_front.load()) + " behind=" + std::to_string(pointer_behind.load()) + " clicks=" + std::to_string(pointer_clicks.load())
