@@ -149,3 +149,12 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   (which class has a SoundGraph where this one does), list its graph events, and look for the pin event; or record the
   game's own grenade (pipe `holster` to the grenade, pull the pin by the game) with `tools/sound_probe.py` to see which
   SoundEntity plays it.
+- **#66 second pass (2026-11-16):** `tools/reload_sound_probe.py --match <text>` lists any SoundEntity by its sound's name.
+  With the rifle out none mentions `M67` or `Grenade`. Selecting the grenade to list them while it is held failed
+  headless: neither the 5 key through the pipe (Raw Input) nor as a real key with BF4 in front changed the slot (current
+  stayed 0; no log line), also with `grenade = button`; the level-start capture had selected it earlier in the session.
+  So the pin wave is not reachable through a SoundEntity like the reload sounds: it rides on the grenade's first-person
+  animation (an Ant sound event). Ways left: (1) find the animation's sound event path (the soldier's sound component
+  playing `M67_Remove_Safety_Pin_Wave`) with REA from the wave's name; (2) during the mod's own grenade capture (the
+  game's grenade is selected for ~1-3 s), hold fire so the game's pin animation runs, and watch which object's sound
+  instance starts (a write watch on a SoundEntity-like +0x80); (3) a user-supplied local WAV (never in git).

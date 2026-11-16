@@ -42,12 +42,12 @@ def name_of(pointer, cache):
     name = ''
     if blob:
         text = peek_many([q(blob, 0x10)], 128)[q(blob, 0x10)]
-        name = text.split(b'\0')[0].decode(errors='replace') if text else ''
+        name = text.split(b'\0')[0].decode('ascii', errors='replace').replace('�', '?') if text else ''
     cache[pointer] = name
     return name
 
 
-def reload_entities():
+def reload_entities(match='Reload'):
     objects = []
     for vtable in SOUND_VTABLES:
         reply = command(f'scan {struct.pack("<Q", vtable).hex()} 1024')
@@ -63,7 +63,7 @@ def reload_entities():
             continue
         sound = q(blob, 0x18)
         name = name_of(sound, cache) if sound else ''
-        if 'Reload' in name:
+        if match.lower() in name.lower():
             playing = q(heads[entity], 0x80)
             found.append((entity, name, playing, q(heads[entity])))
     return found
@@ -74,8 +74,9 @@ def main():
     parser.add_argument('--event')
     parser.add_argument('--name', default='')
     parser.add_argument('--slot', type=int, default=5)
+    parser.add_argument('--match', default='Reload', help='list entities whose sound name contains this (default Reload)')
     args = parser.parse_args()
-    entities = reload_entities()
+    entities = reload_entities(args.match)
     for entity, name, playing, vtable in entities:
         print(f'{entity:#x} vtable={vtable:#x} playing={playing:#x} {name}')
     if args.event:
