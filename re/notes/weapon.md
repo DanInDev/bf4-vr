@@ -194,6 +194,23 @@ grip for a moment and the fake gun hand, if in a holster or pouch zone, re-grips
 `free_hands 0` and no grip the trigger works alone. Weapon keys need BF4 in front (`game.ps1 keys -Keys 4`); it stays
 on the M320 while BF4 stays in front.
 
+### The M320 reloaded by hand (2026-11-16, monitor, #64)
+
+`weapon/break_open` (state) and `physical_reload`'s launcher path (`profiles::is_break_open`: names starting
+`U_SP_M320`); design after The Great Destroyer's `src/m320.h`. The game's count is kept at ours + 2, so its own reload
+after each shot never starts; the trigger reaches the game only when shut and loaded. A pull while not ready opens the
+barrel (drawn over 0.12 s: Wep_Mag, Wep_Belt1, Wep_Extra4 turned up to 15 deg about the parent's up axis); the spent
+case slides out once the barrel points 30 deg up (falls 0.8 s from the mouth, then hidden) or is pulled out by an
+off-hand grip within 8 cm of the barrel's back end (the round's bone, `weapon_points::barrel_mouth`); the off-hand grip
+at the magazine pouch takes a round (drawn at the palm), which goes in within 5 cm of the back end; the open palm
+within 5 cm of a point 5 cm to the barrel's left and 10 cm on (`barrel_side`), after being 12 cm away since it opened,
+shuts it. `pipe reload` prints the launcher's state, points and recent events.
+
+Monitor (fake hands, free hands off): fired (game 3 -> 2, no game reload), the next pull opened it, muzzle 50 deg
+up dropped the case, a round from the pouch (reserve 11 -> 10), seated, shut, fired again. Standing at the gadget
+stash the game raised the reserve again by itself (a resupply). Not judged: how the open barrel, the round in the hand
+(placed at the palm with the gun's rotation) and the falling case look; sounds are the synthesised magazine cues.
+
 - **The keyboard is Raw Input**: the image imports `GetRawInputData` / `RegisterRawInputDevices`; no
   DirectInput keyboard. Synthetic keys work without focus: `hooks::press_game_key` posts `WM_INPUT`
   with a marker handle (`0x7BF5A000`+n) and the `GetRawInputData` hook answers it (pipe `key <vk>`).

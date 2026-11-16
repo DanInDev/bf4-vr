@@ -1229,16 +1229,20 @@ namespace bfvr::weapon
 			{
 				events += std::string(i ? " " : "") + recent[i];
 			}
-			char text[640];
+			weapon::v3 chest{};
+			const bool has_chest = chest_point(chest);
+			char text[768];
 			std::snprintf(text, sizeof(text),
 				"reload=physical launcher weapon=%s slot=%d open=%d load=%s holding=%d reserve=%d game_reserve=%d ready=%d written=%d shots=%llu\n"
-				"drawn_open=%.2f case_fall=%.2f has_launcher=%d mouth=(%.3f,%.3f,%.3f) side=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) to_mouth=%.3f to_side=%.3f side_armed=%d\n"
+				"drawn_open=%.2f case_fall=%.2f has_launcher=%d mouth=(%.3f,%.3f,%.3f) side=(%.3f,%.3f,%.3f) palm=(%.3f,%.3f,%.3f) to_mouth=%.3f to_side=%.3f side_armed=%d"
+				" chest=(%.3f,%.3f,%.3f) to_chest=%.3f reach=%.2f%s\n"
 				"recent: %s",
 				found->second.name.c_str(), current_slot, s.open ? 1 : 0, loads[static_cast<int>(s.load)], s.holding ? 1 : 0, s.reserve,
 				found->second.launcher.game_reserve(), found->second.launcher.ready() ? 1 : 0, found->second.written, static_cast<unsigned long long>(shots),
 				launcher_open, case_fall, points.has_launcher ? 1 : 0, points.barrel_mouth[0], points.barrel_mouth[1], points.barrel_mouth[2],
 				points.barrel_side[0], points.barrel_side[1], points.barrel_side[2], palm.x, palm.y, palm.z, distance(palm, v(points.barrel_mouth)),
-				distance(palm, v(points.barrel_side)), launcher_side_armed ? 1 : 0, events.c_str());
+				distance(palm, v(points.barrel_side)), launcher_side_armed ? 1 : 0, chest.x, chest.y, chest.z, distance(palm, chest),
+				magazine_reach.load(), has_chest ? "" : " (no chest)", events.c_str());
 			return text;
 		}
 		const hand_result& r = last_result;
