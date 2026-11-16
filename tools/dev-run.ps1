@@ -46,6 +46,13 @@ function Click-Relative([double]$x, [double]$y) {
 	Invoke-Tool 'pipe.ps1' @('pointer', "$at 0") | Out-Null
 }
 
+# The launcher's Normal play mode keeps a flat 1920x1080 profile live and removes the mod. Deployed anyway,
+# the mod renders that under a 2160x2160 window and every menu click misses (2026-11-15 and -16).
+$modeFile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Battlefield 4\settings\PROFSAVE_profile.bfvr-mode'
+if (-not $UseRunning -and (Test-Path $modeFile) -and ((Get-Content $modeFile -Raw).Trim() -eq 'normal')) {
+	throw "The launcher is in Normal play mode ($modeFile says 'normal'): switch to VR on its Play page (or put PROFSAVE_profile.bfvr-vr live and write 'vr' there, BF4 closed) before a dev-run."
+}
+
 if (-not $NoBuild) {
 	"build $Preset"
 	Push-Location $root
@@ -82,5 +89,10 @@ if ($Resume) {
 	$status = @(Invoke-Tool 'pipe.ps1' @('status'))
 	"level: " + $status[0]
 	"screenshot: $shot"
+	# "level:" is printed either way; the log says whether the campaign level really loaded.
+	$level = Select-String -Path 'E:\EA\Battlefield 4\bfvr.log' -Pattern 'safety: level (\S+)' | Select-Object -Last 1
+	$name = if ($level) { $level.Matches[0].Groups[1].Value } else { 'none' }
+	"loaded: $name"
+	if ($name -notlike 'Levels/SP/*') { Write-Warning 'still in the main menu: the Resume clicks did not land (see CLAUDE.md Tool pitfalls)'; exit 2 }
 }
 exit 0
