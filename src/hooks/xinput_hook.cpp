@@ -97,6 +97,10 @@ namespace bfvr::hooks
 				pad.left_trigger = 0;
 				pad.right_trigger = 0;
 				pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
+				if (hooks::pointer_owns_sticks())
+				{
+					pad.left_x = pad.left_y = pad.right_x = pad.right_y = 0;
+				}
 			}
 			input::note_game_pad(pad);
 			if (!pad.connected)

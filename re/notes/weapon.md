@@ -1019,6 +1019,23 @@ if a menu is still up 500 ms later, clicks Done; the laser is kept off the curso
 the first pointer click after the stash opened (on C4) switched the slot tab to Gadget Two and filled nothing; the next
 clicks behaved. Not explained yet.
 
+### What the stash menu takes, and the stick cursor (2026-11-16, monitor, #34)
+
+Baku checkpoint, the stash opened by the use reach (body snapped to face it, off hand ~45 cm ahead and low, off-hand
+grip; E alone, sent with BF4 in front, opened nothing while the game's aim stayed level). Inputs tried in the open menu:
+
+| Input | BF4 behind another window | BF4 in front |
+| --- | --- | --- |
+| pad left stick (0.6, 600 ms), D-pad down/right, RB | nothing | nothing |
+| arrow keys (pipe `key 27` / `28`, Raw Input) | nothing (the game read them) | real Right key: nothing |
+| pipe `pointer` clicks (the laser's path) | C4 -> Gadget One, M320 -> Gadget Two, Done closed it | (worked 2026-11-13) |
+
+So this menu has no pad or keyboard navigation to drive; only the cursor clicks work, and they need no focus. The
+headset failures (CTRL-14) are before that call: the laser test against the flat screen. `menu_input = stick` gives
+the clicks a position without the laser: either thumbstick moves a dot over the flat screen (`input/stick_cursor`,
+0.6 screen widths per second at full tilt, squared response, dead zone 0.15), either trigger clicks through
+`hooks::point_game_cursor`; while it is active the sticks are kept from the game's pad.
+
 ## The weapon crate and unlocks (2026-11-15, monitor, Shanghai-tower checkpoint "Reach the VIPs")
 
 - **Weapon census**: every `SoldierWeaponUnlockAsset` (vtable `0x141E76F40`) is in memory during a level: 259 assets,

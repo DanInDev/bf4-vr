@@ -181,7 +181,7 @@ namespace bfvr::settings
 			{ "haptics_strength", "Controls", "Vibration", "Vibration strength", "0 to 1", "" },
 			{ "haptics_game", "Controls", "Vibration", "The game's rumble", "Firing, explosions, hits", "" },
 			{ "haptics_gestures", "Controls", "Vibration", "Taps for gestures", "Holsters, magazines, grabs, clicks", "" },
-			{ "menu_input", "Controls", "Menus", "Menu pointer", "Point and pull the trigger, or the pad", "pointer=Pointer|pad=Pad" },
+			{ "menu_input", "Controls", "Menus", "Menu pointer", "Point and pull the trigger, a stick cursor, or the pad", "pointer=Pointer|stick=Stick|pad=Pad" },
 			{ "menu_grip_back", "Controls", "Menus", "Off-hand grip closes menus", "Press it again to close a crate or resume", "" },
 			{ "vr_panel", "Controls", "Menus", "Hold the menu button for this panel", "A short press stays the game's pause", "" },
 			{ "stick_menu", "Controls", "Menus", "Both stick clicks for this panel", "Hold them half a second", "" },

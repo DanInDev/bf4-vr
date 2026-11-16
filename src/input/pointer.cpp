@@ -46,6 +46,18 @@ namespace bfvr::input
 		return result;
 	}
 
+	void point_on_quad(const quad_target& quad, float u, float v, float (&point)[3])
+	{
+		using body::ik::quat;
+		using body::ik::vec3;
+		const quat quad_rotation = body::ik::normalize(quat{ quad.pose.orientation[0], quad.pose.orientation[1], quad.pose.orientation[2], quad.pose.orientation[3] });
+		const vec3 local{ (u - 0.5f) * quad.width, (0.5f - v) * quad.height, 0.0f };
+		const vec3 world = body::ik::rotate(quad_rotation, local);
+		point[0] = quad.pose.position[0] + world.x;
+		point[1] = quad.pose.position[1] + world.y;
+		point[2] = quad.pose.position[2] + world.z;
+	}
+
 	stereo::pose screen_in_front(const stereo::pose& head, float distance)
 	{
 		const float qx = head.orientation[0], qy = head.orientation[1], qz = head.orientation[2], qw = head.orientation[3];
