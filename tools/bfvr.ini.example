@@ -341,7 +341,8 @@ rack_under_down = 0.04
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one
 # (cloth, magazine_in, magazine_out, chamber, pin .wav). For assault rifles the game's own magazine and
-# bolt sounds play where they are found (#30).
+# bolt sounds play where they are found (#30). tools\cue_wav.py cuts one from a recording of the game's own sounds
+# (bolt_back: a rifle rack's rear stop, borrowed from the Scout's bolt; cloth: the weapon switch's cloth).
 reload_sounds = 1
 # #82: loudness of the grenade pin pull (0 silent .. 1 full); a bfvr_sounds\pin.wav still replaces the sound.
 pin_volume = 0.35

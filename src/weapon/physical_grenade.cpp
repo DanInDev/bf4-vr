@@ -481,8 +481,12 @@ namespace bfvr::weapon
 		if (result.event == grenade_event::taken || result.event == grenade_event::put_back)
 		{
 			// The gun's own pouch foley, as the magazine pouch uses; the synthesised rustle sounded wrong
-			// (headset 2026-11-04 for magazines, 2026-11-10 for grenades), so nothing when it is missing.
-			play_game_reload_sound(reload_event::magazine_taken);
+			// (headset 2026-11-04 for magazines, 2026-11-10 for grenades). A gun whose set has no pouch foley (the
+			// shotguns, the UTAS) plays the game's weapon-switch cloth where tools/cue_wav.py made it, else nothing.
+			if (!play_game_reload_sound(reload_event::magazine_taken) && has_file(cue::cloth))
+			{
+				play(cue::cloth);
+			}
 			input::haptic(held_by, result.event == grenade_event::taken ? input::pulses::grab : input::pulses::tick);
 		}
 		if (result.bite_now)
