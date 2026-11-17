@@ -67,8 +67,9 @@ firing data read, `re/dumps/catalog_sweep.json` kept out of git). "Mod" is the r
 - **Belt-fed (game reload = whole magazine, no tactical reload, 100-200 rounds, 5.5-7.3 s): M240B, M249, MG4, PKP, Type 88.**
   Physical reload treats them as AR box magazines (family H).
 - **Revolver: MP412 Rex**, 6 rounds, game reload 3.4 s, fire logic single: AR kind today (family J).
-- **AK kind only for AK-12, AEK-971, SVD-12.** The other rock-in guns (A-91, ACE 52, Saiga 12K: `U_SAIGA_20K`, the
-  known list bug) get the AR kind.
+- **AK kind only for AK-12, AEK-971, SVD-12** (at the sweep). Since all-weapons step 1 (`weapon/gun_traits`, 2026-11-17) the
+  rock-in guns A-91, ACE 52, Saiga 12K, M39 EMR and RFB get the AK kind too, the hold-open follows the real gun, and the
+  tube, belt and revolver guns use the game's own reload.
 - The other 35 guns are box magazines with a tactical/empty reload pair (game `magazine+short`) and fit the existing
   AR/AK state machine once each gun's release, hold-open and handle are set (families A-E).
 - Burst-first guns: M4 and M16A4 start in burst. Not read: bones, handle points, sights (step 2 of the method).

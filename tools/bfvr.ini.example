@@ -141,6 +141,9 @@ bind_menu = start
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
 # magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
 reload = physical
+# Shotguns loaded shell by shell, belt-fed LMGs and the revolver keep the game's own reload (B) until their own hand
+# reloads exist (docs/tasks/all-weapons.md); 1 = the box-magazine hand reload for them too, as before.
+physical_reload_all = 0
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a

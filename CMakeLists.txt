@@ -218,6 +218,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/own_crate.cpp
 	src/weapon/pin_sound.cpp
 	src/weapon/death_watch.cpp
+	src/weapon/gun_traits.cpp
 	src/weapon/unlock_all_math.cpp
 	src/weapon/server_soldier.cpp
 	src/weapon/server_soldier_math.cpp
@@ -299,6 +300,8 @@ if(BFVR_BUILD_TESTS)
 	# The own crate's gun list and its settle-then-give watch (#80).
 	add_executable(bfvr_death_watch_test tests/death_watch_test.cpp src/weapon/death_watch.cpp src/input/release_gate.cpp)
 	target_link_libraries(bfvr_death_watch_test PRIVATE bfvr_common)
+	add_executable(bfvr_gun_traits_test tests/gun_traits_test.cpp src/weapon/gun_traits.cpp src/weapon/profiles.cpp src/weapon/reload.cpp)
+	target_link_libraries(bfvr_gun_traits_test PRIVATE bfvr_common)
 	add_executable(bfvr_pin_sound_test tests/pin_sound_test.cpp src/weapon/pin_sound.cpp)
 	target_link_libraries(bfvr_pin_sound_test PRIVATE bfvr_common)
 	add_executable(bfvr_crate_guns_test tests/crate_guns_test.cpp)
@@ -328,7 +331,7 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_ground_cache_test PRIVATE bfvr_common)
 	add_executable(bfvr_magazine_flight_test tests/magazine_flight_test.cpp src/weapon/magazine_flight.cpp)
 	target_link_libraries(bfvr_magazine_flight_test PRIVATE bfvr_common)
-	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp)
+	add_executable(bfvr_reload_test tests/reload_test.cpp src/weapon/accessory_touch.cpp src/weapon/body_rig.cpp src/weapon/grenade_hands.cpp src/weapon/hand_signal.cpp src/weapon/holsters.cpp src/weapon/reload.cpp src/weapon/reload_hands.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp src/weapon/game_reload_sounds.cpp src/weapon/profiles.cpp src/weapon/gun_traits.cpp)
 	target_link_libraries(bfvr_reload_test PRIVATE bfvr_common)
 
 	# Two-handed grip and the converged shot direction; exits non-zero on failure.
@@ -445,6 +448,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME crate_guns COMMAND bfvr_crate_guns_test)
 	add_test(NAME pin_sound COMMAND bfvr_pin_sound_test)
+	add_test(NAME gun_traits COMMAND bfvr_gun_traits_test)
 	add_test(NAME death_watch COMMAND bfvr_death_watch_test)
 	add_test(NAME release_gate COMMAND bfvr_release_gate_test)
 	add_test(NAME focus_release COMMAND bfvr_focus_release_test)

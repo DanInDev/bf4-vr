@@ -1,18 +1,11 @@
 #include "weapon/profiles.hpp"
 
+#include "weapon/gun_traits.hpp"
+
 #include <algorithm>
 
 namespace bfvr::weapon
 {
-	namespace
-	{
-		// No release button on these: the magazine is rocked out by hand (unlock names, BF4 179547).
-		constexpr std::string_view ak_family[] = {
-			"U_AK12", "U_AKU12", "U_AK74M", "U_AEK971", "U_AN94", "U_RPK12", "U_RPK-74M", "U_RPK74M", "U_GROZA-1", "U_SVD12",
-			"U_Saiga12",
-		};
-	}
-
 	bool handle_point_for(std::string_view unlock_name, float (&point)[3])
 	{
 		struct measured
@@ -70,11 +63,15 @@ namespace bfvr::weapon
 
 	reload_profile profile_for(std::string_view unlock_name, int game_capacity)
 	{
+		// From the gun's traits (weapon/gun_traits): rocked in and out by hand = the AK variant (this also fixed the Saiga,
+		// whose crate unlock is U_SAIGA_20K, not the old list's U_Saiga12); the hold-open as the real gun has it.
+		const gun_traits traits = traits_for(unlock_name);
 		reload_profile profile;
-		const bool ak = std::find(std::begin(ak_family), std::end(ak_family), unlock_name) != std::end(ak_family);
+		const bool ak = traits.feed == feed::rock && traits.release == release::none;
 		profile.kind = ak ? variant::ak : variant::ar;
 		profile.capacity = std::max(game_capacity - 1, 1);
 		profile.flick = ak;
+		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
 		return profile;
 	}
 }

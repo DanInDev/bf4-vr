@@ -29,12 +29,24 @@ namespace bfvr::weapon
 		ar,
 	};
 
+	// Whether the last shot locks the bolt back (and the AR's bolt catch closes it): by the variant (AR yes, AK no) unless
+	// the gun says otherwise (weapon/gun_traits: a UMP or a P90 has none, an M14 or an SVD has one).
+	enum class hold_open
+	{
+		by_kind,
+		yes,
+		no,
+	};
+
 	struct reload_profile
 	{
 		variant kind{ variant::ar };
 		int capacity{ 30 };
 		bool flick{ true }; // AK: a new magazine can knock the old one out
+		hold_open hold{ hold_open::by_kind };
 	};
+
+	bool locks_open(const reload_profile& profile);
 
 	struct reload_options
 	{

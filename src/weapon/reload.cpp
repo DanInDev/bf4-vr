@@ -4,6 +4,11 @@
 
 namespace bfvr::weapon
 {
+	bool locks_open(const reload_profile& profile)
+	{
+		return profile.hold == hold_open::by_kind ? profile.kind == variant::ar : profile.hold == hold_open::yes;
+	}
+
 	bool release_needs_out_cue(bool was_in, bool is_in, bool out_cue_played)
 	{
 		return was_in && !is_in && !out_cue_played;
@@ -21,8 +26,8 @@ namespace bfvr::weapon
 		state_.chamber = rounds_in_gun > 0;
 		state_.magazine_rounds = std::max(rounds_in_gun - 1, 0);
 		state_.reserve = std::max(reserve, 0);
-		// An AR left empty by the game sits with the bolt open on the empty magazine.
-		state_.bolt_locked = !state_.chamber && profile_.kind == variant::ar;
+		// A hold-open gun left empty by the game sits with the bolt open on the empty magazine.
+		state_.bolt_locked = !state_.chamber && locks_open(profile_);
 	}
 
 	// Bolt going forward: feeds the top round, or an AR's follower holds it open on an empty magazine.
@@ -34,7 +39,7 @@ namespace bfvr::weapon
 			state_.chamber = true;
 			return reload_event::chambered;
 		}
-		if (state_.magazine_in && profile_.kind == variant::ar)
+		if (state_.magazine_in && locks_open(profile_))
 		{
 			state_.bolt_locked = true;
 			state_.inserted_since_lock = false;
@@ -74,7 +79,8 @@ namespace bfvr::weapon
 		// empty chamber, and with a round already chambered (a tactical reload) the bolt is forward and
 		// nothing happens. Only the next press releases the magazine (headset 2026-11-04: it ejected).
 		// A hand placed to palm means the release.
-		if (state_.magazine_in && state_.inserted_since_lock)
+		// Without a hold-open there is no bolt catch to press (a UMP, a P90): the button only frees the magazine.
+		if (state_.magazine_in && state_.inserted_since_lock && locks_open(profile_))
 		{
 			state_.inserted_since_lock = false;
 			if (!state_.chamber)
