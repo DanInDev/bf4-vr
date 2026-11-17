@@ -673,6 +673,25 @@ namespace
 		const hand_result open = busy.update(busy_gun, palm_at(handle + v3{ 0.03f, -0.15f, 0.0f }, false));
 		expect(open.off_hand_busy && open.in_zone == hand_result::zone::handle && open.has_under_zone, "open hand in the underhand zone: the grip is the reload's (no handguard grab there)");
 
+		// Per-gun magazine grab (weapon/profiles magazine_grab_for): the magazine zone sits at the measured offset from the
+		// seated Wep_Mag, turned with the gun; unmeasured guns keep magazine_grab_drop straight below it.
+		{
+			reload_hands plain(flat_hold());
+			const hand_result below = plain.update(busy_gun, palm_at(away, false));
+			const v3 drop{ below.zone_centre[0].x - frame.magwell.x, below.zone_centre[0].y - frame.magwell.y, below.zone_centre[0].z - frame.magwell.z };
+			expect(std::fabs(drop.x) < 1e-4f && std::fabs(drop.y + config.magazine_grab_drop) < 1e-4f && std::fabs(drop.z) < 1e-4f,
+				"no measured grab: the zone is magazine_grab_drop below the magwell");
+			hand_frame measured = palm_at(away, false);
+			measured.has_magazine_grab = true;
+			measured.magazine_grab = { 0.033f, -0.052f, 0.022f }; // the SCAR-H's, left of and below its Wep_Mag
+			reload_hands per_gun(flat_hold());
+			const hand_result grab = per_gun.update(busy_gun, measured);
+			const v3 offset{ grab.zone_centre[0].x - frame.magwell.x, grab.zone_centre[0].y - frame.magwell.y, grab.zone_centre[0].z - frame.magwell.z };
+			// The turned gun (180 degrees about y): gun +x is world -x, gun +z is world -z.
+			expect(std::fabs(offset.x + 0.033f) < 1e-4f && std::fabs(offset.y + 0.052f) < 1e-4f && std::fabs(offset.z + 0.022f) < 1e-4f,
+				"measured grab: the zone moves to the gun's offset, turned with the gun");
+		}
+
 		// #69 (owner 2026-11-15): per-gun zones. The AK-12's reach well under the gun; the SCAR-H's overhand zone
 		// sits higher, so a grab at the gun's bottom is not the handle.
 		rack_zone_shape ak12, scar, none;

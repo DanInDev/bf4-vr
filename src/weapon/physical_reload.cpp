@@ -179,6 +179,7 @@ namespace bfvr::weapon
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> reload_all{};     // setting physical_reload_all: the AR/AK reload for every gun (the old way)
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
+		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -712,6 +713,11 @@ namespace bfvr::weapon
 		}
 	}
 
+	void set_gun_points(bool on)
+	{
+		gun_points = on;
+	}
+
 	void set_physical_reload_all(bool on)
 	{
 		reload_all = on;
@@ -948,7 +954,8 @@ namespace bfvr::weapon
 		{
 			// The charging handle: the research override (pipe `reload handle x y z`), the gun's measured point, else the variant's.
 			float point[3]{};
-			frame.has_handle_point = handle_point_for(weapon.name, point);
+			const bool per_gun = gun_points.load(std::memory_order_relaxed);
+			frame.has_handle_point = per_gun && handle_point_for(weapon.name, point);
 			if (handle_override_on)
 			{
 				std::copy(std::begin(handle_override), std::end(handle_override), point);
@@ -956,6 +963,9 @@ namespace bfvr::weapon
 			}
 			frame.handle_point = { point[0], point[1], point[2] };
 			frame.has_rack_shape = rack_zones_for(weapon.name, hand_config{}, frame.rack_shape);
+			float grab[3]{};
+			frame.has_magazine_grab = per_gun && magazine_grab_for(weapon.name, grab);
+			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
@@ -1319,12 +1329,16 @@ namespace bfvr::weapon
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
 			r.palm_locked ? 1 : 0, palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
 			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
-		char rack[256];
+		char rack[320];
 		float gun_handle[3]{};
-		const bool handle_measured = found != slots.end() && handle_point_for(found->second.name, gun_handle);
-		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f)",
+		float gun_grab[3]{};
+		const bool per_gun = gun_points.load(std::memory_order_relaxed) && found != slots.end();
+		const bool handle_measured = per_gun && handle_point_for(found->second.name, gun_handle);
+		const bool grab_measured = per_gun && magazine_grab_for(found->second.name, gun_grab);
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f)",
 			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
-			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2]);
+			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2],
+			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2]);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],

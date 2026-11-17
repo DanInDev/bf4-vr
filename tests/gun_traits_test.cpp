@@ -101,6 +101,26 @@ int main()
 		expect(handle_point_for("U_AK12", point) && point[0] < 0.0f, "AK-12: the 11-03 point kept");
 		expect(handle_point_for("U_SCAR-HSV", point) && point[0] > 0.0f, "SCAR-H SV: the SCAR-H's");
 		expect(!handle_point_for("U_M416", point), "M416: its empty reload uses the bolt release: the variant's point");
+		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
+	}
+	// Magazine grab points: the game's hand on the magazine, from the seated Wep_Mag.
+	{
+		float grab[3]{};
+		expect(magazine_grab_for("U_M416", grab) && grab[1] < -0.07f, "M416: the long box, grabbed ~9 cm below the magwell");
+		expect(magazine_grab_for("U_Scout", grab) && grab[1] > -0.03f, "Scout: the short box, grabbed close under the gun");
+		expect(magazine_grab_for("U_SCAR-H", grab) && grab[0] > 0.0f, "SCAR-H: from the left");
+		expect(!magazine_grab_for("U_P90", grab) && !magazine_grab_for("U_870", grab), "P90 (too few frames) and tube guns: the default");
+		int measured = 0;
+		for (std::size_t i = 0; i < crate_gun_count(); ++i)
+		{
+			if (magazine_grab_for(crate_gun_at(i), grab))
+			{
+				++measured;
+				expect(physical_reload_covers(traits_for(crate_gun_at(i))), "a grab point only for a gun with the physical magazine reload");
+				expect(grab[1] < 0.01f && grab[1] > -0.12f, "every grab within 12 cm below the magwell");
+			}
+		}
+		expect(measured == 24, "24 crate guns have a measured grab point");
 	}
 	if (failures == 0)
 	{
