@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace bfvr::safety
 {
 	// The mod is campaign-only (docs/SAFETY.md). False when the game's command line asks for anything
@@ -17,4 +19,6 @@ namespace bfvr::safety
 	// whose level path is briefly empty). Head-tracked stereo is used only then; menus and loading
 	// screens stay on the theater screen.
 	bool campaign_level_loaded();
+	// The level path last loaded ("Levels/SP/...", or the front end's); a checkpoint reload after a death keeps it.
+	std::string level_path();
 }

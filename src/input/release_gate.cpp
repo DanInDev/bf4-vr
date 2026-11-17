@@ -74,6 +74,14 @@ namespace bfvr::input
 		return out;
 	}
 
+	void release_gate::close()
+	{
+		buttons_ = 0xFFFF;
+		left_trigger_ = right_trigger_ = left_stick_ = right_stick_ = true;
+		kept_grips_ = 0;
+		++closures_;
+	}
+
 	bool release_gate::holding() const
 	{
 		return buttons_ != 0 || left_trigger_ || right_trigger_ || left_stick_ || right_stick_;

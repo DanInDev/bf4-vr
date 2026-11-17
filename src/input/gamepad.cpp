@@ -86,6 +86,13 @@ namespace bfvr::input
 		}
 	}
 
+	void close_held_inputs()
+	{
+		const std::lock_guard guard(lock);
+		gate.close();
+		refresh();
+	}
+
 	void set_focus_release(bool enabled)
 	{
 		release_on = enabled;
