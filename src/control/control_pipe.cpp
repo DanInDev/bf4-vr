@@ -15,6 +15,7 @@
 
 #include "body/arm_pose.hpp"
 #include "body/pose_book.hpp"
+#include "weapon/zone_book.hpp"
 #include "body/soldier_radius.hpp"
 #include "physics/ray_cast.hpp"
 #include "weapon/wall_stop_game.hpp"
@@ -617,6 +618,7 @@ namespace bfvr::control
 				if (argument == "save") return body::pose_book::save();
 				return body::pose_grips_report() + "\n" + body::pose_book::report();
 			}
+			if (command == "zones") return weapon::zone_book::report(); // grab-zone tuning (setting zone_edit ...)
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));

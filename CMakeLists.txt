@@ -136,6 +136,8 @@ add_library(bfvr_runtime STATIC
 	src/body/finger_pose.cpp
 	src/body/pose_tweaks.cpp
 	src/body/pose_book.cpp
+	src/weapon/zone_tuning.cpp
+	src/weapon/zone_book.cpp
 	src/body/scene_blend.cpp
 	src/body/gun_recoil.cpp
 	src/body/torso.cpp
@@ -398,6 +400,9 @@ if(BFVR_BUILD_TESTS)
 	# The pose editor's tweaks and bfvr_poses.ini (src/body/pose_tweaks); exits non-zero on failure.
 	add_executable(bfvr_pose_tweaks_test tests/pose_tweaks_test.cpp src/body/pose_tweaks.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_pose_tweaks_test PRIVATE bfvr_common)
+	# Grab zones tuned per gun (src/weapon/zone_tuning, bfvr_zones.ini) and how reload_hands moves and sizes them.
+	add_executable(bfvr_zone_tuning_test tests/zone_tuning_test.cpp src/weapon/zone_tuning.cpp src/weapon/reload_hands.cpp src/weapon/reload.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp)
+	target_link_libraries(bfvr_zone_tuning_test PRIVATE bfvr_common)
 	# #70: the action aim timing (src/weapon/action_aim); exits non-zero on failure.
 	add_executable(bfvr_action_aim_test tests/action_aim_test.cpp src/weapon/action_aim.cpp)
 	target_link_libraries(bfvr_action_aim_test PRIVATE bfvr_common)
@@ -486,6 +491,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME haptics COMMAND bfvr_haptics_test)
 	add_test(NAME finger_pose COMMAND bfvr_finger_pose_test)
 	add_test(NAME pose_tweaks COMMAND bfvr_pose_tweaks_test)
+	add_test(NAME zone_tuning COMMAND bfvr_zone_tuning_test)
 	add_test(NAME action_aim COMMAND bfvr_action_aim_test)
 	add_test(NAME hand_rules COMMAND bfvr_hand_rules_test)
 	add_test(NAME scene_blend COMMAND bfvr_scene_blend_test)
