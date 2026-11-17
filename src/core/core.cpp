@@ -279,6 +279,7 @@ namespace bfvr::core
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			body::set_grenade_mesh(store.text("grenade", "physical") == "physical");
 			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
+			weapon::set_grenade_throw_aim(store.boolean("grenade_throw_aim", true));
 			weapon::set_two_handed(true);
 			weapon::set_two_hand_lock(true);
 			weapon::set_aim_convergence(store.real("aim_convergence", 25.0f));

@@ -117,6 +117,7 @@ namespace bfvr::settings
 			{ "accessory_toggle", "Weapon", "Reloading", "Laser, light, magnifier", "Off-hand trigger, or touch it", "trigger=Trigger|touch=Touch|off=Off" },
 			{ "grenade", "Weapon", "Grenades and gadgets", "Grenades", "From the belt by hand, or the button", "physical=By hand|button=Button" },
 			{ "grenade_throw_scale", "Weapon", "Grenades and gadgets", "Throw strength", "Launch speed times your hand speed", "" },
+			{ "grenade_throw_aim", "Weapon", "Grenades and gadgets", "Throws follow the hand", "Where your hand moves, not where the body faces", "" },
 			{ "action_aim", "Weapon", "Grenades and gadgets", "Actions where you look", "Squad order and melee by your head, C4 by your hand", "" },
 			{ "pin_volume", "Weapon", "Grenades and gadgets", "Pin pull volume", "0 silent, 1 full", "" },
 			{ "c4_trigger", "Weapon", "Grenades and gadgets", "C4 with the triggers", "Off hand throws, gun hand detonates", "" },

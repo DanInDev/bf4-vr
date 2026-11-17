@@ -1083,6 +1083,10 @@ namespace bfvr::weapon
 
 	bool action_aim_direction(float (&direction)[3])
 	{
+		if (grenade_throw_aim(direction))
+		{
+			return true; // #85: a grenade just thrown: the game's aim along it until the game has thrown it
+		}
 		const ULONGLONG now = GetTickCount64();
 		const bool c4 = now < c4_aim_until.load(std::memory_order_relaxed);
 		if (!c4 && !head_aim_now.load(std::memory_order_relaxed))
