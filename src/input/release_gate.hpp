@@ -22,6 +22,9 @@ namespace bfvr::input
 		// controllers_ours: the session is FOCUSED and the controller stream is alive.
 		gamepad_state apply(const gamepad_state& raw, bool controllers_ours);
 
+		// #73: close everything held now (a death): each input waits for a release, grips included.
+		void close();
+
 		// Inputs still closed after the controllers came back.
 		bool holding() const;
 		std::uint16_t closed_buttons() const { return buttons_; }

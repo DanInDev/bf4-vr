@@ -483,6 +483,9 @@ haptics_game = 1
 haptics_gestures = 1
 # #72: while a system menu (SteamVR dashboard, Quest menu) has the controllers the game gets an idle pad; afterwards a
 # trigger, grip, button or stick still pressed stays away from the game until it was let go once (no endless fire).
+# #73: when you die, a trigger, grip, button or stick still held waits for one release after the respawn (dying sometimes
+# left the gun firing). bfvr.log has a "death watch" line at each death and 3 s after the respawn.
+death_release = 1
 focus_release = 1
 # Also treat a frozen controller stream (both poses identical for 0.5 s; suspected for Steam Link while the Quest menu
 # is open, not yet seen) as a system menu. Off if triggers or sticks ever cut out for a moment in normal play.

@@ -51,6 +51,8 @@ namespace bfvr::ui
 			return settings::global().text("body_calibration", "first");
 		}
 
+		std::string asked_in_level; // the level the "always" prompt last came up in (#73)
+
 		void begin(ULONGLONG now, const char* why)
 		{
 			prompting = true;
@@ -103,7 +105,17 @@ namespace bfvr::ui
 		const bool loaded = safety::campaign_level_loaded();
 		if (loaded && !level_was_loaded && how != "off" && (how == "always" || settings::global().real("body_height", 0.0f) <= 0.0f))
 		{
-			begin(now, how == "always" ? "every level" : "not calibrated yet");
+			// #73: a checkpoint reload after a death is no new level: "always" asks once per level, not after each death.
+			const std::string level = safety::level_path();
+			if (how != "always" || level != asked_in_level)
+			{
+				begin(now, how == "always" ? "every level" : "not calibrated yet");
+				asked_in_level = level;
+			}
+			else
+			{
+				log::write("body calibration: %s reloaded (a death or a checkpoint restart): not asking again", level.c_str());
+			}
 		}
 		level_was_loaded = loaded;
 		if (settings::global().boolean("body_calibrate_now", false))

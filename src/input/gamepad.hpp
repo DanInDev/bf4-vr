@@ -29,4 +29,6 @@ namespace bfvr::input
 	// Pipe fakefocus lost|back|off: simulates the runtime taking the controllers (monitor test of #72).
 	std::string fake_focus(const std::string& argument);
 	std::string focus_release_report();
+	// #73: a death: every trigger, grip, button and stick held now waits for a release (setting death_release).
+	void close_held_inputs();
 }

@@ -217,6 +217,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/unlock_all.cpp
 	src/weapon/own_crate.cpp
 	src/weapon/pin_sound.cpp
+	src/weapon/death_watch.cpp
 	src/weapon/unlock_all_math.cpp
 	src/weapon/server_soldier.cpp
 	src/weapon/server_soldier_math.cpp
@@ -296,6 +297,8 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_mp_rules_test tests/mp_rules_test.cpp src/safety/mp_rules.cpp)
 	target_link_libraries(bfvr_mp_rules_test PRIVATE bfvr_common)
 	# The own crate's gun list and its settle-then-give watch (#80).
+	add_executable(bfvr_death_watch_test tests/death_watch_test.cpp src/weapon/death_watch.cpp src/input/release_gate.cpp)
+	target_link_libraries(bfvr_death_watch_test PRIVATE bfvr_common)
 	add_executable(bfvr_pin_sound_test tests/pin_sound_test.cpp src/weapon/pin_sound.cpp)
 	target_link_libraries(bfvr_pin_sound_test PRIVATE bfvr_common)
 	add_executable(bfvr_crate_guns_test tests/crate_guns_test.cpp)
@@ -442,6 +445,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME crate_guns COMMAND bfvr_crate_guns_test)
 	add_test(NAME pin_sound COMMAND bfvr_pin_sound_test)
+	add_test(NAME death_watch COMMAND bfvr_death_watch_test)
 	add_test(NAME release_gate COMMAND bfvr_release_gate_test)
 	add_test(NAME focus_release COMMAND bfvr_focus_release_test)
 	add_test(NAME mp_rules COMMAND bfvr_mp_rules_test)

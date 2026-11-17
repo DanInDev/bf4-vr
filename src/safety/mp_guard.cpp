@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <string>
 
 #include <MinHook.h>
@@ -103,6 +104,9 @@ namespace bfvr::safety
 		}
 #endif
 
+		std::mutex level_lock;
+		std::string level_path_now; // the last level path logged (unchanged by a reload after a death)
+
 		DWORD WINAPI guard_thread(LPVOID)
 		{
 			std::string last_path;
@@ -142,6 +146,8 @@ namespace bfvr::safety
 					{
 						log::write("safety: level %s (multiplayer flag %u)", level.path.c_str(), level.is_multiplayer);
 						last_path = level.path;
+						const std::lock_guard guard(level_lock);
+						level_path_now = level.path;
 					}
 					// Menus are allowed; joining a server loads a non-campaign level next.
 					if (kind == level_kind::forbidden)
@@ -190,5 +196,11 @@ namespace bfvr::safety
 	bool campaign_level_loaded()
 	{
 		return campaign_active;
+	}
+
+	std::string level_path()
+	{
+		const std::lock_guard guard(level_lock);
+		return level_path_now;
 	}
 }
