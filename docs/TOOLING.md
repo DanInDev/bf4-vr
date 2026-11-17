@@ -260,6 +260,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `tools/heap.py <hex qword>` | Live, read-only: every address in bf4's private heap holding that value (a full walk; pipe `scan` stops at 64 per region) |
 | `tools/unlock_census.py [--json f]` | Live: every `SoldierWeaponUnlockAsset` in memory (name, ids, flags) |
 | `tools/weapon_catalog_probe.py [--held] [--json f]` | Live: the 51 crate guns' magazine size and spares; `--held`: the spawned guns' firing data (reload type, fire modes, rof, reload and bolt times, zoom levels); `docs/tasks/all-weapons.md` |
+| `tools/catalog_sweep.py [--json f] [--only U_A,U_B] [--restore U_X]` | Live, own-crate build (#80): gives each of the 51 crate guns into slot 0 (`givegun`), reads its firing data and the reload kind the mod picked (waits up to 10 s for its `reload:` line); `--restore` gives a gun back at the end. Changes the player's primary gun. Result tables: `docs/weapons.md` (#81) |
 | `tools/slot_probe.py [--press <hex>]` | Live: weapon slots and names, the current slot; times a pad press until the slot changes |
 | `tools/sound_probe.py <reference\|buttons\|physical\|physical_ar\|grips\|stages>` | Live: records the playback device (`bfvr_audio_loopback`) while the pipe drives one step at a time; per step the sound onset and rise, clips in `re/dumps/sound/` (`re/notes/sound.md`) |
 | `tools/reload_sound_probe.py [--event <name> --name <part>]` | Live: the reload SoundEntity of every gun (pipe `scan`), and sends one entity event to one (pipe `entityevent`) |
