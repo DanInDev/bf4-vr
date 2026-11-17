@@ -372,8 +372,43 @@ the median, over every frame of the pull, of the hand moved forward by the bolt'
   cycle):** FY-JS, Scout, SV-98, M82A3. **Too loose or too few frames:** CBJ-MS, P90, AK 5C, AEK-971, CZ-805, QBZ-95-1,
   QBB-95-1, M39, SVD-12 (its animation matches the AK-12's exactly), SRR-61. These keep the variant's default point.
 - Dead end: requiring a closed pinch (thumb-index < 4.5 cm) dropped guns whose animation grabs with a wider hand.
-- Seen once, not reproduced: the mod's first-person skeleton read failed (`arms` skeleton=-) after a run of gives with
-  `reload = button` and `arm_ik = 0`; a fresh start, duplicate guns and those settings alone did not do it.
+- Seen twice: the mod's first-person skeleton read failed (`arms` skeleton=-, reload `points_valid=0`). Once after a run
+  of gives; on 2026-11-17 straight after a `dev-run -Resume` load, before any give: animatable+0x230 held no skeleton
+  (its "bone count" unreadable) and nothing in the component or animatable pointed at one. Loading the level again
+  (`dev-run -NoBuild -Resume`) fixed it.
+
+### Probe v2: raw frames, magazines, bolt actions (2026-11-17, monitor, Baku tunnel, ~10 fps)
+
+`handle_probe.py record` saves every changed frame (Wep_Slide, Wep_Mag, both hands' pinch) per gun to
+`re/dumps/gun_points/` (git-ignored); `analyse` re-reads them, `timeline --file <gun>.<event>` prints one. A hand
+"rides" a part only on frames where both moved > 8 mm since the last frame, the same way within 1.2 cm.
+
+- **Why the stricter test:** the game locks a hold-open gun's bolt back the moment `setammo 0` empties it, so on the
+  SCAR-H the bolt sat back for the whole magazine swap and v1's "hand within 15 cm while the bolt is back" took the
+  hand on the magazine (11 cm too low). The SCAR-H's empty reload ends with the left hand slapping the bolt release
+  beside the magwell (t = 1.9 s): no handle pull.
+- **`setammo 0` needs a fresh give:** on a gun that had been in hand for a while, nothing animated; right after
+  `givegun` it always did.
+- **Handles:** v2 reproduced the Hawk, Saiga, QBU-88, Ultimax, PDW-R and AK-12 points within 1 cm (JS2 3 cm) and
+  added CZ-805 (0.055, -0.009, 0.549) and M39 (-0.102, 0.013, 0.428). Bolt actions from one shot (`--event shot`,
+  pad RT): the game cycles the bolt with the **right** hand; knob SRS (-0.084, 0.116, 0.243), FY-JS (-0.097, 0.097,
+  0.345), Scout (-0.085, 0.116, 0.439); the SV-98's hand never moved with its bolt. Still the variant's default:
+  CBJ-MS, MX4, QBB-95-1 (hand spread 9-14 cm), P90, AK 5C, AEK-971, QBZ-95-1, SVD-12, SV-98, M82A3 and the
+  bolt-release guns.
+
+## Magazine grab points (2026-11-17, monitor, tools/handle_probe.py v2)
+
+The left hand's pinch while it moves with Wep_Mag on the magazine's first 25 cm out, as an offset from the seated
+Wep_Mag (Wep_Root axes, +x left). Taken for 24 guns (>= 4 frames within 6 cm, `magazine_grab_for` in `profiles.cpp`):
+long boxes 8-9 cm below (M4 family, AK 5C, G36C, UMP-45), most 4-6 cm, the bolt actions' short boxes 1-2 cm, the
+QBB's drum at its middle. The SCAR-H's hand is 3 cm to the left. Too few or loose frames (default 8 cm below):
+CBJ-MS, MX4, PP-2000, SAR-21 (no hand moved with it), P90, PDW-R, AUG, ACE 52 (2-3 frames), A-91, AEK-971, CZ-805,
+M82A3, USAS-12, Ultimax, Scorpion (spread 7-11 cm), SRS (4.9 cm but above the bone: doubtful).
+
+Way out (the magazine's first 3 cm, unit vector): straight down (-y) on the box guns; the AK pattern tips forward
+(AK-12 (0.17, -0.97, 0.17), Saiga (0.08, -0.9, 0.43), SG553 (0.03, -0.87, 0.49)); AUG (0.54, -0.83), QBU-88
+(0.53, -0.84), RFB (0.35, -0.93), SAR-21 (0.31, -0.94) swing out to the left; the P90 slides back off the top
+(0.07, 0.21, -0.98). Not used yet: the pull-out still follows the rail straight down (`lock_rail`).
 
 ## Sights and aiming down sights (2026-11-04, monitor: fakehead + fakehand, tools/sight_probe.py)
 

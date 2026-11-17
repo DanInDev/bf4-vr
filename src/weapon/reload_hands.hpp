@@ -53,6 +53,10 @@ namespace bfvr::weapon
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
 		v3 handle_point;
+		// Where this gun's magazine is grabbed, from the seated Wep_Mag in Wep_Root axes (weapon/profiles
+		// magazine_grab_for); otherwise magazine_grab_drop straight below it.
+		bool has_magazine_grab{};
+		v3 magazine_grab;
 		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
 		bool has_rack_shape{};
 		rack_zone_shape rack_shape;

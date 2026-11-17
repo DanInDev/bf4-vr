@@ -165,21 +165,35 @@ def steadiest_run(points, tolerance=0.02):
     return best
 
 
+def riding(frames, part, hand, near=0.15):
+    """Frames where the hand moves with the part: both moved > 8 mm since the last frame, the same way within 1.2 cm
+    (a hand resting near a held-open bolt, or a bolt released by a slap elsewhere, does not count)."""
+    out = []
+    for a, b in zip(frames, frames[1:]):
+        dp = [b[part][k] - a[part][k] for k in range(3)]
+        dh = [b[hand][k] - a[hand][k] for k in range(3)]
+        moved = math.sqrt(sum(c * c for c in dp)) > 0.008 and math.sqrt(sum(c * c for c in dh)) > 0.008
+        if moved and math.dist(dp, dh) < 0.012 and math.dist(b[hand], b[part]) < near:
+            out.append(b)
+    return out
+
+
 def analyse_handle(frames, hands):
     rest = frames[0]['slide']
     travel = [rest[2] - f['slide'][2] for f in frames]
     best = None
     for hand in hands:
-        riding = [(f[hand][0], f[hand][1], f[hand][2] + tr) for f, tr in zip(frames, travel)
-                  if tr > 0.01 and math.dist(f[hand], f['slide']) < 0.15]
-        run = steadiest_run(riding)
-        if len(run) >= 3 and (best is None or len(run) > len(best[1])):
-            best = (hand, run)
+        moving = riding(frames, 'slide', hand)
+        points = [(f[hand][0], f[hand][1], f[hand][2] + (rest[2] - f['slide'][2])) for f in moving]
+        if len(points) >= 2 and (best is None or len(points) > len(best[1])):
+            best = (hand, points)
     if not best:
         return {'max_travel': round(max(travel), 3), 'result': 'no pull' if max(travel) < 0.02 else 'bolt moved, no hand riding it'}
-    hand, run = best
-    point = [round(median([p[k] for p in run]), 3) for k in range(3)]
-    return {'max_travel': round(max(travel), 3), 'result': 'pull', 'hand': hand, 'frames': len(run), 'point': point}
+    hand, points = best
+    point = [round(median([p[k] for p in points]), 3) for k in range(3)]
+    spread = max(math.dist(p, point) for p in points)
+    return {'max_travel': round(max(travel), 3), 'result': 'pull', 'hand': hand, 'frames': len(points), 'point': point,
+            'spread_cm': round(spread * 100, 1)}
 
 
 def analyse_magazine(frames):
@@ -193,12 +207,13 @@ def analyse_magazine(frames):
     d = [frames[first]['mag'][k] - rest[k] for k in range(3)]
     n = math.sqrt(sum(c * c for c in d))
     out['way_out'] = [round(c / n, 2) for c in d]
-    offsets = [tuple(f['left'][k] - f['mag'][k] for k in range(3)) for f, m in zip(frames, moved)
-               if 0.005 < m < 0.25 and math.dist(f['left'], f['mag']) < 0.20]
-    run = steadiest_run(offsets)
-    if len(run) >= 3:
-        out['grab_offset'] = [round(median([p[k] for p in run]), 3) for k in range(3)]
-        out['grab_frames'] = len(run)
+    # The grab: the hand moving with the magazine on its first 25 cm out (before it is thrown or pocketed).
+    early = [f for f, m in zip(frames, moved) if m < 0.25]
+    offsets = [tuple(f['left'][k] - f['mag'][k] for k in range(3)) for f in riding(early, 'mag', 'left', near=0.20)]
+    if len(offsets) >= 2:
+        out['grab_offset'] = [round(median([p[k] for p in offsets]), 3) for k in range(3)]
+        out['grab_frames'] = len(offsets)
+        out['grab_spread_cm'] = round(max(math.dist(p, out['grab_offset']) for p in offsets) * 100, 1)
         out['result'] = 'held'
     else:
         out['result'] = 'moved, no hand riding it'
@@ -207,15 +222,25 @@ def analyse_magazine(frames):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('mode', choices=['record', 'analyse'])
+    parser.add_argument('mode', choices=['record', 'analyse', 'timeline'])
     parser.add_argument('--guns', help='comma-separated debug ids (given into slot 0); default: the gun in hand')
     parser.add_argument('--event', choices=['empty', 'shot'], default='empty')
     parser.add_argument('--seconds', type=float, default=7.0)
     parser.add_argument('--out', default=DEFAULT_OUT)
     parser.add_argument('--json')
     parser.add_argument('--restore', help='debug id to give back into slot 0 at the end')
+    parser.add_argument('--file', help='timeline: one recording, e.g. U_SCAR-H.empty')
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
+    if args.mode == 'timeline':
+        with open(os.path.join(args.out, args.file + '.json')) as fh:
+            frames = json.load(fh)['frames']
+        rest = frames[0]
+        for f in frames:
+            print(f"{f['t']:5.2f} travel={rest['slide'][2] - f['slide'][2]:6.3f} mag={math.dist(f['mag'], rest['mag']):5.3f}"
+                  f" L={[round(c, 3) for c in f['left']]} Lsp={f['left_spread']:.3f} L-slide={math.dist(f['left'], f['slide']):.3f}"
+                  f" R={[round(c, 3) for c in f['right']]} R-slide={math.dist(f['right'], f['slide']):.3f}")
+        return
     if args.mode == 'record':
         try:
             command('setting set reload button')

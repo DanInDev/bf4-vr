@@ -243,7 +243,8 @@ namespace bfvr::weapon
 			have_last_ = false;
 			palm_velocity_ = magwell_velocity_ = {};
 		}
-		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, { 0, -config_.magazine_grab_drop, 0 }) : frame.magwell;
+		const v3 grab_offset = frame.has_magazine_grab ? frame.magazine_grab : v3{ 0, -config_.magazine_grab_drop, 0 };
+		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, grab_offset) : frame.magwell;
 		const bool on_handguard = frame.has_root && dot(reach - frame.magwell, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
 		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
 		const float to_chest = !valid ? 1e9f : frame.has_chest_hip ? segment_distance(reach, frame.chest, frame.chest_hip) : distance(reach, frame.chest);

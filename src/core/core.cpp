@@ -209,6 +209,7 @@ namespace bfvr::core
 			input::set_sprint_steer(store.boolean("sprint_steer", true));
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));
+			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(true);
 			weapon::set_magazine_snapping(true);

@@ -17,6 +17,8 @@ namespace bfvr::weapon
 	// Setting physical_reload_all: 0 = tube, belt and revolver guns use the game's reload (weapon/gun_traits), 1 = the
 	// AR/AK magazine reload for every gun as before.
 	void set_physical_reload_all(bool on);
+	// Setting gun_points: each gun's measured handle and magazine grab point (weapon/profiles); off: the variant's.
+	void set_gun_points(bool on);
 	void set_drop_discards_ammo(bool discard);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.

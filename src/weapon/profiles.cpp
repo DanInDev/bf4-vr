@@ -41,12 +41,67 @@ namespace bfvr::weapon
 			{ "U_Ultimax", { 0.047f, 0.042f, 0.465f } },
 			{ "U_QBU88", { -0.104f, 0.013f, 0.319f } },
 			{ "U_RFB_SP", { 0.026f, -0.002f, 0.534f } },
+			// handle_probe v2 (same day): only frames where the hand moves with the bolt. It reproduced the Hawk, Saiga,
+			// QBU-88, Ultimax, PDW-R and AK-12 points above within 1 cm and added these.
+			{ "U_CZ805", { 0.055f, -0.009f, 0.549f } },
+			{ "U_M39EBR", { -0.102f, 0.013f, 0.428f } }, // the M14's operating rod handle, on the right
+			// Bolt actions, from a shot (the game cycles the bolt with the right hand): the bolt knob, on the right.
+			{ "U_SRS", { -0.084f, 0.116f, 0.243f } },
+			{ "U_FY-JS", { -0.097f, 0.097f, 0.345f } },
+			{ "U_Scout", { -0.085f, 0.116f, 0.439f } },
 		};
 		for (const measured& gun : table)
 		{
 			if (gun.name == unlock_name)
 			{
 				std::copy(std::begin(gun.point), std::end(gun.point), point);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3])
+	{
+		struct measured
+		{
+			std::string_view name;
+			float offset[3];
+		};
+		// tools/handle_probe.py, 2026-11-17: the game's left hand (thumb-index pinch) on the magazine while it moves with
+		// it in the empty reload, relative to Wep_Mag (re/notes/weapon.md "Magazine grab points"). Taken: >= 4 such frames
+		// within 6 cm; the rest keep magazine_grab_drop (8 cm straight below).
+		static constexpr measured table[] = {
+			{ "U_JS2", { -0.010f, -0.063f, -0.001f } },
+			{ "U_UMP45", { -0.009f, -0.087f, 0.036f } },
+			{ "U_HAWK", { -0.011f, -0.055f, -0.007f } },
+			{ "U_SAIGA_20K", { -0.015f, -0.052f, 0.011f } },
+			{ "U_AK5C", { 0.010f, -0.093f, 0.049f } },
+			{ "U_G36C", { 0.009f, -0.081f, -0.011f } },
+			{ "U_M4A1", { -0.008f, -0.088f, 0.016f } },
+			{ "U_SG553LB", { 0.021f, -0.059f, 0.024f } },
+			{ "U_AK12", { -0.016f, -0.041f, 0.039f } },
+			{ "U_FAMAS", { 0.000f, -0.037f, 0.004f } },
+			{ "U_M16A4", { -0.004f, -0.088f, 0.013f } },
+			{ "U_M416", { -0.011f, -0.090f, 0.012f } },
+			{ "U_QBZ951", { 0.013f, -0.043f, -0.015f } },
+			{ "U_SCAR-H", { 0.032f, -0.052f, 0.022f } },
+			{ "U_QBB95", { -0.003f, -0.001f, -0.025f } }, // the drum, taken at its middle
+			{ "U_MK11", { 0.027f, -0.029f, -0.048f } },
+			{ "U_M39EBR", { 0.005f, -0.065f, -0.012f } },
+			{ "U_QBU88", { 0.000f, -0.037f, -0.006f } },
+			{ "U_RFB_SP", { 0.007f, -0.015f, -0.023f } },
+			{ "U_SCAR-HSV", { 0.033f, -0.052f, 0.021f } },
+			{ "U_SVD12", { -0.012f, -0.040f, 0.040f } },
+			{ "U_FY-JS", { 0.018f, -0.022f, 0.038f } },
+			{ "U_Scout", { 0.014f, -0.013f, 0.048f } },
+			{ "U_SV98", { 0.007f, -0.017f, 0.062f } },
+		};
+		for (const measured& gun : table)
+		{
+			if (gun.name == unlock_name)
+			{
+				std::copy(std::begin(gun.offset), std::end(gun.offset), offset);
 				return true;
 			}
 		}
