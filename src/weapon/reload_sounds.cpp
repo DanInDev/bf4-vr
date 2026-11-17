@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "common/config.hpp"
+#include "weapon/pin_sound.hpp"
 
 namespace bfvr::weapon
 {
@@ -22,6 +23,11 @@ namespace bfvr::weapon
 		constexpr float pi = 3.14159265f;
 
 		std::atomic<bool> enabled{ true };
+		std::atomic<float> pin_volume{ 0.35f };
+		// PlaySound reads an SND_MEMORY wave while it plays, so a volume change makes a new buffer; old ones are kept.
+		std::mutex pin_lock;
+		std::vector<std::vector<std::uint8_t>> pin_waves;
+		float pin_wave_volume{ -1.0f };
 		std::once_flag built;
 		constexpr int cue_count = static_cast<int>(cue::count);
 		std::vector<std::uint8_t> waves[cue_count];
@@ -119,13 +125,7 @@ namespace bfvr::weapon
 			tick(chamber, 0.0f, 1700.0f, 0.5f, 41);
 			rustle(chamber, 0.02f, 0.16f, 0.35f, 0.6f, 42); // the bolt sliding back
 			tick(chamber, 0.22f, 2300.0f, 0.85f, 43);       // and slamming home
-			std::vector<float> pin(static_cast<std::size_t>(rate * 0.25f));
-			for (std::size_t i = 0; i < pin.size(); ++i)
-			{
-				const float t = static_cast<float>(i) / rate;
-				pin[i] = 0.4f * std::exp(-t * 18.0f) * std::sin(2.0f * pi * 3800.0f * t);
-			}
-			tick(pin, 0.0f, 3000.0f, 0.4f, 51);
+			const std::vector<float> pin = pin_samples(rate, 1.0f); // played scaled by pin_volume (#82)
 			// The rack in two parts, for a stroke held at the rear: the slide back and its stop, then home.
 			std::vector<float> back(static_cast<std::size_t>(rate * 0.20f));
 			tick(back, 0.0f, 1700.0f, 0.4f, 41);
@@ -153,6 +153,11 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
+	void set_pin_volume(float volume)
+	{
+		pin_volume = std::fmax(0.0f, std::fmin(1.0f, volume));
+	}
+
 	void play(cue which)
 	{
 		if (!enabled.load(std::memory_order_relaxed))
@@ -173,6 +178,22 @@ namespace bfvr::weapon
 		if (which == cue::bolt_back)
 		{
 			return; // the synthesised rear stop sounded fake (headset, 2026-11-03): only a supplied WAV plays
+		}
+		if (which == cue::pin)
+		{
+			const float volume = pin_volume.load(std::memory_order_relaxed);
+			if (volume <= 0.0f)
+			{
+				return;
+			}
+			const std::lock_guard guard(pin_lock);
+			if (volume != pin_wave_volume)
+			{
+				pin_waves.push_back(to_wave(pin_samples(rate, volume)));
+				pin_wave_volume = volume;
+			}
+			PlaySoundW(reinterpret_cast<LPCWSTR>(pin_waves.back().data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+			return;
 		}
 		PlaySoundW(reinterpret_cast<LPCWSTR>(waves[index].data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
 	}

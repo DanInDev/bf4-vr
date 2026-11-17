@@ -225,6 +225,7 @@ namespace bfvr::core
 			weapon::set_holsters(true);
 			weapon::set_grab_debug(store.boolean("grab_debug", false));
 			weapon::set_sounds(store.boolean("reload_sounds", true));
+			weapon::set_pin_volume(store.real("pin_volume", 0.35f));
 			hooks::set_physical_pad(store.boolean("physical_pad", true));
 			xr::set_trigger_press(store.real("trigger_press", 0.55f));
 			input::set_game_buttons(store.boolean("grips_to_game", false), store.boolean("ads_trigger", false), store.boolean("x_menu", true));

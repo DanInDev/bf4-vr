@@ -324,6 +324,8 @@ x_menu = 1
 # (cloth, magazine_in, magazine_out, chamber, pin .wav). For assault rifles the game's own magazine and
 # bolt sounds play where they are found (#30).
 reload_sounds = 1
+# #82: loudness of the grenade pin pull (0 silent .. 1 full); a bfvr_sounds\pin.wav still replaces the sound.
+pin_volume = 0.35
 grenade_throw_scale = 1.5
 # Research only (Advanced page): aim = head lets the view aim the gun (the game's own way) and
 # gun_pose = animated draws the game's hip pose turned by the controller; tools/sight_probe.py needs
