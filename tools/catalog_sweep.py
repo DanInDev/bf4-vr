@@ -64,7 +64,13 @@ def sweep_one(gun):
         row.update(firing_data(q(weapon + 0x30)))
     except RuntimeError as error:
         row['error'] = str(error)
-    match = re.search(r'reload: ' + re.escape(gun) + r' slot 0 (\w+), capacity (\d+)', log_tail(start))
+    # The mod's reload line can come late (the MP412 Rex's after 2 s): wait up to 10 s for it.
+    pattern = r'reload: ' + re.escape(gun) + r' slot 0 (\w+), capacity (\d+)'
+    match = re.search(pattern, log_tail(start))
+    waited = time.time() + 10
+    while not match and time.time() < waited:
+        time.sleep(0.5)
+        match = re.search(pattern, log_tail(start))
     row['mod_kind'] = match.group(1) if match else None
     row['mod_capacity'] = int(match.group(2)) if match else None
     return row

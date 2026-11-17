@@ -2,11 +2,11 @@
 
 Measured 2026-11-17 by `tools/catalog_sweep.py` (own crate #80: each gun given into slot 0 in the Baku tunnel, its spawned
 firing data read, `re/dumps/catalog_sweep.json` kept out of git). "Mod" is the reload kind physical reload chose for it
-(`weapon/profiles.cpp`, from bfvr.log); today only AR and AK exist. Families as in `docs/tasks/all-weapons.md`.
+(`weapon/profiles.cpp`, from bfvr.log): AR for 48 guns, AK for 3; today only these two exist. Families as in `docs/tasks/all-weapons.md`.
 
 | Gun | Unlock | Magazine (game: rounds incl. chamber x spare) | Game reload | Fire logic / modes | RoF | Reload s (tactical/empty) | Bolt s | Family (from the data) | Mod today |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MP412 Rex | `U_MP412Rex` | 6x4 | magazine | single | 180 | -/3.4 | 1.0 | J revolver | ? |
+| MP412 Rex | `U_MP412Rex` | 6x4 | magazine | single | 180 | -/3.4 | 1.0 | J revolver | AR (re-read: the line came after the first run's 2 s window) |
 | CBJ-MS | `U_CBJ-MS` | 51x3 | magazine+short | auto, single | 700 | 2.4/3.3 | 1.0 | box magazine (A-E, by gun) | AR |
 | CZ-3A1 | `U_Scorpion` | 31x5 | magazine+short | auto, single, burst | 1000 | 1.9/3.0 | 1.0 | box magazine (A-E, by gun) | AR |
 | JS2 | `U_JS2` | 31x5 | magazine+short | auto, single, burst | 900 | 2.45/3.15 | 1.0 | box magazine (A-E, by gun) | AR |
@@ -69,6 +69,6 @@ firing data read, `re/dumps/catalog_sweep.json` kept out of git). "Mod" is the r
 - **Revolver: MP412 Rex**, 6 rounds, game reload 3.4 s, fire logic single: AR kind today (family J).
 - **AK kind only for AK-12, AEK-971, SVD-12.** The other rock-in guns (A-91, ACE 52, Saiga 12K: `U_SAIGA_20K`, the
   known list bug) get the AR kind.
-- The other 30 guns are box magazines with a tactical/empty reload pair (game `magazine+short`) and fit the existing
+- The other 35 guns are box magazines with a tactical/empty reload pair (game `magazine+short`) and fit the existing
   AR/AK state machine once each gun's release, hold-open and handle are set (families A-E).
 - Burst-first guns: M4 and M16A4 start in burst. Not read: bones, handle points, sights (step 2 of the method).
