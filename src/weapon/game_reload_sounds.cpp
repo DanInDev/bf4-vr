@@ -30,6 +30,7 @@ namespace bfvr::weapon
 			return 2;
 		case reload_event::chambered:
 		case reload_event::racked_empty:
+		case reload_event::racked_locked:
 		case reload_event::round_ejected:
 			cues[0] = { reload_sound::bolt, 0 };
 			return 1;

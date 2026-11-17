@@ -47,7 +47,7 @@ namespace bfvr::weapon
 		none,             // the event did nothing in this state
 		shot,
 		dry_fire,         // trigger on an empty chamber
-		bolt_locked,      // AR: the last round went (or a rack found the magazine empty), bolt held open
+		bolt_locked,      // AR: the last round went, the follower keeps the bolt open (no sound)
 		magazine_out,     // into the off hand
 		magazine_dropped, // fell through the floor (AR release without the hand on it, or let go)
 		magazine_stowed,  // back at the chest, rounds to the reserve
@@ -58,7 +58,13 @@ namespace bfvr::weapon
 		racked_empty,     // rack without a round to feed
 		round_ejected,    // rack with a round in the chamber: that round is lost (state() shows what was fed)
 		magazine_palmed,  // AR palming: the seated magazine released into the hand that holds the new one
+		racked_locked,    // AR: a rack on an empty magazine, the follower holds the bolt open (#78: sounds like the bolt)
 	};
+
+	// #78: the seated magazine left the gun (was_in, now out) and no magazine-out cue played for it this frame (a pull
+	// into the hand, a flick or palming already sound): the release dropped it, which must still sound. Independent of
+	// a magazine in the hand (the usual empty reload holds the new one while the old one drops).
+	bool release_needs_out_cue(bool was_in, bool is_in, bool out_cue_played);
 
 	struct gun_state
 	{
