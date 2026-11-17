@@ -50,14 +50,6 @@ SCENARIOS = {
         ('switch weapon (Y)', [pad(Y)], 3.0),
         ('switch back (Y)', [pad(Y)], 3.0),
     ],
-    # The game's weapon-switch cloth, the source of the mod's cloth cue (tools/cue_wav.py). BF4 must be in front:
-    # switches do not happen behind other windows.
-    'switch': [
-        ('switch weapon (Y)', [pad(Y)], 3.0),
-        ('switch back (Y)', [pad(Y)], 3.0),
-        ('switch again (Y)', [pad(Y)], 3.0),
-        ('switch back again (Y)', [pad(Y)], 3.0),
-    ],
     # Buttons a hand can press by accident while reloading. LB (the quick-throw grenade) is left out:
     # it throws a live grenade.
     'buttons': [
@@ -197,6 +189,9 @@ VERIFY = {
     'U_M249': 'lidopen,belttake,beltlay,lidclose',
     'U_MP412Rex': 'fire,button,take,insert,lidclose',
     'U_Scout': 'fire,rearstop,rack',
+    'U_AK12': 'rearstop,rack,rearstop',  # the rear stop from the game's files (tools/game_cues.py)
+    'U_SCAR-H': 'rearstop,rack',
+    'U_M416': 'rearstop,rack',  # the G36C's
     'U_UTAS': 'fire,rack,take,insert',
 }
 

@@ -202,55 +202,64 @@ M320, GP-30 and M26 sets).
   Silent though present in the patch, so left to the synthesised cue: the pump's and Reload_5's settle on taking a
   shell; the Scout's `9FA31A86` as a rear stop (it sounds alone, not there).
 
-## Borrowed cues (2026-11-17, owner: "reuse the sound of racking the bolt on another gun")
+## Game files (2026-11-17, owner: "find game sounds")
 
-- **Another gun's set cannot be sent to:** a gun's reload SoundEntity exists only while that gun (or a soldier with it)
-  is in the level; besides the gun in hand the checkpoint has only the AK-12, SCAR-H, M4A1, M320, GP-30 and M26 sets.
-  So a borrowed sound is a WAV cut from a recording of the game's own sound: `tools/cue_wav.py make <cue>` writes
-  `bfvr_sounds\<cue>.wav` beside bfvr.ini (local, never in git), which `weapon/reload_sounds` plays instead of the
-  synthesised cue (log `reload sounds: ... replaces the synthesised ...`; `cue_wav.py list` shows what is installed).
-- The recordings are not clean: the checkpoint's ambience and music sit only ~17-20 dB under a reload sound. The tool
-  cuts around the sound's peak and gates the ambience out per frequency (noise profile from the clip's quiet part).
-- **Rear stop of a rack** (every AR-patch gun, the bolt-action snipers, the LMGs): the AR patch has no rear-stop event,
-  and the synthesised `bolt_back` was switched off as fake on 2026-11-03 (only a WAV plays), so **that step was silent
-  until now**, felt only. `bolt_back.wav` = the Scout's bolt part `526FE9C4` (one knock, 0.11 s, peak -31 dBFS like
-  the game's own reload sounds in the same recordings). Other candidates cut the same way: `703E0E38` (stages-03, the
-  louder second knock), `AF4D8F3A` (stages-00) and `9FA31A86` (stages-05; both 0.15 s, several clicks). Pump guns keep
-  their own `71B0C476`.
-- **Shell or belt from the pouch** (pump shotguns, UTAS, LMG belt; the grenade pouch on those guns): their patches' own
-  settle event is silent, so the synthesised rustle plays (the grenade pouch nothing). Wanted: the weapon switch's cloth
-  as `cloth.wav`. Needs a recording with BF4 in front (switches do not happen behind other windows):
-  `sound_probe.py switch --out re\dumps\sound\switch`, then `cue_wav.py make cloth`. Not recorded yet (owner: not now).
-  With it, the grenade pouch on those guns plays it too (`has_file(cue::cloth)`).
+- **The game's waves, decoded from its own data, nothing recorded.** `tools/gamesounds` is the Great Destroyer's BF3
+  reader (cas.cat, toc/sb, EBX, EA-XAS), changed for BF4 (credit in its header): BF4 tocs are version `00 D1 CE 03`
+  with a signed 0x22C header and a plain body; payloads come in blocks of type 0x0070/0x0071 (plain) and 0x0970 (LZ4);
+  audio chunks are block-wrapped too; the EBX header has u16 counts and 4-byte instance repeaters (complex, count), only
+  the first `numGUIDRepeater` repeaters' instances carry a GUID, and a 4-aligned instance's field offsets are 8 lower
+  than declared, base classes included (a base field adds no offset); a SoundWaveAsset's takes are `RuntimeVariations`
+  structs indexing one `Segments` list; the weapon foley is codec 2 (16-bit big-endian PCM, `48 00 00 0c` header block
+  `12 00 bb 80` = version 1, codec 2, mono, 48 kHz), other sounds EA-XAS v1 (codec 4).
+- Checked: the AK-12's decoded `Reload_1P_AK12_Bolt/Magin/Magout` correlate 0.89 / 0.84 / 0.92 with a recording of the
+  game playing those events, at -18 / -25 / -24 dB: the game plays them that far under full scale (the cues use -18).
+- **BF4 names one wave per reload step** (`sound/weapons/reload_1p/reload_1p_<gun>_<step>_wave`, 271 of them): `bolt`,
+  `magin`, `magout`, `grab` for most guns; `boltback` / `boltforward` for the bolt-action snipers; `openlid` /
+  `closelid` (M249, PKP), `closelid` (M240, MG4, Type 88, LSAT); `insertfirstshell` / `insertshell` (870, M1014,
+  QBS-09, SPAS-12, UTAS left/right); `m320_opentube` / `grenadein` / `grenadeout`; `mp412_close_chamber`; `ump_boltopen`
+  / `boltclose`. Shared handling: `shared_content/handling/generic_deploy_wave` (9 takes, the weapon switch's cloth),
+  `pistol_deploy`, `deploy/pickupweapon`; the grenade's `handheld/m67/m67_remove_safety_pin_wave` (#66).
+- A gun's `bolt` wave holds the whole rack: the handle reaching the back, then (louder) the bolt slamming home; the AK-12
+  0.09 s then 0.26 s, the SCAR-H 0.07 / 0.16, the M249 0.23 / 0.32. The M16 (and M4A1), M416, AUG, SG553, RFB, JS2,
+  CBJ-MS and AK 5C waves start at the release: no rear stop of their own.
+- `tools/game_cues.py` decodes them into `re/dumps/gamesounds` (git-ignored) and installs the cues into `bfvr_sounds`:
+  per gun (`bfvr_sounds\<sound folder>\bolt_back.wav`, the folder the mod reads from the firing sound) the knock before
+  the slam, the snipers' own `boltback`, the G36C's knock for the ten without one (the Great Destroyer's owner chose the
+  G36C's pull for the BF3 M16/M4/M416 too) and as the default for any other gun; `cloth.wav` = generic_deploy take 0
+  (a shell, a belt or a grenade from the pouch on guns whose set has no pouch foley); `pin.wav` = the M67's pin;
+  `M320\magazine_out.wav` / `magazine_in.wav` = its tube opening / a grenade in. The pump shotguns keep their own pump
+  event at the rear stop. Log: `reload sounds: ... replaces bolt_back for AK12`.
+- Replaced the same day's first try, a rear stop cut from a loopback recording of the Scout's set (the level's ambience
+  only ~17-20 dB under it; the BF3 mod's owner had rejected recorded sounds for that reason).
 
 ## What still is not the gun's own sound (2026-11-17)
 
 | Step | Guns | Plays now | Why |
 | --- | --- | --- | --- |
-| Rear stop of a rack | AR-patch guns, bolt snipers, LMGs | the Scout's bolt part (WAV) | no such event in their patches |
-| Shell / belt from the pouch | 870, M1014, QBS-09, SPAS-12, UTAS; LMG belt take and drop | synthesised rustle (switch cloth once recorded) | the patches' settle is silent |
+| Rear stop of a rack | M16A4, M4A1, M416, AUG, SG553, RFB, JS2, CBJ-MS, AK 5C | the G36C's knock | their bolt wave starts at the release |
+| Shell / belt / grenade from the pouch | 870, M1014, QBS-09, SPAS-12, UTAS; LMG belt | the game's weapon-switch cloth (not the gun's) | the patches' settle is silent |
 | Belt laid on the tray | LMGs | the gun's magazine seat (weak match, 0.76) | no belt event placed |
-| Everything | SVD-12 | synthesised | no reload set found in folder `SVD12` |
-| M320 underslung | all guns with it | synthesised | its set (`Weapon_GL_M320_Underslung_Reload_SPC`, Reload_5) is loaded but not mapped |
-| Grenade pin | all | synthesised (`pin_volume`) | the pin wave rides on the grenade's animation (#66) |
+| Everything | SVD-12 | synthesised | no reload set and no `reload_1p` wave of its own |
+| M320 closed, round out | M320 | synthesised | no close wave; `grenadeout` not wired |
 | Revolver: cases out, speedloader dropped | REX | nothing | not modelled yet |
-| Unmatched events | Shotgun `34B596D0`, LMG `713E602E` `785225CF` `0D1F860C` `7FF802C6`, Scout `AF4D8F3A` `526FE9C4` `703E0E38`, REX `257F2678`, UTAS five | | no step uses them |
 
-Two ways on: **find more of the game's own** (map the M320's Reload_5 set and the LMG's four unmatched events the same
-way, record the switch cloth, search the SVD-12's folder by its firing sound in a level that spawns it, or decode the
-waves from the game's data instead of recording them, as the BF3 mod does) or **own sounds** (any WAV dropped into
-`bfvr_sounds` replaces a cue today: recorded foley or a CC0 pack; never committed if it is game audio).
+Checked in the game (2026-11-17, Prologue, `sound_probe.py verify` / `pin`, rise over the quiet before): rear stop AK-12
++28 dB (its game rack +30; the played cue correlates 0.89 with the file at +0.3 dB), SCAR-H +20, M416 (the G36C's) +11,
+Scout +32; the 870's shell from the pouch +21 (cloth); the pin +15. The log names each gun's file (`replaces bolt_back
+for AK12`). The pin WAV is not scaled by `pin_volume`; 0 still silences it. Not judged: how they sit in the mix by ear.
 
 ## Open
 
-- Other reload patches (shotguns, LMGs with belts, snipers, pistols) have their own events; only the
-  AR patch is mapped. Map them the same way (`sound_probe.py stages --weapon <name>` plus a recording
-  of that gun's own reload) when their reload variants exist.
 - The sound plays from the entity's own transform (the gun), so it is positioned like the game's.
 - LB (off-hand grip) is the quick-throw grenade outside the reload zones (8 cm magwell, 20 cm chest):
   a grab that misses a zone throws a grenade. Not seen as a sound problem; keep in mind.
 
 ## Grenade sounds (2026-11-14, owner: "a synthesised pin sound, not the grenade's own")
+
+- **2026-11-17: done through the game files** (section "Game files"): `tools/game_cues.py` decodes
+  `M67_Remove_Safety_Pin_Wave` and installs it as `bfvr_sounds\pin.wav`, which replaces the synthesised pin (#66).
+  The live-entity routes below are no longer needed.
 
 - Loaded in the Baku level (pipe `scan` for `Weapons/Handheld/M67`): waves
   `Sound/Weapons/Handheld/M67/M67_Remove_Safety_Pin_Wave`, `M67_Deploy_Wave`, `M67_Throw_Wave` and an

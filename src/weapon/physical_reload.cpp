@@ -269,8 +269,17 @@ namespace bfvr::weapon
 			return "?";
 		}
 
+		// The gun in hand's sound folder ("AK12", "M320"): its own cues cut from the game's files are in
+		// bfvr_sounds\<folder> (tools/game_cues.py), e.g. its rear stop.
+		char gun_folder[64]{};
+
+		void play_gun(cue which)
+		{
+			play(which, gun_folder);
+		}
+
 		// The game's own reload sound for this gun where its reload entity is known
-		// (weapon/game_reload_sounds), else the synthesised cue (weapon/reload_sounds).
+		// (weapon/game_reload_sounds), else the gun's own cue from the game's files or the synthesised one (weapon/reload_sounds).
 		void sound_for(reload_event event)
 		{
 			if (play_game_reload_sound(event))
@@ -280,21 +289,21 @@ namespace bfvr::weapon
 			switch (event)
 			{
 			case reload_event::magazine_taken:
-			case reload_event::magazine_stowed: play(cue::cloth); break;
+			case reload_event::magazine_stowed: play_gun(cue::cloth); break;
 			case reload_event::magazine_in:
 			case reload_event::shell_loaded:
-			case reload_event::belt_laid: play(cue::magazine_in); break;
-			case reload_event::lid_opened: play(cue::magazine_out); break;
-			case reload_event::lid_closed: play(cue::chamber); break;
+			case reload_event::belt_laid: play_gun(cue::magazine_in); break;
+			case reload_event::lid_opened: play_gun(cue::magazine_out); break;
+			case reload_event::lid_closed: play_gun(cue::chamber); break;
 			case reload_event::belt_taken:
-			case reload_event::belt_dropped: play(cue::cloth); break;
+			case reload_event::belt_dropped: play_gun(cue::cloth); break;
 			case reload_event::magazine_out:
 			case reload_event::flicked_out:
-			case reload_event::magazine_palmed: play(cue::magazine_out); break;
+			case reload_event::magazine_palmed: play_gun(cue::magazine_out); break;
 			case reload_event::chambered:
 			case reload_event::round_ejected:
 			case reload_event::racked_empty:
-			case reload_event::racked_locked: play(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
+			case reload_event::racked_locked: play_gun(bolt_at_rear ? cue::bolt_home : cue::chamber); break;
 			default: break;
 			}
 		}
@@ -548,7 +557,7 @@ namespace bfvr::weapon
 			switch (event)
 			{
 			case launcher_event::opened:
-				play(cue::magazine_out);
+				play_gun(cue::magazine_out);
 				input::haptic(1, input::pulses::click);
 				break;
 			case launcher_event::case_out:
@@ -558,19 +567,19 @@ namespace bfvr::weapon
 				break;
 			case launcher_event::round_taken:
 			case launcher_event::round_out:
-				play(cue::cloth);
+				play_gun(cue::cloth);
 				input::haptic(0, input::pulses::grab);
 				break;
 			case launcher_event::round_stowed:
-				play(cue::cloth);
+				play_gun(cue::cloth);
 				input::haptic(0, input::pulses::tick);
 				break;
 			case launcher_event::round_seated:
-				play(cue::magazine_in);
+				play_gun(cue::magazine_in);
 				input::haptic(0, input::pulses::seat);
 				break;
 			case launcher_event::closed:
-				play(cue::chamber);
+				play_gun(cue::chamber);
 				input::haptic(0, input::pulses::seat);
 				input::haptic(1, input::pulses::grab);
 				break;
@@ -979,6 +988,7 @@ namespace bfvr::weapon
 			current_slot = weapon.slot;
 		}
 		game_reload_sounds_weapon(weapon.name, weapon.sound_folder.c_str());
+		strncpy_s(gun_folder, weapon.sound_folder.c_str(), _TRUNCATE);
 		slot_memory& memory = found->second;
 		if (weapon.launcher)
 		{
@@ -1128,9 +1138,9 @@ namespace bfvr::weapon
 		{
 			// The stroke is long enough: the rear stop is felt and heard before the release (Overlord
 			// plays its chamber recordings in two parts the same way).
-			if (!play_game_rear_stop()) // the pump's or the bolt's own sound where the gun's patch has one
+			if (!play_game_rear_stop()) // the pump's own event where the gun's patch has one, else its cut from the game's files
 			{
-				play(cue::bolt_back);
+				play_gun(cue::bolt_back);
 			}
 			input::haptic(reloading, input::pulses::click);
 			bolt_at_rear = true;
@@ -1402,9 +1412,9 @@ namespace bfvr::weapon
 				const bool game = play_game_rear_stop(); // the rack's rear stop, as at the top of a stroke
 				if (!game)
 				{
-					play(cue::bolt_back);
+					play_gun(cue::bolt_back);
 				}
-				return game ? "ok: rear stop, the game's" : "ok: rear stop, synthesised";
+				return game ? "ok: rear stop, the game's" : has_file(cue::bolt_back, gun_folder) ? "ok: rear stop, from the game's files" : "ok: rear stop, none (no WAV)";
 			}
 			else return "error: usage: reload [fire|button|catch|palm|grab|take|letgo|stow|insert|rack|lidopen|lidclose|belttake|beltlay|rearstop|handle x y z|handle off]";
 			remember(event);
