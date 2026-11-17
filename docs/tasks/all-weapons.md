@@ -1,6 +1,6 @@
 # Task: every crate gun handles like the real one
 
-Status: **design and work order (2026-11-15)**. Nothing built yet. Tracking: #64 (per-gun reload mechanics),
+Status: **design and work order (2026-11-15)**; picker (0b) and the firing-data catalog (0c) built 2026-11-16/17. Tracking: #64 (per-gun reload mechanics),
 plus the issues listed under "Work order".
 
 Goal: any of the 51 guns in the campaign weapon crate can be picked, and each one loads, charges, cycles
@@ -201,11 +201,11 @@ cover 35 of the 51 guns on the existing state machine; then F 6, G 4, H 5, J 1.
 | # | Step | Guns | Depends on | Issue |
 | --- | --- | --- | --- | --- |
 | 0a | ~~**Unlock all weapons** setting~~ **done 2026-11-15** (`unlock_all_weapons`, default on; `AllUnlocksUnlocked` alone) | all | | |
-| 0b | **Weapon picker**: pipe `give <unlock> primary\|secondary` and later an in-VR list. Research how the crate applies a choice (the message it sends on Done). Also fixes the agent's clicks problem in the crate (#34) | all | | new (with #34) |
-| 0c | **Catalog**: `tools/weapon_catalog_probe.py`, `docs/weapons.md` (one row per gun: data, profile, status per check) | all | | new |
+| 0b | ~~**Weapon picker**~~ **done 2026-11-16** (#80): pipe `givegun <id> <slot>` and the VR panel's Own crate rows, through the soldier's customization call (re/notes/weapon.md "Own crate"); attachments still missing | all | | #80 |
+| 0c | ~~**Catalog**~~ **data done 2026-11-17**: `tools/catalog_sweep.py` gives each gun and reads it; `docs/weapons.md` (firing data, family, the mod's kind today) | all | | #81 |
 | 0d | Fix the AK list (`U_SAIGA_20K`; add A-91 and the rock-in guns once the flags exist) with a unit test | Saiga | | with 1 |
 | 1 | **Profile model**: `reload_profile` grows `feed`, `release`, `hold_open`, `layout`, `cycle` and per-gun points; the AR/AK split becomes data. Unit tests per family | | 0c | new |
-| 2 | **Catalog sweep** (method above) for all 51: firing data, bones, screenshots, every `?` resolved. Needs BF4 in front (an agreed night run) or 0b | all | 0b, 0c | new |
+| 2 | **Catalog sweep** (method above) for all 51: firing data **done** (docs/weapons.md); bones, screenshots, every `?` still to do | all | 0b, 0c | #81 |
 | 3 | **Families A + B** (box, with and without hold-open; paddle release) | 25 | 1, 2 | #64 |
 | 4 | **Family C** (rock-in, with/without hold-open) | 8 | 1, 2 | #64 |
 | 5 | **Family D/E/I** (bullpup zones, P90 top magazine, drum) | 12 bullpups (in A-C, F, G too) | 3 | #64 |
@@ -223,8 +223,9 @@ engine-free logic, the gate green, the monitor check's raw output on the issue, 
 
 ## Open questions
 
-- How the crate applies a choice (0b): `UnlockWeaponAndSlot`, `NetworkSetCustomizationWeaponSlotMessage`
-  and `ClientPlayerSelectedUnlocksMessage` are candidates in the type registry.
+- ~~How the crate applies a choice (0b)~~ answered 2026-11-16: not needed. A `CustomizeSoldierData` with an
+  `UnlockWeaponAndSlot` list applied through the soldier's customization (ServerSoldierEntity slot 100) does it, as the
+  level's kit entities do (re/notes/weapon.md "Own crate"). How the crate's own Done applies it is still unknown.
 - Bolt and pump guns (8): does the game play its own cycle animation on the drawn gun, and can it be
   held until the hand does it? `FireLogic.BoltAction` (`HoldBoltActionUntilFireRelease`,
   `ForceBoltActionOnFireTrigger`) may already give the hook.

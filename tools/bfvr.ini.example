@@ -387,6 +387,10 @@ sight_dot_eyes = sighting
 # all-unlocked switch (SyncedBFSettings.AllUnlocksUnlocked) while a campaign level runs and puts the
 # game's value back when the level ends; memory only, nothing is saved or sent to EA.
 unlock_all_weapons = 1
+# Own crate (#80): pick a gun on the VR panel (Weapon > Weapons) and it goes into that slot and into your hand about a second
+# after you stop stepping, without the game's weapon crate. keep = no change; a value here is not applied at start, only a change is.
+crate_primary = keep
+crate_secondary = keep
 # Hip-fire spread of your weapons (standing, crouched, prone; still and moving): 1 = as tight as aiming
 # down sights, so a sight is accurate without the game's aim; 0 = the game's (3-7 degrees at the hip,
 # 0.2-1.7 aiming). Patches the weapons' GunSwayData in memory; enemies carrying the same gun model may

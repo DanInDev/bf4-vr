@@ -145,6 +145,11 @@ over, so screenshots and `dev-run` show the eye image as before).
 `dev-run.ps1 [-Resume] [-NoBuild] [-UseRunning]` builds, deploys, starts BF4 and (with `-Resume`) clicks (through the mod's pointer, no focus needed; RESUME by pad A)
 Campaign → BF4 Campaign → Resume, then waits for the level and saves `re/screenshots/dev-run-level.png`.
 Menu clicks are scaled from 1920×1080 to the current back buffer. Total ≈ 3.5 minutes.
+It refuses to start (exit 1, nothing stopped or deployed) while the launcher is in its Normal play mode
+(`Documents\Battlefield 4\settings\PROFSAVE_profile.bfvr-mode` says `normal`): the flat 1920×1080 profile under the
+mod's 2160×2160 window makes every menu click miss (#79). A missing marker file and `-UseRunning` skip the check.
+With `-Resume` it ends with `loaded: <level>` from `bfvr.log` and exits 2 when that is not a `Levels/SP/` level
+(still in the main menu).
 
 Startup settings: `E:\EA\Battlefield 4\user.cfg` runs console commands at launch (verified:
 `GameTime.MaxVariableFps 77` capped the game at 77 fps). Command-line `-Setting value` arguments are ignored.
@@ -255,6 +260,7 @@ exceptions are logged to `bfvr.log` with registers and stack (`src/control/crash
 | `tools/heap.py <hex qword>` | Live, read-only: every address in bf4's private heap holding that value (a full walk; pipe `scan` stops at 64 per region) |
 | `tools/unlock_census.py [--json f]` | Live: every `SoldierWeaponUnlockAsset` in memory (name, ids, flags) |
 | `tools/weapon_catalog_probe.py [--held] [--json f]` | Live: the 51 crate guns' magazine size and spares; `--held`: the spawned guns' firing data (reload type, fire modes, rof, reload and bolt times, zoom levels); `docs/tasks/all-weapons.md` |
+| `tools/catalog_sweep.py [--json f] [--only U_A,U_B] [--restore U_X]` | Live, own-crate build (#80): gives each of the 51 crate guns into slot 0 (`givegun`), reads its firing data and the reload kind the mod picked (waits up to 10 s for its `reload:` line); `--restore` gives a gun back at the end. Changes the player's primary gun. Result tables: `docs/weapons.md` (#81) |
 | `tools/slot_probe.py [--press <hex>]` | Live: weapon slots and names, the current slot; times a pad press until the slot changes |
 | `tools/sound_probe.py <reference\|buttons\|physical\|physical_ar\|grips\|stages>` | Live: records the playback device (`bfvr_audio_loopback`) while the pipe drives one step at a time; per step the sound onset and rise, clips in `re/dumps/sound/` (`re/notes/sound.md`) |
 | `tools/reload_sound_probe.py [--event <name> --name <part>]` | Live: the reload SoundEntity of every gun (pipe `scan`), and sends one entity event to one (pipe `entityevent`) |

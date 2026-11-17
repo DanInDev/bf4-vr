@@ -87,6 +87,7 @@ add_library(bfvr_common STATIC
 	src/common/settings_store.cpp
 	src/input/button_map.cpp
 	src/common/setting_catalog.cpp
+	src/weapon/crate_guns.cpp
 	${CMAKE_BINARY_DIR}/generated/ui_font_data.cpp
 	${CMAKE_BINARY_DIR}/generated/ui_art_data.cpp
 	src/ui/vector_art.cpp
@@ -213,6 +214,7 @@ add_library(bfvr_runtime STATIC
 	src/weapon/hip_accuracy.cpp
 	src/weapon/hip_accuracy_math.cpp
 	src/weapon/unlock_all.cpp
+	src/weapon/own_crate.cpp
 	src/weapon/unlock_all_math.cpp
 	src/weapon/server_soldier.cpp
 	src/weapon/server_soldier_math.cpp
@@ -291,6 +293,9 @@ if(BFVR_BUILD_TESTS)
 	# Campaign-only rules: command lines and level paths, both games.
 	add_executable(bfvr_mp_rules_test tests/mp_rules_test.cpp src/safety/mp_rules.cpp)
 	target_link_libraries(bfvr_mp_rules_test PRIVATE bfvr_common)
+	# The own crate's gun list and its settle-then-give watch (#80).
+	add_executable(bfvr_crate_guns_test tests/crate_guns_test.cpp)
+	target_link_libraries(bfvr_crate_guns_test PRIVATE bfvr_common)
 	# Trigger press/release latch (a resting finger never fires).
 	add_executable(bfvr_trigger_latch_test tests/trigger_latch_test.cpp src/input/trigger_latch.cpp)
 	target_link_libraries(bfvr_trigger_latch_test PRIVATE bfvr_common)
@@ -427,6 +432,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME break_open COMMAND bfvr_break_open_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
+	add_test(NAME crate_guns COMMAND bfvr_crate_guns_test)
 	add_test(NAME mp_rules COMMAND bfvr_mp_rules_test)
 	add_test(NAME shot_frame COMMAND bfvr_shot_frame_test)
 	add_test(NAME aim_depth COMMAND bfvr_aim_depth_test)

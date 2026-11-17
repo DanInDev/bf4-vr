@@ -123,6 +123,9 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-13: `dev-run.ps1 -Resume` stopped at the main menu twice in a row (2160x2160 window, also with
   `-MenuWaitSeconds 90`), though `menu:`/`level:` lines were printed. Clicking by hand works: pipe `pointer`
   at (0.254, 0.2556) Campaign tab, (0.306, 0.402) the BF4 Campaign tile, then `pad 0 0 0 0 200 1000` on Resume.
+  2026-11-15 and -16: the cause was the launcher's **Normal** play mode (flat 1920x1080 profile live, mod removed):
+  deployed anyway, the mod draws 1920x1080 under a 2160x2160 window and every click misses. `dev-run` now refuses while
+  `PROFSAVE_profile.bfvr-mode` says `normal` and ends with `loaded: <level>` (exit 2 when still in the menu).
   Check `safety: level` in `bfvr.log` (not FrontEnd) before trusting a dev-run. One cause seen: a
   "connection with EA Online was lost" dialog over the menu eats the first click (its OK: pointer 0.5 0.583).
 - 2026-11-13: weapon switches (holsters, captures, `holster <name>`) only happen while BF4 is the foreground
@@ -148,5 +151,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-16 (#41): positions in palette space (`extramesh` `at`, copy matrices) are relative to the root bone, which
   sits on a whole-metre grid point, not at the feet: y ~1.8 is chest height there. Compare with `arms` `palette camera`.
   An item's Wep_Root can be far from its mesh (the knife: 0.3-0.6 m, `extramesh` `from_root`).
+- 2026-11-16: a headset row added on a branch needs an ID that is free on `main` (`git show main:docs/HEADSET-TESTS.md`):
+  a GUN-29 written on a branch overwrote #64's GUN-29 row.
+- 2026-11-16: during a run the stop hook reported "Sources changed since the last gate run" after turns where
+  `gate.ps1 -Status` matched in every worktree (one of its git calls exits 128). It objects once per stop.
+- Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

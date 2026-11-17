@@ -17,6 +17,7 @@
 #include "control/control_pipe.hpp"
 #include "physics/ray_cast.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "weapon/own_crate.hpp"
 #include "weapon/shot_origin.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_swap.hpp"
@@ -524,6 +525,7 @@ namespace bfvr::stereo
 			control::on_game_thread();
 			physics::ray_cast_on_game_thread();
 			weapon::game_reload_sounds_on_game_thread();
+			weapon::own_crate_on_game_thread();
 			const std::uint64_t index = ++copies;
 			if (index % 64 == 0)
 			{
