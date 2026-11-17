@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -205,5 +206,56 @@ namespace bfvr::weapon
 			return;
 		}
 		PlaySoundW(reinterpret_cast<LPCWSTR>(waves[index].data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
+	}
+
+	namespace
+	{
+		std::mutex folder_lock;
+		std::map<std::string, std::wstring> folder_files; // "<folder>/<cue>" -> its WAV, empty when there is none
+
+		// bfvr_sounds\<folder>\<cue>.wav, looked up once per folder and cue.
+		std::wstring folder_file(cue which, const char* folder)
+		{
+			if (!folder || !*folder || static_cast<int>(which) < 0 || which >= cue::count)
+			{
+				return {};
+			}
+			const std::string key = std::string(folder) + "/" + name_of(which);
+			const std::lock_guard guard(folder_lock);
+			const auto found = folder_files.find(key);
+			if (found != folder_files.end())
+			{
+				return found->second;
+			}
+			const std::filesystem::path file = std::filesystem::path(config::ini_path()).parent_path() / "bfvr_sounds" / folder / (std::string(name_of(which)) + ".wav");
+			std::error_code error;
+			std::wstring path = std::filesystem::exists(file, error) ? file.wstring() : std::wstring();
+			if (!path.empty())
+			{
+				log::write("reload sounds: %s replaces %s for %s", file.string().c_str(), name_of(which), folder);
+			}
+			folder_files.emplace(key, path);
+			return path;
+		}
+	}
+
+	bool has_file(cue which, const char* folder)
+	{
+		return !folder_file(which, folder).empty() || has_file(which);
+	}
+
+	void play(cue which, const char* folder)
+	{
+		if (!enabled.load(std::memory_order_relaxed))
+		{
+			return;
+		}
+		const std::wstring file = folder_file(which, folder);
+		if (!file.empty())
+		{
+			PlaySoundW(file.c_str(), nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
+			return;
+		}
+		play(which);
 	}
 }
