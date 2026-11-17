@@ -157,6 +157,9 @@ shells_by_hand = 1
 # Belt-fed LMGs (M249, M240, MG4, Pecheneg, Type 88): swing the lid up by its back end, B with the hand under the box
 # takes it off, a new box from the pouch, the belt end laid on the feed tray, the lid pushed shut; 0 = the game's (B).
 belts_by_hand = 1
+# The MP-412 REX revolver: B breaks it open (the cases fall out), a speedloader from the pouch at the open cylinder,
+# a flick of the gun up or a push on the barrel shuts it; 0 = the game's own reload (B).
+revolver_by_hand = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a

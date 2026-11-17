@@ -200,6 +200,11 @@ namespace bfvr::body
 		bool active{};
 		float lid{};
 		float lid_degrees{ 102.6f };
+		// The top-break revolver instead (re/notes/weapon.md "The MP-412 REX"): the frame is Wep_Slide, turned about its own
+		// origin (the hinge) by lid x lid_degrees with the cylinder (Wep_Physic1), the cartridges (Wep_Belt1) and the
+		// speedloader (Wep_Mag, when not in the hand); rounds false hides the cartridges (an emptied cylinder).
+		bool revolver{};
+		bool rounds{ true };
 		enum class belt_place { laid, hanging, at_pose };
 		belt_place belt{ belt_place::laid };
 		float belt_position[3]{};

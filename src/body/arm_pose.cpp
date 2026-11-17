@@ -97,6 +97,7 @@ namespace bfvr::body
 			int launcher_case{ -1 };     // Wep_Belt2
 			int launcher_parts[2]{ -1, -1 }; // Wep_Belt1, Wep_Extra4
 			int belt[10]{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 }; // Wep_Belt1..10: a belt-fed gun's belt (Belt1 under Wep_Root)
+			int physic1{ -1 }; // Wep_Physic1: the revolver's cylinder
 			int aim{ -1 };               // Wep_Aim: the game places the muzzle flash from it, unedited (#65)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
@@ -334,6 +335,7 @@ namespace bfvr::body
 		bone_memory launcher_memory[4];
 		belt_feed_pose belt_feed_request;
 		bone_memory belt_feed_memory[12]; // Wep_Extra1, Wep_Scope1, Wep_Belt1..10
+		bone_memory revolver_memory[8];   // Wep_Slide, Wep_Physic1, Wep_Belt1..6
 		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
 		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
 		// muzzle flash) and as drawn, from the same conversion.
@@ -687,6 +689,7 @@ namespace bfvr::body
 			fresh.launcher_round = find_bone(bone_names, fresh.bones, "Wep_Mag_Ammo");
 			fresh.launcher_case = find_bone(bone_names, fresh.bones, "Wep_Belt2");
 			fresh.launcher_parts[0] = find_bone(bone_names, fresh.bones, "Wep_Belt1");
+			fresh.physic1 = find_bone(bone_names, fresh.bones, "Wep_Physic1");
 			for (int link = 0; link < 10; ++link)
 			{
 				char name[16];
@@ -1567,6 +1570,96 @@ namespace bfvr::body
 		// hinge) turned up about the gun's x axis as the game's own reload does it (q about +x), the optic on it (Wep_Scope1,
 		// also under Wep_Root) turned about the same hinge; the belt laid as animated, hanging out of the box (its end at the
 		// box mouth, Belt5's rest), or its end in the hand. Publishes the hinge, the lid's grab point, the tray and the belt end.
+		// The top-break revolver (belt_feed_request.revolver): the frame (Wep_Slide) turned about its own origin, the hinge,
+		// with the cylinder, the cartridges and the seated speedloader; publishes the hinge and a grab point on the barrel.
+		void edit_revolver(ik::bone_transform* local)
+		{
+			const int bones[8] = { rig.slide, rig.physic1, rig.belt[0], rig.belt[1], rig.belt[2], rig.belt[3], rig.belt[4], rig.belt[5] };
+			for (int i = 0; i < 8; ++i)
+			{
+				if (bones[i] < 0)
+				{
+					continue;
+				}
+				ik::bone_transform& current = local[bones[i]];
+				if (revolver_memory[i].has_written && std::memcmp(&current, &revolver_memory[i].written, sizeof(current)) == 0)
+				{
+					current = revolver_memory[i].animated;
+				}
+				else
+				{
+					revolver_memory[i].animated = current;
+				}
+				revolver_memory[i].has_written = false;
+			}
+			if (!belt_feed_request.active || !belt_feed_request.revolver || rig.weapon < 0 || rig.slide < 0 || rig.parents[rig.slide] != rig.weapon)
+			{
+				return;
+			}
+			const float angle = std::fmin(std::fmax(belt_feed_request.lid, 0.0f), 1.0f) * belt_feed_request.lid_degrees * 3.14159265f / 180.0f;
+			const ik::quat turn{ std::sin(0.5f * angle), 0.0f, 0.0f, std::cos(0.5f * angle) };
+			const ik::vec3 hinge = local[rig.slide].position;
+			local[rig.slide].rotation = ik::normalize(turn * local[rig.slide].rotation);
+			const auto swing = [&](int bone)
+			{
+				if (bone >= 0 && rig.parents[bone] == rig.weapon)
+				{
+					local[bone].position = hinge + ik::rotate(turn, local[bone].position - hinge);
+					local[bone].rotation = ik::normalize(turn * local[bone].rotation);
+				}
+			};
+			swing(rig.physic1);
+			swing(rig.belt[0]);
+			if (rig.magazine >= 0 && !magazine_request.detached)
+			{
+				swing(rig.magazine);
+				magazine_memory.written = local[rig.magazine]; // edit_weapon restores the animated one next frame
+				magazine_memory.has_written = true;
+			}
+			if (!belt_feed_request.rounds)
+			{
+				for (int link = 0; link < 6; ++link)
+				{
+					if (rig.belt[link] >= 0)
+					{
+						local[rig.belt[link]].scale = 0.001f;
+					}
+				}
+			}
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const ik::quat to_xr = ik::conjugate(frame);
+			const ik::vec3 origin = tracking_origin(camera, frame);
+			const ik::bone_transform slide = ik::model_of(local, rig.parents, rig.slide);
+			const ik::quat root = ik::model_of(local, rig.parents, rig.weapon).rotation;
+			// 11 cm along the barrel from the hinge, turned with the frame: where the off hand takes it.
+			const ik::vec3 grab = slide.position + ik::rotate(root * turn, ik::vec3{ 0.0f, 0.0f, 0.11f });
+			// The speedloader's seat: the turned cylinder's rear face (Wep_Physic1 sits mid-cylinder, its face 4.7 cm behind,
+			// where the game seats Wep_Mag), as the magwell for the reload.
+			ik::vec3 seat = slide.position;
+			if (rig.physic1 >= 0)
+			{
+				seat = ik::model_of(local, rig.parents, rig.physic1).position + ik::rotate(root * turn, ik::vec3{ 0.0f, 0.0f, -0.047f });
+			}
+			const ik::vec3 values[3] = { ik::rotate(to_xr, slide.position - origin), ik::rotate(to_xr, grab - origin), ik::rotate(to_xr, seat - origin) };
+			float* const outs[3] = { points.lid_hinge, points.lid_grab, points.magazine };
+			for (int i = 0; i < 3; ++i)
+			{
+				outs[i][0] = values[i].x;
+				outs[i][1] = values[i].y;
+				outs[i][2] = values[i].z;
+			}
+			points.has_belt_feed = true;
+			for (int i = 0; i < 8; ++i)
+			{
+				if (bones[i] >= 0)
+				{
+					revolver_memory[i].written = local[bones[i]];
+					revolver_memory[i].has_written = true;
+				}
+			}
+		}
+
 		void edit_belt_feed(ik::bone_transform* local)
 		{
 			const int bones[12] = { rig.rail, rig.optic, rig.belt[0], rig.belt[1], rig.belt[2], rig.belt[3], rig.belt[4], rig.belt[5],
@@ -1589,7 +1682,7 @@ namespace bfvr::body
 				belt_feed_memory[i].has_written = false;
 			}
 			points.has_belt_feed = false;
-			if (!belt_feed_request.active || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
+			if (!belt_feed_request.active || belt_feed_request.revolver || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
 				|| rig.parents[rig.rail] != rig.weapon || rig.parents[rig.optic] != rig.weapon || rig.parents[rig.belt[0]] != rig.weapon)
 			{
 				return;
@@ -3087,6 +3180,7 @@ namespace bfvr::body
 						edit_weapon(local);
 						edit_launcher(local);
 						edit_belt_feed(local);
+						edit_revolver(local);
 						if (has_aim)
 						{
 							root_drawn = ik::model_of(local, rig.parents, rig.weapon);

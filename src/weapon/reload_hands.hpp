@@ -71,6 +71,9 @@ namespace bfvr::weapon
 		// A belt-fed gun (reload_profile belt) with its points from the drawn rig (body::weapon_points has_belt_feed): the
 		// lid's hinge and grab point (as drawn), the feed tray and the belt end at the box mouth; the lid's full opening.
 		bool belt{};
+		// A top-break revolver (reload_profile revolver): the same hinged-part points, the lid being the frame (its grab
+		// point on the barrel); the speedloader goes in at the open cylinder (magwell), no rail lock, no palming.
+		bool revolver{};
 		bool has_belt_points{};
 		v3 lid_hinge;
 		v3 lid_grab;
@@ -210,6 +213,7 @@ namespace bfvr::weapon
 		float lid_swing_seconds{ 0.09f }; // ... let go, it swings the rest of the way (The Great Destroyer, src/handmag.cpp)
 		float belt_reach{ 0.09f };     // the hand this near the belt end (or the laid belt) takes it
 		float belt_lay{ 0.08f };       // the held belt end this near the feed tray lays itself
+		float flick_close_rate{ 3.0f }; // a revolver open: the barrel's up component rising this fast (1/s, ~170 deg/s) shuts it
 		float pump_return{ 0.015f };   // ... and a stroke that reached rack_pull cycles once back within this of the start
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
@@ -331,6 +335,8 @@ namespace bfvr::weapon
 		float lid_closed_angle_{}; // the lid grab's angle about the hinge when shut (gun frame, radians)
 		float lid_hand_offset_{};  // the hand's angle minus the lid grab's when taken
 		bool belt_armed_{};        // the held belt end has been away from the tray (a belt lifted off it is not laid back at once)
+		float last_pitch_{};       // the revolver: the barrel's up component last frame (flick shut)
+		bool has_last_pitch_{};
 		bool pumping_{};    // pump gun: the held hand is on the fore-end, tracked from pump_start_
 		bool pump_back_{};  // this stroke reached rack_pull
 		v3 pump_start_;

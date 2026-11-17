@@ -53,9 +53,9 @@ int main()
 	{
 		covered += physical_reload_covers(traits_for(crate_gun_at(i))) ? 1 : 0;
 	}
-	expect(covered == 50, "40 magazine-fed, 5 tube and 5 belt guns reload by hand; the revolver goes to the game's");
-	expect(physical_reload_covers(traits_for("U_870")) && physical_reload_covers(traits_for("U_M240")) && !physical_reload_covers(traits_for("U_MP412Rex")),
-		"tubes shell by shell, belts by lid and belt; the revolver: the game's reload");
+	expect(covered == 51, "all 51 crate guns reload by hand");
+	expect(physical_reload_covers(traits_for("U_870")) && physical_reload_covers(traits_for("U_M240")) && physical_reload_covers(traits_for("U_MP412Rex")),
+		"tubes shell by shell, belts by lid and belt, the revolver by its frame");
 	expect(physical_reload_covers(traits_for("U_P90")) && physical_reload_covers(traits_for("U_HAWK")) && physical_reload_covers(traits_for("U_SV98")),
 		"the P90's top magazine, the Hawk's box and a bolt action's box stay physical");
 	expect(physical_reload_covers(traits_for("U_SomethingNew")), "an unknown gun keeps today's behaviour (box, button, hold-open)");
@@ -138,6 +138,28 @@ int main()
 		reload benelli(profile_for("U_M1014", 8));
 		benelli.load(3, 10);
 		expect(benelli.fire() == reload_event::shot && benelli.state().chamber, "M1014: semi-automatic, the next shell fed from the tube");
+	}
+	// The revolver: break open, speedloader, double action.
+	{
+		reload rex(profile_for("U_MP412Rex", 6)); // the game's 6 counts the round under the hammer: six chambers
+		rex.load(2, 30);
+		expect(rex.profile().revolver && rex.state().chamber && rex.rounds_in_gun() == 2, "REX: two live rounds, one under the hammer");
+		expect(rex.fire() == reload_event::shot && rex.state().chamber && rex.fire() == reload_event::shot && !rex.state().chamber,
+			"REX: double action, the cylinder turns the next round under the hammer");
+		expect(rex.fire() == reload_event::dry_fire, "REX: empty chambers click");
+		expect(rex.press_button(false) == reload_event::lid_opened && rex.state().lid_open, "REX: the latch breaks it open");
+		expect(rex.fire() == reload_event::dry_fire, "REX: open, nothing fires");
+		expect(rex.take_from_chest() == reload_event::magazine_taken && rex.state().held_rounds == 6 && rex.state().reserve == 24,
+			"REX: a full speedloader, one round per chamber");
+		expect(rex.insert() == reload_event::magazine_in && rex.state().magazine_rounds == 6 && !rex.state().holding, "REX: six chambers filled");
+		expect(rex.close_lid() == reload_event::lid_closed && rex.state().chamber && rex.rounds_in_gun() == 6, "REX: shut, ready");
+		rex.fire();
+		rex.fire();
+		rex.press_button(false);
+		rex.take_from_chest();
+		expect(rex.insert() == reload_event::magazine_in && rex.state().magazine_rounds == 6 && rex.state().reserve == 22,
+			"REX: a speedloader on four live rounds fills the two empty chambers, the other four back to the pouch");
+		expect(rex.press_button(true) == reload_event::none && rex.grab_magazine() == reload_event::none, "REX: the latch again does nothing, nothing to pull");
 	}
 	// Belt-fed (family H): lid, box, belt.
 	{

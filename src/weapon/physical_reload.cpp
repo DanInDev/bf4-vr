@@ -183,6 +183,7 @@ namespace bfvr::weapon
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
+		std::atomic<bool> revolver_by_hand{ true }; // setting revolver_by_hand
 		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -589,7 +590,7 @@ namespace bfvr::weapon
 
 		// Belt-fed: the lid and the belt as the hands have them (body::belt_feed_pose); off for every other gun.
 		bool belt_feed_shown{};
-		void draw_belt_feed(const hand_result* result, float lid_degrees)
+		void draw_belt_feed(const hand_result* result, float lid_degrees, bool revolver = false, bool rounds = true)
 		{
 			if (!result)
 			{
@@ -604,6 +605,8 @@ namespace bfvr::weapon
 			pose.active = true;
 			pose.lid = result->lid;
 			pose.lid_degrees = lid_degrees;
+			pose.revolver = revolver;
+			pose.rounds = rounds;
 			pose.belt = result->belt_draw == 0 ? body::belt_feed_pose::belt_place::laid
 				: result->belt_draw == 2 ? body::belt_feed_pose::belt_place::at_pose : body::belt_feed_pose::belt_place::hanging;
 			pose.belt_position[0] = result->belt_position.x;
@@ -786,6 +789,11 @@ namespace bfvr::weapon
 		belts_by_hand = on;
 	}
 
+	void set_revolver_by_hand(bool on)
+	{
+		revolver_by_hand = on;
+	}
+
 	void set_physical_reload_all(bool on)
 	{
 		reload_all = on;
@@ -896,7 +904,8 @@ namespace bfvr::weapon
 		const gun_traits weapon_traits = traits_for(weapon.name);
 		const bool game_reloads = weapon.valid && !weapon.launcher && !reload_all.load(std::memory_order_relaxed)
 			&& (!physical_reload_covers(weapon_traits) || (weapon_traits.feed == feed::tube && !shells_by_hand.load(std::memory_order_relaxed))
-				|| (weapon_traits.feed == feed::belt && !belts_by_hand.load(std::memory_order_relaxed)));
+				|| (weapon_traits.feed == feed::belt && !belts_by_hand.load(std::memory_order_relaxed))
+				|| (weapon_traits.feed == feed::cylinder && !revolver_by_hand.load(std::memory_order_relaxed)));
 		game_reload_gun = game_reloads;
 		if (!physical.load(std::memory_order_relaxed) || game_reloads)
 		{
@@ -1043,6 +1052,7 @@ namespace bfvr::weapon
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
 			frame.tube = gun.profile().tube;
 			frame.belt = gun.profile().belt;
+			frame.revolver = gun.profile().revolver;
 			frame.has_belt_points = points.has_belt_feed;
 			frame.lid_hinge = v(points.lid_hinge);
 			frame.lid_grab = v(points.lid_grab);
@@ -1243,7 +1253,8 @@ namespace bfvr::weapon
 			: result.racking ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
 		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
-		draw_belt_feed(gun.profile().belt ? &result : nullptr, frame.lid_degrees);
+		draw_belt_feed(gun.profile().belt || gun.profile().revolver ? &result : nullptr, frame.lid_degrees, gun.profile().revolver,
+			!(gun.state().lid_open && gun.state().magazine_rounds == 0));
 
 		active = true;
 		block_trigger = !gun.state().chamber;
@@ -1452,7 +1463,7 @@ namespace bfvr::weapon
 			length += std::snprintf(text + length, sizeof(text) - length, " %s", recent[i]);
 		}
 		char belt[320] = "";
-		if (gun.profile().belt)
+		if (gun.profile().belt || gun.profile().revolver)
 		{
 			std::snprintf(belt, sizeof(belt), "\nbelt lid_open=%d lid=%.2f held=%d belt_laid=%d belt_held=%d points=%d lid_grab=(%.3f,%.3f,%.3f) tray=(%.3f,%.3f,%.3f) belt_end=(%.3f,%.3f,%.3f)",
 				s.lid_open ? 1 : 0, last_result.lid, last_result.lid_held ? 1 : 0, s.belt_laid ? 1 : 0, s.belt_held ? 1 : 0, points.has_belt_feed ? 1 : 0,
