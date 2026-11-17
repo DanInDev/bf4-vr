@@ -197,4 +197,8 @@ namespace bfvr::weapon
 		result.gun_busy = gun_holds ? true : pin_busy || (!holding_ && gun_near_belt);
 		return result;
 	}
+	bool hide_quick_throw_switch(bool throw_pending, int current_slot, int previous_slot)
+	{
+		return throw_pending && current_slot == hand_grenade_slot && previous_slot != hand_grenade_slot && previous_slot >= 0;
+	}
 }

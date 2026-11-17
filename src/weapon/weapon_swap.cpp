@@ -30,6 +30,7 @@
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
 #include "weapon/melee_gesture.hpp"
+#include "weapon/grenade_hands.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/physical_reload.hpp"
 #include "weapon/sling_primary.hpp"
@@ -70,6 +71,8 @@ namespace bfvr::weapon
 			int current{ -1 };
 			char name[48]{}; // of the current weapon
 		};
+
+		std::atomic<int> in_hand_slot{ -1 }; // the slot the mod treats as in hand (#83: not the quick throw's grenade)
 
 		slot_state read_slot()
 		{
@@ -630,7 +633,15 @@ namespace bfvr::weapon
 		const std::lock_guard guard(lock);
 		const ULONGLONG now = GetTickCount64();
 		advance(now);
-		const slot_state held = read_slot();
+		// #83: the game's quick throw selects the grenade for ~200 ms during a physical throw; the gun stays "in hand".
+		static slot_state last_held;
+		const slot_state read_now = read_slot();
+		const slot_state held = read_now.valid && hide_quick_throw_switch(grenade_throw_pending(), read_now.current, last_held.current) ? last_held : read_now;
+		if (!hide_quick_throw_switch(grenade_throw_pending(), read_now.current, last_held.current))
+		{
+			last_held = read_now;
+		}
+		in_hand_slot = held.valid ? held.current : -1;
 		const bool knife_out = held.valid && is_knife(held);
 		body::set_knife_in_hand(knife_grip.load(std::memory_order_relaxed) && knife_out);
 		// #41: the game's knife out is captured once for its holster (body/arm_pose, stereo/extra_mesh), half a
@@ -1182,9 +1193,9 @@ namespace bfvr::weapon
 		const slot_state slot = read_slot();
 		char text[1024];
 		std::snprintf(text, sizeof(text),
-			"holsters=%d slot=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
+			"holsters=%d slot=%d in_hand=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
 			"use_reach=%d reaching=%d using=%d uses=%llu palm_forward=%.2f side=%.2f up=%.2f\nfree_hands=%d dropped=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
-			enabled ? 1 : 0, slot.current, slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
+			enabled ? 1 : 0, slot.current, in_hand_slot.load(), slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
 			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
 			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses), use_offset[0], use_offset[1], use_offset[2],

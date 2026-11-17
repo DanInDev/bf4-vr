@@ -2078,6 +2078,17 @@ static void test_reload_sound_cues()
 	}
 }
 
+	void test_quick_throw_switch()
+	{
+		// #83: the game's quick throw selects the grenade for ~200 ms; during a physical throw that is no weapon change.
+		expect(hide_quick_throw_switch(true, 6, 0), "#83: throw pending, slot 6 over the rifle: keep the rifle");
+		expect(hide_quick_throw_switch(true, 6, 2), "#83: also over a gadget (C4)");
+		expect(!hide_quick_throw_switch(false, 6, 0), "no throw pending: the grenade really was selected");
+		expect(!hide_quick_throw_switch(true, 0, 0), "back on the rifle: nothing to hide");
+		expect(!hide_quick_throw_switch(true, 6, 6), "the grenade was already the weapon");
+		expect(!hide_quick_throw_switch(true, 6, -1), "no previous weapon known");
+	}
+
 int main()
 {
 	test_reload_sound_cues();
@@ -2121,6 +2132,7 @@ int main()
 	test_seated_hold();
 	test_palm_lock();
 	test_grip_lock_keeps_the_hold();
+	test_quick_throw_switch();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

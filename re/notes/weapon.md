@@ -193,6 +193,15 @@ future two-hand grip.
   - Flake: once in five runs the level-start knife capture took other meshes (no 6000/4380-index draws, two draws from
     another buffer kept). Drawing the knife once (`extramesh forget knife` first) recaptures it.
 
+## The quick throw selects the grenade for a moment (#83, 2026-11-17, monitor, Baku tunnel)
+
+A physical throw fires the game's quick throw (an 80 ms LB pulse). The game then makes the hand grenade (slot 6) the
+active weapon from ~50-100 ms to ~410-450 ms after the throw (game slot sampled every few ms), then goes back. Modules
+that follow the active weapon took that as a weapon change: the gun hand's pose, the sling and holster copies and the
+reload hands flickered (owner: "the rifle hand bugs out"). `hide_quick_throw_switch` (grenade_hands) keeps the previous
+weapon for 1 s after a physical throw in weapon_swap (`holster` shows `in_hand=`) and physical_reload. At ~5 fps (headless
+debug) one scripted throw in two never reached the game: the 80 ms pulse fell between frames.
+
 ## Weapon slots and switching (2026-10-26, tools/slot_probe.py, docs/tasks/weapon-swap.md)
 
 Slots in this checkpoint: 0 `U_SCAR-H`, 1 `U_AK12`, 6 `U_M67_SP`, 7 `U_Knife`, 8 `U_SP_Visor`; 2-5 empty.
