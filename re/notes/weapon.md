@@ -357,6 +357,24 @@ hand's Thumb4, Index2/Index3 and Wep_Slide in Wep_Root axes (+z along the barrel
 - Wep_Slide does animate on the AK-12 although offsetting it moves no visible mesh (A2): the bolt may be
   welded to the receiver mesh in first person.
 
+## Charging handles, every crate gun (2026-11-17, monitor, tools/handle_probe.py)
+
+The 11-03 method automated: own crate gives each gun, `reload = button`, `arm_ik = 0`, pipe `reload setammo 0` (research)
+starts the game's empty reload, the local pose is read as fast as the pipe allows (~2500 reads/s, the game animating at
+~5 fps) and forward kinematics give Wep_Slide and the left hand (thumb tip and index middle) in Wep_Root axes. The handle:
+the median, over every frame of the pull, of the hand moved forward by the bolt's travel (the hand riding the handle).
+
+- **Check:** AK-12 (-0.027, 0.056, 0.527) against the hand measurement (-0.02, 0.06, 0.53): 0.7 cm.
+- **Taken (18, `profiles.cpp`):** a closed pinch with <= 3 cm spread (75 % of frames), or the hand riding the bolt rigidly
+  (max spread <= 4 cm over >= 100 frames): Scorpion, JS2, MX4, PDW-R, PP-2000, Hawk (the pump), Saiga, USAS-12, A-91,
+  ACE 52, G36C, FAMAS, SAR-21, Ultimax, QBU-88, RFB; SCAR-H SV takes the SCAR-H's estimate.
+- **No pull in the empty reload (bolt release):** M4, M16A4, M416, MK11, SG553, AUG, UMP-45. **Bolt moved, hand away (own
+  cycle):** FY-JS, Scout, SV-98, M82A3. **Too loose or too few frames:** CBJ-MS, P90, AK 5C, AEK-971, CZ-805, QBZ-95-1,
+  QBB-95-1, M39, SVD-12 (its animation matches the AK-12's exactly), SRR-61. These keep the variant's default point.
+- Dead end: requiring a closed pinch (thumb-index < 4.5 cm) dropped guns whose animation grabs with a wider hand.
+- Seen once, not reproduced: the mod's first-person skeleton read failed (`arms` skeleton=-) after a run of gives with
+  `reload = button` and `arm_ik = 0`; a fresh start, duplicate guns and those settings alone did not do it.
+
 ## Sights and aiming down sights (2026-11-04, monitor: fakehead + fakehand, tools/sight_probe.py)
 
 The game's first-person animation keeps the **CameraJoint on the gun's sight**: in its own aim down

@@ -92,6 +92,16 @@ int main()
 		scar.load(1, 40);
 		expect(scar.fire() == reload_event::bolt_locked, "SCAR-H: hold-open, as before");
 	}
+	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
+	{
+		float point[3]{};
+		expect(handle_point_for("U_G36C", point) && point[1] > 0.04f && point[2] > 0.5f, "G36C: its handle on top, ahead (measured)");
+		expect(handle_point_for("U_Scorpion", point) && point[0] > 0.0f, "CZ-3A1: on the left (+x)");
+		expect(handle_point_for("U_SAIGA_20K", point) && point[0] < 0.0f, "Saiga: on the right, as an AK");
+		expect(handle_point_for("U_AK12", point) && point[0] < 0.0f, "AK-12: the 11-03 point kept");
+		expect(handle_point_for("U_SCAR-HSV", point) && point[0] > 0.0f, "SCAR-H SV: the SCAR-H's");
+		expect(!handle_point_for("U_M416", point), "M416: its empty reload uses the bolt release: the variant's point");
+	}
 	if (failures == 0)
 	{
 		std::printf("gun_traits: all checks passed\n");

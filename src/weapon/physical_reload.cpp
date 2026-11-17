@@ -1231,6 +1231,19 @@ namespace bfvr::weapon
 			{
 				return "error: 'reload <event>' needs research = 1 in bfvr.ini";
 			}
+			if (argument.rfind("setammo", 0) == 0)
+			{
+				// Research (per-gun handle points): the gun in hand's server magazine; 0 with reload = button starts the
+				// game's own empty reload, whose animation shows where the hand takes the charging handle.
+				int rounds = -1;
+				const game_weapon weapon = read_game_weapon();
+				if (sscanf_s(argument.c_str(), "setammo %d", &rounds) != 1 || rounds < 0 || rounds > 500 || !weapon.valid)
+				{
+					return "error: usage: reload setammo <rounds 0..500> (a magazine gun in hand)";
+				}
+				write(weapon.ammo, rounds);
+				return std::string("server magazine of ") + weapon.name + " set to " + std::to_string(rounds);
+			}
 			if (argument.rfind("handle", 0) == 0)
 			{
 				float x{}, y{}, z{};
@@ -1306,9 +1319,12 @@ namespace bfvr::weapon
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
 			r.palm_locked ? 1 : 0, palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
 			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
-		char rack[160];
-		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f)", r.rack_underhand ? 1 : 0, r.under_centre.x,
-			r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z);
+		char rack[256];
+		float gun_handle[3]{};
+		const bool handle_measured = found != slots.end() && handle_point_for(found->second.name, gun_handle);
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f)",
+			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
+			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2]);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
