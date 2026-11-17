@@ -182,6 +182,10 @@ namespace bfvr::weapon
 		}
 		if (!files[index].empty())
 		{
+			if (which == cue::pin && pin_volume.load(std::memory_order_relaxed) <= 0.0f)
+			{
+				return; // #82: pin_volume 0 silences the pin, also the game's own (bfvr_sounds\pin.wav)
+			}
 			PlaySoundW(files[index].c_str(), nullptr, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
 			return;
 		}

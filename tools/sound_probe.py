@@ -189,6 +189,9 @@ VERIFY = {
     'U_M249': 'lidopen,belttake,beltlay,lidclose',
     'U_MP412Rex': 'fire,button,take,insert,lidclose',
     'U_Scout': 'fire,rearstop,rack',
+    'U_AK12': 'rearstop,rack,rearstop',  # the rear stop from the game's files (tools/game_cues.py)
+    'U_SCAR-H': 'rearstop,rack',
+    'U_M416': 'rearstop,rack',  # the G36C's
     'U_UTAS': 'fire,rack,take,insert',
 }
 

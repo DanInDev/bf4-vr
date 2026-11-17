@@ -244,7 +244,10 @@ M320, GP-30 and M26 sets).
 | M320 closed, round out | M320 | synthesised | no close wave; `grenadeout` not wired |
 | Revolver: cases out, speedloader dropped | REX | nothing | not modelled yet |
 
-Not checked in the game yet: that the mod finds the per-gun files (the log line) and how the cues sit in the mix.
+Checked in the game (2026-11-17, Prologue, `sound_probe.py verify` / `pin`, rise over the quiet before): rear stop AK-12
++28 dB (its game rack +30; the played cue correlates 0.89 with the file at +0.3 dB), SCAR-H +20, M416 (the G36C's) +11,
+Scout +32; the 870's shell from the pouch +21 (cloth); the pin +15. The log names each gun's file (`replaces bolt_back
+for AK12`). The pin WAV is not scaled by `pin_volume`; 0 still silences it. Not judged: how they sit in the mix by ear.
 
 ## Open
 
