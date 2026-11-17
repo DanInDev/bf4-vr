@@ -107,6 +107,11 @@ namespace bfvr::weapon
 		return traits.feed == feed::box || traits.feed == feed::rock || traits.feed == feed::top || traits.feed == feed::drum;
 	}
 
+	bool cycles_by_hand(const gun_traits& traits)
+	{
+		return traits.cycle == cycle::bolt || traits.cycle == cycle::pump;
+	}
+
 	std::size_t crate_gun_count()
 	{
 		return sizeof(crate) / sizeof(crate[0]);

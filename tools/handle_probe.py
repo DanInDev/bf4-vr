@@ -343,6 +343,7 @@ def main():
             entry['magazine'] = analyse_magazine(recordings)
         else:
             entry['handle_shot'] = analyse_handle(recordings[0], ['left', 'right'])
+            entry['handle_shot_start'] = pull_start(recordings, 'right')  # a bolt action: the trigger hand
     for gun, entry in results.items():
         if args.table == 'handles':
             h = entry.get('handle_start')

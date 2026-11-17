@@ -52,6 +52,10 @@ namespace bfvr::weapon
 	// guns keep the game's own reload until their families are built (the AR reload treated them as box magazines).
 	bool physical_reload_covers(const gun_traits& traits);
 
+	// A bolt action or a pump: after each shot the hand works the bolt or the fore-end before the next (all-weapons.md
+	// family G, and the pump of a box-fed gun; tube pumps wait for family F).
+	bool cycles_by_hand(const gun_traits& traits);
+
 	// The crate table, for tests and tools.
 	std::size_t crate_gun_count();
 	std::string_view crate_gun_at(std::size_t index);

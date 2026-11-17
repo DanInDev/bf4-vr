@@ -44,6 +44,9 @@ namespace bfvr::weapon
 		int capacity{ 30 };
 		bool flick{ true }; // AK: a new magazine can knock the old one out
 		hold_open hold{ hold_open::by_kind };
+		// A bolt action or a pump (gun_traits cycle): a shot leaves the spent case in the chamber, nothing fed, until
+		// the bolt or the fore-end is worked by hand (rack). The trigger is blocked meanwhile (empty chamber).
+		bool manual_cycle{};
 	};
 
 	bool locks_open(const reload_profile& profile);
@@ -98,6 +101,8 @@ namespace bfvr::weapon
 		explicit reload(const reload_profile& profile = {}, const reload_options& options = {});
 		void configure(const reload_options& options) { options_ = options; }
 		const reload_profile& profile() const { return profile_; }
+		// Setting manual_cycle, live: a gun that cycles by hand can be switched to the game's automatic cycle.
+		void set_manual_cycle(bool on) { profile_.manual_cycle = on; }
 
 		// The gun as the game left it (switching weapons, level start): rounds in the gun counting
 		// the chamber, and the reserve. Nothing held, bolt forward.

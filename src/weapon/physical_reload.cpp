@@ -180,6 +180,7 @@ namespace bfvr::weapon
 		std::atomic<bool> reload_all{};     // setting physical_reload_all: the AR/AK reload for every gun (the old way)
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
 		std::atomic<bool> gun_points{ true }; // setting gun_points
+		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -718,6 +719,11 @@ namespace bfvr::weapon
 		gun_points = on;
 	}
 
+	void set_manual_cycle(bool on)
+	{
+		manual_cycle_on = on;
+	}
+
 	void set_physical_reload_all(bool on)
 	{
 		reload_all = on;
@@ -896,6 +902,7 @@ namespace bfvr::weapon
 		hide_launcher();
 		reload& gun = memory.gun;
 		gun.configure({ discard.load(std::memory_order_relaxed) });
+		gun.set_manual_cycle(manual_cycle_on.load(std::memory_order_relaxed) && profile_for(weapon.name, weapon.capacity).manual_cycle);
 
 		// Shots: the game counted down from what we wrote. Anything else (pickups) moves the reserve.
 		if (memory.written >= 0)
