@@ -2078,6 +2078,28 @@ static void test_reload_sound_cues()
 	}
 }
 
+	void test_throw_along_aim()
+	{
+		const auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+		// #85: a throw straight ahead (LOCAL -z), the hand 30 cm right, 40 cm below and 20 cm ahead of the eyes.
+		throw_in_frame t = throw_along_aim({ 0.3f, -0.4f, -0.2f }, { 0.0f, 0.0f, -8.0f });
+		expect(t.valid && near(t.aim.z, -1.0f) && near(t.speed.z, 8.0f) && near(t.speed.x, 0.0f) && near(t.speed.y, 0.0f),
+			"#85: ahead: the aim along the throw, all of the speed forward");
+		expect(near(t.position.x, -0.3f) && near(t.position.y, -0.4f) && near(t.position.z, 0.2f),
+			"#85: the hand 30 cm right (x left = -0.3), 40 cm below, 20 cm ahead of the eyes");
+		// Thrown to the right (LOCAL +x) and up 45 deg: the aim follows; a hand at the eyes starts at the eyes.
+		t = throw_along_aim({ 0.0f, 0.0f, 0.0f }, { 5.0f, 5.0f, 0.0f });
+		expect(t.valid && near(t.aim.x, 0.7071f) && near(t.aim.y, 0.7071f) && near(t.speed.z, 7.0711f), "#85: up and right: the aim there, speed kept");
+		expect(near(t.position.x, 0.0f) && near(t.position.y, 0.0f) && near(t.position.z, 0.0f), "#85: no offset");
+		// A hand to the left of a throw to the right is behind it in that frame.
+		t = throw_along_aim({ -0.3f, 0.0f, 0.0f }, { 6.0f, 0.0f, 0.0f });
+		expect(near(t.position.z, -0.3f) && near(t.position.x, 0.0f), "#85: offset expressed along the throw");
+		// Straight up: no right from the throw, still valid.
+		t = throw_along_aim({ 0.0f, 0.0f, 0.0f }, { 0.0f, 4.0f, 0.0f });
+		expect(t.valid && near(t.aim.y, 1.0f) && std::isfinite(t.position.x), "#85: straight up is still a throw");
+		expect(!throw_along_aim({}, {}).valid, "#85: no speed, no throw");
+	}
+
 	void test_quick_throw_switch()
 	{
 		// #83: the game's quick throw selects the grenade for ~200 ms; during a physical throw that is no weapon change.
@@ -2133,6 +2155,7 @@ int main()
 	test_palm_lock();
 	test_grip_lock_keeps_the_hold();
 	test_quick_throw_switch();
+	test_throw_along_aim();
 	if (failures == 0)
 	{
 		std::printf("reload: all checks passed\n");

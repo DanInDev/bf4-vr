@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <Xinput.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -165,6 +166,11 @@ namespace bfvr::weapon
 		// after the throw, longer than restore_ms, so this has its own window.
 		constexpr ULONGLONG quick_throw_switch_ms = 1000;
 		std::atomic<ULONGLONG> switch_window_until{};
+		// #85: the game's aim along the throw until the game has thrown it (quick throw: up to ~450 ms).
+		constexpr ULONGLONG throw_aim_ms = 700;
+		std::atomic<bool> throw_aim_on{ true };
+		std::atomic<ULONGLONG> throw_aim_until{};
+		float throw_aim_direction[3]{ 0.0f, 0.0f, -1.0f }; // written under lock, read by grenade_throw_aim
 		ULONGLONG restore_at{};
 		LARGE_INTEGER last_update{};
 		std::uint64_t throws{};
@@ -240,6 +246,54 @@ namespace bfvr::weapon
 			return true;
 		}
 
+		// A throw or drop from the hand (LOCAL position and velocity, already scaled). Called with lock held.
+		void launch_from_hand(const grenade_weapon& weapon, bool dropped, weapon::v3 hand, weapon::v3 hand_velocity, ULONGLONG now, bool safe = false)
+		{
+			float position[3] = { hand.x, hand.y, hand.z };
+			// A drop still needs a direction: a slow forward push.
+			float velocity[3] = { hand_velocity.x, hand_velocity.y, dropped ? -0.3f : hand_velocity.z };
+			// #85: in the game's frame: its aim turned along the throw, the start taken from the eyes.
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (throw_aim_on.load(std::memory_order_relaxed) && head.valid)
+			{
+				const stereo::pose eyes = stereo::eye_math::centre_pose(head);
+				weapon::v3 motion{ velocity[0], velocity[1], velocity[2] };
+				if (dropped)
+				{
+					// A drop: a slow push along the head's level forward.
+					const float* o = eyes.orientation;
+					const float ahead_x = -2.0f * (o[0] * o[2] + o[3] * o[1]);
+					const float ahead_z = -(1.0f - 2.0f * (o[0] * o[0] + o[1] * o[1]));
+					const float level = std::sqrt(ahead_x * ahead_x + ahead_z * ahead_z);
+					motion = level > 1e-3f ? weapon::v3{ 0.3f * ahead_x / level, 0.0f, 0.3f * ahead_z / level } : weapon::v3{ 0.0f, 0.0f, -0.3f };
+				}
+				const throw_in_frame t = throw_along_aim({ hand.x - eyes.position[0], hand.y - eyes.position[1], hand.z - eyes.position[2] }, motion);
+				if (t.valid)
+				{
+					// launch() takes x right, y up, -z forward and turns them into the shot frame's x left, z forward.
+					position[0] = -t.position.x;
+					position[1] = t.position.y;
+					position[2] = -t.position.z;
+					velocity[0] = -t.speed.x;
+					velocity[1] = t.speed.y;
+					velocity[2] = -t.speed.z;
+					throw_aim_direction[0] = t.aim.x;
+					throw_aim_direction[1] = t.aim.y;
+					throw_aim_direction[2] = t.aim.z;
+					throw_aim_until = now + throw_aim_ms;
+				}
+			}
+			if (!launch(weapon, position, velocity, safe))
+			{
+				log::write("grenade: %s not launched (no grenade weapon, or a throw still pending)", last_event);
+				throw_aim_until = 0;
+				return;
+			}
+			log::write("grenade: %s, %.2f m/s along (%.2f, %.2f, %.2f) LOCAL, start %.2f left %.2f up %.2f forward of the eyes", dropped ? "dropped" : "thrown",
+				std::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1] + velocity[2] * velocity[2]), throw_aim_direction[0], throw_aim_direction[1],
+				throw_aim_direction[2], -position[0], position[1], -position[2]);
+		}
+
 		// The grenade pouch: 70 cm below the head, 10 cm ahead along the head's yaw.
 		bool belt_point(weapon::v3& belt)
 		{
@@ -279,6 +333,22 @@ namespace bfvr::weapon
 	int grenade_hand()
 	{
 		return holder.load(std::memory_order_relaxed);
+	}
+
+	void set_grenade_throw_aim(bool on)
+	{
+		throw_aim_on = on;
+	}
+
+	bool grenade_throw_aim(float (&direction)[3])
+	{
+		if (GetTickCount64() >= throw_aim_until.load(std::memory_order_relaxed))
+		{
+			return false;
+		}
+		const std::lock_guard guard(lock);
+		std::copy(std::begin(throw_aim_direction), std::end(throw_aim_direction), direction);
+		return true;
 	}
 
 	bool grenade_throw_pending()
@@ -432,14 +502,8 @@ namespace bfvr::weapon
 		if (result.event == grenade_event::thrown || result.event == grenade_event::dropped)
 		{
 			const float scale = result.event == grenade_event::thrown ? throw_scale.load(std::memory_order_relaxed) : 0.0f;
-			const float position[3] = { result.position.x, result.position.y, result.position.z };
-			// A drop still needs a direction: a slow forward push.
-			const float velocity[3] = { result.velocity.x * scale, result.velocity.y * scale,
-				result.event == grenade_event::dropped ? -0.3f : result.velocity.z * scale };
-			if (!launch(weapon, position, velocity, false))
-			{
-				log::write("grenade: %s not launched (no grenade weapon, or a throw still pending)", last_event);
-			}
+			launch_from_hand(weapon, result.event == grenade_event::dropped, result.position,
+				{ result.velocity.x * scale, result.velocity.y * scale, result.velocity.z * scale }, now);
 		}
 		holding = result.holding;
 		holder = result.hand;
@@ -483,7 +547,27 @@ namespace bfvr::weapon
 	{
 		const std::lock_guard guard(lock);
 		const grenade_weapon weapon = find_grenade_weapon();
-		if (argument == "pinsound")
+		if (argument.rfind("throwhand", 0) == 0)
+		{
+			// #85: a throw through the physical path (the game's aim along it, start from the eyes) with a LOCAL velocity from
+			// the off hand's palm, as if the hand had let go.
+			if (!config::research_enabled())
+			{
+				return "error: 'grenade throwhand' needs research = 1 in bfvr.ini";
+			}
+			float vx{}, vy{}, vz{};
+			char safe_word[8]{};
+			if (sscanf_s(argument.c_str() + 9, "%f %f %f %7s", &vx, &vy, &vz, safe_word, static_cast<unsigned>(sizeof(safe_word))) < 3)
+			{
+				return "error: usage: grenade throwhand <vx> <vy> <vz> [safe]  (m/s, OpenXR LOCAL: x right, y up, z back)";
+			}
+			const body::weapon_points points = body::latest_weapon_points();
+			const weapon::v3 hand = points.hand_valid[0] ? weapon::v3{ points.palm[0][0], points.palm[0][1], points.palm[0][2] } : weapon::v3{ -0.2f, 1.2f, -0.3f };
+			last_event = "thrown (pipe, hand path)";
+			launch_from_hand(weapon, false, hand, { vx, vy, vz }, GetTickCount64(), std::strcmp(safe_word, "safe") == 0);
+			return std::string("thrown through the hand path, hand ") + (points.hand_valid[0] ? "tracked" : "not tracked (placeholder position)");
+		}
+				if (argument == "pinsound")
 		{
 			play(cue::pin); // #82: the pin pull's sound alone, for recordings
 			return "pin sound played";

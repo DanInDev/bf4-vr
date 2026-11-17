@@ -101,4 +101,17 @@ namespace bfvr::weapon
 	// previous one through that switch, or the gun hand, the sling and the reload hands flicker.
 	constexpr int hand_grenade_slot = 6;
 	bool hide_quick_throw_switch(bool throw_pending, int current_slot, int previous_slot);
+	// #85: a throw as the game's shot frame needs it. The hand's velocity and its offset from the eyes are in OpenXR LOCAL;
+	// the game's grenade starts at its shot frame (x left, y up, z forward along the game's aim). The game's aim is turned
+	// along the throw for the moment of it (weapon_swap's action aim, as for the C4, #70), so the speed is all forward and
+	// the offset is taken in that frame. Before, LOCAL went in as if it were that frame: every stick or snap turn and the
+	// aim's pitch turned the throw away, and the hand's height above the tracking origin went in as height above the eyes.
+	struct throw_in_frame
+	{
+		bool valid{};
+		v3 aim;      // unit, LOCAL: where the game's aim must point
+		v3 position; // shot frame: x left, y up, z forward (from the eyes)
+		v3 speed;    // shot frame
+	};
+	throw_in_frame throw_along_aim(v3 offset_from_eyes, v3 velocity);
 }

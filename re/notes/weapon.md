@@ -193,6 +193,18 @@ future two-hand grip.
   - Flake: once in five runs the level-start knife capture took other meshes (no 6000/4380-index draws, two draws from
     another buffer kept). Drawing the knife once (`extramesh forget knife` first) recaptures it.
 
+## Where a physical throw goes (#85, 2026-11-17, monitor)
+
+- **Cause of the finicky throws:** the hand's velocity and position (OpenXR LOCAL) went into the grenade's shot frame
+  (x left, y up, z forward along the game's aim) as if LOCAL were that frame. Every stick/snap turn and the aim's pitch
+  turned the throw away, and the hand's height above the tracking origin went in as height above the eyes.
+- **Now:** the game's aim is turned along the throw (weapon_swap's action aim, as the C4 in #70) for 700 ms, the speed
+  is all forward in that frame and the start is the hand's offset from the eyes in that frame (`throw_along_aim`).
+  Pipe `grenade throwhand <vx> <vy> <vz> [safe]` throws through this path. Monitor: LOCAL (8, 4, 0) -> game aim yaw
+  +90.0, pitch +26.6 for ~800 ms.
+- The grenade entity (`ServerGrenadeEntity`, vtable `0x141E685B0`) holds no position within its first 0x800 bytes
+  (dead end for measuring landing points; it is behind a component).
+
 ## The quick throw selects the grenade for a moment (#83, 2026-11-17, monitor, Baku tunnel)
 
 A physical throw fires the game's quick throw (an 80 ms LB pulse). The game then makes the hand grenade (slot 6) the

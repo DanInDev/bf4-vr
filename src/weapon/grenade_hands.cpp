@@ -201,4 +201,25 @@ namespace bfvr::weapon
 	{
 		return throw_pending && current_slot == hand_grenade_slot && previous_slot != hand_grenade_slot && previous_slot >= 0;
 	}
+	throw_in_frame throw_along_aim(v3 offset_from_eyes, v3 velocity)
+	{
+		throw_in_frame out;
+		const float speed = length(velocity);
+		if (!(speed > 1e-3f) || !std::isfinite(speed))
+		{
+			return out;
+		}
+		const v3 forward{ velocity.x / speed, velocity.y / speed, velocity.z / speed };
+		// right = forward x up (LOCAL: x right, y up, z back); straight up or down has no right: take LOCAL's.
+		v3 right{ -forward.z, 0.0f, forward.x };
+		const float r = length(right);
+		right = r > 1e-3f ? v3{ right.x / r, right.y / r, right.z / r } : v3{ 1.0f, 0.0f, 0.0f };
+		const v3 up{ right.y * forward.z - right.z * forward.y, right.z * forward.x - right.x * forward.z, right.x * forward.y - right.y * forward.x };
+		const auto dot = [](v3 a, v3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+		out.valid = true;
+		out.aim = forward;
+		out.position = { -dot(offset_from_eyes, right), dot(offset_from_eyes, up), dot(offset_from_eyes, forward) };
+		out.speed = { 0.0f, 0.0f, speed };
+		return out;
+	}
 }

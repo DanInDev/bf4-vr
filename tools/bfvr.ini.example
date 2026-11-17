@@ -327,6 +327,9 @@ reload_sounds = 1
 # #82: loudness of the grenade pin pull (0 silent .. 1 full); a bfvr_sounds\pin.wav still replaces the sound.
 pin_volume = 0.35
 grenade_throw_scale = 1.5
+# #85: a thrown grenade goes along the hand's motion (the game's aim turns with the throw for that moment, the start is
+# the hand); 0 = the old way, which stick or snap turns and looking up or down sent elsewhere.
+grenade_throw_aim = 1
 # Research only (Advanced page): aim = head lets the view aim the gun (the game's own way) and
 # gun_pose = animated draws the game's hip pose turned by the controller; tools/sight_probe.py needs
 # both to read the game's own sight pose. Play with controller / aim.

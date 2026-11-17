@@ -24,6 +24,9 @@ namespace bfvr::weapon
 	bool grenade_armed();
 	// #83: within 1 s of a physical throw (the game's quick throw selects the grenade from ~100 to ~450 ms after it).
 	bool grenade_throw_pending();
+	// #85: setting grenade_throw_aim. While a physical throw is with the game, the direction (LOCAL) its aim must point.
+	void set_grenade_throw_aim(bool on);
+	bool grenade_throw_aim(float (&direction)[3]);
 	// The open off hand is at the grenade belt with a grenade to take (the drawn hand opens).
 	bool off_hand_at_belt();
 
