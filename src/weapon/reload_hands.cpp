@@ -285,7 +285,7 @@ namespace bfvr::weapon
 			rack_test.over_distance = distance(reach, handle);
 			rack_test.zone = rack_test.over_distance < handle_reach ? rack_zone::over : rack_zone::none;
 		}
-		if (!valid || frame.pump)
+		if (!valid || frame.pump || frame.revolver) // a revolver has no handle to rack
 		{
 			rack_test.zone = rack_zone::none; // a pump's fore-end is the two-handed hold's; the held hand pumps it (below)
 		}
@@ -294,7 +294,7 @@ namespace bfvr::weapon
 		const bool in_rack_zone = rack_test.zone != rack_zone::none;
 		// Zones overlap: the magazine beats the underhand zone (the large fallback below the handle);
 		// against the overhand zone the nearer one wins.
-		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(frame.tube && !gun.state().holding)
+		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !((frame.tube || frame.revolver) && !gun.state().holding)
 			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
 		const bool near_handle = in_rack_zone && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
@@ -330,7 +330,7 @@ namespace bfvr::weapon
 			flick_rearm_ = flick_second_ = false; // a new magazine in the hand: no flick pending
 		};
 		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
-		const bool lockable = frame.grip_lock && frame.has_root && valid && !frame.tube;
+		const bool lockable = frame.grip_lock && frame.has_root && valid && !frame.tube && !frame.revolver;
 		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, out_in_gun) : v3{ 0, -1, 0 };
 		const float rail_depth = dot(held_top - frame.magwell, rail_down);
 		const v3 rail_point = frame.magwell + rail_down * std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
@@ -377,7 +377,7 @@ namespace bfvr::weapon
 		{
 			palm_ = palm_stage::none;
 		}
-		const bool can_palm = frame.palming && !ak && !frame.tube && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
+		const bool can_palm = frame.palming && !ak && !frame.tube && !frame.revolver && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
 			&& !kept_old_ && gun.state().magazine_in;
 		const float fist_to_magwell = valid ? distance(fist_top, frame.magwell) : 1e9f;
 		if (palm_ == palm_stage::ready && (!can_palm || fist_to_magwell > config_.palm_leave))
@@ -427,7 +427,7 @@ namespace bfvr::weapon
 
 		// Belt-fed: the lid and the belt, before the box, the handle and the pouch.
 		bool belt_feed_grab = false;
-		const bool belt_points = frame.belt && frame.has_belt_points && frame.has_root;
+		const bool belt_points = (frame.belt || frame.revolver) && frame.has_belt_points && frame.has_root; // the lid (or frame) is known
 		const q4 to_gun = conjugate(frame.root_rotation);
 		const auto hinge_angle = [&](v3 p)
 		{
@@ -436,7 +436,7 @@ namespace bfvr::weapon
 		};
 		const float lid_full = frame.lid_degrees * 0.017453293f;
 		const v3 belt_point = gun.state().belt_laid ? frame.feed_tray : frame.belt_end;
-		const bool near_belt = belt_points && valid && gun.state().lid_open && gun.state().magazine_in && !gun.state().holding
+		const bool near_belt = belt_points && frame.belt && valid && gun.state().lid_open && gun.state().magazine_in && !gun.state().holding
 			&& distance(reach, belt_point) < config_.belt_reach;
 		const bool near_lid = belt_points && valid && !gun.state().holding && !gun.state().belt_held && distance(reach, frame.lid_grab) < config_.lid_reach;
 		if (belt_points && grip_pressed && valid && !gun.state().holding && !gun.state().belt_held)
@@ -482,8 +482,23 @@ namespace bfvr::weapon
 				emit(result, gun.close_lid());
 			}
 		}
-		else if (frame.belt)
+		else if (frame.belt || frame.revolver)
 		{
+			// The revolver shut by a flick of the gun up (the barrel's pitch rising fast), as top breaks are closed.
+			if (frame.revolver && gun.state().lid_open && frame.has_root && valid && frame.seconds > 1e-4f)
+			{
+				const float pitch = rotate(frame.root_rotation, { 0, 0, 1 }).y;
+				if (has_last_pitch_ && (pitch - last_pitch_) / frame.seconds > config_.flick_close_rate && lid_ > 0.9f)
+				{
+					emit(result, gun.close_lid());
+				}
+				last_pitch_ = pitch;
+				has_last_pitch_ = true;
+			}
+			else
+			{
+				has_last_pitch_ = false;
+			}
 			const float target = gun.state().lid_open ? 1.0f : 0.0f;
 			const float step = config_.lid_swing_seconds > 0.0f ? frame.seconds / config_.lid_swing_seconds : 1.0f;
 			lid_ = target > lid_ ? std::fmin(target, lid_ + step) : std::fmax(target, lid_ - step);
@@ -504,7 +519,7 @@ namespace bfvr::weapon
 				}
 			}
 		}
-		if (frame.belt)
+		if (frame.belt || frame.revolver)
 		{
 			result.lid = lid_;
 			result.lid_held = lid_held_;

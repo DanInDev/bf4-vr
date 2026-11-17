@@ -53,6 +53,10 @@ namespace bfvr::weapon
 		// Belt-fed (gun_traits feed belt: M249, M240, MG4, Pecheneg, Type 88): a box under the gun, its belt laid on the
 		// feed tray under a lid. Fires only with the lid shut on a laid belt; open bolt, so no charging after a reload.
 		bool belt{};
+		// A top-break revolver (gun_traits feed cylinder: the MP-412 REX): the latch (the release button) breaks the frame
+		// open (lid_open; the extractor throws the cases), a speedloader from the pouch fills the empty chambers at the open
+		// cylinder, the frame shut (a flick up or a push) brings the next chamber under the hammer: double action.
+		bool revolver{};
 	};
 
 	bool locks_open(const reload_profile& profile);

@@ -2296,6 +2296,59 @@ namespace
 			expect(!gun.state().lid_open && gun.state().chamber && close(r.lid, 0.0f, 1e-3f), "belt: pushed under halfway, it shuts on the belt: ready");
 		}
 		{
+			// The revolver: B breaks it open, a speedloader from the pouch at the open cylinder, a flick of the gun up shuts it.
+			reload_profile rex_profile = ar;
+			rex_profile.revolver = true;
+			rex_profile.capacity = 5;
+			rex_profile.hold = hold_open::no;
+			rex_profile.flick = false;
+			reload gun(rex_profile);
+			gun.load(0, 30);
+			reload_hands hands(flat_hold());
+			float drawn = 0.0f;
+			q4 gun_turn{};
+			const auto rex_frame = [&](v3 hand, bool grip, bool button)
+			{
+				hand_frame f = at(hand, grip, button);
+				f.has_root = true;
+				f.root = {};
+				f.root_rotation = gun_turn;
+				f.magwell = magwell;
+				f.revolver = true;
+				f.has_belt_points = true;
+				f.lid_hinge = { 0.0f, 0.026f, 0.137f };
+				f.lid_grab = { 0.0f, 0.026f - 0.11f * std::sin(drawn * 1.4835f), 0.137f + 0.11f * std::cos(drawn * 1.4835f) };
+				f.lid_degrees = 85.0f;
+				return f;
+			};
+			const auto step = [&](v3 hand, bool grip, bool button)
+			{
+				const hand_result r = hands.update(gun, rex_frame(hand, grip, button));
+				drawn = r.lid;
+				return r;
+			};
+			step(away, false, false);
+			hand_result r = step(away, false, true);
+			expect(has(r, reload_event::lid_opened) && gun.state().lid_open, "REX: B breaks it open");
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, false, false);
+			}
+			expect(close(r.lid, 1.0f, 1e-3f), "REX: the frame swings fully open");
+			step(chest, false, false);
+			r = step(chest, true, false);
+			expect(has(r, reload_event::magazine_taken) && gun.state().held_rounds == 6, "REX: a speedloader from the pouch");
+			r = step(magwell, true, false);
+			expect(has(r, reload_event::magazine_in) && gun.state().magazine_rounds == 6, "REX: at the open cylinder, six rounds in");
+			step(magwell, false, false);
+			r = step(away, false, false);
+			expect(gun.state().lid_open && !has(r, reload_event::lid_closed), "REX: still open while the gun is held still");
+			// A flick up: the barrel pitched up 0.1 rad in one frame (6 /s).
+			gun_turn = { -std::sin(0.05f), 0.0f, 0.0f, std::cos(0.05f) };
+			r = step(away, false, false);
+			expect(has(r, reload_event::lid_closed) && gun.state().chamber && gun.rounds_in_gun() == 6, "REX: a flick up shuts it, ready");
+		}
+		{
 			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.
 			reload gun(ak);
 			gun.load(30, 60);

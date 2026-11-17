@@ -469,6 +469,13 @@ Wep_Mag, from the right side up to (0, 0.098, 0.144). Dead end: scanning memory 
 141CD6F40) found 21, none with a weapon skeleton; the weapon components' animatables hold no skeleton at +0x230.
 Lesson: look for a turning bone by its local rotation over the whole rig, not by position.
 
+**Built and checked live 2026-11-17 (`revolver_by_hand`, fakehead/fakehand):** two shots (6 -> 4), B broke it open
+(`lid_opened`, the round under the hammer back in the cylinder, the frame drawn fully open), a speedloader of 6 from
+the pouch at the open cylinder filled the two empty chambers and put 4 back (reserve 12 -> 16), a 35-degree flick of the
+gun hand shut it (`lid_closed`, a round under the hammer), the trigger fired. The speedloader's seat is published by
+arm_pose as the turned cylinder's rear face (Wep_Physic1 4.7 cm back), not edit_weapon's Wep_Mag (8 cm off when open).
+The screenshot of the open frame was too dark to judge: the look of it is for the headset (GUN-39).
+
 **M249, workable:** the lid is Wep_Extra1, hinged at (0, 0.058, 0.475) (the front of the feed tray), turned up by
 q (0.781, 0, 0, 0.625) = 102.6 degrees about the gun's x axis; Wep_Scope1 (the optic on the lid) turns with it: its
 open position is its rest turned 102.6 degrees about that hinge (checked: (0.075, 0.295) -> (0.230, 0.531)). The belt

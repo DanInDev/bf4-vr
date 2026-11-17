@@ -37,6 +37,10 @@ namespace bfvr::weapon
 		{
 			return reload_event::racked_empty; // no belt under a shut lid: nothing to feed
 		}
+		if (profile_.revolver && state_.lid_open)
+		{
+			return reload_event::racked_empty; // the frame open: nothing under the hammer
+		}
 		if (state_.magazine_in && state_.magazine_rounds > 0)
 		{
 			--state_.magazine_rounds;
@@ -81,6 +85,10 @@ namespace bfvr::weapon
 		if (profile_.kind != variant::ar || profile_.tube) // a tube has no release
 		{
 			return reload_event::none;
+		}
+		if (profile_.revolver)
+		{
+			return open_lid(); // the latch: the frame breaks open (shut again by a flick or a push, not the button)
 		}
 		if (profile_.belt)
 		{
@@ -169,7 +177,8 @@ namespace bfvr::weapon
 		{
 			return reload_event::none;
 		}
-		state_.held_rounds = profile_.tube ? 1 : std::min(profile_.capacity, state_.reserve); // a tube: one shell
+		// A tube: one shell; a revolver's speedloader: one round per chamber (the magazine's capacity plus the chamber).
+		state_.held_rounds = profile_.tube ? 1 : std::min(profile_.capacity + (profile_.revolver ? 1 : 0), state_.reserve);
 		state_.reserve -= state_.held_rounds;
 		state_.holding = true;
 		return reload_event::magazine_taken;
@@ -199,6 +208,21 @@ namespace bfvr::weapon
 		if (!state_.holding)
 		{
 			return reload_event::none;
+		}
+		if (profile_.revolver)
+		{
+			// The speedloader at the open cylinder: it fills the empty chambers; what does not fit goes back to the pouch.
+			const int chambers = profile_.capacity + 1;
+			if (!state_.lid_open || state_.magazine_rounds >= chambers)
+			{
+				return reload_event::none;
+			}
+			const int loaded = std::min(chambers - state_.magazine_rounds, state_.held_rounds);
+			state_.magazine_rounds += loaded;
+			state_.reserve += state_.held_rounds - loaded;
+			state_.holding = false;
+			state_.held_rounds = 0;
+			return reload_event::magazine_in;
 		}
 		if (profile_.tube)
 		{
@@ -250,7 +274,7 @@ namespace bfvr::weapon
 
 	reload_event reload::open_lid()
 	{
-		if (!profile_.belt || state_.lid_open)
+		if (!(profile_.belt || profile_.revolver) || state_.lid_open)
 		{
 			return reload_event::none;
 		}
@@ -266,7 +290,7 @@ namespace bfvr::weapon
 
 	reload_event reload::close_lid()
 	{
-		if (!profile_.belt || !state_.lid_open)
+		if (!(profile_.belt || profile_.revolver) || !state_.lid_open)
 		{
 			return reload_event::none;
 		}

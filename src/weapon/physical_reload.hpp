@@ -28,6 +28,9 @@ namespace bfvr::weapon
 	// Setting belts_by_hand: belt-fed LMGs (M249, M240, MG4, Pecheneg, Type 88) by hand: lid up, box off and on, belt laid
 	// on the tray, lid shut; off: the game's own reload (B).
 	void set_belts_by_hand(bool on);
+	// Setting revolver_by_hand: the MP-412 REX by hand (B breaks it open, a speedloader from the pouch at the open
+	// cylinder, a flick up or a push on the barrel shuts it); off: the game's own reload (B).
+	void set_revolver_by_hand(bool on);
 	void set_drop_discards_ammo(bool discard);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.

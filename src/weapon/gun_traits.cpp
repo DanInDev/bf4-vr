@@ -106,7 +106,8 @@ namespace bfvr::weapon
 	{
 		return traits.feed == feed::box || traits.feed == feed::rock || traits.feed == feed::top || traits.feed == feed::drum
 			|| traits.feed == feed::tube  // shell by shell (reload_profile tube, 2026-11-17)
-			|| traits.feed == feed::belt; // lid, box, belt (reload_profile belt, 2026-11-17)
+			|| traits.feed == feed::belt     // lid, box, belt (reload_profile belt, 2026-11-17)
+			|| traits.feed == feed::cylinder; // top break, speedloader (reload_profile revolver, 2026-11-17)
 	}
 
 	bool cycles_by_hand(const gun_traits& traits)

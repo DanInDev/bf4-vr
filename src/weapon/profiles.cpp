@@ -163,7 +163,12 @@ namespace bfvr::weapon
 
 	float lid_degrees_for(std::string_view unlock_name)
 	{
-		// handle_probe --all-bones, 2026-11-17: Wep_Extra1's turn at the top of the game's empty reload.
+		// handle_probe --all-bones, 2026-11-17: Wep_Extra1's turn at the top of the game's empty reload (the REX: its frame,
+		// Wep_Slide).
+		if (unlock_name == "U_MP412Rex")
+		{
+			return 85.0f;
+		}
 		if (unlock_name == "U_Pecheneg")
 		{
 			return 93.7f;
@@ -217,7 +222,8 @@ namespace bfvr::weapon
 		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits);
 		profile.tube = traits.feed == feed::tube;
 		profile.belt = traits.feed == feed::belt;
-		if (profile.tube || profile.belt)
+		profile.revolver = traits.feed == feed::cylinder;
+		if (profile.tube || profile.belt || profile.revolver)
 		{
 			profile.kind = variant::ar; // nothing to rock; no flick
 			profile.flick = false;

@@ -85,6 +85,7 @@ namespace bfvr::settings
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "", true },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "physical_reload_all", "Weapon", "Reloading", "Hand reload for every gun", "Off: belt-fed LMGs and the revolver reload the game's way", "" },
+			{ "revolver_by_hand", "Weapon", "Reloading", "Revolver by hand", "Off: the revolver reloads the game's way (B)", "" },
 			{ "belts_by_hand", "Weapon", "Reloading", "Machine-gun belts by hand", "Off: belt-fed guns reload the game's way (B)", "" },
 			{ "shells_by_hand", "Weapon", "Reloading", "Shotgun shells by hand", "Off: shotguns reload the game's way (B)", "" },
 			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
