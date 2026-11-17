@@ -163,10 +163,87 @@ RELOAD_EVENTS = [('Grab', 0x7C7F4233), ('Bolt', 0x7C80C030), ('0c87faa9', 0x0C87
 
 
 def stage_steps(name):
-    """Each reload graph event sent to the reload SoundEntity whose sound name contains `name`."""
+    """Each graph input event of the reload SoundEntity whose sound name contains `name`, sent to it: the AR list for
+    the AR patch, else the patch's own events (sound_census.input_events: shotguns, LMGs, Reload_5 ... have their own)."""
+    import struct as _struct
+    from camera_probe import peek
     from reload_sound_probe import reload_entities
-    entity = next(e for e, n, _, _ in reload_entities() if name in n)
-    return [(f'reload event {label}', [f'entityevent {entity:x} {value:x}'], 3.0) for label, value in RELOAD_EVENTS]
+    from sound_census import input_events
+    entity = next(e for e, n, _, _ in reload_entities() if name.lower() in n.lower())
+    q = lambda at: _struct.unpack('<Q', peek(at, 8))[0]
+    patch = q(q(q(entity + 0x28) + 0x18) + 0x28)
+    events = input_events(patch) if patch else []
+    known = dict((value, label) for label, value in RELOAD_EVENTS)
+    listed = [(known.get(e, f'{e:08x}'), e) for e in events] or RELOAD_EVENTS
+    return [(f'reload event {label}', [f'entityevent {entity:x} {value:x}'], 3.0) for label, value in listed]
+
+
+def verify_steps(gun, steps):
+    """The physical reload's steps for `gun` through the pipe (reload = physical): does each now sound (the game's)?"""
+    out = [('setup', ['setting set reload physical', 'givegun U_AK12 1'], 4.0), (f'give {gun}', [f'givegun {gun} 1'], 14.0)]
+    return out + [(f'reload {step}', [f'reload {step}'], 2.5) for step in steps.split(',')]
+
+
+VERIFY = {
+    'U_870': 'fire,rearstop,rack,take,insert,take,insert',
+    'U_M249': 'lidopen,belttake,beltlay,lidclose',
+    'U_MP412Rex': 'fire,button,take,insert,lidclose',
+    'U_Scout': 'fire,rearstop,rack',
+    'U_UTAS': 'fire,rack,take,insert',
+}
+
+
+def game_empty_steps(gun):
+    """The game's own empty reload of `gun` (given fresh into the slot in hand, button reload, the game's hands)."""
+    return [('setup', ['setting set reload button', 'setting set arm_ik 0', 'givegun U_AK12 1'], 4.0),
+            (f'give {gun}', [f'givegun {gun} 1'], 6.0),
+            ('empty reload (setammo 0)', ['reload setammo 0'], 11.0),
+            ('restore', ['setting set reload physical', 'setting set arm_ik 1'], 1.0)]
+
+
+def bursts(wav, step_label):
+    """The separate sounds inside one step (onset > 10 dB over the quiet before, after 0.15 s under it): time after the
+    step, peak, spectral profile."""
+    rate, samples, start, events = load(wav)
+    db = envelope_db(samples, rate)
+    index = next(i for i, (_, label, _) in enumerate(events) if label == step_label)
+    begin = int((events[index][0] - start) / 10.0)
+    end = int((events[index + 1][0] - start) / 10.0) if index + 1 < len(events) else len(db)
+    # The step's own quiet level (its 20th percentile): the level before it can still hold the gun pickup's sound.
+    floor = float(np.percentile(db[begin:end], 20))
+    out, quiet = [], 10
+    for frame in range(begin, end):
+        if db[frame] > floor + 9.0 and quiet >= 10:
+            first = frame * rate // 100
+            clip = samples[max(0, first - rate // 50): first + rate // 2]
+            vector = profile(clip, rate)
+            if vector is not None:
+                out.append(((frame - begin) / 100.0, float(db[frame:frame + 30].max()), vector))
+            quiet = 0
+        quiet = quiet + 1 if db[frame] <= floor + 6.0 else 0
+    return out
+
+
+def match(stages_wav, game_wav):
+    """Each event's sound against the sounds of the game's own reload: which moment of the reload it is."""
+    targets = bursts(game_wav, 'empty reload (setammo 0)')
+    print(f'game reload: {len(targets)} sounds at ' + ', '.join(f'{t:.2f}s' for t, _, _ in targets))
+    rate, samples, start, events = load(stages_wav)
+    db = envelope_db(samples, rate)
+    for index, (at, label, _) in enumerate(events):
+        if not label.startswith('reload event'):
+            continue
+        begin = int((at - start) / 10.0)
+        end = int((events[index + 1][0] - start) / 10.0) if index + 1 < len(events) else len(db)
+        floor = float(np.median(db[max(0, begin - 50):begin]))
+        loud = np.nonzero(db[begin:end] > floor + 10.0)[0]
+        if not len(loud):
+            print(f'{label:28s} silent')
+            continue
+        first = (begin + int(loud[0])) * rate // 100
+        vector = profile(samples[max(0, first - rate // 50): first + rate // 2], rate)
+        scores = sorted(((float(np.dot(vector, v)), t) for t, _, v in targets), reverse=True)[:3]
+        print(f'{label:28s} +{float(db[begin:end].max()) - floor:5.1f} dB  like the reload at ' + ', '.join(f'{t:.2f}s ({s:.2f})' for s, t in scores))
 
 
 def record(scenario, out):
@@ -251,15 +328,23 @@ def analyse(wav, references):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('scenario', choices=sorted(SCENARIOS) + ['stages'])
-    parser.add_argument('--weapon', default='AK12', help='stages: reload entity name part')
+    parser.add_argument('scenario', choices=sorted(SCENARIOS) + ['stages', 'game_empty', 'match', 'verify'])
+    parser.add_argument('--weapon', default='AK12', help='stages: reload entity name part (its folder)')
+    parser.add_argument('--gun', default='U_870', help='game_empty: the unlock to give and reload')
     parser.add_argument('--out', default=os.path.join(ROOT, 're', 'dumps', 'sound'))
     parser.add_argument('--analyse-only', action='store_true')
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
+    if args.scenario == 'match':
+        match(os.path.join(args.out, 'stages.wav'), os.path.join(args.out, 'game_empty.wav'))
+        return
     wav = os.path.join(args.out, f'{args.scenario}.wav')
     if args.scenario == 'stages':
         SCENARIOS['stages'] = stage_steps(args.weapon)
+    if args.scenario == 'game_empty':
+        SCENARIOS['game_empty'] = game_empty_steps(args.gun)
+    if args.scenario == 'verify':
+        SCENARIOS['verify'] = verify_steps(args.gun, VERIFY.get(args.gun, 'fire,rack'))
     if not args.analyse_only:
         wav = record(args.scenario, args.out)
     reference_file = os.path.join(args.out, 'references.json')

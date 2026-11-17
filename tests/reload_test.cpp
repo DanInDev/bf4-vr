@@ -2367,6 +2367,38 @@ static void test_reload_sound_cues()
 {
 	using namespace bfvr::weapon;
 	sound_cue cues[2]{};
+	// The gun's sound folder from its firing sound (census 2026-11-17: the unlock names missed 18 of 51 reload sets).
+	expect(sound_folder_of("sound/Weapons/Handheld/Remington870/Weapon_Shotgun_Remington870_SPC") == "Remington870"
+			&& sound_folder_of("Sound/Weapons/Handheld/M16A3/Weapon_Assault_M16A4_SPC") == "M16A3" && sound_folder_of("Sound/Character/x").empty(),
+		"sound folder: from the firing sound's path, whatever the unlock is called");
+	expect(reload_set_belongs("Sound/Weapons/Handheld/Remington870/Weapon_Shotgun_Remington870_Reload_SPC", "Remington870")
+			&& reload_set_belongs("Sound/Weapons/Handheld/Mk11/Weapon_Sniper_Mk11_Reload_SPC", "MK11")
+			&& !reload_set_belongs("Sound/Weapons/AI/Mk11/Weapon_Sniper_Mk11_Reload_SPC", "Mk11")
+			&& !reload_set_belongs("Sound/Weapons/Handheld/AK12/Weapon_Assault_AK12_Reload_SPC", "AK")
+			&& !reload_set_belongs("Sound/Weapons/Handheld/Mk11/Weapon_Sniper_Mk11_SPC", "Mk11"),
+		"reload set: its folder ignoring case, a reload set, not the AI one, not a folder that only starts the same");
+	{
+		const std::uint32_t pump[] = { reload_sound::magazine_seat, reload_sound::settle, reload_sound::bolt, 0x11111111u };
+		expect(!patch_has_event(pump, 4, reload_sound::magazine_in) && patch_has_event(pump, 4, reload_sound::bolt),
+			"patch: the pump shotgun's has no magazine-in (the synthesised one plays), it has the bolt");
+	}
+	// Each patch's own events (sound_probe match, 2026-11-17).
+	expect(patch_kind_of("Sound/Weapons/SourcePatches/Handheld/Weapon_SourcePatch_Reload_Shotgun_PumpAction") == reload_patch::pump
+			&& patch_kind_of("Weapon_SourcePatch_Reload_LMG") == reload_patch::lmg && patch_kind_of("Weapon_SourcePatch_Reload_AR") == reload_patch::ar
+			&& patch_kind_of("Weapon_SourcePatch_Reload_5") == reload_patch::tube5 && patch_kind_of("") == reload_patch::ar,
+		"patch: told apart by name");
+	expect(cues_for(reload_event::shell_loaded, reload_patch::pump, cues) == 1 && cues[0].event == reload_sound::pump_shell_in,
+		"pump shotgun: a shell in is its own shell sound (the AR magazine-in it lacks played nothing)");
+	expect(cues_for(reload_event::lid_closed, reload_patch::lmg, cues) == 1 && cues[0].event == reload_sound::lmg_lid_close
+			&& cues_for(reload_event::lid_opened, reload_patch::pistol, cues) == 1 && cues[0].event == reload_sound::magazine_out,
+		"LMG lid and revolver frame: their own sounds");
+	expect(cues_for(reload_event::magazine_out, reload_patch::lmg, cues) == 1 && cues[0].event == reload_sound::magazine_out,
+		"what a patch shares with the AR stays the AR's");
+	expect(rear_stop_event(reload_patch::pump) == reload_sound::pump_back && rear_stop_event(reload_patch::ar) == 0u
+			&& rear_stop_event(reload_patch::sniper) == 0u,
+		"rear stop: the pump's own; none for the AR or the sniper (its event stayed silent there)");
+	expect(cues_for(reload_event::magazine_taken, reload_patch::pump, cues) == 0 && cues_for(reload_event::magazine_taken, reload_patch::ar, cues) == 1,
+		"a shell from the pouch: the synthesised cue on a pump (its settle event is silent), the AR's settle on a rifle");
 	expect(cues_for(reload_event::magazine_out, cues) == 1 && cues[0].event == reload_sound::magazine_out && cues[0].delay_ms == 0, "cue: magazine out");
 	expect(cues_for(reload_event::magazine_in, cues) == 2 && cues[0].event == reload_sound::magazine_in && cues[1].event == reload_sound::magazine_seat
 		&& cues[1].delay_ms > 0, "cue: magazine in, then seated");
