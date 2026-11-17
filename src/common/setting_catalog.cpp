@@ -118,6 +118,7 @@ namespace bfvr::settings
 			{ "grenade", "Weapon", "Grenades and gadgets", "Grenades", "From the belt by hand, or the button", "physical=By hand|button=Button" },
 			{ "grenade_throw_scale", "Weapon", "Grenades and gadgets", "Throw strength", "Launch speed times your hand speed", "" },
 			{ "action_aim", "Weapon", "Grenades and gadgets", "Actions where you look", "Squad order and melee by your head, C4 by your hand", "" },
+			{ "pin_volume", "Weapon", "Grenades and gadgets", "Pin pull volume", "0 silent, 1 full", "" },
 			{ "c4_trigger", "Weapon", "Grenades and gadgets", "C4 with the triggers", "Off hand throws, gun hand detonates", "" },
 			{ "free_hands_release", "Weapon", "Hands and melee", "Let-go delay", "Seconds before an opened hand drops the gun", "", true },
 			{ "free_hands", "Weapon", "Hands and melee", "Free hands", "Let go and the gun drops; grip to pick up", "" },

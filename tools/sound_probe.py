@@ -113,6 +113,21 @@ SCENARIOS = {
         ('pull it out once more, nothing just before', ['reload grab'], 3.0),
         ('insert', ['reload insert'], 3.0),
     ],
+    # #82: the grenade pin pull at three volumes against a magazine insert (AK-12 in hand, physical reload).
+    'pin': [
+        ('setup: physical reload', ['setting set reload physical'], 3.0),
+        ('reference: pull the magazine out', ['reload grab'], 2.5),
+        ('reference: drop it', ['reload letgo'], 2.5),
+        ('reference: take one', ['reload take'], 2.5),
+        ('reference: magazine insert', ['reload insert'], 2.5),
+        ('set pin_volume 1 (a setting applies on the next frame)', ['setting set pin_volume 1'], 1.0),
+        ('pin, volume 1', ['grenade pinsound'], 2.5),
+        ('set pin_volume 0.35', ['setting set pin_volume 0.35'], 1.0),
+        ('pin, volume 0.35 (default)', ['grenade pinsound'], 2.5),
+        ('set pin_volume 0', ['setting set pin_volume 0'], 1.0),
+        ('pin, volume 0', ['grenade pinsound'], 2.5),
+        ('restore pin_volume 0.35', ['setting set pin_volume 0.35'], 1.0),
+    ],
     # AR variant (SCAR-H in hand): the release button drops the magazine out of the gun.
     'physical_ar': [
         ('setup: physical reload', ['setting set reload physical'], 3.0),

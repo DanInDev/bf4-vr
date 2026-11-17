@@ -162,6 +162,7 @@ namespace bfvr::settings
 			{ "reticle_size", kind::real, 0.3f, 3.0f, 0.1f, "1", "", "aim reticle size, degrees" },
 			{ "sight_ads", kind::boolean, 0, 0, 0, "1", "", "hold the gun's sight to your eye and the game aims down it (the optic's lens clears, ADS accuracy); not for a clear holo while hip_accuracy is 1" },
 			{ "sight_dot", kind::boolean, 0, 0, 0, "1", "", "guns with an optic: a red dot at infinity along the sight line, seen only by an eye that looks through the lens, aiming or not (the game's own reticle follows the view's centre, not the sight)" },
+			{ "pin_volume", kind::real, 0.0f, 1.0f, 0.05f, "0.35", "", "loudness of the grenade pin pull, 0 = silent, 1 = full (#82; 0.35 is about a third of the old ping)" },
 			{ "crate_primary", kind::choice, 0, 0, 0, "keep", weapon::crate::values, "own crate (#80): pick a gun and it goes into the primary slot and into your hand about a second after you stop stepping, no game menu needed (keep: no change)" },
 			{ "crate_secondary", kind::choice, 0, 0, 0, "keep", weapon::crate::values, "own crate (#80): the same for the secondary slot" },
 			{ "unlock_all_weapons", kind::boolean, 0, 0, 0, "1", "", "every gun in the campaign weapon crate can be picked (the game's own all-unlocked switch, held while a campaign level runs; memory only, nothing is saved or sent)" },

@@ -473,6 +473,11 @@ namespace bfvr::weapon
 	{
 		const std::lock_guard guard(lock);
 		const grenade_weapon weapon = find_grenade_weapon();
+		if (argument == "pinsound")
+		{
+			play(cue::pin); // #82: the pin pull's sound alone, for recordings
+			return "pin sound played";
+		}
 		if (argument == "capture")
 		{
 			request_grenade_capture();
