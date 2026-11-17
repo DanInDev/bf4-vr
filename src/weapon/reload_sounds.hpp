@@ -22,4 +22,6 @@ namespace bfvr::weapon
 	// #82: the grenade pin pull's level, 0..1 (setting pin_volume); a WAV in bfvr_sounds still replaces the sound.
 	void set_pin_volume(float volume);
 	void play(cue which);
+	// Whether bfvr_sounds holds a WAV for this cue (e.g. one cut from the game's own sounds by tools/cue_wav.py).
+	bool has_file(cue which);
 }

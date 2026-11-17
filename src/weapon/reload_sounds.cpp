@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "common/config.hpp"
+#include "common/log.hpp"
 #include "weapon/pin_sound.hpp"
 
 namespace bfvr::weapon
@@ -143,6 +144,7 @@ namespace bfvr::weapon
 				if (std::filesystem::exists(file, error))
 				{
 					files[i] = file.wstring();
+					log::write("reload sounds: %s replaces the synthesised %s", file.string().c_str(), name_of(static_cast<cue>(i)));
 				}
 			}
 		}
@@ -156,6 +158,13 @@ namespace bfvr::weapon
 	void set_pin_volume(float volume)
 	{
 		pin_volume = std::fmax(0.0f, std::fmin(1.0f, volume));
+	}
+
+	bool has_file(cue which)
+	{
+		std::call_once(built, build);
+		const int index = static_cast<int>(which);
+		return index >= 0 && index < cue_count && !files[index].empty();
 	}
 
 	void play(cue which)
