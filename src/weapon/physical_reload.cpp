@@ -182,6 +182,7 @@ namespace bfvr::weapon
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
+		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
 		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -246,6 +247,11 @@ namespace bfvr::weapon
 			case reload_event::magazine_palmed: return "magazine_palmed";
 			case reload_event::racked_locked: return "racked_locked";
 			case reload_event::shell_loaded: return "shell_loaded";
+			case reload_event::lid_opened: return "lid_opened";
+			case reload_event::lid_closed: return "lid_closed";
+			case reload_event::belt_taken: return "belt_taken";
+			case reload_event::belt_laid: return "belt_laid";
+			case reload_event::belt_dropped: return "belt_dropped";
 			}
 			return "?";
 		}
@@ -263,7 +269,12 @@ namespace bfvr::weapon
 			case reload_event::magazine_taken:
 			case reload_event::magazine_stowed: play(cue::cloth); break;
 			case reload_event::magazine_in:
-			case reload_event::shell_loaded: play(cue::magazine_in); break;
+			case reload_event::shell_loaded:
+			case reload_event::belt_laid: play(cue::magazine_in); break;
+			case reload_event::lid_opened: play(cue::magazine_out); break;
+			case reload_event::lid_closed: play(cue::chamber); break;
+			case reload_event::belt_taken:
+			case reload_event::belt_dropped: play(cue::cloth); break;
 			case reload_event::magazine_out:
 			case reload_event::flicked_out:
 			case reload_event::magazine_palmed: play(cue::magazine_out); break;
@@ -289,7 +300,14 @@ namespace bfvr::weapon
 			case reload_event::magazine_palmed:
 			case reload_event::magazine_taken: input::haptic(reloading_hand, input::pulses::grab); break;
 			case reload_event::magazine_stowed:
-			case reload_event::shell_loaded: input::haptic(reloading_hand, input::pulses::tick); break;
+			case reload_event::shell_loaded:
+			case reload_event::belt_taken:
+			case reload_event::lid_opened: input::haptic(reloading_hand, input::pulses::tick); break;
+			case reload_event::belt_laid:
+			case reload_event::lid_closed:
+				input::haptic(reloading_hand, input::pulses::seat);
+				input::haptic(1 - reloading_hand, input::pulses::grab);
+				break;
 			case reload_event::magazine_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
@@ -569,6 +587,36 @@ namespace bfvr::weapon
 			case_fall = -1.0f;
 		}
 
+		// Belt-fed: the lid and the belt as the hands have them (body::belt_feed_pose); off for every other gun.
+		bool belt_feed_shown{};
+		void draw_belt_feed(const hand_result* result, float lid_degrees)
+		{
+			if (!result)
+			{
+				if (belt_feed_shown)
+				{
+					body::set_belt_feed_pose({});
+					belt_feed_shown = false;
+				}
+				return;
+			}
+			body::belt_feed_pose pose;
+			pose.active = true;
+			pose.lid = result->lid;
+			pose.lid_degrees = lid_degrees;
+			pose.belt = result->belt_draw == 0 ? body::belt_feed_pose::belt_place::laid
+				: result->belt_draw == 2 ? body::belt_feed_pose::belt_place::at_pose : body::belt_feed_pose::belt_place::hanging;
+			pose.belt_position[0] = result->belt_position.x;
+			pose.belt_position[1] = result->belt_position.y;
+			pose.belt_position[2] = result->belt_position.z;
+			pose.belt_rotation[0] = result->belt_rotation.x;
+			pose.belt_rotation[1] = result->belt_rotation.y;
+			pose.belt_rotation[2] = result->belt_rotation.z;
+			pose.belt_rotation[3] = result->belt_rotation.w;
+			body::set_belt_feed_pose(pose);
+			belt_feed_shown = true;
+		}
+
 		void update_launcher(const game_weapon& weapon, slot_memory& memory, const body::weapon_points& points, const input::gamepad_state& pad,
 			bool grip, bool hands_valid, float seconds)
 		{
@@ -733,6 +781,11 @@ namespace bfvr::weapon
 		shells_by_hand = on;
 	}
 
+	void set_belts_by_hand(bool on)
+	{
+		belts_by_hand = on;
+	}
+
 	void set_physical_reload_all(bool on)
 	{
 		reload_all = on;
@@ -842,7 +895,8 @@ namespace bfvr::weapon
 		// (the AR reload treated a shotgun's tube or an LMG's belt as a box magazine).
 		const gun_traits weapon_traits = traits_for(weapon.name);
 		const bool game_reloads = weapon.valid && !weapon.launcher && !reload_all.load(std::memory_order_relaxed)
-			&& (!physical_reload_covers(weapon_traits) || (weapon_traits.feed == feed::tube && !shells_by_hand.load(std::memory_order_relaxed)));
+			&& (!physical_reload_covers(weapon_traits) || (weapon_traits.feed == feed::tube && !shells_by_hand.load(std::memory_order_relaxed))
+				|| (weapon_traits.feed == feed::belt && !belts_by_hand.load(std::memory_order_relaxed)));
 		game_reload_gun = game_reloads;
 		if (!physical.load(std::memory_order_relaxed) || game_reloads)
 		{
@@ -876,6 +930,7 @@ namespace bfvr::weapon
 				log::write("reload: %s slot %d: the game's own reload (fed by a tube, a belt or a cylinder)", weapon.name, weapon.slot);
 			}
 			hide_launcher();
+			draw_belt_feed(nullptr, 0.0f);
 			active = false;
 			block_trigger = false;
 			block_grip = false;
@@ -906,6 +961,7 @@ namespace bfvr::weapon
 		slot_memory& memory = found->second;
 		if (weapon.launcher)
 		{
+			draw_belt_feed(nullptr, 0.0f);
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
 		}
@@ -986,6 +1042,13 @@ namespace bfvr::weapon
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
 			frame.tube = gun.profile().tube;
+			frame.belt = gun.profile().belt;
+			frame.has_belt_points = points.has_belt_feed;
+			frame.lid_hinge = v(points.lid_hinge);
+			frame.lid_grab = v(points.lid_grab);
+			frame.feed_tray = v(points.feed_tray);
+			frame.belt_end = v(points.belt_end);
+			frame.lid_degrees = lid_degrees_for(weapon.name);
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
@@ -1180,6 +1243,7 @@ namespace bfvr::weapon
 			: result.racking ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
 		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
+		draw_belt_feed(gun.profile().belt ? &result : nullptr, frame.lid_degrees);
 
 		active = true;
 		block_trigger = !gun.state().chamber;
@@ -1387,6 +1451,14 @@ namespace bfvr::weapon
 		{
 			length += std::snprintf(text + length, sizeof(text) - length, " %s", recent[i]);
 		}
-		return text + std::string(zones) + rack + touch;
+		char belt[320] = "";
+		if (gun.profile().belt)
+		{
+			std::snprintf(belt, sizeof(belt), "\nbelt lid_open=%d lid=%.2f held=%d belt_laid=%d belt_held=%d points=%d lid_grab=(%.3f,%.3f,%.3f) tray=(%.3f,%.3f,%.3f) belt_end=(%.3f,%.3f,%.3f)",
+				s.lid_open ? 1 : 0, last_result.lid, last_result.lid_held ? 1 : 0, s.belt_laid ? 1 : 0, s.belt_held ? 1 : 0, points.has_belt_feed ? 1 : 0,
+				points.lid_grab[0], points.lid_grab[1], points.lid_grab[2], points.feed_tray[0], points.feed_tray[1], points.feed_tray[2],
+				points.belt_end[0], points.belt_end[1], points.belt_end[2]);
+		}
+		return text + std::string(zones) + rack + touch + belt;
 	}
 }

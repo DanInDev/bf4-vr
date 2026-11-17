@@ -25,6 +25,9 @@ namespace bfvr::weapon
 	// Setting shells_by_hand: tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS) load shell by shell from the pouch into the
 	// loading port; off: the game's own reload (B).
 	void set_shells_by_hand(bool on);
+	// Setting belts_by_hand: belt-fed LMGs (M249, M240, MG4, Pecheneg, Type 88) by hand: lid up, box off and on, belt laid
+	// on the tray, lid shut; off: the game's own reload (B).
+	void set_belts_by_hand(bool on);
 	void set_drop_discards_ammo(bool discard);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.

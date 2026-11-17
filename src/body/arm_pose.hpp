@@ -127,6 +127,14 @@ namespace bfvr::body
 		bool has_launcher{};
 		float barrel_mouth[3]{};
 		float barrel_side[3]{};
+		// Belt-fed (belt_feed_pose active): the lid's hinge (Wep_Extra1) and its grab point (the optic on it, Wep_Scope1,
+		// as drawn), the feed tray (Wep_Belt1 at rest) and where the belt end hangs out of the box (Wep_Belt5 at rest);
+		// OpenXR LOCAL.
+		bool has_belt_feed{};
+		float lid_hinge[3]{};
+		float lid_grab[3]{};
+		float feed_tray[3]{};
+		float belt_end[3]{};
 	};
 	weapon_points latest_weapon_points();
 
@@ -183,6 +191,21 @@ namespace bfvr::body
 		float case_rotation[4]{ 0, 0, 0, 1 };
 	};
 	void set_launcher_pose(const launcher_pose& pose);
+
+	// Belt-fed guns by hand (weapon/physical_reload, re/notes/weapon.md "The MP-412 REX and the M249"): the lid (Wep_Extra1,
+	// with the optic on it, Wep_Scope1) turned up about its hinge by lid (0 shut .. 1 lid_degrees, the game's own opening);
+	// the belt (Wep_Belt1-10) laid on the tray as animated, hanging out of the box, or its end at a pose in OpenXR LOCAL.
+	struct belt_feed_pose
+	{
+		bool active{};
+		float lid{};
+		float lid_degrees{ 102.6f };
+		enum class belt_place { laid, hanging, at_pose };
+		belt_place belt{ belt_place::laid };
+		float belt_position[3]{};
+		float belt_rotation[4]{ 0, 0, 0, 1 };
+	};
+	void set_belt_feed_pose(const belt_feed_pose& pose);
 
 	// Extra meshes (#36): a second magazine, drawn by stereo::extra_mesh as a copy of the game's magazine
 	// draw: where the gun holds it (seated), in the drawn off-hand fist untilted (the caught one while

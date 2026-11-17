@@ -53,9 +53,9 @@ int main()
 	{
 		covered += physical_reload_covers(traits_for(crate_gun_at(i))) ? 1 : 0;
 	}
-	expect(covered == 45, "40 magazine-fed and 5 tube guns reload by hand; 5 belt and the revolver go to the game's");
-	expect(physical_reload_covers(traits_for("U_870")) && !physical_reload_covers(traits_for("U_M240")) && !physical_reload_covers(traits_for("U_MP412Rex")),
-		"tubes shell by shell; belt and revolver: the game's reload until their families are built");
+	expect(covered == 50, "40 magazine-fed, 5 tube and 5 belt guns reload by hand; the revolver goes to the game's");
+	expect(physical_reload_covers(traits_for("U_870")) && physical_reload_covers(traits_for("U_M240")) && !physical_reload_covers(traits_for("U_MP412Rex")),
+		"tubes shell by shell, belts by lid and belt; the revolver: the game's reload");
 	expect(physical_reload_covers(traits_for("U_P90")) && physical_reload_covers(traits_for("U_HAWK")) && physical_reload_covers(traits_for("U_SV98")),
 		"the P90's top magazine, the Hawk's box and a bolt action's box stay physical");
 	expect(physical_reload_covers(traits_for("U_SomethingNew")), "an unknown gun keeps today's behaviour (box, button, hold-open)");
@@ -138,6 +138,28 @@ int main()
 		reload benelli(profile_for("U_M1014", 8));
 		benelli.load(3, 10);
 		expect(benelli.fire() == reload_event::shot && benelli.state().chamber, "M1014: semi-automatic, the next shell fed from the tube");
+	}
+	// Belt-fed (family H): lid, box, belt.
+	{
+		reload saw(profile_for("U_M249", 201)); // a 200-round box
+		saw.load(3, 400);
+		expect(saw.profile().belt && saw.state().belt_laid && !saw.state().lid_open && saw.state().chamber, "M249: as the game left it, lid shut on a laid belt");
+		expect(saw.press_button(true) == reload_event::none, "M249: the box stays on while the lid is shut");
+		expect(saw.open_lid() == reload_event::lid_opened && !saw.state().chamber && saw.rounds_in_gun() == 3, "M249: lid up, the waiting round back on the belt");
+		expect(saw.fire() == reload_event::dry_fire, "M249: no shot with the lid up");
+		expect(saw.press_button(true) == reload_event::magazine_out && !saw.state().belt_laid, "M249: lid up, the box comes off with its belt");
+		saw.let_go(false);
+		expect(saw.take_from_chest() == reload_event::magazine_taken && saw.state().held_rounds == 200, "M249: a full box from the pouch");
+		expect(saw.insert() == reload_event::magazine_in && !saw.state().belt_laid, "M249: the box on, its belt hanging");
+		expect(saw.close_lid() == reload_event::lid_closed && !saw.state().chamber, "M249: shut without the belt, nothing to fire");
+		expect(saw.take_belt() == reload_event::none, "M249: the belt cannot be taken under a shut lid");
+		saw.open_lid();
+		expect(saw.take_belt() == reload_event::belt_taken && saw.lay_belt() == reload_event::belt_laid, "M249: the belt end taken and laid on the tray");
+		expect(saw.close_lid() == reload_event::lid_closed && saw.state().chamber && saw.rounds_in_gun() == 200, "M249: lid shut on the belt, ready (open bolt, no charging)");
+		expect(saw.fire() == reload_event::shot && saw.state().chamber && saw.rounds_in_gun() == 199, "M249: fires and feeds from the belt");
+		saw.open_lid();
+		saw.take_belt();
+		expect(saw.drop_belt() == reload_event::belt_dropped && !saw.state().belt_laid, "M249: the belt let go off the tray hangs again");
 	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{

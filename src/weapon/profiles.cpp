@@ -161,6 +161,20 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	float lid_degrees_for(std::string_view unlock_name)
+	{
+		// handle_probe --all-bones, 2026-11-17: Wep_Extra1's turn at the top of the game's empty reload.
+		if (unlock_name == "U_Pecheneg")
+		{
+			return 93.7f;
+		}
+		if (unlock_name == "U_Type88")
+		{
+			return 81.7f;
+		}
+		return 102.6f; // M249, M240, MG4
+	}
+
 	bool rack_zones_for(std::string_view unlock_name, const hand_config& defaults, rack_zone_shape& shape)
 	{
 		shape = { defaults.rack_over_offset, defaults.rack_over_reach, defaults.rack_under_offset, defaults.rack_under_radii };
@@ -202,7 +216,8 @@ namespace bfvr::weapon
 		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
 		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits);
 		profile.tube = traits.feed == feed::tube;
-		if (profile.tube)
+		profile.belt = traits.feed == feed::belt;
+		if (profile.tube || profile.belt)
 		{
 			profile.kind = variant::ar; // nothing to rock; no flick
 			profile.flick = false;

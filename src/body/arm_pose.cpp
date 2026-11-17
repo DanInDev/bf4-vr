@@ -96,6 +96,7 @@ namespace bfvr::body
 			int launcher_round{ -1 };    // Wep_Mag_Ammo
 			int launcher_case{ -1 };     // Wep_Belt2
 			int launcher_parts[2]{ -1, -1 }; // Wep_Belt1, Wep_Extra4
+			int belt[10]{ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 }; // Wep_Belt1..10: a belt-fed gun's belt (Belt1 under Wep_Root)
 			int aim{ -1 };               // Wep_Aim: the game places the muzzle flash from it, unedited (#65)
 			int ik_hand[2]{ -1, -1 }; // IK_Joint_LeftHand / IK_Joint_RightHand (under Wep_Root): where the gun wants the hands
 			int legs[2]{ -1, -1 }; // LeftUpLeg, RightUpLeg: hidden in VR (they sit oddly under a real head)
@@ -331,6 +332,8 @@ namespace bfvr::body
 		// #64: the M320 by hand; Wep_Mag (the barrel) keeps magazine_memory, the other four bones these.
 		launcher_pose launcher_request;
 		bone_memory launcher_memory[4];
+		belt_feed_pose belt_feed_request;
+		bone_memory belt_feed_memory[12]; // Wep_Extra1, Wep_Scope1, Wep_Belt1..10
 		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
 		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
 		// muzzle flash) and as drawn, from the same conversion.
@@ -684,6 +687,12 @@ namespace bfvr::body
 			fresh.launcher_round = find_bone(bone_names, fresh.bones, "Wep_Mag_Ammo");
 			fresh.launcher_case = find_bone(bone_names, fresh.bones, "Wep_Belt2");
 			fresh.launcher_parts[0] = find_bone(bone_names, fresh.bones, "Wep_Belt1");
+			for (int link = 0; link < 10; ++link)
+			{
+				char name[16];
+				std::snprintf(name, sizeof(name), "Wep_Belt%d", link + 1);
+				fresh.belt[link] = find_bone(bone_names, fresh.bones, name);
+			}
 			fresh.launcher_parts[1] = find_bone(bone_names, fresh.bones, "Wep_Extra4");
 			fresh.aim = find_bone(bone_names, fresh.bones, "Wep_Aim");
 			fresh.ik_hand[0] = find_bone(bone_names, fresh.bones, "IK_Joint_LeftHand");
@@ -1552,6 +1561,91 @@ namespace bfvr::body
 			ik::set_model_transform(local, rig.parents, rig.magazine, placed);
 			magazine_memory.written = local[rig.magazine];
 			magazine_memory.has_written = true;
+		}
+
+		// Called with rig_lock held, after edit_weapon: a belt-fed gun by hand. The lid (Wep_Extra1, its local position the
+		// hinge) turned up about the gun's x axis as the game's own reload does it (q about +x), the optic on it (Wep_Scope1,
+		// also under Wep_Root) turned about the same hinge; the belt laid as animated, hanging out of the box (its end at the
+		// box mouth, Belt5's rest), or its end in the hand. Publishes the hinge, the lid's grab point, the tray and the belt end.
+		void edit_belt_feed(ik::bone_transform* local)
+		{
+			const int bones[12] = { rig.rail, rig.optic, rig.belt[0], rig.belt[1], rig.belt[2], rig.belt[3], rig.belt[4], rig.belt[5],
+				rig.belt[6], rig.belt[7], rig.belt[8], rig.belt[9] };
+			for (int i = 0; i < 12; ++i)
+			{
+				if (bones[i] < 0)
+				{
+					continue;
+				}
+				ik::bone_transform& current = local[bones[i]];
+				if (belt_feed_memory[i].has_written && std::memcmp(&current, &belt_feed_memory[i].written, sizeof(current)) == 0)
+				{
+					current = belt_feed_memory[i].animated;
+				}
+				else
+				{
+					belt_feed_memory[i].animated = current;
+				}
+				belt_feed_memory[i].has_written = false;
+			}
+			points.has_belt_feed = false;
+			if (!belt_feed_request.active || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
+				|| rig.parents[rig.rail] != rig.weapon || rig.parents[rig.optic] != rig.weapon || rig.parents[rig.belt[0]] != rig.weapon)
+			{
+				return;
+			}
+			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
+			const ik::quat frame = camera_frame(camera);
+			const ik::quat to_xr = ik::conjugate(frame);
+			const ik::vec3 origin = tracking_origin(camera, frame);
+			const auto to_local = [&](const ik::vec3& model) { return ik::rotate(to_xr, model - origin); };
+			// The tray and the belt end at rest, before the belt is moved.
+			const ik::vec3 tray = ik::model_of(local, rig.parents, rig.belt[0]).position;
+			const ik::vec3 belt_end = ik::model_of(local, rig.parents, rig.belt[4]).position;
+
+			const float angle = std::fmin(std::fmax(belt_feed_request.lid, 0.0f), 1.0f) * belt_feed_request.lid_degrees * 3.14159265f / 180.0f;
+			const ik::quat turn{ std::sin(0.5f * angle), 0.0f, 0.0f, std::cos(0.5f * angle) };
+			const ik::vec3 hinge = local[rig.rail].position; // in Wep_Root's frame, as the optic's
+			local[rig.rail].rotation = ik::normalize(turn * local[rig.rail].rotation);
+			local[rig.optic].position = hinge + ik::rotate(turn, local[rig.optic].position - hinge);
+			local[rig.optic].rotation = ik::normalize(turn * local[rig.optic].rotation);
+
+			if (belt_feed_request.belt != belt_feed_pose::belt_place::laid)
+			{
+				ik::bone_transform placed = ik::model_of(local, rig.parents, rig.belt[0]);
+				if (belt_feed_request.belt == belt_feed_pose::belt_place::hanging)
+				{
+					placed.position = belt_end; // the end out of the box mouth, the chain on from there
+				}
+				else
+				{
+					const float (&p)[3] = belt_feed_request.belt_position;
+					const float (&q)[4] = belt_feed_request.belt_rotation;
+					placed.position = origin + ik::rotate(frame, ik::vec3{ p[0], p[1], p[2] });
+					placed.rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
+				}
+				ik::set_model_transform(local, rig.parents, rig.belt[0], placed);
+			}
+
+			const ik::vec3 hinge_model = ik::model_of(local, rig.parents, rig.rail).position;
+			const ik::vec3 grab_model = ik::model_of(local, rig.parents, rig.optic).position;
+			const ik::vec3 values[4] = { to_local(hinge_model), to_local(grab_model), to_local(tray), to_local(belt_end) };
+			float* const outs[4] = { points.lid_hinge, points.lid_grab, points.feed_tray, points.belt_end };
+			for (int i = 0; i < 4; ++i)
+			{
+				outs[i][0] = values[i].x;
+				outs[i][1] = values[i].y;
+				outs[i][2] = values[i].z;
+			}
+			points.has_belt_feed = true;
+			for (int i = 0; i < 12; ++i)
+			{
+				if (bones[i] >= 0)
+				{
+					belt_feed_memory[i].written = local[bones[i]];
+					belt_feed_memory[i].has_written = true;
+				}
+			}
 		}
 
 		// Called with rig_lock held, after edit_weapon: the M320 by hand (#64). Turns the barrel open about its front
@@ -2992,6 +3086,7 @@ namespace bfvr::body
 						edit_arms(local);
 						edit_weapon(local);
 						edit_launcher(local);
+						edit_belt_feed(local);
 						if (has_aim)
 						{
 							root_drawn = ik::model_of(local, rig.parents, rig.weapon);
@@ -3242,6 +3337,12 @@ namespace bfvr::body
 	{
 		const std::lock_guard guard(rig_lock);
 		launcher_request = pose;
+	}
+
+	void set_belt_feed_pose(const belt_feed_pose& pose)
+	{
+		const std::lock_guard guard(rig_lock);
+		belt_feed_request = pose;
 	}
 
 	void set_magazine_pose(const magazine_pose& pose)

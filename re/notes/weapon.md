@@ -471,6 +471,14 @@ open position is its rest turned 102.6 degrees about that hinge (checked: (0.075
 is Wep_Belt1-10: Belt1 at the feed tray (-0.006, 0.051, 0.418), the chain running left and down into the box
 (Belt5-9 at x 0.074); the game's hand lays it at 4.3-6.2 s. The box is Wep_Mag (0, -0.03, 0.44), the charging handle
 Wep_Slide on the right (-0.027, 0.021, 0.466). The lid opens at ~3.4 s, after the box change.
+All five belt-fed guns share the layout (Wep_Extra1's local position is each one's hinge): lid fully open M249, M240,
+MG4 102.6 degrees, Pecheneg 93.7, Type 88 81.7; the Pecheneg's belt runs off to the right (-x), as a PKM feeds.
+
+**Built and checked live 2026-11-17 (`belts_by_hand`, M249, fakehead/fakehand):** the lid taken at the optic and swung
+~60 % up opened (`lid_opened`; the round on the tray back on the belt, 32 -> 33), stayed up when let go, the trigger
+did nothing; the belt taken at the tray, carried below the box mouth, brought back: `belt_laid`; the lid pushed down to
+3 % and let go shut it, and the trigger fired five shots. Pitfall: reading the tray right after firing gave a point
+8 cm off (the gun still moving from the burst): read points just before using them.
 
 ### Bolt actions and the Hawk's pump by hand (2026-11-17, `manual_cycle`)
 

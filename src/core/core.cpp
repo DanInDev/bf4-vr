@@ -212,6 +212,7 @@ namespace bfvr::core
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
 			weapon::set_shells_by_hand(store.boolean("shells_by_hand", true));
+			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_palm_reload(true);
 			weapon::set_magazine_snapping(true);

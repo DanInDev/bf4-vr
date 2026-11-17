@@ -25,6 +25,8 @@ namespace bfvr::weapon
 	// The way this gun's magazine leaves its well, measured from the game's empty reload: degrees from straight down (gun
 	// -y) in the gun's mid-plane, + forward along the barrel. False: straight down (the reference, AK-12 and SCAR-H).
 	bool magazine_way_out_for(std::string_view unlock_name, float& degrees);
+	// A belt-fed gun's lid fully open, as the game's own reload opens it (degrees about the gun's x axis).
+	float lid_degrees_for(std::string_view unlock_name);
 
 	// #69 (owner 2026-11-15): the charging handle's grab zones where a gun needs its own (the SCAR-H's higher: a
 	// grab at the gun's bottom caught the handle; the AK-12's much larger and reaching under the gun, where the
