@@ -161,6 +161,10 @@ namespace bfvr::weapon
 		grenade_hands hands;
 		launch_backup backup;
 		bool pending{};
+		// #83: how long other modules ignore the quick throw's switch to the grenade. Measured: slot 6 from ~100 to ~450 ms
+		// after the throw, longer than restore_ms, so this has its own window.
+		constexpr ULONGLONG quick_throw_switch_ms = 1000;
+		std::atomic<ULONGLONG> switch_window_until{};
 		ULONGLONG restore_at{};
 		LARGE_INTEGER last_update{};
 		std::uint64_t throws{};
@@ -228,6 +232,7 @@ namespace bfvr::weapon
 			const ULONGLONG now = GetTickCount64();
 			restore_at = now + (safe ? safe_restore_ms : restore_ms);
 			pulse_until = now + pulse_ms;
+			switch_window_until = now + quick_throw_switch_ms;
 			++throws;
 			last_velocity[0] = velocity[0];
 			last_velocity[1] = velocity[1];
@@ -274,6 +279,11 @@ namespace bfvr::weapon
 	int grenade_hand()
 	{
 		return holder.load(std::memory_order_relaxed);
+	}
+
+	bool grenade_throw_pending()
+	{
+		return GetTickCount64() < switch_window_until.load(std::memory_order_relaxed);
 	}
 
 	bool grenade_armed()

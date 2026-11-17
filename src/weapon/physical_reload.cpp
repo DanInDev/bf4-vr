@@ -802,6 +802,12 @@ namespace bfvr::weapon
 		}
 
 		const game_weapon weapon = read_game_weapon();
+		// #83: the game's quick throw makes the grenade the weapon for ~200 ms of a physical throw: keep the gun's
+		// state as it is (a reset here dropped the reload hands and flickered them).
+		if (!weapon.valid && current_slot >= 0 && grenade_throw_pending())
+		{
+			return;
+		}
 		if (!physical.load(std::memory_order_relaxed))
 		{
 			// Button reload: nothing writes the magazine, so any drop is the game firing.

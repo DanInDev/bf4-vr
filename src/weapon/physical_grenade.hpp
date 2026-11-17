@@ -22,6 +22,8 @@ namespace bfvr::weapon
 	int grenade_hand();
 	// Its pin is pulled (the held grenade is drawn without the ring).
 	bool grenade_armed();
+	// #83: within 1 s of a physical throw (the game's quick throw selects the grenade from ~100 to ~450 ms after it).
+	bool grenade_throw_pending();
 	// The open off hand is at the grenade belt with a grenade to take (the drawn hand opens).
 	bool off_hand_at_belt();
 

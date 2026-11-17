@@ -96,4 +96,9 @@ namespace bfvr::weapon
 		int history_count_{};
 		int history_next_{};
 	};
+	// #83: a physical throw fires the game's quick throw, which makes the hand grenade (slot 6) the active weapon for
+	// ~200 ms, starting ~120 ms after the throw (monitor 2026-11-17). Modules that follow the active weapon keep the
+	// previous one through that switch, or the gun hand, the sling and the reload hands flicker.
+	constexpr int hand_grenade_slot = 6;
+	bool hide_quick_throw_switch(bool throw_pending, int current_slot, int previous_slot);
 }
