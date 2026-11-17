@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace bfvr::input
 {
@@ -18,6 +19,14 @@ namespace bfvr::input
 		std::int16_t right_y{};
 	};
 
+	// The published pad goes through the release gate (input/release_gate, #72): what latest() returns.
 	void publish(const gamepad_state& state);
 	gamepad_state latest();
+
+	// The XR loop: false while a system menu has the controllers or their stream froze.
+	void set_controllers_ours(bool ours);
+	void set_focus_release(bool enabled); // setting focus_release
+	// Pipe fakefocus lost|back|off: simulates the runtime taking the controllers (monitor test of #72).
+	std::string fake_focus(const std::string& argument);
+	std::string focus_release_report();
 }
