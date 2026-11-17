@@ -636,6 +636,21 @@ namespace bfvr::body
 			if (!read(skeleton + 0x18, names) || names < 4 || !read(names - 4, bones) || bones == 0 || bones > max_bones
 				|| !read(skeleton + 0x28, hierarchy) || hierarchy < 4 || !read(hierarchy - 4, hierarchy_count) || hierarchy_count != bones)
 			{
+				// #86: some level loads leave no skeleton here (seen right after a fresh build). Once per object: what the
+				// chain holds instead, to compare with a good load (Animatable vtable 141CD6F40, skeleton vtable 141D026A0).
+				static std::uint64_t logged = 0;
+				if (skeleton != logged)
+				{
+					logged = skeleton;
+					std::uint64_t animatable_vtable = 0, skeleton_first = 0, component_vtable = 0;
+					read(animatable, animatable_vtable);
+					read(skeleton, skeleton_first);
+					read(component, component_vtable);
+					log::write("arms: no first-person skeleton (#86): component vtable %llx, animatable %llx vtable %llx, +0x230 %llx begins %llx",
+						static_cast<unsigned long long>(component_vtable), static_cast<unsigned long long>(animatable),
+						static_cast<unsigned long long>(animatable_vtable), static_cast<unsigned long long>(skeleton),
+						static_cast<unsigned long long>(skeleton_first));
+				}
 				return;
 			}
 			rig_info fresh;

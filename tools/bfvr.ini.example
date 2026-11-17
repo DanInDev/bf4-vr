@@ -148,6 +148,9 @@ physical_reload_all = 0
 # Saiga rocked forward), measured from the game's reload animations (tools/handle_probe.py); 0 = one point per AR/AK
 # type and every magazine straight down, as before.
 gun_points = 1
+# Bolt actions (SRS, FY-JS, Scout, SV-98) and the Hawk's pump: after each shot grab the bolt knob or the fore-end,
+# pull it back and let go before the next shot (the trigger waits); 0 = the game cycles them by itself.
+manual_cycle = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a

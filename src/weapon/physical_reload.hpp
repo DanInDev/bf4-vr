@@ -19,6 +19,9 @@ namespace bfvr::weapon
 	void set_physical_reload_all(bool on);
 	// Setting gun_points: each gun's measured handle and magazine grab point (weapon/profiles); off: the variant's.
 	void set_gun_points(bool on);
+	// Setting manual_cycle: bolt actions and the Hawk's pump are worked by hand after each shot (rack at the bolt knob or
+	// the fore-end; the trigger waits); off: the game cycles them by itself.
+	void set_manual_cycle(bool on);
 	void set_drop_discards_ammo(bool discard);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.

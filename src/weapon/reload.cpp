@@ -64,6 +64,10 @@ namespace bfvr::weapon
 			return reload_event::dry_fire;
 		}
 		state_.chamber = false;
+		if (profile_.manual_cycle)
+		{
+			return reload_event::shot; // the next round waits for the hand on the bolt or the pump (rack)
+		}
 		// Without a magazine the bolt closes on an empty chamber (no follower to hold it open).
 		return feed() == reload_event::bolt_locked ? reload_event::bolt_locked : reload_event::shot;
 	}

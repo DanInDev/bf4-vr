@@ -85,6 +85,7 @@ namespace bfvr::settings
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "", true },
 			{ "reload", "Weapon", "Reloading", "Reload", "Magazines by hand, or the game's button", "physical=By hand|button=Button" },
 			{ "physical_reload_all", "Weapon", "Reloading", "Hand reload for every gun", "Off: shotguns, belt-fed LMGs and the revolver reload the game's way", "" },
+			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
 			{ "gun_points", "Weapon", "Reloading", "Per-gun handle and magazine", "Off: one point per gun type", "" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },

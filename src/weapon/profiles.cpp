@@ -54,6 +54,9 @@ namespace bfvr::weapon
 			{ "U_SRS", { -0.084f, 0.116f, 0.243f } },
 			{ "U_FY-JS", { -0.097f, 0.097f, 0.345f } },
 			{ "U_Scout", { -0.085f, 0.116f, 0.439f } },
+			// Read off its shot timeline (handle_probe timeline): the right hand on the lifted knob as the bolt starts
+			// back (4.2 cm), moved forward by that travel.
+			{ "U_SV98", { -0.082f, 0.081f, 0.407f } },
 		};
 		for (const measured& gun : table)
 		{
@@ -188,6 +191,7 @@ namespace bfvr::weapon
 		profile.capacity = std::max(game_capacity - 1, 1);
 		profile.flick = ak;
 		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
+		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits); // tube pumps: the game's, family F
 		return profile;
 	}
 }

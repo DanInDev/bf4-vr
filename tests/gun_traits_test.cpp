@@ -93,6 +93,26 @@ int main()
 		scar.load(1, 40);
 		expect(scar.fire() == reload_event::bolt_locked, "SCAR-H: hold-open, as before");
 	}
+	// Bolt actions and the Hawk's pump cycle by hand: a shot leaves the chamber empty (the trigger waits), a rack feeds.
+	{
+		reload scout(profile_for("U_Scout", 6));
+		scout.load(6, 20);
+		expect(scout.profile().manual_cycle && profile_for("U_HAWK", 6).manual_cycle, "Scout and Hawk cycle by hand");
+		expect(!profile_for("U_AK12", 31).manual_cycle && !profile_for("U_M416", 31).manual_cycle && !profile_for("U_870", 8).manual_cycle,
+			"automatic guns do not; a tube pump keeps the game's reload until family F");
+		// 6 = 5 in the magazine and one chambered.
+		expect(scout.fire() == reload_event::shot && !scout.state().chamber && scout.rounds_in_gun() == 5,
+			"Scout: the shot leaves the chamber empty, the next round still in the magazine (the trigger waits)");
+		expect(scout.fire() == reload_event::dry_fire, "Scout: no second shot without working the bolt");
+		expect(scout.rack() == reload_event::chambered && scout.state().chamber && scout.rounds_in_gun() == 5, "Scout: the bolt worked, the next round is in");
+		reload last(profile_for("U_SV98", 6));
+		last.load(1, 20);
+		expect(last.fire() == reload_event::shot && last.rack() == reload_event::racked_empty, "SV-98: the last round fired, the bolt cycles empty");
+		reload off(profile_for("U_Scout", 6));
+		off.set_manual_cycle(false);
+		off.load(6, 20);
+		expect(off.fire() == reload_event::shot && off.state().chamber, "manual_cycle off: the game's own cycle, the next round fed");
+	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{
 		float point[3]{};

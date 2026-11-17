@@ -437,6 +437,15 @@ the bolt leaves home, if it then follows the bolt. At ~10 fps the pull is one or
 bolt by ~2 cm, which the "moves with" test rejects. It gives the AK-12 within 1 cm and the FAMAS within 0.4 cm and
 added the P90 (0.049, -0.004, 0.46: left side, forward), QBB-95 and SVD-12 (the AK-12's point).
 
+### Bolt actions and the Hawk's pump by hand (2026-11-17, `manual_cycle`)
+
+The game cycles a bolt action with the **right** hand after each shot (shot recordings): the hand takes the knob,
+lifts it (SV-98: the knob from (-0.064, 0.042, 0.402) up to (-0.048, 0.111, 0.406)), rides the bolt back ~10 cm and
+forward. Knob points: SRS, FY-JS, Scout from the riding frames, SV-98 read off its timeline. In the mod a shot on these
+guns and the Hawk leaves the chamber empty without feeding (`reload_profile::manual_cycle`): the existing trigger block
+(`block_trigger = !chamber`) holds the next shot until a rack at the knob or fore-end feeds it. The mod counts shots
+from the game's ammo, so the game's own (automatic) bolt animation and timing stay as they are underneath.
+
 ## Sights and aiming down sights (2026-11-04, monitor: fakehead + fakehand, tools/sight_probe.py)
 
 The game's first-person animation keeps the **CameraJoint on the gun's sight**: in its own aim down
