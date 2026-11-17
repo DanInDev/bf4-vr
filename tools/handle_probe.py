@@ -95,13 +95,15 @@ def in_root(root, point):
     return qrot((-rq[0], -rq[1], -rq[2], rq[3]), d)
 
 
-def frame(address, count, parents, ids):
+def frame(address, count, parents, ids, extra=None):
     raw = peek(address, 0x20 * count)
     pose = [struct.unpack_from('<8f', raw, i * 0x20) for i in range(count)]
-    m = model(parents, pose, ids.values())
+    m = model(parents, pose, list(ids.values()) + list((extra or {}).values()))
     root = m[ids['root']]
     p = {k: in_root(root, m[ids[k]][0]) for k in ('slide', 'mag', 'lthumb', 'lindex', 'rthumb', 'rindex')}
     out = {'slide': p['slide'], 'mag': p['mag']}
+    for name, bone in (extra or {}).items():  # --all-bones: every Wep_ bone
+        out[name] = in_root(root, m[bone][0])
     for hand, t, i in (('left', 'lthumb', 'lindex'), ('right', 'rthumb', 'rindex')):
         out[hand] = tuple((a + b) / 2 for a, b in zip(p[t], p[i]))
         out[hand + '_spread'] = math.dist(p[t], p[i])
@@ -112,17 +114,18 @@ def saved(t, f):
     return dict(t=t, **{k: ([round(c, 4) for c in v] if isinstance(v, tuple) else round(v, 4)) for k, v in f.items()})
 
 
-def record_one(gun, event, seconds, out):
+def record_one(gun, event, seconds, out, all_bones=False):
     names, parents, _bind, _live = read_rig()
     ids = {'root': names.index('Wep_Root'), 'slide': names.index('Wep_Slide'), 'mag': names.index('Wep_Mag'),
            'lthumb': names.index('LeftHandThumb4'), 'lindex': names.index('LeftHandIndex2'),
            'rthumb': names.index('RightHandThumb4'), 'rindex': names.index('RightHandIndex2')}
+    extra = {n: i for i, n in enumerate(names) if n.startswith('Wep_') and n not in ('Wep_Root', 'Wep_Slide', 'Wep_Mag')} if all_bones else None
     count = len(names)
     address = local_pose_address()
     rest = None
     while rest is None:
         try:
-            rest = frame(address, count, parents, ids)
+            rest = frame(address, count, parents, ids, extra)
         except RuntimeError:
             address = local_pose_address()
     if event == 'empty':
@@ -134,11 +137,11 @@ def record_one(gun, event, seconds, out):
     last = None
     while time.time() - t0 < seconds:
         try:
-            f = frame(address, count, parents, ids)
+            f = frame(address, count, parents, ids, extra)
         except RuntimeError:
             address = local_pose_address()
             continue
-        key = (f['slide'], f['mag'], f['left'], f['right'])
+        key = tuple(v for v in f.values() if isinstance(v, tuple))
         if key != last:
             last = key
             frames.append(saved(round(time.time() - t0, 3), f))
@@ -278,6 +281,7 @@ def main():
     parser.add_argument('--guns', help='comma-separated debug ids (given into slot 0); default: the gun in hand')
     parser.add_argument('--event', choices=['empty', 'shot'], default='empty')
     parser.add_argument('--seconds', type=float, default=7.0)
+    parser.add_argument('--all-bones', action='store_true', help='record: every Wep_ bone too (tube guns: the shell, the pump)')
     parser.add_argument('--out', default=DEFAULT_OUT)
     parser.add_argument('--json')
     parser.add_argument('--table', nargs='?', const='magazines', choices=['magazines', 'handles'],
@@ -315,7 +319,7 @@ def main():
                     time.sleep(3.0)
                 name = gun or slots().get(slot, '?')
                 try:
-                    print(name, args.event, record_one(name, args.event, args.seconds, args.out), 'frames', flush=True)
+                    print(name, args.event, record_one(name, args.event, args.seconds, args.out, args.all_bones), 'frames', flush=True)
                 except (RuntimeError, ValueError) as error:
                     print(name, 'error:', error, flush=True)
                 time.sleep(4.0)

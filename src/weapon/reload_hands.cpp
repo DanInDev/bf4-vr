@@ -285,16 +285,16 @@ namespace bfvr::weapon
 			rack_test.over_distance = distance(reach, handle);
 			rack_test.zone = rack_test.over_distance < handle_reach ? rack_zone::over : rack_zone::none;
 		}
-		if (!valid)
+		if (!valid || frame.pump)
 		{
-			rack_test.zone = rack_zone::none;
+			rack_test.zone = rack_zone::none; // a pump's fore-end is the two-handed hold's; the held hand pumps it (below)
 		}
 		// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
 		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 		const bool in_rack_zone = rack_test.zone != rack_zone::none;
 		// Zones overlap: the magazine beats the underhand zone (the large fallback below the handle);
 		// against the overhand zone the nearer one wins.
-		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine
+		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !(frame.tube && !gun.state().holding)
 			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
 		const bool near_handle = in_rack_zone && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
@@ -302,7 +302,8 @@ namespace bfvr::weapon
 		const bool near_stow = !frame.handle_only && to_chest < stow_reach;
 		// A held magazine turns with the off hand; its top sits where the hand holds it.
 		q4 held_rotation = frame.has_held ? frame.held_rotation : multiply(frame.off_rotation, held_relative_);
-		v3 held_top = frame.has_held ? frame.held_top : frame.off_hand + rotate(frame.off_rotation, ak ? config_.hold_ak : config_.hold_ar);
+		v3 held_top = frame.has_held ? frame.held_top
+			: frame.off_hand + rotate(frame.off_rotation, frame.tube ? config_.hold_shell : ak ? config_.hold_ak : config_.hold_ar);
 		// Palming turns the held magazine aside: the drawn hand drew it turned (held_tilt), else it is
 		// turned here. fist_*: as the fist holds it without the turn, where the caught one sits.
 		const q4 seated = frame.has_root ? multiply(conjugate(frame.root_rotation), frame.magazine_rotation) : q4{};
@@ -329,7 +330,7 @@ namespace bfvr::weapon
 			flick_rearm_ = flick_second_ = false; // a new magazine in the hand: no flick pending
 		};
 		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
-		const bool lockable = frame.grip_lock && frame.has_root && valid;
+		const bool lockable = frame.grip_lock && frame.has_root && valid && !frame.tube;
 		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, out_in_gun) : v3{ 0, -1, 0 };
 		const float rail_depth = dot(held_top - frame.magwell, rail_down);
 		const v3 rail_point = frame.magwell + rail_down * std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
@@ -376,7 +377,7 @@ namespace bfvr::weapon
 		{
 			palm_ = palm_stage::none;
 		}
-		const bool can_palm = frame.palming && !ak && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
+		const bool can_palm = frame.palming && !ak && !frame.tube && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
 			&& !kept_old_ && gun.state().magazine_in;
 		const float fist_to_magwell = valid ? distance(fist_top, frame.magwell) : 1e9f;
 		if (palm_ == palm_stage::ready && (!can_palm || fist_to_magwell > config_.palm_leave))
@@ -581,6 +582,49 @@ namespace bfvr::weapon
 				}
 				emit(result, event);
 			}
+		}
+
+		// A pump gun: the hand holding the fore-end (the two-handed hold) slides it back and forward. Like a real pump,
+		// the action is locked while a round is chambered: it moves after a shot or on an empty chamber, so a hand
+		// drifting along the fore-end while aiming never ejects a live shell. Let go at the rear, it cycles too.
+		const bool pump_free = frame.pump && frame.has_root && valid && frame.grip && !gun.state().holding && !gun.state().chamber;
+		if (pump_free && !pumping_ && distance(reach, handle) < config_.pump_reach)
+		{
+			pumping_ = true;
+			pump_back_ = false;
+			pump_start_ = reach;
+		}
+		if (pumping_ && (!pump_free || distance(reach, pump_start_) > config_.pump_reach + config_.slide_travel))
+		{
+			if (pump_back_ && !gun.state().chamber)
+			{
+				emit(result, gun.rack());
+			}
+			pumping_ = pump_back_ = false;
+		}
+		if (pumping_)
+		{
+			const float along = dot(reach - pump_start_, back);
+			if (along < 0.0f)
+			{
+				pump_start_ = reach; // the hand settled further forward: the stroke starts there
+			}
+			const float pull = std::fmax(0.0f, std::fmin(config_.slide_travel, along));
+			if (!pump_back_ && pull >= config_.rack_pull)
+			{
+				pump_back_ = true;
+				result.rack_at_rear = true;
+			}
+			else if (pump_back_ && pull <= config_.pump_return)
+			{
+				emit(result, gun.rack());
+				pump_back_ = pumping_ = false;
+			}
+			result.pumping = true;
+			result.rack_pull = pull;
+			result.handle_in_gun = handle_in_gun;
+			result.rack_side = rack_side(handle_in_gun, ak);
+			result.rack_underhand = true; // the fist round the fore-end from below
 		}
 
 		// Also before the grip closes: the game must never see the press that starts a gesture.

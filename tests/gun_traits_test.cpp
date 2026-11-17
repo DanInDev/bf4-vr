@@ -53,9 +53,9 @@ int main()
 	{
 		covered += physical_reload_covers(traits_for(crate_gun_at(i))) ? 1 : 0;
 	}
-	expect(covered == 40, "40 magazine-fed guns keep the physical reload; 5 tube, 5 belt and the revolver go to the game's");
-	expect(!physical_reload_covers(traits_for("U_870")) && !physical_reload_covers(traits_for("U_M240")) && !physical_reload_covers(traits_for("U_MP412Rex")),
-		"tube, belt and revolver: the game's reload until their families are built");
+	expect(covered == 45, "40 magazine-fed and 5 tube guns reload by hand; 5 belt and the revolver go to the game's");
+	expect(physical_reload_covers(traits_for("U_870")) && !physical_reload_covers(traits_for("U_M240")) && !physical_reload_covers(traits_for("U_MP412Rex")),
+		"tubes shell by shell; belt and revolver: the game's reload until their families are built");
 	expect(physical_reload_covers(traits_for("U_P90")) && physical_reload_covers(traits_for("U_HAWK")) && physical_reload_covers(traits_for("U_SV98")),
 		"the P90's top magazine, the Hawk's box and a bolt action's box stay physical");
 	expect(physical_reload_covers(traits_for("U_SomethingNew")), "an unknown gun keeps today's behaviour (box, button, hold-open)");
@@ -98,8 +98,9 @@ int main()
 		reload scout(profile_for("U_Scout", 6));
 		scout.load(6, 20);
 		expect(scout.profile().manual_cycle && profile_for("U_HAWK", 6).manual_cycle, "Scout and Hawk cycle by hand");
-		expect(!profile_for("U_AK12", 31).manual_cycle && !profile_for("U_M416", 31).manual_cycle && !profile_for("U_870", 8).manual_cycle,
-			"automatic guns do not; a tube pump keeps the game's reload until family F");
+		expect(!profile_for("U_AK12", 31).manual_cycle && !profile_for("U_M416", 31).manual_cycle && !profile_for("U_M1014", 8).manual_cycle,
+			"automatic guns do not (the M1014 is semi-automatic)");
+		expect(profile_for("U_870", 8).manual_cycle && profile_for("U_SPAS12", 8).manual_cycle, "the tube pumps cycle by hand");
 		// 6 = 5 in the magazine and one chambered.
 		expect(scout.fire() == reload_event::shot && !scout.state().chamber && scout.rounds_in_gun() == 5,
 			"Scout: the shot leaves the chamber empty, the next round still in the magazine (the trigger waits)");
@@ -112,6 +113,31 @@ int main()
 		off.set_manual_cycle(false);
 		off.load(6, 20);
 		expect(off.fire() == reload_event::shot && off.state().chamber, "manual_cycle off: the game's own cycle, the next round fed");
+	}
+	// Tube shotguns, shell by shell (family F).
+	{
+		reload remington(profile_for("U_870", 7)); // capacity 6 in the tube
+		remington.load(0, 20);
+		expect(remington.profile().tube && remington.state().magazine_in && remington.rounds_in_gun() == 0, "870: an empty tube, still in the gun");
+		expect(remington.press_button(true) == reload_event::none && remington.grab_magazine() == reload_event::none, "870: the tube never comes out");
+		expect(remington.take_from_chest() == reload_event::magazine_taken && remington.state().held_rounds == 1 && remington.state().reserve == 19,
+			"870: one shell from the pouch");
+		expect(remington.insert() == reload_event::shell_loaded && remington.state().magazine_rounds == 1 && !remington.state().holding, "870: into the loading port");
+		for (int i = 0; i < 5; ++i)
+		{
+			remington.take_from_chest();
+			remington.insert();
+		}
+		expect(remington.state().magazine_rounds == 6, "870: six in the tube");
+		remington.take_from_chest();
+		expect(remington.insert() == reload_event::none && remington.state().holding, "870: the tube full, the seventh stays in the hand");
+		expect(remington.rack() == reload_event::chambered && remington.state().magazine_rounds == 5, "870: pumped, one chambered");
+		remington.insert();
+		expect(remington.state().magazine_rounds == 6 && remington.rounds_in_gun() == 7, "870: the held one tops the tube up (6 + 1)");
+		expect(remington.fire() == reload_event::shot && !remington.state().chamber, "870: the shot waits for the pump");
+		reload benelli(profile_for("U_M1014", 8));
+		benelli.load(3, 10);
+		expect(benelli.fire() == reload_event::shot && benelli.state().chamber, "M1014: semi-automatic, the next shell fed from the tube");
 	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{

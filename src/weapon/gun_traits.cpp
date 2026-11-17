@@ -104,7 +104,8 @@ namespace bfvr::weapon
 
 	bool physical_reload_covers(const gun_traits& traits)
 	{
-		return traits.feed == feed::box || traits.feed == feed::rock || traits.feed == feed::top || traits.feed == feed::drum;
+		return traits.feed == feed::box || traits.feed == feed::rock || traits.feed == feed::top || traits.feed == feed::drum
+			|| traits.feed == feed::tube; // shell by shell (reload_profile tube, 2026-11-17)
 	}
 
 	bool cycles_by_hand(const gun_traits& traits)

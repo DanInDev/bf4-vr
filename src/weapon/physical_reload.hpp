@@ -22,6 +22,9 @@ namespace bfvr::weapon
 	// Setting manual_cycle: bolt actions and the Hawk's pump are worked by hand after each shot (rack at the bolt knob or
 	// the fore-end; the trigger waits); off: the game cycles them by itself.
 	void set_manual_cycle(bool on);
+	// Setting shells_by_hand: tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS) load shell by shell from the pouch into the
+	// loading port; off: the game's own reload (B).
+	void set_shells_by_hand(bool on);
 	void set_drop_discards_ammo(bool discard);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.

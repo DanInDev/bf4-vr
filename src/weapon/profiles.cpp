@@ -50,6 +50,15 @@ namespace bfvr::weapon
 			{ "U_P90", { 0.049f, -0.004f, 0.460f } },   // left side, forward (the AR default sat on its top magazine)
 			{ "U_QBB95", { 0.028f, 0.077f, 0.310f } },
 			{ "U_SVD12", { -0.027f, 0.055f, 0.537f } }, // as the AK-12's
+			// Tube pumps: where the game's left hand holds the fore-end (re/dumps/tube_points, 2026-11-17): the two-handed
+			// hold and the pump in one (hand_frame pump).
+			{ "U_870", { -0.002f, 0.065f, 0.725f } },
+			{ "U_SPAS12", { 0.007f, 0.078f, 0.721f } },
+			{ "U_UTAS", { 0.003f, 0.070f, 0.696f } },
+			// Tube semi-automatics: their reload closes the bolt by the release, no hand on the handle. Estimated: the
+			// bolt bone that moves (QBS-09 Wep_Slide, M1014 Wep_Extra1), its handle out on the right.
+			{ "U_QBS09_SP", { -0.030f, 0.121f, 0.478f } },
+			{ "U_M1014", { -0.030f, 0.104f, 0.492f } },
 			// Bolt actions, from a shot (the game cycles the bolt with the right hand): the bolt knob, on the right.
 			{ "U_SRS", { -0.084f, 0.116f, 0.243f } },
 			{ "U_FY-JS", { -0.097f, 0.097f, 0.345f } },
@@ -191,7 +200,13 @@ namespace bfvr::weapon
 		profile.capacity = std::max(game_capacity - 1, 1);
 		profile.flick = ak;
 		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
-		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits); // tube pumps: the game's, family F
+		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits);
+		profile.tube = traits.feed == feed::tube;
+		if (profile.tube)
+		{
+			profile.kind = variant::ar; // nothing to rock; no flick
+			profile.flick = false;
+		}
 		return profile;
 	}
 }

@@ -437,6 +437,23 @@ the bolt leaves home, if it then follows the bolt. At ~10 fps the pull is one or
 bolt by ~2 cm, which the "moves with" test rejects. It gives the AK-12 within 1 cm and the FAMAS within 0.4 cm and
 added the P90 (0.049, -0.004, 0.46: left side, forward), QBB-95 and SVD-12 (the AK-12's point).
 
+### Tube shotguns from the game's own reloads (2026-11-17, `handle_probe --all-bones`, re/dumps/tube_points)
+
+Every Wep_ bone recorded through the empty reload and a shot of the 870, M1014, SPAS-12, UTAS and QBS-09. On these guns
+**Wep_Mag is the shell**: at rest it sits in the loading port (870 and SPAS-12 (0, 0.067, 0.486), UTAS (0, 0.112, 0.282)
+behind the grip, QBS-09 (0, 0.082, 0.461)); during the reload it comes up from below and is pushed forward into the
+tube about every 0.75 s (Wep_Mag_Ammo and Wep_Mag_Extra1 move with it). The 870's empty reload starts with the pump
+back (Wep_Slide 7.6 cm, the left hand on it), the first shell dropped into the open ejection port (2.7 cm above the
+loading port), the pump closed, then the tube. Fore-end (left hand at rest): 870 (-0.002, 0.065, 0.725), SPAS-12
+(0.007, 0.078, 0.721), UTAS (0.003, 0.070, 0.696); pump travel 7.4-9 cm. The QBS-09's Wep_Slide is its bolt on the
+right (-0.03, 0.121, 0.478), locked back as soon as the tube is empty and closed by a release, no hand on it; the
+M1014 moves Wep_Extra1 instead. Capacity read live: the 870's tube holds 7 (`reload` capacity=7).
+
+**Found, 2026-11-17 (monitor):** the Hawk's measured handle is its fore-end, so gripping it there to hold the gun
+started a rack (`racking=1 busy=1`) and the two-handed hold never came (`held=0`). Pump guns now pump with the hand
+that holds the fore-end (`hand_frame::pump`): no rack zone there; the action unlocks after a shot (or on an empty
+chamber), a stroke back past `rack_pull` and forward again cycles it. After the change: `held=1 weight=1.00`.
+
 ### Bolt actions and the Hawk's pump by hand (2026-11-17, `manual_cycle`)
 
 The game cycles a bolt action with the **right** hand after each shot (shot recordings): the hand takes the knob,

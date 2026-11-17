@@ -181,6 +181,7 @@ namespace bfvr::weapon
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
+		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
@@ -244,6 +245,7 @@ namespace bfvr::weapon
 			case reload_event::round_ejected: return "round_ejected";
 			case reload_event::magazine_palmed: return "magazine_palmed";
 			case reload_event::racked_locked: return "racked_locked";
+			case reload_event::shell_loaded: return "shell_loaded";
 			}
 			return "?";
 		}
@@ -260,7 +262,8 @@ namespace bfvr::weapon
 			{
 			case reload_event::magazine_taken:
 			case reload_event::magazine_stowed: play(cue::cloth); break;
-			case reload_event::magazine_in: play(cue::magazine_in); break;
+			case reload_event::magazine_in:
+			case reload_event::shell_loaded: play(cue::magazine_in); break;
 			case reload_event::magazine_out:
 			case reload_event::flicked_out:
 			case reload_event::magazine_palmed: play(cue::magazine_out); break;
@@ -285,7 +288,8 @@ namespace bfvr::weapon
 			case reload_event::flicked_out:
 			case reload_event::magazine_palmed:
 			case reload_event::magazine_taken: input::haptic(reloading_hand, input::pulses::grab); break;
-			case reload_event::magazine_stowed: input::haptic(reloading_hand, input::pulses::tick); break;
+			case reload_event::magazine_stowed:
+			case reload_event::shell_loaded: input::haptic(reloading_hand, input::pulses::tick); break;
 			case reload_event::magazine_in:
 			case reload_event::chambered:
 			case reload_event::racked_empty:
@@ -403,7 +407,7 @@ namespace bfvr::weapon
 			ease_magazine_lock(result, ak, seconds);
 			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
-			const bool racking = result && result->racking && has_root;
+			const bool racking = result && (result->racking || result->pumping) && has_root;
 			if (racking)
 			{
 				handle_in_gun[0] = result->handle_in_gun.x;
@@ -724,6 +728,11 @@ namespace bfvr::weapon
 		manual_cycle_on = on;
 	}
 
+	void set_shells_by_hand(bool on)
+	{
+		shells_by_hand = on;
+	}
+
 	void set_physical_reload_all(bool on)
 	{
 		reload_all = on;
@@ -831,8 +840,9 @@ namespace bfvr::weapon
 		}
 		// all-weapons step 1: tube, belt and revolver guns keep the game's own reload until their families are built
 		// (the AR reload treated a shotgun's tube or an LMG's belt as a box magazine).
+		const gun_traits weapon_traits = traits_for(weapon.name);
 		const bool game_reloads = weapon.valid && !weapon.launcher && !reload_all.load(std::memory_order_relaxed)
-			&& !physical_reload_covers(traits_for(weapon.name));
+			&& (!physical_reload_covers(weapon_traits) || (weapon_traits.feed == feed::tube && !shells_by_hand.load(std::memory_order_relaxed)));
 		game_reload_gun = game_reloads;
 		if (!physical.load(std::memory_order_relaxed) || game_reloads)
 		{
@@ -974,6 +984,8 @@ namespace bfvr::weapon
 			frame.has_magazine_grab = per_gun && magazine_grab_for(weapon.name, grab);
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
+			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
+			frame.tube = gun.profile().tube;
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
@@ -1072,7 +1084,7 @@ namespace bfvr::weapon
 		{
 			remember(result.events[i]);
 		}
-		if (!result.racking)
+		if (!result.racking && !result.pumping)
 		{
 			bolt_at_rear = false;
 		}
@@ -1103,6 +1115,7 @@ namespace bfvr::weapon
 			pose.tilt = result.magazine_tilt;
 			pose.tilt_pivot = hand_config{}.palm_pivot_drop;
 			pose.ak = gun.profile().kind == variant::ak;
+			pose.shell = gun.profile().tube;
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
 			pose.position[2] = result.magazine_position.z;

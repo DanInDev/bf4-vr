@@ -62,6 +62,12 @@ namespace bfvr::weapon
 		// knock-out follow it; without it, straight down (the AK-12 and SCAR-H, the reference).
 		bool has_way_out{};
 		float way_out_degrees{};
+		// A pump gun cycled by hand (reload_profile manual_cycle with a pump): the handle point is the fore-end, which is
+		// also where the two-handed hold takes it. No rack zone there; the held hand pumps it (hand_result pumping).
+		bool pump{};
+		// A tube gun (reload_profile tube): magwell is the loading port; nothing to grab there with an empty hand, a held
+		// shell goes in when brought to it (no rail lock, no palming).
+		bool tube{};
 		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
 		bool has_rack_shape{};
 		rack_zone_shape rack_shape;
@@ -131,6 +137,9 @@ namespace bfvr::weapon
 		// This update the pull reached rack_pull (once per stroke): the rack will count on release.
 		// The rear-stop cue (sound and tick); the release plays the bolt going home.
 		bool rack_at_rear{};
+		// A pump gun (hand_frame pump): the off hand holding the fore-end slides it back (rack_pull, handle_in_gun as for
+		// racking) without leaving the two-handed hold; drawn like racking, but the hand stays the hold's.
+		bool pumping{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden
@@ -180,6 +189,8 @@ namespace bfvr::weapon
 		float stow_reach_scale{ 1.6f };
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
+		float pump_reach{ 0.12f };     // a pump gun: the held hand this near the fore-end works it
+		float pump_return{ 0.015f };   // ... and a stroke that reached rack_pull cycles once back within this of the start
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
 		// AK quick reload, two motions (owner 2026-11-15: it flicked the old one away and the new one was in at once):
@@ -191,6 +202,7 @@ namespace bfvr::weapon
 		// Where the magazine's top (the Wep_Mag origin) sits relative to the hand holding it, in the
 		// controller's aim axes (x right, y up, -z forward): AR held from below, AK by the sides.
 		v3 hold_ar{ 0.0f, 0.13f, -0.03f };
+		v3 hold_shell{ 0.0f, 0.02f, -0.03f }; // a tube gun's shell: in the fingers, not a magazine's top above the fist
 		v3 hold_ak{ 0.0f, 0.07f, -0.03f };
 		// Charging handle in the gun frame (Wep_Root, +z along the barrel, metres): AR at the rear of the
 		// receiver on top, AK on the receiver above the magazine (either side within the reach).
@@ -294,6 +306,9 @@ namespace bfvr::weapon
 		bool last_grip_{};
 		bool last_button_{};
 		bool racking_{};
+		bool pumping_{};    // pump gun: the held hand is on the fore-end, tracked from pump_start_
+		bool pump_back_{};  // this stroke reached rack_pull
+		v3 pump_start_;
 		bool rack_underhand_{};
 		bool rack_full_{};
 		v3 rack_start_;
