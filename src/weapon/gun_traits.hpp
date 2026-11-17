@@ -48,8 +48,8 @@ namespace bfvr::weapon
 	// The crate gun's traits; any other gun gets a box magazine with a button and hold-open (today's AR behaviour).
 	gun_traits traits_for(std::string_view unlock_name);
 
-	// The physical magazine reload (state machine AR/AK) covers box, rock-in, top and drum feeds. Belt, tube and revolver
-	// guns keep the game's own reload until their families are built (the AR reload treated them as box magazines).
+	// The physical reload (state machine AR/AK) covers box, rock-in, top and drum feeds, and tubes shell by shell
+	// (2026-11-17). Belt and revolver guns keep the game's own reload until their families are built.
 	bool physical_reload_covers(const gun_traits& traits);
 
 	// A bolt action or a pump: after each shot the hand works the bolt or the fore-end before the next (all-weapons.md

@@ -74,7 +74,7 @@ namespace bfvr::weapon
 
 	reload_event reload::press_button(bool hand_on_magazine, bool palming)
 	{
-		if (profile_.kind != variant::ar)
+		if (profile_.kind != variant::ar || profile_.tube) // a tube has no release
 		{
 			return reload_event::none;
 		}
@@ -129,7 +129,7 @@ namespace bfvr::weapon
 	reload_event reload::grab_magazine()
 	{
 		// An AR magazine is latched until the button releases it.
-		if (profile_.kind != variant::ak || !state_.magazine_in || state_.holding)
+		if (profile_.kind != variant::ak || profile_.tube || !state_.magazine_in || state_.holding)
 		{
 			return reload_event::none;
 		}
@@ -146,7 +146,7 @@ namespace bfvr::weapon
 		{
 			return reload_event::none;
 		}
-		state_.held_rounds = std::min(profile_.capacity, state_.reserve);
+		state_.held_rounds = profile_.tube ? 1 : std::min(profile_.capacity, state_.reserve); // a tube: one shell
 		state_.reserve -= state_.held_rounds;
 		state_.holding = true;
 		return reload_event::magazine_taken;
@@ -176,6 +176,18 @@ namespace bfvr::weapon
 		if (!state_.holding)
 		{
 			return reload_event::none;
+		}
+		if (profile_.tube)
+		{
+			// The shell into the loading port: one more in the tube, unless it is full (the shell stays in the hand).
+			if (!state_.magazine_in || state_.magazine_rounds >= profile_.capacity)
+			{
+				return reload_event::none;
+			}
+			state_.magazine_rounds += state_.held_rounds;
+			state_.holding = false;
+			state_.held_rounds = 0;
+			return reload_event::shell_loaded;
 		}
 		if (state_.palmed && !state_.magazine_in)
 		{

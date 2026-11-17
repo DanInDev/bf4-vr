@@ -28,6 +28,9 @@ namespace bfvr::weapon
 			cues[0] = { reload_sound::magazine_in, 0 };
 			cues[1] = { reload_sound::magazine_seat, 350 };
 			return 2;
+		case reload_event::shell_loaded: // a tube gun's reload entity: its shell-in sound
+			cues[0] = { reload_sound::magazine_in, 0 };
+			return 1;
 		case reload_event::chambered:
 		case reload_event::racked_empty:
 		case reload_event::racked_locked:

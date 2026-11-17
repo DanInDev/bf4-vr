@@ -141,8 +141,8 @@ bind_menu = start
 # (caught if the off hand holds it), X again chambers after a new one when the bolt locked open. New
 # magazines from the chest (grip there), let go at the chest to stow one. The ammo counter reads 2 high.
 reload = physical
-# Shotguns loaded shell by shell, belt-fed LMGs and the revolver keep the game's own reload (B) until their own hand
-# reloads exist (docs/tasks/all-weapons.md); 1 = the box-magazine hand reload for them too, as before.
+# Belt-fed LMGs and the revolver keep the game's own reload (B) until their own hand reloads exist
+# (docs/tasks/all-weapons.md); 1 = the box-magazine hand reload for them too, as before. (Shotguns: shells_by_hand.)
 physical_reload_all = 0
 # Each gun's own charging handle, magazine grab point and the way its magazine comes out (P90 back off the top,
 # Saiga rocked forward), measured from the game's reload animations (tools/handle_probe.py); 0 = one point per AR/AK
@@ -151,6 +151,9 @@ gun_points = 1
 # Bolt actions (SRS, FY-JS, Scout, SV-98) and the Hawk's pump: after each shot grab the bolt knob or the fore-end,
 # pull it back and let go before the next shot (the trigger waits); 0 = the game cycles them by itself.
 manual_cycle = 1
+# Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
+# one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
+shells_by_hand = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a

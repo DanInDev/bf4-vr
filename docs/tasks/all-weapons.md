@@ -210,7 +210,7 @@ cover 35 of the 51 guns on the existing state machine; then F 6, G 4, H 5, J 1.
 | 4 | **Family C** (rock-in, with/without hold-open) | 8 | 1, 2 | #64 |
 | 5 | **Family D/E/I** (bullpup zones, P90 top magazine, drum) | 12 bullpups (in A-C, F, G too) | 3 | #64 |
 | 6 | **Fire selector** and **holster by size** (long secondary on the back) | all | 2 | new |
-| 7 | **Family F** (tube shotguns: shell by shell, pump per shot) | 6 | 1 | #64 |
+| 7 | **Family F** (tube shotguns: shell by shell, pump per shot) **first part done 2026-11-17**: setting `shells_by_hand`; a shell from the pouch into the loading port (`reload_profile::tube`, `shell_loaded`), one at a time up to the tube's capacity; the pump is worked by the hand that holds the fore-end, without leaving the two-handed hold, and is locked while a round is chambered (`hand_frame::pump`); semi-automatics (M1014, QBS-09) feed themselves, a rack chambers the first. Fore-end points from the game's own reloads. Still to do: loading a shell straight into the open ejection port, the semi-autos' bolt release, the UTAS's second tube | 5 + Hawk | 1 | #64 |
 | 8 | **Family G** (bolt action: hold the shot until cycled, hand-driven bolt) **first part done 2026-11-17**: setting `manual_cycle`, a shot leaves the chamber empty and the trigger blocked until the bolt knob (measured from the game's own cycle, right side) or the Hawk's fore-end is grabbed, pulled back and let go (`reload_profile::manual_cycle`). Still to do: the bolt's own path (lift, back, forward, down), the trigger hand working it | 4 + Hawk | 1, research on the game's bolt cycle | #64 |
 | 9 | **Family H** (belt-fed: lid, box, belt, charge) | 5 | 1 | #64 |
 | 10 | **Family J** (revolver: break, extract, speedloader) | 1 | 1 | #64 |

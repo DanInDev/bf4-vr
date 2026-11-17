@@ -2161,6 +2161,71 @@ namespace
 			expect(has(r, reload_event::magazine_out), "AK-12: the hand at its measured grab takes the magazine");
 		}
 		{
+			// Monitor 2026-11-17, Hawk: its measured handle is the fore-end, so gripping it there to hold the gun started a
+			// rack and the two-handed hold never came. A pump gun: the grip there is the hold's; the held hand pumps it.
+			reload_profile pump_profile = ar;
+			pump_profile.manual_cycle = true;
+			pump_profile.hold = hold_open::no;
+			reload gun(pump_profile);
+			gun.load(5, 20);
+			reload_hands hands(flat_hold());
+			// locked_at: the root 0.2 ahead of the magwell along +z, the barrel along +z (back is -z).
+			const v3 fore_end{ magwell.x, magwell.y + 0.08f, magwell.z + 0.2f + 0.45f };
+			const auto on_pump = [&](float back_cm, bool grip)
+			{
+				hand_frame f = locked_at({ fore_end.x, fore_end.y, fore_end.z - back_cm * 0.01f }, grip);
+				f.has_handle_point = true;
+				f.handle_point = { 0.0f, 0.08f, 0.45f };
+				f.pump = true;
+				return f;
+			};
+			hands.update(gun, on_pump(0.0f, false));
+			hand_result r = hands.update(gun, on_pump(0.0f, true));
+			expect(!r.off_hand_busy && !r.racking && r.in_zone != hand_result::zone::handle, "pump: the grip on the fore-end is the two-handed hold's, not a rack");
+			r = hands.update(gun, on_pump(6.0f, true));
+			expect(!r.pumping && r.count == 0, "pump: locked while a round is chambered (no live shell lost to a drifting hand)");
+			hands.update(gun, on_pump(0.0f, true));
+			expect(gun.fire() == reload_event::shot && !gun.state().chamber, "pump: the shot leaves the chamber empty");
+			r = hands.update(gun, on_pump(0.0f, true));
+			r = hands.update(gun, on_pump(6.0f, true));
+			expect(r.pumping && r.rack_at_rear && !r.off_hand_busy && close(r.rack_pull, 0.06f, 1e-3f), "pump: back 6 cm, the rear stop, still the hold's hand");
+			r = hands.update(gun, on_pump(0.5f, true));
+			expect(has(r, reload_event::chambered) && gun.state().chamber, "pump: forward again, the next shell chambered");
+			r = hands.update(gun, on_pump(6.0f, true));
+			expect(!r.pumping && r.count == 0, "pump: locked again on the fresh round");
+		}
+		{
+			// A tube gun: an empty hand at the loading port is free (the two-handed hold, no magazine to take); a shell
+			// from the pouch brought to the port goes in, one at a time.
+			reload_profile tube_profile = ar;
+			tube_profile.tube = true;
+			tube_profile.capacity = 6;
+			tube_profile.hold = hold_open::no;
+			reload gun(tube_profile);
+			gun.load(0, 20);
+			reload_hands hands(flat_hold());
+			const auto tube_at = [&](v3 hand, bool grip)
+			{
+				hand_frame f = locked_at(hand, grip);
+				f.tube = true;
+				return f;
+			};
+			hands.update(gun, tube_at(away, false));
+			hand_result r = hands.update(gun, tube_at(magwell, true));
+			expect(!r.off_hand_busy && r.count == 0, "tube: an empty hand gripping at the loading port is free");
+			for (int shell = 0; shell < 2; ++shell)
+			{
+				hands.update(gun, tube_at(away, false));
+				hands.update(gun, tube_at(chest, false));
+				r = hands.update(gun, tube_at(chest, true));
+				expect(has(r, reload_event::magazine_taken) && gun.state().held_rounds == 1, "tube: one shell from the pouch");
+				r = hands.update(gun, tube_at(magwell, true));
+				expect(has(r, reload_event::shell_loaded) && !gun.state().holding, "tube: brought to the port, it goes in");
+				hands.update(gun, tube_at(magwell, false));
+			}
+			expect(gun.state().magazine_rounds == 2 && !r.guided, "tube: two shells in, no rail lock");
+		}
+		{
 			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.
 			reload gun(ak);
 			gun.load(30, 60);

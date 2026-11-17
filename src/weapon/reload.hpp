@@ -47,6 +47,9 @@ namespace bfvr::weapon
 		// A bolt action or a pump (gun_traits cycle): a shot leaves the spent case in the chamber, nothing fed, until
 		// the bolt or the fore-end is worked by hand (rack). The trigger is blocked meanwhile (empty chamber).
 		bool manual_cycle{};
+		// A tube magazine (gun_traits feed tube: the 870, M1014, SPAS-12, QBS-09, UTAS): the magazine never leaves the gun;
+		// a shell from the pouch is pushed into the loading port, one at a time (insert: shell_loaded), up to capacity.
+		bool tube{};
 	};
 
 	bool locks_open(const reload_profile& profile);
@@ -74,6 +77,7 @@ namespace bfvr::weapon
 		round_ejected,    // rack with a round in the chamber: that round is lost (state() shows what was fed)
 		magazine_palmed,  // AR palming: the seated magazine released into the hand that holds the new one
 		racked_locked,    // AR: a rack on an empty magazine, the follower holds the bolt open (#78: sounds like the bolt)
+		shell_loaded,     // tube: one shell pushed into the loading port
 	};
 
 	// #78: the seated magazine left the gun (was_in, now out) and no magazine-out cue played for it this frame (a pull

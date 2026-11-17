@@ -545,6 +545,7 @@ namespace bfvr::body
 		int hook_hand{}; // the hand the hook points were measured on (the racking hand, #38)
 		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
 		constexpr float held_magazine_drop = 0.07f;
+		constexpr float held_shell_drop = 0.01f; // a shell in the fingers
 		bone_memory slide_memory;
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
@@ -2478,12 +2479,13 @@ namespace bfvr::body
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
 			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
-			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f }) : cup.top;
+			const float drop = magazine_request.shell ? held_shell_drop : held_magazine_drop;
+			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, drop, 0.0f }) : cup.top;
 			// Palming (#40): the fingers close by contact (close_on_palmed) on the magazine where the game's grip
 			// holds it, so it stays there.
 			const authored_grip* by_grip = palm_contact ? (magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar) : authored_shown;
 			const float grip_weight = palm_contact ? 1.0f : authored_weight;
-			if ((by_grip == &magazine_grip_ak || by_grip == &magazine_grip_ar) && grip_weight > 0.0f && (palm_contact || authored_hand_shown == 0) && holder == 0
+			if (!magazine_request.shell && (by_grip == &magazine_grip_ak || by_grip == &magazine_grip_ar) && grip_weight > 0.0f && (palm_contact || authored_hand_shown == 0) && holder == 0
 				&& rig.arms[0].hand >= 0)
 			{
 				// Where the game's own reload holds it, relative to the hand, eased in with the fingers.
@@ -2552,7 +2554,7 @@ namespace bfvr::body
 			const ik::bone_transform seated = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
 			out = seated;
 			out.rotation = ik::normalize(fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
-			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, held_magazine_drop, 0.0f });
+			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop : held_magazine_drop, 0.0f });
 			return true;
 		}
 
