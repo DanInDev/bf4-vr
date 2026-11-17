@@ -2064,6 +2064,103 @@ namespace
 			expect(!r.guided && r.in_fist, "pull out: past the rail's end it is the fist's");
 		}
 		{
+			// The way out (weapon/profiles magazine_way_out_for): the magazine rides out along it, 30 degrees forward here.
+			const float a = 30.0f * 0.017453293f;
+			const v3 out{ 0.0f, -std::cos(a), std::sin(a) };
+			const auto along = [&](float depth) { return v3{ magwell.x + out.x * depth, magwell.y + out.y * depth, magwell.z + out.z * depth }; };
+			const auto slanted = [&](v3 hand, bool grip)
+			{
+				hand_frame f = locked_at(hand, grip);
+				f.has_way_out = true;
+				f.way_out_degrees = 30.0f;
+				return f;
+			};
+			reload gun(ak);
+			gun.load(30, 60);
+			reload_hands hands(flat_hold());
+			hand_result r = hands.update(gun, slanted(away, false));
+			expect(close(r.zone_centre[0].z, magwell.z + out.z * 0.08f, 1e-3f) && close(r.zone_centre[0].y, magwell.y + out.y * 0.08f, 1e-3f),
+				"way out: no measured grab, the zone sits along the way out");
+			r = hands.update(gun, slanted(along(0.08f), true));
+			expect(has(r, reload_event::magazine_out) && r.guided, "way out: taken 4 cm ahead of the magwell it is the magazine's, not the handguard's");
+			// The magazine keeps the hand's offset from the grab: 3 cm further along, 3 cm out of the well.
+			r = hands.update(gun, slanted(along(0.11f), true));
+			expect(r.guided && close(r.magazine_position.z, magwell.z + out.z * 0.03f, 1e-3f) && close(r.magazine_position.y, magwell.y + out.y * 0.03f, 1e-3f),
+				"way out: it rides the slanted rail");
+			r = hands.update(gun, slanted({ magwell.x, magwell.y - 0.12f, magwell.z + 0.04f }, true));
+			expect(r.guided && close(r.magazine_position.z, magwell.z + out.z * r.rail_depth, 1e-3f), "way out: a hand straight below still puts it on the slanted rail");
+		}
+		{
+			// The P90: back off the top. Without a measured grab its zone is behind the magazine, not inside the gun.
+			reload gun(ar);
+			gun.load(30, 60);
+			reload_hands hands(flat_hold());
+			hand_frame f = locked_at(away, false);
+			f.has_way_out = true;
+			f.way_out_degrees = -102.0f;
+			const hand_result r = hands.update(gun, f);
+			expect(r.zone_centre[0].z < magwell.z - 0.07f && r.zone_centre[0].y > magwell.y + 0.01f, "P90: the zone behind and a little above the magazine");
+		}
+		{
+			// Monitor 2026-11-17, P90: taken 16 cm behind its magwell, the magazine came out and seated again the next
+			// frame: in the frame it came out, the re-arm still measured from the fist, 18 cm off.
+			for (const bool lock : { true, false })
+			{
+				reload gun(ar);
+				gun.load(30, 60);
+				reload_hands hands(flat_hold());
+				hand_result last;
+				int held_frames = 0;
+				const auto p90 = [&](v3 hand, bool grip, bool button)
+				{
+					hand_frame f = locked_at(hand, grip, lock);
+					f.button = button;
+					// As in the game: the held magazine where the drawn fist holds it (arm_pose attach_held_magazine). Right after
+					// the pull-out the drawn hand is still easing from the controller onto the locked magazine: its fist 21 cm
+					// from the magwell for a few frames.
+					// Then the hand lock has brought the drawn fist onto the magazine on the rail: at the magwell.
+					if (gun.state().holding)
+					{
+						f.has_held = true;
+						f.held_top = held_frames++ < 2 ? v3{ hand.x, hand.y, hand.z - 0.05f } : magwell;
+						f.held_rotation = {};
+					}
+					f.has_way_out = true;
+					f.way_out_degrees = -101.0f;
+					f.has_magazine_grab = true;
+					f.magazine_grab = { 0.001f, 0.018f, -0.158f };
+					return f;
+				};
+				const v3 grab_at{ magwell.x + 0.001f, magwell.y + 0.018f, magwell.z - 0.158f };
+				last = hands.update(gun, p90(away, false, false));
+				last = hands.update(gun, p90(grab_at, true, false));
+				last = hands.update(gun, p90(grab_at, true, true));
+				const bool out = has(last, reload_event::magazine_out);
+				bool reseated = false;
+				for (int i = 0; i < 5; ++i)
+				{
+					last = hands.update(gun, p90(grab_at, true, i < 2));
+					reseated = reseated || has(last, reload_event::magazine_in);
+				}
+				expect(out && !reseated && gun.state().holding, lock ? "P90, locked: the magazine taken out stays out" : "P90, lock off: the magazine taken out stays out");
+			}
+		}
+		{
+			// The measured grab ahead of the magwell (the AK-12's, 3.9 cm): a hand on it is not the handguard's.
+			reload gun(ak);
+			gun.load(30, 60);
+			reload_hands hands(flat_hold());
+			hand_frame f = locked_at(away, false);
+			f.has_magazine_grab = true;
+			f.magazine_grab = { -0.016f, -0.041f, 0.039f };
+			hands.update(gun, f);
+			f = locked_at({ magwell.x - 0.016f, magwell.y - 0.041f, magwell.z + 0.039f }, true);
+			f.has_magazine_grab = true;
+			f.magazine_grab = { -0.016f, -0.041f, 0.039f };
+			const hand_result r = hands.update(gun, f);
+			expect(has(r, reload_event::magazine_out), "AK-12: the hand at its measured grab takes the magazine");
+		}
+		{
 			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.
 			reload gun(ak);
 			gun.load(30, 60);

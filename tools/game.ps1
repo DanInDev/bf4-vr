@@ -10,7 +10,7 @@
 # For screenshots of the game's own back buffer (no focus needed) use tools\pipe.ps1 shot.
 
 param(
-	[Parameter(Position = 0)][ValidateSet('start', 'stop', 'status', 'shot', 'keys', 'click', 'console', 'type', 'size')] [string]$Action = 'status',
+	[Parameter(Position = 0)][ValidateSet('start', 'stop', 'status', 'shot', 'focus', 'keys', 'click', 'console', 'type', 'size')] [string]$Action = 'status',
 	[string]$Out,
 	[string]$Keys,
 	[string]$Text,
@@ -205,6 +205,10 @@ switch ($Action) {
 		$bitmap.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
 		$bitmap.Dispose()
 		$Out
+	}
+	'focus' {
+		# Only to the front, no keys: the game plays some animations (its empty reload) only while in front.
+		if ([BfvrWin32]::Focus((Require-Window))) { 'BF4 in front' } else { throw 'BF4 did not come to the front.' }
 	}
 	'keys' {
 		$window = Require-Window

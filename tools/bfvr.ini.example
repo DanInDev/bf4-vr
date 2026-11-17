@@ -144,8 +144,9 @@ reload = physical
 # Shotguns loaded shell by shell, belt-fed LMGs and the revolver keep the game's own reload (B) until their own hand
 # reloads exist (docs/tasks/all-weapons.md); 1 = the box-magazine hand reload for them too, as before.
 physical_reload_all = 0
-# Each gun's own charging handle and magazine grab point, measured from the game's reload animations
-# (tools/handle_probe.py); 0 = one point per AR/AK type, as before.
+# Each gun's own charging handle, magazine grab point and the way its magazine comes out (P90 back off the top,
+# Saiga rocked forward), measured from the game's reload animations (tools/handle_probe.py); 0 = one point per AR/AK
+# type and every magazine straight down, as before.
 gun_points = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1

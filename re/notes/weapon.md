@@ -405,10 +405,37 @@ QBB's drum at its middle. The SCAR-H's hand is 3 cm to the left. Too few or loos
 CBJ-MS, MX4, PP-2000, SAR-21 (no hand moved with it), P90, PDW-R, AUG, ACE 52 (2-3 frames), A-91, AEK-971, CZ-805,
 M82A3, USAS-12, Ultimax, Scorpion (spread 7-11 cm), SRS (4.9 cm but above the bone: doubtful).
 
-Way out (the magazine's first 3 cm, unit vector): straight down (-y) on the box guns; the AK pattern tips forward
-(AK-12 (0.17, -0.97, 0.17), Saiga (0.08, -0.9, 0.43), SG553 (0.03, -0.87, 0.49)); AUG (0.54, -0.83), QBU-88
-(0.53, -0.84), RFB (0.35, -0.93), SAR-21 (0.31, -0.94) swing out to the left; the P90 slides back off the top
-(0.07, 0.21, -0.98). Not used yet: the pull-out still follows the rail straight down (`lock_rail`).
+Way out (the magazine's first 3 cm, unit vector): AUG (0.54, -0.83), QBU-88 (0.53, -0.84), RFB (0.35, -0.93),
+SAR-21 (0.31, -0.94) seemed to swing out to the left, but that sideways part is the animation's hand carrying it away:
+a magazine cannot leave its well sideways. **In the gun's mid-plane** (angle from straight down, + forward, at 3 and
+6 cm out) almost every gun reads within 10 degrees of straight down, the AK-12 10/5 and the SCAR-H 1/4 among them, so
+their straight rail (owner 2026-11-17: the AK and SCAR feel right, the reference) is the game's own. Clearly off and
+steady: ACE 52 17/17, Saiga 26/38, QBB-95 26/25 forward; MX4 -11/-13, PDW-R -12/-12 back; P90 -102/-102 (back off the
+top). Unsteady, left straight: SG553 29/-6, UMP-45 17/-6, Scout -14/3, G36C -3/-15, FAMAS -4/-14, QBU-88 8/17.
+
+Used since 2026-11-17 (`magazine_way_out_for`, setting `gun_points`): the rail the magazine rides out and back in,
+the drop when released and the AK knock-out follow the gun's way out; a gun without a measured grab point has its
+grab zone along it (the P90's behind its magazine instead of inside the receiver). The Great Destroyer does the same
+in its own way (`src/handmag.cpp`): button guns slide straight down until the top clears the well, rock-in guns turn
+up to 20 degrees about the front hook over 5 cm.
+
+Dead end, 2026-11-17: the empty reload does not start while BF4 is behind another window (11 fps, `setammo 0`
+accepted, 2-6 changed frames in 7 s); in front it records 50-300. `tools\game.ps1 focus` brings it to the front.
+Also since then: "ahead of the magazine" (the handguard guard, `magazine_ahead_limit`) counts from the grab point,
+not the magwell: the AK-12's measured grab is 3.9 cm ahead of its magwell, which the old guard called handguard.
+
+Monitor 2026-11-17 (fakehead, fakehand on each gun's zone, pad grips, B): AK-12 out at its grab point, rides the
+straight rail 6 cm; SCAR-H the same (twice); Saiga out, a 6 cm straight-down hand move reads 5.1 cm on its 32 degree
+rail. **P90, found and fixed:** taken 16 cm behind its magwell, its magazine came out and seated again within 250 ms.
+The re-arm (`rearm_distance` 18 cm) measured the drawn fist, which eases from the controller onto the locked
+magazine for a few frames: it read > 18 cm, armed, and seated when the hand arrived. Since then a magazine taken out
+of the gun re-arms by where the controller carries it (`from_gun_`). After the fix it stays in the hand. The P90 also
+had no handle of its own: the AR default sat 2 cm from its magazine grab, so a hand there was the handle's.
+
+Handles from the moment before the pull (`handle_probe` `pull_start`): the hand on the handle in the last frame before
+the bolt leaves home, if it then follows the bolt. At ~10 fps the pull is one or two frames and the hand trails the
+bolt by ~2 cm, which the "moves with" test rejects. It gives the AK-12 within 1 cm and the FAMAS within 0.4 cm and
+added the P90 (0.049, -0.004, 0.46: left side, forward), QBB-95 and SVD-12 (the AK-12's point).
 
 ## Sights and aiming down sights (2026-11-04, monitor: fakehead + fakehand, tools/sight_probe.py)
 

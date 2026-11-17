@@ -45,6 +45,11 @@ namespace bfvr::weapon
 			// QBU-88, Ultimax, PDW-R and AK-12 points above within 1 cm and added these.
 			{ "U_CZ805", { 0.055f, -0.009f, 0.549f } },
 			{ "U_M39EBR", { -0.102f, 0.013f, 0.428f } }, // the M14's operating rod handle, on the right
+			// The hand on the handle in the last frame before the bolt starts back (handle_probe pull_start; at ~10 fps the
+			// hand trails the bolt by 2 cm in the pull's frame). It gives the AK-12 within 1 cm and the FAMAS within 0.4.
+			{ "U_P90", { 0.049f, -0.004f, 0.460f } },   // left side, forward (the AR default sat on its top magazine)
+			{ "U_QBB95", { 0.028f, 0.077f, 0.310f } },
+			{ "U_SVD12", { -0.027f, 0.055f, 0.537f } }, // as the AK-12's
 			// Bolt actions, from a shot (the game cycles the bolt with the right hand): the bolt knob, on the right.
 			{ "U_SRS", { -0.084f, 0.116f, 0.243f } },
 			{ "U_FY-JS", { -0.097f, 0.097f, 0.345f } },
@@ -69,39 +74,75 @@ namespace bfvr::weapon
 			float offset[3];
 		};
 		// tools/handle_probe.py, 2026-11-17: the game's left hand (thumb-index pinch) on the magazine while it moves with
-		// it in the empty reload, relative to Wep_Mag (re/notes/weapon.md "Magazine grab points"). Taken: >= 4 such frames
-		// within 6 cm; the rest keep magazine_grab_drop (8 cm straight below).
+		// it in the empty reload, relative to Wep_Mag (re/notes/weapon.md "Magazine grab points"). Three takes pooled;
+		// taken: >= 4 such frames within 6 cm; the rest keep magazine_grab_drop along their way out.
 		static constexpr measured table[] = {
-			{ "U_JS2", { -0.010f, -0.063f, -0.001f } },
-			{ "U_UMP45", { -0.009f, -0.087f, 0.036f } },
-			{ "U_HAWK", { -0.011f, -0.055f, -0.007f } },
-			{ "U_SAIGA_20K", { -0.015f, -0.052f, 0.011f } },
+			{ "U_Scorpion", { 0.001f, -0.117f, 0.011f } },
+			{ "U_JS2", { -0.009f, -0.062f, -0.004f } },
+			{ "U_P90", { 0.001f, 0.018f, -0.158f } }, // behind the magazine on top of the gun
+			{ "U_MagpulPDR", { -0.010f, -0.046f, -0.001f } },
+			{ "U_UMP45", { -0.010f, -0.087f, 0.036f } },
+			{ "U_HAWK", { -0.011f, -0.057f, -0.007f } },
+			{ "U_SAIGA_20K", { -0.016f, -0.052f, 0.011f } },
+			{ "U_GalilACE52", { 0.002f, -0.043f, 0.053f } },
 			{ "U_AK5C", { 0.010f, -0.093f, 0.049f } },
-			{ "U_G36C", { 0.009f, -0.081f, -0.011f } },
-			{ "U_M4A1", { -0.008f, -0.088f, 0.016f } },
-			{ "U_SG553LB", { 0.021f, -0.059f, 0.024f } },
-			{ "U_AK12", { -0.016f, -0.041f, 0.039f } },
-			{ "U_FAMAS", { 0.000f, -0.037f, 0.004f } },
-			{ "U_M16A4", { -0.004f, -0.088f, 0.013f } },
-			{ "U_M416", { -0.011f, -0.090f, 0.012f } },
-			{ "U_QBZ951", { 0.013f, -0.043f, -0.015f } },
-			{ "U_SCAR-H", { 0.032f, -0.052f, 0.022f } },
-			{ "U_QBB95", { -0.003f, -0.001f, -0.025f } }, // the drum, taken at its middle
-			{ "U_MK11", { 0.027f, -0.029f, -0.048f } },
-			{ "U_M39EBR", { 0.005f, -0.065f, -0.012f } },
+			{ "U_G36C", { 0.005f, -0.082f, -0.036f } },
+			{ "U_M4A1", { -0.006f, -0.090f, 0.012f } },
+			{ "U_SG553LB", { 0.016f, -0.060f, 0.020f } },
+			{ "U_AK12", { -0.018f, -0.043f, 0.039f } },
+			{ "U_SteyrAug", { -0.020f, -0.040f, -0.021f } },
+			{ "U_FAMAS", { 0.000f, -0.037f, 0.002f } },
+			{ "U_M16A4", { -0.004f, -0.088f, 0.016f } },
+			{ "U_M416", { -0.008f, -0.089f, 0.012f } },
+			{ "U_SAR21", { -0.003f, -0.135f, 0.044f } },
+			{ "U_SCAR-H", { 0.030f, -0.053f, 0.022f } },
+			{ "U_MK11", { 0.011f, -0.030f, -0.048f } },
+			{ "U_M39EBR", { 0.008f, -0.062f, -0.007f } },
 			{ "U_QBU88", { 0.000f, -0.037f, -0.006f } },
-			{ "U_RFB_SP", { 0.007f, -0.015f, -0.023f } },
-			{ "U_SCAR-HSV", { 0.033f, -0.052f, 0.021f } },
-			{ "U_SVD12", { -0.012f, -0.040f, 0.040f } },
-			{ "U_FY-JS", { 0.018f, -0.022f, 0.038f } },
-			{ "U_Scout", { 0.014f, -0.013f, 0.048f } },
-			{ "U_SV98", { 0.007f, -0.017f, 0.062f } },
+			{ "U_QBZ951", { 0.014f, -0.043f, -0.015f } },
+			{ "U_RFB_SP", { 0.007f, -0.014f, -0.023f } },
+			{ "U_SCAR-HSV", { 0.032f, -0.053f, 0.022f } },
+			{ "U_SVD12", { -0.018f, -0.040f, 0.040f } },
+			{ "U_FY-JS", { 0.012f, -0.028f, 0.038f } },
+			{ "U_Scout", { 0.012f, -0.014f, 0.047f } },
+			{ "U_SV98", { 0.007f, -0.017f, 0.061f } },
 		};
 		for (const measured& gun : table)
 		{
 			if (gun.name == unlock_name)
 			{
 				std::copy(std::begin(gun.offset), std::end(gun.offset), offset);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool magazine_way_out_for(std::string_view unlock_name, float& degrees)
+	{
+		struct measured
+		{
+			std::string_view name;
+			float degrees;
+		};
+		// tools/handle_probe.py, 2026-11-17: the direction Wep_Mag first moves in the game's empty reload, in the gun's
+		// mid-plane (its sideways part is the animation's hand). Most guns read within 10 degrees of straight down, as the
+		// AK-12 (10/5) and SCAR-H (1/4), the reference, and keep the straight rail. Here only guns whose reading at 3 and
+		// 6 cm out agree and lie clearly off it (re/notes/weapon.md "Magazine grab points").
+		static constexpr measured table[] = {
+			// Three takes each (3 cm / 6 cm out, medians).
+			{ "U_GalilACE52", 17.0f },  // 17/17 (takes 11-32), rocked forward off its front hook
+			{ "U_SAIGA_20K", 32.0f },   // 26/38, the AK rock
+			{ "U_QBB95", 25.0f },       // 31/24, the drum tips forward out of the well
+			{ "U_SAR21", 17.0f },       // 17/17 in two takes, 7 in the third
+			{ "U_MagpulPDR", -12.0f },  // -12/-12 every take
+			{ "U_P90", -101.0f },       // -102/-100: lifted at the back and drawn back off the top
+		};
+		for (const measured& gun : table)
+		{
+			if (gun.name == unlock_name)
+			{
+				degrees = gun.degrees;
 				return true;
 			}
 		}
