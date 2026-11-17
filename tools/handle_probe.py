@@ -1,15 +1,21 @@
-"""Per-gun charging handle points from the game's own empty reload (docs/tasks/all-weapons.md, re/notes/weapon.md
-"Charging handles from the game's own reload": the method used by hand for the AK-12 on 2026-11-03, automated).
+"""Per-gun handle and magazine points from the game's own animations (docs/tasks/all-weapons.md, re/notes/weapon.md
+"Charging handles, every crate gun"): the 11-03 AK-12 method, automated.
 
-    python -E -P tools\\handle_probe.py [--guns U_M416,U_AK12] [--json out.json] [--restore U_SCAR-H]
+    python -E -P tools\\handle_probe.py record [--guns U_M416,U_AK12] [--event empty|shot] [--out folder] [--restore U_SCAR-H]
+    python -E -P tools\\handle_probe.py analyse [--out folder] [--json results.json]
 
-For each gun (given into slot 0 with the own crate, pipe `givegun`; without --guns, the gun in hand): reload = button and
-arm_ik = 0 (the game's animated hands), the server magazine set to 0 (pipe `reload setammo 0`, research), so the game plays
-its empty reload; the first-person local pose is sampled as fast as the pipe allows and forward kinematics give, in
-Wep_Root axes (+z along the barrel, +y up, +x left): Wep_Slide (the bolt) and the left hand's pinch (thumb tip and index
-middle). The handle: where the hand pinches as the slide starts back (0.8 cm travel), and at the slide's peak minus its
-travel. Guns whose empty reload never moves the slide by hand (a bolt release, a hold-open closed by a button) report
-"no pull". Settings are restored at the end (reload physical, arm_ik 1).
+record: for each gun (given into slot 0 with the own crate, pipe `givegun`; without --guns, the gun in hand), reload = button
+and arm_ik = 0 (the game's animated hands), then the event: `empty` sets the server magazine to 0 (pipe `reload setammo 0`,
+research), so the game plays its empty reload; `shot` fires one shot (a bolt action or pump cycles after it). The local pose
+is read as fast as the pipe allows; every frame that changed is saved (Wep_Root axes: +z along the barrel, +y up, +x left):
+Wep_Slide, Wep_Mag, each hand's pinch (thumb tip and index middle) and its thumb-index spread. One file per gun and event
+(default folder re/dumps/gun_points, git-ignored). Settings are restored at the end (reload physical, arm_ik 1).
+
+analyse: from the saved frames, per gun:
+  handle   - the hand riding the bolt: its pinch moved forward by the bolt's travel, over the steadiest run of frames
+             (the longest run staying within 2 cm), left hand for the empty reload, either hand for a shot;
+  magazine - the hand riding the magazine as it comes out: the pinch relative to Wep_Mag (the grab offset from the
+             seated Wep_Mag), and the direction the magazine first moves (its way out).
 """
 import argparse
 import json
@@ -25,6 +31,9 @@ sys.path.insert(0, HERE)
 from camera_probe import command, peek, pointer  # noqa: E402
 from skeleton_probe import SOLDIER_GLOBAL, read_rig  # noqa: E402
 from slot_probe import slots  # noqa: E402
+
+ROOT = os.path.dirname(HERE)
+DEFAULT_OUT = os.path.join(ROOT, 're', 'dumps', 'gun_points')
 
 
 def qmul(a, b):
@@ -84,105 +93,172 @@ def in_root(root, point):
     return qrot((-rq[0], -rq[1], -rq[2], rq[3]), d)
 
 
-def sample(address, count, parents, ids):
+def frame(address, count, parents, ids):
     raw = peek(address, 0x20 * count)
     pose = [struct.unpack_from('<8f', raw, i * 0x20) for i in range(count)]
     m = model(parents, pose, ids.values())
     root = m[ids['root']]
-    slide = in_root(root, m[ids['slide']][0])
-    thumb = in_root(root, m[ids['thumb']][0])
-    index = in_root(root, m[ids['index']][0])
-    pinch = tuple((a + b) / 2 for a, b in zip(thumb, index))
-    return slide, pinch, math.dist(thumb, index)
+    p = {k: in_root(root, m[ids[k]][0]) for k in ('slide', 'mag', 'lthumb', 'lindex', 'rthumb', 'rindex')}
+    out = {'slide': p['slide'], 'mag': p['mag']}
+    for hand, t, i in (('left', 'lthumb', 'lindex'), ('right', 'rthumb', 'rindex')):
+        out[hand] = tuple((a + b) / 2 for a, b in zip(p[t], p[i]))
+        out[hand + '_spread'] = math.dist(p[t], p[i])
+    return out
 
 
-def measure(gun, seconds=7.0):
+def saved(t, f):
+    return dict(t=t, **{k: ([round(c, 4) for c in v] if isinstance(v, tuple) else round(v, 4)) for k, v in f.items()})
+
+
+def record_one(gun, event, seconds, out):
     names, parents, _bind, _live = read_rig()
-    ids = {'root': names.index('Wep_Root'), 'slide': names.index('Wep_Slide'), 'thumb': names.index('LeftHandThumb4'),
-           'index': names.index('LeftHandIndex2')}
+    ids = {'root': names.index('Wep_Root'), 'slide': names.index('Wep_Slide'), 'mag': names.index('Wep_Mag'),
+           'lthumb': names.index('LeftHandThumb4'), 'lindex': names.index('LeftHandIndex2'),
+           'rthumb': names.index('RightHandThumb4'), 'rindex': names.index('RightHandIndex2')}
     count = len(names)
     address = local_pose_address()
-    rest = []
-    while len(rest) < 5:
+    rest = None
+    while rest is None:
         try:
-            rest.append(sample(address, count, parents, ids))
+            rest = frame(address, count, parents, ids)
         except RuntimeError:
             address = local_pose_address()
-    rest_slide = tuple(sum(s[0][k] for s in rest) / len(rest) for k in range(3))
-    reply = command('reload setammo 0').strip()
+    if event == 'empty':
+        reply = command('reload setammo 0').strip().splitlines()[0]
+    else:
+        reply = command('pad 0 0 0 0 150 0 0 1').strip()
     t0 = time.time()
-    samples = []
+    frames = [saved(0.0, rest)]
+    last = None
     while time.time() - t0 < seconds:
         try:
-            slide, pinch, spread = sample(address, count, parents, ids)
+            f = frame(address, count, parents, ids)
         except RuntimeError:
             address = local_pose_address()
             continue
-        samples.append((time.time() - t0, slide, pinch, spread))
-    travel = [rest_slide[2] - s[1][2] for s in samples]  # back along the barrel = -z
-    row = {'gun': gun, 'setammo': reply, 'samples': len(samples), 'rest_slide': [round(v, 4) for v in rest_slide],
-           'max_travel': round(max(travel), 4) if travel else None}
-    start = next((i for i, t in enumerate(travel) if t > 0.008), None)
-    if start is None or max(travel) < 0.02:
-        row['result'] = 'no pull'
-        return row
-    peak = max(range(len(travel)), key=lambda i: travel[i])
-    t, slide, pinch, spread = samples[start]
-    row['start'] = {'t': round(t, 2), 'pinch': [round(v, 3) for v in pinch], 'thumb_index_cm': round(spread * 100, 1)}
-    pt, pslide, ppinch, pspread = samples[peak]
-    row['peak'] = {'t': round(pt, 2), 'travel': round(travel[peak], 3),
-                   'pinch_minus_travel': [round(ppinch[0], 3), round(ppinch[1], 3), round(ppinch[2] + travel[peak], 3)],
-                   'thumb_index_cm': round(pspread * 100, 1)}
-    # The hand riding on the handle: its pinch moved forward by the travel stays put. At ~5 fps the start is seen late,
-    # so the handle is the median of that over every frame of the pull (travel > 1 cm) with the hand at the slide.
-    # Only frames where the hand grips (thumb and index closer than 4.5 cm): an open hand passing by is no pull.
-    riding = [(p[0], p[1], p[2] + tr) for (_t, sl, p, sp), tr in zip(samples, travel) if tr > 0.01 and sp < 0.045 and math.dist(p, sl) < 0.12]
-    if len(riding) >= 20:
-        handle = [sorted(c[k] for c in riding)[len(riding) // 2] for k in range(3)]
-        distances = sorted(math.dist(c, handle) for c in riding)
-        row['handle'] = [round(v, 3) for v in handle]
-        row['handle_frames'] = len(riding)
-        row['handle_spread_cm'] = round(distances[3 * len(distances) // 4] * 100, 1)  # 75 % of the frames within this
-        row['result'] = 'pull'
+        key = (f['slide'], f['mag'], f['left'], f['right'])
+        if key != last:
+            last = key
+            frames.append(saved(round(time.time() - t0, 3), f))
+    with open(os.path.join(out, f'{gun}.{event}.json'), 'w') as fh:
+        json.dump({'gun': gun, 'event': event, 'reply': reply, 'frames': frames}, fh)
+    return len(frames)
+
+
+def median(values):
+    s = sorted(values)
+    return s[len(s) // 2]
+
+
+def steadiest_run(points, tolerance=0.02):
+    """The longest run of consecutive points that stays within tolerance of its running median."""
+    best = []
+    for start in range(len(points)):
+        run = [points[start]]
+        for p in points[start + 1:]:
+            centre = [median([q[k] for q in run]) for k in range(3)]
+            if math.dist(p, centre) > tolerance:
+                break
+            run.append(p)
+        if len(run) > len(best):
+            best = run
+    return best
+
+
+def analyse_handle(frames, hands):
+    rest = frames[0]['slide']
+    travel = [rest[2] - f['slide'][2] for f in frames]
+    best = None
+    for hand in hands:
+        riding = [(f[hand][0], f[hand][1], f[hand][2] + tr) for f, tr in zip(frames, travel)
+                  if tr > 0.01 and math.dist(f[hand], f['slide']) < 0.15]
+        run = steadiest_run(riding)
+        if len(run) >= 3 and (best is None or len(run) > len(best[1])):
+            best = (hand, run)
+    if not best:
+        return {'max_travel': round(max(travel), 3), 'result': 'no pull' if max(travel) < 0.02 else 'bolt moved, no hand riding it'}
+    hand, run = best
+    point = [round(median([p[k] for p in run]), 3) for k in range(3)]
+    return {'max_travel': round(max(travel), 3), 'result': 'pull', 'hand': hand, 'frames': len(run), 'point': point}
+
+
+def analyse_magazine(frames):
+    rest = frames[0]['mag']
+    moved = [math.dist(f['mag'], rest) for f in frames]
+    out = {'max_move': round(max(moved), 3), 'seated': [round(c, 3) for c in rest]}
+    if max(moved) < 0.03:
+        out['result'] = 'magazine never moved'
+        return out
+    first = next(i for i, m in enumerate(moved) if m > 0.03)
+    d = [frames[first]['mag'][k] - rest[k] for k in range(3)]
+    n = math.sqrt(sum(c * c for c in d))
+    out['way_out'] = [round(c / n, 2) for c in d]
+    offsets = [tuple(f['left'][k] - f['mag'][k] for k in range(3)) for f, m in zip(frames, moved)
+               if 0.005 < m < 0.25 and math.dist(f['left'], f['mag']) < 0.20]
+    run = steadiest_run(offsets)
+    if len(run) >= 3:
+        out['grab_offset'] = [round(median([p[k] for p in run]), 3) for k in range(3)]
+        out['grab_frames'] = len(run)
+        out['result'] = 'held'
     else:
-        row['result'] = 'slide moved, hand away (bolt release?)'
-    return row
+        out['result'] = 'moved, no hand riding it'
+    return out
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('mode', choices=['record', 'analyse'])
     parser.add_argument('--guns', help='comma-separated debug ids (given into slot 0); default: the gun in hand')
+    parser.add_argument('--event', choices=['empty', 'shot'], default='empty')
+    parser.add_argument('--seconds', type=float, default=7.0)
+    parser.add_argument('--out', default=DEFAULT_OUT)
     parser.add_argument('--json')
     parser.add_argument('--restore', help='debug id to give back into slot 0 at the end')
     args = parser.parse_args()
-    rows = []
-    try:
-        command('setting set reload button')
-        command('setting set arm_ik 0')
-        guns = args.guns.split(',') if args.guns else [None]
-        for gun in guns:
-            if gun:
-                command(f'givegun {gun} 0')
-                deadline = time.time() + 20
-                while time.time() < deadline and slots().get(0) != gun:
-                    time.sleep(0.5)
-                time.sleep(3.0)
-            name = gun or slots().get(0, '?')
-            try:
-                row = measure(name)
-            except (RuntimeError, ValueError) as error:
-                row = {'gun': name, 'result': f'error: {error}'}
-            rows.append(row)
-            print(json.dumps(row), flush=True)
-            time.sleep(4.0)  # let the reload finish before the next gun
-            if args.json:
-                with open(args.json, 'w') as fh:
-                    json.dump(rows, fh, indent=1)
-    finally:
-        command('setting set reload physical')
-        command('setting set arm_ik 1')
-        if args.restore:
-            print('restore:', command(f'givegun {args.restore} 0').strip())
+    os.makedirs(args.out, exist_ok=True)
+    if args.mode == 'record':
+        try:
+            command('setting set reload button')
+            command('setting set arm_ik 0')
+            for gun in (args.guns.split(',') if args.guns else [None]):
+                if gun:
+                    command(f'givegun {gun} 0')
+                    deadline = time.time() + 20
+                    while time.time() < deadline and slots().get(0) != gun:
+                        time.sleep(0.5)
+                    time.sleep(3.0)
+                name = gun or slots().get(0, '?')
+                try:
+                    print(name, args.event, record_one(name, args.event, args.seconds, args.out), 'frames', flush=True)
+                except (RuntimeError, ValueError) as error:
+                    print(name, 'error:', error, flush=True)
+                time.sleep(4.0)
+        finally:
+            command('setting set reload physical')
+            command('setting set arm_ik 1')
+            if args.restore:
+                print('restore:', command(f'givegun {args.restore} 0').strip())
+        return
+    results = {}
+    for name in sorted(os.listdir(args.out)):
+        if not name.endswith('.json'):
+            continue
+        with open(os.path.join(args.out, name)) as fh:
+            data = json.load(fh)
+        frames = data['frames']
+        if len(frames) < 3:
+            continue
+        entry = results.setdefault(data['gun'], {})
+        if data['event'] == 'empty':
+            entry['handle_empty'] = analyse_handle(frames, ['left'])
+            entry['magazine'] = analyse_magazine(frames)
+        else:
+            entry['handle_shot'] = analyse_handle(frames, ['left', 'right'])
+    for gun, entry in results.items():
+        print(gun, json.dumps(entry))
+    if args.json:
+        with open(args.json, 'w') as fh:
+            json.dump(results, fh, indent=1)
 
 
 if __name__ == '__main__':
