@@ -33,6 +33,10 @@ namespace bfvr::weapon
 	// Bolt going forward: feeds the top round, or an AR's follower holds it open on an empty magazine.
 	reload_event reload::feed()
 	{
+		if (profile_.belt && (state_.lid_open || !state_.belt_laid))
+		{
+			return reload_event::racked_empty; // no belt under a shut lid: nothing to feed
+		}
 		if (state_.magazine_in && state_.magazine_rounds > 0)
 		{
 			--state_.magazine_rounds;
@@ -77,6 +81,25 @@ namespace bfvr::weapon
 		if (profile_.kind != variant::ar || profile_.tube) // a tube has no release
 		{
 			return reload_event::none;
+		}
+		if (profile_.belt)
+		{
+			// The box comes off only with the lid up (the belt lies under it) and takes its belt along.
+			if (!state_.lid_open || !state_.magazine_in || state_.belt_held)
+			{
+				return reload_event::none;
+			}
+			state_.belt_laid = false;
+			const int box = state_.magazine_rounds;
+			state_.magazine_in = false;
+			state_.magazine_rounds = 0;
+			if (hand_on_magazine && !state_.holding)
+			{
+				state_.holding = true;
+				state_.held_rounds = box;
+				return reload_event::magazine_out;
+			}
+			return drop(box);
 		}
 		palming = palming && state_.holding && !state_.palmed;
 		// The first press after a new magazine is the bolt catch: it chambers from the locked bolt or an
@@ -217,8 +240,74 @@ namespace bfvr::weapon
 		state_.magazine_rounds = state_.held_rounds;
 		state_.holding = false;
 		state_.held_rounds = 0;
-		state_.inserted_since_lock = true;
+		state_.inserted_since_lock = !profile_.belt;
+		if (profile_.belt)
+		{
+			state_.belt_laid = false; // a new box: its belt hangs out until laid on the tray
+		}
 		return result;
+	}
+
+	reload_event reload::open_lid()
+	{
+		if (!profile_.belt || state_.lid_open)
+		{
+			return reload_event::none;
+		}
+		state_.lid_open = true;
+		if (state_.chamber)
+		{
+			// Open bolt: the round waiting on the tray is still on the belt.
+			state_.chamber = false;
+			++state_.magazine_rounds;
+		}
+		return reload_event::lid_opened;
+	}
+
+	reload_event reload::close_lid()
+	{
+		if (!profile_.belt || !state_.lid_open)
+		{
+			return reload_event::none;
+		}
+		state_.lid_open = false;
+		if (!state_.chamber)
+		{
+			feed(); // on a laid belt the next round is ready (the open bolt is still cocked)
+		}
+		return reload_event::lid_closed;
+	}
+
+	reload_event reload::take_belt()
+	{
+		if (!profile_.belt || !state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding)
+		{
+			return reload_event::none;
+		}
+		state_.belt_held = true;
+		state_.belt_laid = false; // hanging from the box, or lifted off the tray
+		return reload_event::belt_taken;
+	}
+
+	reload_event reload::lay_belt()
+	{
+		if (!state_.belt_held || !state_.lid_open || !state_.magazine_in)
+		{
+			return reload_event::none;
+		}
+		state_.belt_held = false;
+		state_.belt_laid = true;
+		return reload_event::belt_laid;
+	}
+
+	reload_event reload::drop_belt()
+	{
+		if (!state_.belt_held)
+		{
+			return reload_event::none;
+		}
+		state_.belt_held = false;
+		return reload_event::belt_dropped;
 	}
 
 	reload_event reload::rack()

@@ -425,7 +425,95 @@ namespace bfvr::weapon
 			emit(result, event);
 		}
 
-		if (grip_pressed && valid && !gun.state().holding)
+		// Belt-fed: the lid and the belt, before the box, the handle and the pouch.
+		bool belt_feed_grab = false;
+		const bool belt_points = frame.belt && frame.has_belt_points && frame.has_root;
+		const q4 to_gun = conjugate(frame.root_rotation);
+		const auto hinge_angle = [&](v3 p)
+		{
+			const v3 d = rotate(to_gun, p - frame.lid_hinge);
+			return std::atan2(d.z, d.y); // grows as the lid turns up (about +x)
+		};
+		const float lid_full = frame.lid_degrees * 0.017453293f;
+		const v3 belt_point = gun.state().belt_laid ? frame.feed_tray : frame.belt_end;
+		const bool near_belt = belt_points && valid && gun.state().lid_open && gun.state().magazine_in && !gun.state().holding
+			&& distance(reach, belt_point) < config_.belt_reach;
+		const bool near_lid = belt_points && valid && !gun.state().holding && !gun.state().belt_held && distance(reach, frame.lid_grab) < config_.lid_reach;
+		if (belt_points && grip_pressed && valid && !gun.state().holding && !gun.state().belt_held)
+		{
+			if (near_belt && (!near_lid || distance(reach, belt_point) <= distance(reach, frame.lid_grab)))
+			{
+				emit(result, gun.take_belt());
+				belt_feed_grab = true;
+				belt_armed_ = false;
+			}
+			else if (near_lid)
+			{
+				lid_held_ = true;
+				lid_closed_angle_ = hinge_angle(frame.lid_grab) - lid_ * lid_full;
+				lid_hand_offset_ = hinge_angle(reach) - hinge_angle(frame.lid_grab);
+				belt_feed_grab = true;
+			}
+		}
+		if (lid_held_ && (!frame.grip || !valid || !belt_points))
+		{
+			lid_held_ = false;
+			// Let go: past halfway it swings up, else shut (the state now; the drawing follows below).
+			if (lid_ > 0.5f)
+			{
+				emit(result, gun.open_lid());
+			}
+			else
+			{
+				emit(result, gun.close_lid());
+			}
+		}
+		if (lid_held_)
+		{
+			float angle = hinge_angle(reach) - lid_hand_offset_ - lid_closed_angle_;
+			angle = std::atan2(std::sin(angle), std::cos(angle));
+			lid_ = std::fmax(0.0f, std::fmin(1.0f, angle / lid_full));
+			if (!gun.state().lid_open && lid_ > 0.1f)
+			{
+				emit(result, gun.open_lid());
+			}
+			else if (gun.state().lid_open && lid_ <= 0.02f)
+			{
+				emit(result, gun.close_lid());
+			}
+		}
+		else if (frame.belt)
+		{
+			const float target = gun.state().lid_open ? 1.0f : 0.0f;
+			const float step = config_.lid_swing_seconds > 0.0f ? frame.seconds / config_.lid_swing_seconds : 1.0f;
+			lid_ = target > lid_ ? std::fmin(target, lid_ + step) : std::fmax(target, lid_ - step);
+		}
+		if (gun.state().belt_held)
+		{
+			if (!frame.grip || !valid)
+			{
+				emit(result, gun.drop_belt());
+			}
+			else if (belt_points)
+			{
+				const float to_tray = distance(reach, frame.feed_tray);
+				belt_armed_ = belt_armed_ || to_tray > 1.5f * config_.belt_lay;
+				if (belt_armed_ && to_tray < config_.belt_lay)
+				{
+					emit(result, gun.lay_belt());
+				}
+			}
+		}
+		if (frame.belt)
+		{
+			result.lid = lid_;
+			result.lid_held = lid_held_;
+			result.belt_draw = gun.state().belt_laid ? 0 : gun.state().belt_held ? 2 : 1;
+			result.belt_position = reach;
+			result.belt_rotation = frame.off_rotation;
+		}
+
+		if (grip_pressed && valid && !gun.state().holding && !belt_feed_grab)
 		{
 			if (near_handle)
 			{
@@ -628,7 +716,8 @@ namespace bfvr::weapon
 		}
 
 		// Also before the grip closes: the game must never see the press that starts a gesture.
-		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || in_rack_zone;
+		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || in_rack_zone
+			|| lid_held_ || gun.state().belt_held || near_lid || near_belt;
 		result.zone_centre[0] = magazine_body;
 		result.zone_reach[0] = config_.reach_magazine;
 		result.zone_centre[1] = handle_grab;

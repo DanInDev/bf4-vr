@@ -2226,6 +2226,76 @@ namespace
 			expect(gun.state().magazine_rounds == 2 && !r.guided, "tube: two shells in, no rail lock");
 		}
 		{
+			// Belt-fed (M249 points, re/notes/weapon.md): the lid taken at its grab point and swung up about its hinge,
+			// the belt end taken from the box mouth and laid on the tray, the lid pushed shut: ready.
+			reload_profile belt_profile = ar;
+			belt_profile.belt = true;
+			belt_profile.capacity = 200;
+			belt_profile.hold = hold_open::no;
+			belt_profile.flick = false;
+			reload gun(belt_profile);
+			gun.load(1, 400);
+			reload_hands hands(flat_hold());
+			const v3 hinge{ 0.0f, 0.058f, 0.475f };
+			const auto lid_grab_at = [&](float lid)
+			{
+				const float a = lid * 102.6f * 0.017453293f;
+				const float y = 0.017f, z = -0.18f; // the closed grab (Scope1 rest) from the hinge
+				return v3{ 0.0f, hinge.y + y * std::cos(a) - z * std::sin(a), hinge.z + y * std::sin(a) + z * std::cos(a) };
+			};
+			float drawn = 0.0f;
+			const auto belt_frame = [&](v3 hand, bool grip)
+			{
+				hand_frame f = at(hand, grip);
+				f.has_root = true;
+				f.root = {};
+				f.magwell = { 0.0f, -0.03f, 0.44f };
+				f.belt = true;
+				f.has_belt_points = true;
+				f.lid_hinge = hinge;
+				f.lid_grab = lid_grab_at(drawn);
+				f.feed_tray = { -0.006f, 0.051f, 0.418f };
+				f.belt_end = { 0.074f, 0.004f, 0.418f };
+				return f;
+			};
+			const auto step = [&](v3 hand, bool grip)
+			{
+				const hand_result r = hands.update(gun, belt_frame(hand, grip));
+				drawn = r.lid;
+				return r;
+			};
+			step(away, false);
+			hand_result r = step(lid_grab_at(0.0f), true);
+			expect(r.lid_held && r.off_hand_busy, "belt: the lid taken at its grab point");
+			r = step(lid_grab_at(0.6f), true);
+			expect(close(r.lid, 0.6f, 0.02f) && has(r, reload_event::lid_opened) && !gun.state().chamber, "belt: swung 60 % up it follows the hand, open");
+			r = step(lid_grab_at(0.6f), false);
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, false);
+			}
+			expect(gun.state().lid_open && close(r.lid, 1.0f, 1e-3f), "belt: let go past halfway, it swings fully up");
+			// The box is still on, its belt laid: lift it off the tray, carry it off, lay it again.
+			step({ -0.006f, 0.051f, 0.418f }, false);
+			r = step({ -0.006f, 0.051f, 0.418f }, true);
+			expect(has(r, reload_event::belt_taken) && gun.state().belt_held && r.belt_draw == 2, "belt: the laid belt lifted off the tray");
+			r = step({ 0.074f, -0.10f, 0.418f }, true);
+			expect(gun.state().belt_held && !gun.state().belt_laid, "belt: carried off, still in the hand");
+			r = step({ 0.0f, 0.051f, 0.42f }, true);
+			expect(has(r, reload_event::belt_laid) && gun.state().belt_laid && r.belt_draw == 0, "belt: brought to the tray, laid");
+			step({ 0.0f, 0.051f, 0.42f }, false);
+			step(away, false);
+			r = step(lid_grab_at(1.0f), true);
+			expect(r.lid_held, "belt: the open lid taken again");
+			r = step(lid_grab_at(0.3f), true);
+			r = step(lid_grab_at(0.3f), false);
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, false);
+			}
+			expect(!gun.state().lid_open && gun.state().chamber && close(r.lid, 0.0f, 1e-3f), "belt: pushed under halfway, it shuts on the belt: ready");
+		}
+		{
 			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.
 			reload gun(ak);
 			gun.load(30, 60);

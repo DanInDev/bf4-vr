@@ -68,6 +68,15 @@ namespace bfvr::weapon
 		// A tube gun (reload_profile tube): magwell is the loading port; nothing to grab there with an empty hand, a held
 		// shell goes in when brought to it (no rail lock, no palming).
 		bool tube{};
+		// A belt-fed gun (reload_profile belt) with its points from the drawn rig (body::weapon_points has_belt_feed): the
+		// lid's hinge and grab point (as drawn), the feed tray and the belt end at the box mouth; the lid's full opening.
+		bool belt{};
+		bool has_belt_points{};
+		v3 lid_hinge;
+		v3 lid_grab;
+		v3 feed_tray;
+		v3 belt_end;
+		float lid_degrees{ 102.6f };
 		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
 		bool has_rack_shape{};
 		rack_zone_shape rack_shape;
@@ -140,6 +149,13 @@ namespace bfvr::weapon
 		// A pump gun (hand_frame pump): the off hand holding the fore-end slides it back (rack_pull, handle_in_gun as for
 		// racking) without leaving the two-handed hold; drawn like racking, but the hand stays the hold's.
 		bool pumping{};
+		// Belt-fed: the lid's opening to draw (0 shut .. 1 fully up), the belt (0 laid, 1 hanging from the box, 2 its end in
+		// the off hand at belt_position / off-hand rotation), and whether the hand holds the lid.
+		float lid{};
+		int belt_draw{};
+		v3 belt_position;
+		q4 belt_rotation;
+		bool lid_held{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden
@@ -190,6 +206,10 @@ namespace bfvr::weapon
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float pump_reach{ 0.12f };     // a pump gun: the held hand this near the fore-end works it
+		float lid_reach{ 0.10f };      // belt-fed: the hand this near the lid's grab point takes the lid
+		float lid_swing_seconds{ 0.09f }; // ... let go, it swings the rest of the way (The Great Destroyer, src/handmag.cpp)
+		float belt_reach{ 0.09f };     // the hand this near the belt end (or the laid belt) takes it
+		float belt_lay{ 0.08f };       // the held belt end this near the feed tray lays itself
 		float pump_return{ 0.015f };   // ... and a stroke that reached rack_pull cycles once back within this of the start
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
@@ -306,6 +326,11 @@ namespace bfvr::weapon
 		bool last_grip_{};
 		bool last_button_{};
 		bool racking_{};
+		float lid_{};         // belt-fed: the lid's opening, 0..1
+		bool lid_held_{};
+		float lid_closed_angle_{}; // the lid grab's angle about the hinge when shut (gun frame, radians)
+		float lid_hand_offset_{};  // the hand's angle minus the lid grab's when taken
+		bool belt_armed_{};        // the held belt end has been away from the tray (a belt lifted off it is not laid back at once)
 		bool pumping_{};    // pump gun: the held hand is on the fore-end, tracked from pump_start_
 		bool pump_back_{};  // this stroke reached rack_pull
 		v3 pump_start_;

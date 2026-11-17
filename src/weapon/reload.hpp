@@ -50,6 +50,9 @@ namespace bfvr::weapon
 		// A tube magazine (gun_traits feed tube: the 870, M1014, SPAS-12, QBS-09, UTAS): the magazine never leaves the gun;
 		// a shell from the pouch is pushed into the loading port, one at a time (insert: shell_loaded), up to capacity.
 		bool tube{};
+		// Belt-fed (gun_traits feed belt: M249, M240, MG4, Pecheneg, Type 88): a box under the gun, its belt laid on the
+		// feed tray under a lid. Fires only with the lid shut on a laid belt; open bolt, so no charging after a reload.
+		bool belt{};
 	};
 
 	bool locks_open(const reload_profile& profile);
@@ -78,6 +81,11 @@ namespace bfvr::weapon
 		magazine_palmed,  // AR palming: the seated magazine released into the hand that holds the new one
 		racked_locked,    // AR: a rack on an empty magazine, the follower holds the bolt open (#78: sounds like the bolt)
 		shell_loaded,     // tube: one shell pushed into the loading port
+		lid_opened,       // belt: the feed cover swung up (a round waiting on the tray goes back on the belt)
+		lid_closed,       // belt: the cover shut (on a laid belt the gun is ready)
+		belt_taken,       // belt: the hand took the belt end hanging out of the box
+		belt_laid,        // belt: laid on the feed tray
+		belt_dropped,     // belt: let go off the tray, it hangs from the box again
 	};
 
 	// #78: the seated magazine left the gun (was_in, now out) and no magazine-out cue played for it this frame (a pull
@@ -97,6 +105,9 @@ namespace bfvr::weapon
 		bool inserted_since_lock{}; // AR: the button chambers instead of releasing
 		bool palmed{};   // AR palming: the off hand also holds the old magazine it caught
 		int palmed_rounds{};
+		bool lid_open{};   // belt: the feed cover is up
+		bool belt_laid{ true }; // belt: the box's belt lies on the feed tray
+		bool belt_held{};  // belt: the off hand holds the belt end
 	};
 
 	class reload
@@ -133,6 +144,12 @@ namespace bfvr::weapon
 		reload_event insert();
 		// Charging handle pulled back and released.
 		reload_event rack();
+		// Belt-fed: the lid swung up or shut; the belt end taken from the box, laid on the tray, or let go elsewhere.
+		reload_event open_lid();
+		reload_event close_lid();
+		reload_event take_belt();
+		reload_event lay_belt();
+		reload_event drop_belt();
 
 	private:
 		reload_event drop(int rounds);

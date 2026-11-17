@@ -154,6 +154,9 @@ manual_cycle = 1
 # Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
 # one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
 shells_by_hand = 1
+# Belt-fed LMGs (M249, M240, MG4, Pecheneg, Type 88): swing the lid up by its back end, B with the hand under the box
+# takes it off, a new box from the pouch, the belt end laid on the feed tray, the lid pushed shut; 0 = the game's (B).
+belts_by_hand = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
