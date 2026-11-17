@@ -456,14 +456,18 @@ chamber), a stroke back past `rack_pull` and forward again cycles it. After the 
 
 ### The MP-412 REX and the M249 in the soldier rig (2026-11-17, `handle_probe --all-bones`, raw local transforms)
 
-**Revolver, blocked:** the game's empty reload breaks the REX open (top break), throws the six cases and seats a
-speedloader, but **the frame's opening is not in the soldier rig**. Wep_Scope1/2 never rotate (local rotation stays
-identity; the position jumps at 0.61 s from (0, -0.037, 0.56) to (0, 0.057, 0.306): a relocated reference, not a hinge);
-no other Wep_ bone turns. What the rig does carry: the six cartridges, Wep_Belt1-6 (Belt1 under Wep_Root, the rest a
-chain): thrown out ~2 m at ~1.0 s, then seated in the open cylinder at (-0.007, 0.065, 0.141), turned
-(0.264, -0.622, 0.678, 0.289); and the speedloader, Wep_Mag, from the right side up to (0, 0.098, 0.144). The barrel and
-cylinder must be posed by the weapon's own skeleton, which the mod does not reach through the soldier's local pose.
-A hand reload that shows the frame opening needs that skeleton found first (where the 1P weapon mesh's bones live).
+**Revolver: the frame is Wep_Slide** (found the same day; the first pass missed it). The game's empty reload breaks the
+REX open (top break), throws the six cases and seats a speedloader. Wep_Scope1/2 never rotate (their position jumps at
+0.61 s: a relocated reference), and Wep_Slide never moves, so the first pass (`--all-bones` positions plus the extra
+bones' locals, Wep_Slide's travel only) called the frame "not in the rig". Every bone's local rotation through the
+reload (all 179, arms left out) shows it: **Wep_Slide turns 85 degrees in place** about +x, q (0.675, 0, 0, 0.737),
+its local position (0, 0.026, 0.137) the hinge: the barrel tips down. Open at 0.68 s, held to ~2.8 s, shut by 3.3 s.
+The cylinder is Wep_Physic1 (0, 0.041, 0.126), turned with the frame (and spun); Wep_Physic2 flies off and is scaled
+to 0 (a case). The six cartridges are Wep_Belt1-6 (Belt1 under Wep_Root, the rest a chain): thrown ~2 m at ~1.0 s,
+then seated in the open cylinder at (-0.007, 0.065, 0.141), turned (0.264, -0.622, 0.678, 0.289); the speedloader is
+Wep_Mag, from the right side up to (0, 0.098, 0.144). Dead end: scanning memory for other Animatables (vtable
+141CD6F40) found 21, none with a weapon skeleton; the weapon components' animatables hold no skeleton at +0x230.
+Lesson: look for a turning bone by its local rotation over the whole rig, not by position.
 
 **M249, workable:** the lid is Wep_Extra1, hinged at (0, 0.058, 0.475) (the front of the feed tray), turned up by
 q (0.781, 0, 0, 0.625) = 102.6 degrees about the gun's x axis; Wep_Scope1 (the optic on the lid) turns with it: its

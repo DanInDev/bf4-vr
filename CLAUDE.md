@@ -159,6 +159,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   points_valid=0, fakehand changes nothing); check `arms` before any hand or zone test and load again if so
   (re/notes/weapon.md "Charging handles, every crate gun"). For `pipe.ps1`, quote a command with arguments as one
   string (`tools\pipe.ps1 'givegun U_M416 1'`): bare extra arguments are refused.
+- 2026-11-17: to find what a gun's animation moves, compare every rig bone's local rotation, not positions: the REX's
+  frame turns in place (Wep_Slide, 85 degrees, zero travel) and was first reported "not in the rig".
 - 2026-11-17: pipe `reload setammo 0` only starts the game's empty reload on a freshly given gun (`givegun` first),
   and only with BF4 in front (`tools\game.ps1 focus`, ask first). `handle_probe` gives into the slot in hand; giving
   into another slot recorded the gun in hand for every gun.
