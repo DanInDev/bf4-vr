@@ -62,6 +62,7 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t sway_first_shot = 0x444;
 		constexpr std::uintptr_t soldier_stance = 0x4f0;  // u32: 0 stand, 1 crouch, 2 prone
 		constexpr std::uintptr_t function_capacity = 0x220; // Ammo.MagazineCapacity (counts the chamber)
+		constexpr std::uintptr_t function_sound = 0x160;    // FiringFunctionData.Sound (SoundAsset)
 		// Server (single player runs it in-process): local ServerSoldierEntity -> weapons component ->
 		// slot array (same slot index as the client) -> weapon firing object -> ammo.
 		constexpr std::uintptr_t server_soldier_weapons = 0x7c0;
@@ -94,6 +95,7 @@ namespace bfvr::weapon
 			char name[48]{};
 			int capacity{};          // game MagazineCapacity
 			bool launcher{};         // #64: a break-open launcher (weapon/profiles is_break_open), one round
+			std::string sound_folder; // its firing sound's folder: the folder of its reload sound set (game_reload_sounds)
 			std::uintptr_t ammo{};   // server weapon firing + 0x1A0
 			int magazine{};
 			int reserve{};
@@ -149,6 +151,16 @@ namespace bfvr::weapon
 				return weapon;
 			}
 			read(firing + firing_rumble, weapon.rumble);
+			{
+				// FiringFunctionData.Sound (+0x160; tools/weapon_sound_probe.py), its asset name at +0x10.
+				std::uintptr_t sound{}, sound_name{};
+				char text[128]{};
+				if (read(function + function_sound, sound) && read(sound + 0x10, sound_name) && read(sound_name, text))
+				{
+					text[sizeof(text) - 1] = 0;
+					weapon.sound_folder = sound_folder_of(text);
+				}
+			}
 			weapon.recoil = read_recoil(firing, soldier);
 			std::int32_t anim_set = -1;
 			weapon.recoil.pistol = read(data + data_anim_set, anim_set) && anim_set == 1;
@@ -966,7 +978,7 @@ namespace bfvr::weapon
 			hands.reset();
 			current_slot = weapon.slot;
 		}
-		game_reload_sounds_weapon(weapon.name);
+		game_reload_sounds_weapon(weapon.name, weapon.sound_folder.c_str());
 		slot_memory& memory = found->second;
 		if (weapon.launcher)
 		{
@@ -1116,7 +1128,10 @@ namespace bfvr::weapon
 		{
 			// The stroke is long enough: the rear stop is felt and heard before the release (Overlord
 			// plays its chamber recordings in two parts the same way).
-			play(cue::bolt_back);
+			if (!play_game_rear_stop()) // the pump's or the bolt's own sound where the gun's patch has one
+			{
+				play(cue::bolt_back);
+			}
 			input::haptic(reloading, input::pulses::click);
 			bolt_at_rear = true;
 		}
@@ -1378,7 +1393,20 @@ namespace bfvr::weapon
 			else if (argument == "stow") event = gun.let_go(true);
 			else if (argument == "insert") event = gun.insert();
 			else if (argument == "rack") event = gun.rack();
-			else return "error: usage: reload [fire|button|catch|palm|grab|take|letgo|stow|insert|rack|handle x y z|handle off]";
+			else if (argument == "lidopen") event = gun.open_lid(); // belt-fed lid, revolver frame
+			else if (argument == "lidclose") event = gun.close_lid();
+			else if (argument == "belttake") event = gun.take_belt();
+			else if (argument == "beltlay") event = gun.lay_belt();
+			else if (argument == "rearstop")
+			{
+				const bool game = play_game_rear_stop(); // the rack's rear stop, as at the top of a stroke
+				if (!game)
+				{
+					play(cue::bolt_back);
+				}
+				return game ? "ok: rear stop, the game's" : "ok: rear stop, synthesised";
+			}
+			else return "error: usage: reload [fire|button|catch|palm|grab|take|letgo|stow|insert|rack|lidopen|lidclose|belttake|beltlay|rearstop|handle x y z|handle off]";
 			remember(event);
 			sound_if_magazine_left(magazine_was_in, gun);
 		}

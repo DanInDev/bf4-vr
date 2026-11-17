@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
@@ -15,6 +16,140 @@
 
 namespace bfvr::weapon
 {
+	namespace
+	{
+		std::string lower(const char* text)
+		{
+			std::string out = text ? text : "";
+			std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return out;
+		}
+	}
+
+	std::string sound_folder_of(const char* asset_name)
+	{
+		const std::string name = asset_name ? asset_name : "";
+		const std::string low = lower(asset_name);
+		const std::size_t at = low.find("/handheld/");
+		if (at == std::string::npos)
+		{
+			return {};
+		}
+		const std::size_t begin = at + 10;
+		const std::size_t end = name.find('/', begin);
+		return end == std::string::npos ? std::string{} : name.substr(begin, end - begin);
+	}
+
+	bool reload_set_belongs(const char* asset_name, const std::string& folder)
+	{
+		const std::string low = lower(asset_name);
+		return !folder.empty() && low.find("_reload_spc") != std::string::npos && low.find("/ai/") == std::string::npos
+			&& low.find("/" + lower(folder.c_str()) + "/") != std::string::npos;
+	}
+
+	bool patch_has_event(const std::uint32_t* events, int count, std::uint32_t event)
+	{
+		return std::find(events, events + count, event) != events + count;
+	}
+
+	reload_patch patch_kind_of(const std::string& patch_name)
+	{
+		const std::string low = lower(patch_name.c_str());
+		if (low.find("shotgun_pumpaction") != std::string::npos)
+		{
+			return reload_patch::pump;
+		}
+		if (low.find("sniper_boltaction") != std::string::npos)
+		{
+			return reload_patch::sniper;
+		}
+		if (low.find("reload_lmg") != std::string::npos)
+		{
+			return reload_patch::lmg;
+		}
+		if (low.find("reload_pistol") != std::string::npos)
+		{
+			return reload_patch::pistol;
+		}
+		if (low.find("reload_5") != std::string::npos)
+		{
+			return reload_patch::tube5;
+		}
+		return reload_patch::ar;
+	}
+
+	int cues_for(reload_event event, reload_patch patch, sound_cue (&cues)[2])
+	{
+		// The pump and Reload_5 patches have the AR's settle event, but it makes no sound there (verified 2026-11-17): a
+		// shell taken from the pouch keeps the synthesised cue.
+		if ((patch == reload_patch::pump || patch == reload_patch::tube5)
+			&& (event == reload_event::magazine_taken || event == reload_event::magazine_stowed))
+		{
+			return 0;
+		}
+		switch (patch)
+		{
+		case reload_patch::pump:
+			if (event == reload_event::shell_loaded)
+			{
+				cues[0] = { reload_sound::pump_shell_in, 0 };
+				return 1;
+			}
+			break;
+		case reload_patch::tube5:
+			if (event == reload_event::shell_loaded)
+			{
+				cues[0] = { reload_sound::tube5_shell_in, 0 };
+				return 1;
+			}
+			if (event == reload_event::chambered || event == reload_event::racked_empty || event == reload_event::round_ejected)
+			{
+				cues[0] = { reload_sound::tube5_pump, 0 };
+				return 1;
+			}
+			break;
+		case reload_patch::lmg:
+			if (event == reload_event::lid_opened)
+			{
+				cues[0] = { reload_sound::lmg_lid_open, 0 };
+				return 1;
+			}
+			if (event == reload_event::lid_closed)
+			{
+				cues[0] = { reload_sound::lmg_lid_close, 0 };
+				return 1;
+			}
+			if (event == reload_event::belt_laid)
+			{
+				cues[0] = { reload_sound::magazine_seat, 0 };
+				return 1;
+			}
+			break;
+		case reload_patch::pistol:
+			if (event == reload_event::lid_opened)
+			{
+				cues[0] = { reload_sound::magazine_out, 0 }; // the break open and the cases thrown (0.98)
+				return 1;
+			}
+			if (event == reload_event::lid_closed)
+			{
+				cues[0] = { reload_sound::pistol_close, 0 };
+				return 1;
+			}
+			break;
+		default:
+			break;
+		}
+		return cues_for(event, cues);
+	}
+
+	std::uint32_t rear_stop_event(reload_patch patch)
+	{
+		// The sniper's bolt event (9FA31A86) sounds when fired alone but stayed silent as a rear stop on the Scout
+		// (verified 2026-11-17): its rear stop keeps the synthesised cue.
+		return patch == reload_patch::pump ? reload_sound::pump_back : 0u;
+	}
+
 	int cues_for(reload_event event, sound_cue (&cues)[2])
 	{
 		switch (event)
@@ -59,8 +194,15 @@ namespace bfvr::weapon
 		std::atomic<bool> enabled{ true };
 		std::mutex lock;
 		std::string weapon;          // the gun the entity belongs to
+		std::string folder;          // its sound folder (the firing sound's), the reload set's folder
 		std::uintptr_t entity{};     // its reload SoundEntity, 0 while unknown
 		std::uintptr_t entity_data{};
+		// The entity's patch's graph input events (SoundPatchConfiguration +0x28 patch, +0x28 SoundGraphData, +0x70 input
+		// events, each AudioGraphParameter's NameHash at +0x14; tools/weapon_sound_probe.py): a cue it lacks is not sent.
+		constexpr int max_events = 64;
+		std::uint32_t patch_events[max_events]{};
+		int patch_event_count{};
+		std::string patch_name;
 		bool searching{};
 		ULONGLONG last_search{};
 		constexpr ULONGLONG retry_ms = 5000; // a gun's entity may appear after it is picked up
@@ -72,13 +214,14 @@ namespace bfvr::weapon
 		std::uint64_t lookups{};
 		std::uint64_t sent{};
 		std::uint64_t refused{};
+		std::uint64_t unplayable{}; // cues the gun's patch lacks: the synthesised one played
 		struct pending
 		{
 			std::uint32_t event;
 			ULONGLONG due;
 		};
 		std::vector<pending> queue;
-		char report[200];
+		char report[400];
 
 		template <typename T>
 		bool read(std::uintptr_t address, T& value)
@@ -98,17 +241,36 @@ namespace bfvr::weapon
 			return true;
 		}
 
-		// "U_AK12" -> ".../AK12/Weapon_..._Reload_SPC", never the AI variants.
-		bool belongs_to(const char* name, const std::string& key)
+		// The patch behind a reload set's configuration and its graph input event hashes.
+		int read_patch_events(std::uintptr_t data, std::uint32_t (&events)[max_events], std::string& name)
 		{
-			return std::strstr(name, "_Reload_SPC") && !std::strstr(name, "/AI/") && std::strstr(name, ("/" + key + "/").c_str());
+			std::uintptr_t sound{}, patch{}, patch_text{}, graph{}, array{};
+			std::uint32_t count{};
+			char text[128]{};
+			if (!read(data + 0x18, sound) || !read(sound + 0x28, patch) || !patch || !read(patch + 0x10, patch_text) || !read(patch_text, text)
+				|| !read(patch + 0x28, graph) || !read(graph + 0x70, array) || !array || !read(array - 4, count))
+			{
+				return -1;
+			}
+			text[sizeof(text) - 1] = 0;
+			name = text;
+			int n = 0;
+			for (std::uint32_t i = 0; i < count && n < max_events; ++i)
+			{
+				std::uintptr_t entry{};
+				std::uint32_t hash{};
+				if (read(array + i * 8, entry) && read(entry + 0x14, hash))
+				{
+					events[n++] = hash;
+				}
+			}
+			return n;
 		}
 
 		// Background thread: one pass over committed private read/write memory for SoundEntity
 		// objects, keeping the first whose sound is this gun's reload patch.
-		void search(std::string wanted)
+		void search(std::string wanted, std::string key)
 		{
-			const std::string key = wanted.rfind("U_", 0) == 0 ? wanted.substr(2) : wanted;
 			std::uintptr_t found{}, found_data{};
 			std::vector<std::uintptr_t> chunk(1 << 17);
 			MEMORY_BASIC_INFORMATION region{};
@@ -132,7 +294,7 @@ namespace bfvr::weapon
 					{
 						char name[128]{};
 						std::uintptr_t data{};
-						if (chunk[i] == sound_entity_vtable && asset_name(base + offset + i * sizeof(std::uintptr_t), data, name) && belongs_to(name, key))
+						if (chunk[i] == sound_entity_vtable && asset_name(base + offset + i * sizeof(std::uintptr_t), data, name) && reload_set_belongs(name, key))
 						{
 							found = base + offset + i * sizeof(std::uintptr_t);
 							found_data = data;
@@ -142,12 +304,22 @@ namespace bfvr::weapon
 					}
 				}
 			}
+			std::uint32_t events[max_events]{};
+			std::string patch;
+			const int event_count = found ? read_patch_events(found_data, events, patch) : -1;
+			if (found)
+			{
+				log::write("reload sounds: %s patch %s, %d events", wanted.c_str(), patch.c_str(), event_count);
+			}
 			const std::lock_guard guard(lock);
 			searching = false;
 			if (weapon == wanted)
 			{
 				entity = found;
 				entity_data = found_data;
+				patch_event_count = event_count; // -1: not read, every cue is sent as before
+				std::copy(std::begin(events), std::end(events), patch_events);
+				patch_name = patch;
 			}
 			if (!found && weapon == wanted && ++misses == max_misses)
 			{
@@ -194,7 +366,7 @@ namespace bfvr::weapon
 		enabled = on;
 	}
 
-	void game_reload_sounds_weapon(const char* weapon_name)
+	void game_reload_sounds_weapon(const char* weapon_name, const char* sound_folder)
 	{
 		const std::lock_guard guard(lock);
 		if (!enabled.load(std::memory_order_relaxed))
@@ -205,6 +377,10 @@ namespace bfvr::weapon
 		if (weapon != weapon_name)
 		{
 			weapon = weapon_name;
+			const std::string unlock = weapon.rfind("U_", 0) == 0 ? weapon.substr(2) : weapon;
+			folder = sound_folder && *sound_folder ? std::string(sound_folder) : unlock;
+			patch_event_count = -1;
+			patch_name.clear();
 			entity = entity_data = 0;
 			queue.clear();
 			last_search = 0;
@@ -215,23 +391,51 @@ namespace bfvr::weapon
 			searching = true;
 			last_search = now;
 			++lookups;
-			std::thread(search, weapon).detach();
+			std::thread(search, weapon, folder).detach();
 		}
+	}
+
+	bool play_game_rear_stop()
+	{
+		const std::lock_guard guard(lock);
+		const std::uint32_t event = rear_stop_event(patch_kind_of(patch_name));
+		if (!enabled.load(std::memory_order_relaxed) || !entity || !event || (patch_event_count >= 0 && !patch_has_event(patch_events, patch_event_count, event)))
+		{
+			return false;
+		}
+		queue.push_back({ event, GetTickCount64() });
+		return true;
 	}
 
 	bool play_game_reload_sound(reload_event event)
 	{
 		sound_cue cues[2]{};
-		const int count = cues_for(event, cues);
+		reload_patch patch = reload_patch::ar;
+		{
+			const std::lock_guard guard(lock);
+			patch = patch_kind_of(patch_name);
+		}
+		const int count = cues_for(event, patch, cues);
 		const ULONGLONG now = GetTickCount64();
 		const std::lock_guard guard(lock);
 		if (!enabled.load(std::memory_order_relaxed) || !entity || count == 0)
 		{
 			return false;
 		}
+		// A cue this gun's patch does not have would play nothing (the pump shotguns have no magazine-in, Reload_5 none of
+		// the AR events): the synthesised cue plays instead. Only the cues it has are sent.
+		const bool known = patch_event_count >= 0;
+		if (known && !patch_has_event(patch_events, patch_event_count, cues[0].event))
+		{
+			++unplayable;
+			return false;
+		}
 		for (int i = 0; i < count; ++i)
 		{
-			queue.push_back({ cues[i].event, now + cues[i].delay_ms });
+			if (!known || patch_has_event(patch_events, patch_event_count, cues[i].event))
+			{
+				queue.push_back({ cues[i].event, now + cues[i].delay_ms });
+			}
 		}
 		return true;
 	}
@@ -275,15 +479,17 @@ namespace bfvr::weapon
 	const char* game_reload_sounds_report()
 	{
 		const std::lock_guard guard(lock);
-		std::snprintf(report, sizeof(report), "game_sounds=%d weapon=%s entity=%llx searching=%d lookups=%llu sent=%llu refused=%llu",
+		std::snprintf(report, sizeof(report), "game_sounds=%d weapon=%s entity=%llx searching=%d lookups=%llu sent=%llu refused=%llu folder=%s patch=%s events=%d unplayable=%llu",
 			enabled.load() ? 1 : 0, weapon.c_str(), static_cast<unsigned long long>(entity), searching ? 1 : 0, static_cast<unsigned long long>(lookups),
-			static_cast<unsigned long long>(sent), static_cast<unsigned long long>(refused));
+			static_cast<unsigned long long>(sent), static_cast<unsigned long long>(refused), folder.c_str(), patch_name.empty() ? "-" : patch_name.c_str() + patch_name.rfind('/') + 1,
+			patch_event_count, static_cast<unsigned long long>(unplayable));
 		return report;
 	}
 #else
 	void set_game_reload_sounds(bool) {}
-	void game_reload_sounds_weapon(const char*) {}
+	void game_reload_sounds_weapon(const char*, const char*) {}
 	bool play_game_reload_sound(reload_event) { return false; }
+	bool play_game_rear_stop() { return false; }
 	void game_reload_sounds_on_game_thread() {}
 	const char* game_reload_sounds_report() { return "game_sounds=0 (x64 only)"; }
 #endif

@@ -136,6 +136,72 @@ checkpoint "Get Grenade Launcher", AK-12, no headset session. Recordings go to `
   spot. Until then a rustle on quick hand movement can only be a mod cue (a `bfvr_sounds` WAV), not the
   game's own.
 
+## Census of the crate guns' reload sounds (2026-11-17, tools/sound_census.py)
+
+Each crate gun given into the slot in hand, the mod's lookup allowed 14 s, then the reload sound sets in memory read
+(a gun's own set exists only while it is held; with the gun in hand it appears beside the level's AK-12, SCAR-H, M4A1,
+M320, GP-30 and M26 sets).
+
+- **The mod's lookup found 33 of 51.** Missed: UMP-45, 870, QBS-09, Saiga, USAS-12, AK 5C, G36C, AUG, M16A4, QBZ-95-1,
+  QBB-95-1, MK11, M39, RFB, SCAR-H SV, SVD-12, FY-JS, M82A3: every reload sound on them is synthesised.
+- **Name mismatches** (the set exists, the folder is not the unlock name without `U_`): U_870 -> `Remington870`,
+  U_SAIGA_20K -> `Saiga12`, U_AK5C -> `AK5`, U_M16A4 -> `M16A3`, U_QBZ951 -> `QBZ-951`, U_MK11 -> `Mk11`,
+  U_M82A3_SP -> `M82A3`. The other misses showed no new set in the scan (unreliable: pipe `scan` returns at most 64
+  matches per region, so "none appeared" is not proof).
+- **Patches** (the set's SoundPatch and whether the AR event hashes exist in its graph):
+
+| Patch | Guns seen | AR events present |
+| --- | --- | --- |
+| `Weapon_SourcePatch_Reload_AR` (8 events) | CBJ-MS, Scorpion, P90, PP-2000, Saiga, ACE 52, AK 5C, SG553, FAMAS, M16, M416, QBZ-95-1, SAR-21, MK11, M82A3 (and the AK-12, SCAR-H, M4A1) | all five |
+| `Weapon_SourcePatch_Reload_LMG` (12) | M240, M249, MG4, Type 88, Ultimax | in, seat, out, bolt (4 more unmapped: lid, belt?) |
+| `Weapon_SourcePatch_Reload_Shotgun_PumpAction` (7) | 870, SPAS-12 | seat, settle, bolt; **no `in`**: the shell-in cue goes nowhere |
+| `Weapon_SourcePatch_Reload_5` (10) | UTAS (and the M320, GP-30) | **none**: every cue goes nowhere |
+
+- So two failure kinds: guns whose set is not found play the **synthesised** cues; guns whose set is found but whose
+  patch lacks the AR event play **nothing** for that step (the synthesised fallback is skipped once a set is found).
+- Always synthesised on every gun: the rear stop of a rack or pump (`bolt_back`), the belt-fed lid and belt, the
+  revolver's open and close, the M320, the grenade pin.
+
+### Fixed the same day
+
+- **Lookup by the sound folder:** the gun's firing sound (`FiringFunctionData.Sound`, +0x160) names its folder
+  (`sound/Weapons/Handheld/Remington870/...`); the reload set lives in the same folder (checked for all seven
+  mismatches). The mod now searches that folder, ignoring case: **50 of 51 found** (census 3). Still missing: SVD-12
+  (folder `SVD12`, no reload set seen).
+- **Patches by gun:** AR 34 (all the box-magazine guns incl. Hawk, USAS-12, M39, MK11, M82A3), Shotgun_PumpAction 4
+  (870, M1014, QBS-09, SPAS-12), Sniper_BoltAction 4 (SRS, FY-JS, Scout, SV-98), LMG 6 (M240, M249, MG4, Pecheneg,
+  Type 88, Ultimax), Pistol 1 (REX), Reload_5 1 (UTAS).
+- **A cue the patch lacks is not sent** (it played nothing); the synthesised one plays (`patch_has_event`, the patch's
+  input events read when the set is found; pipe `reload` shows `patch=`, `events=`, `unplayable=`).
+- **The other patches' events**, by `tools/sound_probe.py game_empty` (the game's own empty reload of a gun recorded),
+  `stages` (each of its patch's events fired alone) and `match` (each event's spectrum against the sounds of that
+  reload; times read against the gun's bone timeline from handle_probe):
+
+| Patch | Event | Sound in the game's reload | Score | Used for |
+| --- | --- | --- | --- | --- |
+| Shotgun_PumpAction (870) | `2519DEEC` | the repeated tube loads (4.95, 6.85 s) | 0.98/0.99 | a shell in |
+| | `71B0C476` | the first sound, the pump back (1.92 s) | 0.98 | the rear stop |
+| | `Bolt` (as AR) | | | the pump stroke |
+| Sniper_BoltAction (Scout) | out / in / `Bolt` (as AR) | 2.88 / 3.44 / 4.49 s | 0.91/0.99/0.95 | as before |
+| | `9FA31A86` | the bolt (4.49 s) | 0.99 | the rear stop |
+| LMG (M249) | `3A3332B0` | as the lid opens (3.69 s; bones 3.1-3.7 s) | 0.94 | lid opened |
+| | `27EE4912` | as the lid shuts (6.84 s) | 1.00 | lid closed |
+| | seat (as AR) | | 0.76 | belt laid (weak) |
+| Pistol (REX) | out (as AR) | the break open (0.87 s) | 0.98 | frame opened |
+| | `6F002904` | the close (3.38 s) | 0.97 | frame closed |
+| Reload_5 (UTAS) | `0002B591` | the repeated shell loads | 0.98 | a shell in |
+| | `0002B597` | the first, loudest (1.57 s) | 0.99 | the pump |
+
+  Not matched yet (no sound of their own, or not placed): Shotgun `34B596D0` (a shell variant), LMG `713E602E`, Scout
+  `AF4D8F3A`, `526FE9C4`, `703E0E38` (bolt parts), REX `257F2678` (close variant), UTAS `7C52956C`, `7C53194D`,
+  `0002B594`, `0002B596`, `0002B590`. The burst finder is coarse (it found 1-5 sounds per reload); the matches above
+  are the ones whose time also fits the bone timeline.
+- **Verified in the mod** (`sound_probe.py verify`, the physical reload's steps through the pipe, rise over the quiet
+  before): 870 pump rear stop +23 dB (the game's, was synthesised), pump +26, shell in +22 (was silent); M249 lid open
+  +19, lid shut +27; REX break open +20, speedloader +25, close +32; UTAS pump +29, shell +16 (both were silent).
+  Silent though present in the patch, so left to the synthesised cue: the pump's and Reload_5's settle on taking a
+  shell; the Scout's `9FA31A86` as a rear stop (it sounds alone, not there).
+
 ## Open
 
 - Other reload patches (shotguns, LMGs with belts, snipers, pistols) have their own events; only the
