@@ -102,8 +102,9 @@ def frame(address, count, parents, ids, extra=None):
     root = m[ids['root']]
     p = {k: in_root(root, m[ids[k]][0]) for k in ('slide', 'mag', 'lthumb', 'lindex', 'rthumb', 'rindex')}
     out = {'slide': p['slide'], 'mag': p['mag']}
-    for name, bone in (extra or {}).items():  # --all-bones: every Wep_ bone
+    for name, bone in (extra or {}).items():  # --all-bones: every Wep_ bone, and its raw local transform (x y z s qx qy qz qw)
         out[name] = in_root(root, m[bone][0])
+        out[name + '.local'] = tuple(round(v, 5) for v in pose[bone])
     for hand, t, i in (('left', 'lthumb', 'lindex'), ('right', 'rthumb', 'rindex')):
         out[hand] = tuple((a + b) / 2 for a, b in zip(p[t], p[i]))
         out[hand + '_spread'] = math.dist(p[t], p[i])

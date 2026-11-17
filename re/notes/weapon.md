@@ -454,6 +454,24 @@ started a rack (`racking=1 busy=1`) and the two-handed hold never came (`held=0`
 that holds the fore-end (`hand_frame::pump`): no rack zone there; the action unlocks after a shot (or on an empty
 chamber), a stroke back past `rack_pull` and forward again cycles it. After the change: `held=1 weight=1.00`.
 
+### The MP-412 REX and the M249 in the soldier rig (2026-11-17, `handle_probe --all-bones`, raw local transforms)
+
+**Revolver, blocked:** the game's empty reload breaks the REX open (top break), throws the six cases and seats a
+speedloader, but **the frame's opening is not in the soldier rig**. Wep_Scope1/2 never rotate (local rotation stays
+identity; the position jumps at 0.61 s from (0, -0.037, 0.56) to (0, 0.057, 0.306): a relocated reference, not a hinge);
+no other Wep_ bone turns. What the rig does carry: the six cartridges, Wep_Belt1-6 (Belt1 under Wep_Root, the rest a
+chain): thrown out ~2 m at ~1.0 s, then seated in the open cylinder at (-0.007, 0.065, 0.141), turned
+(0.264, -0.622, 0.678, 0.289); and the speedloader, Wep_Mag, from the right side up to (0, 0.098, 0.144). The barrel and
+cylinder must be posed by the weapon's own skeleton, which the mod does not reach through the soldier's local pose.
+A hand reload that shows the frame opening needs that skeleton found first (where the 1P weapon mesh's bones live).
+
+**M249, workable:** the lid is Wep_Extra1, hinged at (0, 0.058, 0.475) (the front of the feed tray), turned up by
+q (0.781, 0, 0, 0.625) = 102.6 degrees about the gun's x axis; Wep_Scope1 (the optic on the lid) turns with it: its
+open position is its rest turned 102.6 degrees about that hinge (checked: (0.075, 0.295) -> (0.230, 0.531)). The belt
+is Wep_Belt1-10: Belt1 at the feed tray (-0.006, 0.051, 0.418), the chain running left and down into the box
+(Belt5-9 at x 0.074); the game's hand lays it at 4.3-6.2 s. The box is Wep_Mag (0, -0.03, 0.44), the charging handle
+Wep_Slide on the right (-0.027, 0.021, 0.466). The lid opens at ~3.4 s, after the box change.
+
 ### Bolt actions and the Hawk's pump by hand (2026-11-17, `manual_cycle`)
 
 The game cycles a bolt action with the **right** hand after each shot (shot recordings): the hand takes the knob,
