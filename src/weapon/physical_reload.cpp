@@ -23,6 +23,7 @@
 #include "stereo/tracking.hpp"
 #include "weapon/accessory_touch.hpp"
 #include "weapon/break_open.hpp"
+#include "weapon/gun_traits.hpp"
 #include "weapon/physical_grenade.hpp"
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
@@ -176,6 +177,9 @@ namespace bfvr::weapon
 		std::atomic<bool> magazine_flight_on{ true }; // live setting magazine_flight (#47)
 		std::atomic<bool> claims_free_hand{};       // the free gun hand's grip belongs to the reload this frame
 		// For the pad filter on the XInput thread.
+		std::atomic<bool> reload_all{};     // setting physical_reload_all: the AR/AK reload for every gun (the old way)
+		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
+		std::string game_reload_logged;
 		std::atomic<bool> active{};
 		std::atomic<bool> block_trigger{};
 		std::atomic<bool> block_grip{};
@@ -708,6 +712,11 @@ namespace bfvr::weapon
 		}
 	}
 
+	void set_physical_reload_all(bool on)
+	{
+		reload_all = on;
+	}
+
 	void set_physical_reload(bool enabled)
 	{
 		physical = enabled;
@@ -808,7 +817,12 @@ namespace bfvr::weapon
 		{
 			return;
 		}
-		if (!physical.load(std::memory_order_relaxed))
+		// all-weapons step 1: tube, belt and revolver guns keep the game's own reload until their families are built
+		// (the AR reload treated a shotgun's tube or an LMG's belt as a box magazine).
+		const bool game_reloads = weapon.valid && !weapon.launcher && !reload_all.load(std::memory_order_relaxed)
+			&& !physical_reload_covers(traits_for(weapon.name));
+		game_reload_gun = game_reloads;
+		if (!physical.load(std::memory_order_relaxed) || game_reloads)
 		{
 			// Button reload: nothing writes the magazine, so any drop is the game firing.
 			static std::uintptr_t seen_ammo{};
@@ -822,7 +836,7 @@ namespace bfvr::weapon
 			seen_ammo = weapon.valid ? weapon.ammo : 0;
 			seen_magazine = weapon.valid ? weapon.magazine : -1;
 		}
-		if (!physical.load(std::memory_order_relaxed) || !weapon.valid)
+		if (!physical.load(std::memory_order_relaxed) || !weapon.valid || game_reloads)
 		{
 			if (!physical.load(std::memory_order_relaxed))
 			{
@@ -830,8 +844,14 @@ namespace bfvr::weapon
 			}
 			else
 			{
+				// A gun the game reloads keeps the other guns' state (their magazines may be out); nothing is written.
 				hands.reset();
 				attach_magazine();
+			}
+			if (game_reloads && game_reload_logged != weapon.name)
+			{
+				game_reload_logged = weapon.name;
+				log::write("reload: %s slot %d: the game's own reload (fed by a tube, a belt or a cylinder)", weapon.name, weapon.slot);
 			}
 			hide_launcher();
 			active = false;
@@ -1178,8 +1198,9 @@ namespace bfvr::weapon
 		const bool stance_press = input::stance_press_active();
 		if (!active.load(std::memory_order_relaxed))
 		{
-			// reload = button: B is the game's reload (X opens the menu, the stick crouches).
-			if (!physical.load(std::memory_order_relaxed) && !stance_press && (out.buttons & XINPUT_GAMEPAD_B))
+			// reload = button, or a gun the game reloads: B is the game's reload (X opens the menu, the stick crouches).
+			if ((!physical.load(std::memory_order_relaxed) || game_reload_gun.load(std::memory_order_relaxed)) && !stance_press
+				&& (out.buttons & XINPUT_GAMEPAD_B))
 			{
 				out.buttons = static_cast<std::uint16_t>((out.buttons & ~XINPUT_GAMEPAD_B) | XINPUT_GAMEPAD_X);
 			}

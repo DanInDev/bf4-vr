@@ -60,6 +60,7 @@ namespace bfvr::settings
 			{ "snap_turn_degrees", kind::integer, 5, 90, 5, "30", "", "angle per snap turn" },
 			{ "dominant_hand", kind::choice, 0, 0, 0, "right", "right|left", "gun hand: left mirrors the pad and swaps the hand roles" },
 			{ "reload", kind::choice, 0, 0, 0, "physical", "button|physical", "reload: the game's button, or by hand (AK: pull the magazine, AR: B releases it; chest pouch)" },
+			{ "physical_reload_all", kind::boolean, 0, 0, 0, "0", "", "the hand reload for every gun, also shotguns loaded shell by shell, belt-fed LMGs and the revolver, which it treats as box magazines (0: those keep the game's own reload until their own hand reloads exist)" },
 			{ "grips_to_game", kind::boolean, 0, 0, 0, "0", "", "controller grips also reach the game as LB/RB (grenade, fire in some layouts); off: they are the mod's" },
 			{ "x_menu", kind::boolean, 0, 0, 0, "1", "", "left X opens the game's menu (Start); the right B reloads" },
 			{ "trigger_press", kind::real, 0.2f, 0.9f, 0.05f, "0.55", "", "how far a trigger is pulled before the game sees it (0..1); released 0.1 below; a finger resting on the trigger reads 0.25-0.5" },
