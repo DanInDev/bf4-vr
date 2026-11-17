@@ -22,6 +22,9 @@ namespace bfvr::weapon
 	// Where the game's own left hand takes this gun's magazine out (tools/handle_probe.py): offset from the seated
 	// Wep_Mag in Wep_Root axes (+x left, +y up, +z barrel). False: not measured, the magazine zone's default.
 	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3]);
+	// The way this gun's magazine leaves its well, measured from the game's empty reload: degrees from straight down (gun
+	// -y) in the gun's mid-plane, + forward along the barrel. False: straight down (the reference, AK-12 and SCAR-H).
+	bool magazine_way_out_for(std::string_view unlock_name, float& degrees);
 
 	// #69 (owner 2026-11-15): the charging handle's grab zones where a gun needs its own (the SCAR-H's higher: a
 	// grab at the gun's bottom caught the handle; the AK-12's much larger and reaching under the gun, where the

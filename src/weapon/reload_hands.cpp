@@ -243,9 +243,12 @@ namespace bfvr::weapon
 			have_last_ = false;
 			palm_velocity_ = magwell_velocity_ = {};
 		}
-		const v3 grab_offset = frame.has_magazine_grab ? frame.magazine_grab : v3{ 0, -config_.magazine_grab_drop, 0 };
+		const float way_out = frame.has_way_out ? frame.way_out_degrees * 0.017453293f : 0.0f;
+		const v3 out_in_gun{ 0.0f, -std::cos(way_out), std::sin(way_out) };
+		const v3 grab_offset = frame.has_magazine_grab ? frame.magazine_grab : out_in_gun * config_.magazine_grab_drop;
 		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, grab_offset) : frame.magwell;
-		const bool on_handguard = frame.has_root && dot(reach - frame.magwell, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
+		// Ahead of the grab point along the barrel (not the magwell: the AK-12's own hand takes it 3.9 cm ahead).
+		const bool on_handguard = frame.has_root && dot(reach - magazine_body, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
 		const float to_magwell = valid && !on_handguard ? distance(reach, magazine_body) : 1e9f;
 		const float to_chest = !valid ? 1e9f : frame.has_chest_hip ? segment_distance(reach, frame.chest, frame.chest_hip) : distance(reach, frame.chest);
 		const float chest_reach = frame.chest_reach > 0 ? frame.chest_reach : config_.reach_chest;
@@ -327,7 +330,7 @@ namespace bfvr::weapon
 		};
 		// Grip lock: the rail runs from the magwell down the gun's -y; where the held magazine's top is on it.
 		const bool lockable = frame.grip_lock && frame.has_root && valid;
-		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
+		const v3 rail_down = frame.has_root ? rotate(frame.root_rotation, out_in_gun) : v3{ 0, -1, 0 };
 		const float rail_depth = dot(held_top - frame.magwell, rail_down);
 		const v3 rail_point = frame.magwell + rail_down * std::fmax(0.0f, std::fmin(config_.lock_rail, rail_depth));
 		// Sideways from the rail's line: pushed on past the magwell it is still on the rail.
@@ -342,6 +345,8 @@ namespace bfvr::weapon
 		const auto start_pull_out = [&]()
 		{
 			// Taken out of the gun: it slides out along the rail with the locked hand, held where it sat.
+			from_gun_ = true;
+			from_gun_offset_ = rotate(conjugate(frame.off_rotation), frame.magwell - frame.off_hand);
 			pulling_out_ = guided_ = lockable && frame.grip;
 			if (guided_)
 			{
@@ -351,6 +356,10 @@ namespace bfvr::weapon
 		if (!lockable || !gun.state().holding)
 		{
 			guided_ = pulling_out_ = false;
+		}
+		if (!gun.state().holding || !valid)
+		{
+			from_gun_ = false;
 		}
 		if (!lockable || !frame.grip || !gun.state().magazine_in || distance(reach, frame.magwell) > config_.lock_leave)
 		{
@@ -408,10 +417,9 @@ namespace bfvr::weapon
 			}
 			else if (event == reload_event::magazine_dropped)
 			{
-				// Released from the gun: pushed out of the well along the gun's down axis, with the gun's motion
+				// Released from the gun: pushed out of the well along its way out, with the gun's motion
 				// (a flick throws it further; headset 2026-11-14: it dropped straight down).
-				const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
-				start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + down * config_.eject_speed, frame);
+				start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + rail_down * config_.eject_speed, frame);
 			}
 			emit(result, event);
 		}
@@ -484,10 +492,12 @@ namespace bfvr::weapon
 		{
 			// After a flick only a pull back down out of the well re-arms (along the magwell's down axis): pushing on up
 			// past the magwell, as the hand does after knocking the old one out, is no second motion (monitor 2026-11-16).
-			const bool pulled_back = flick_rearm_ ? rail_depth > config_.flick_rearm : distance(held_top, frame.magwell) > config_.rearm_distance;
+			const v3 carried = from_gun_ ? frame.off_hand + rotate(frame.off_rotation, from_gun_offset_) : held_top;
+			const bool pulled_back = flick_rearm_ ? rail_depth > config_.flick_rearm : distance(carried, frame.magwell) > config_.rearm_distance;
 			if (pulled_back)
 			{
 				insert_armed_ = true;
+				from_gun_ = false;
 				flick_second_ = flick_rearm_;
 				flick_rearm_ = false;
 			}
@@ -532,10 +542,9 @@ namespace bfvr::weapon
 					insert_armed_ = false;
 					flick_rearm_ = true;
 					// AK quick reload: the new magazine knocks the old one out of the magwell, downward out of the
-					// gun, carrying the sideways part of the hand's swing (the push itself goes up into the well).
-					const v3 down = frame.has_root ? rotate(frame.root_rotation, { 0, -1, 0 }) : v3{ 0, -1, 0 };
+					// gun along its way out, carrying the sideways part of the hand's swing (the push itself goes up into the well).
 					const v3 swing{ palm_velocity_.x * 0.3f, 0.0f, palm_velocity_.z * 0.3f };
-					start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + down * config_.flick_speed + swing, frame);
+					start_fall(frame.magwell, frame.magazine_rotation, magwell_velocity_ + rail_down * config_.flick_speed + swing, frame);
 				}
 				else if (event == reload_event::magazine_in)
 				{

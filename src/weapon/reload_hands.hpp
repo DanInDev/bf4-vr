@@ -57,6 +57,11 @@ namespace bfvr::weapon
 		// magazine_grab_for); otherwise magazine_grab_drop straight below it.
 		bool has_magazine_grab{};
 		v3 magazine_grab;
+		// The way this gun's magazine leaves its well (weapon/profiles magazine_way_out_for): degrees from straight down
+		// (gun -y) in the gun's mid-plane, + forward along the barrel. The rail it rides out and in, its drop and the AK
+		// knock-out follow it; without it, straight down (the AK-12 and SCAR-H, the reference).
+		bool has_way_out{};
+		float way_out_degrees{};
 		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
 		bool has_rack_shape{};
 		rack_zone_shape rack_shape;
@@ -328,6 +333,11 @@ namespace bfvr::weapon
 		// rail, unlocked, locked again: a flicker that never seated).
 		bool has_guide_hold_{};
 		v3 guide_offset_;
+		// Taken out of the gun and not yet re-armed: the magazine where the controller took it (hand frame). The re-arm
+		// measures this, not the drawn fist, which eases onto the magazine for a few frames after the pull-out (P90,
+		// taken 16 cm from its magwell: the fist read 18 cm off, armed, then seated it again; monitor 2026-11-17).
+		bool from_gun_{};
+		v3 from_gun_offset_;
 		q4 guide_rotation_;
 	};
 }

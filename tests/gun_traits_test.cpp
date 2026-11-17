@@ -1,6 +1,7 @@
 // Checks the per-gun traits (src/weapon/gun_traits, all-weapons.md step 1) and the reload profiles made from them
 // (weapon/profiles): every crate gun has a row, the AK/AR split and the hold-open follow the real guns, and only the
 // magazine-fed guns get the physical magazine reload.
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -102,6 +103,18 @@ int main()
 		expect(handle_point_for("U_SCAR-HSV", point) && point[0] > 0.0f, "SCAR-H SV: the SCAR-H's");
 		expect(!handle_point_for("U_M416", point), "M416: its empty reload uses the bolt release: the variant's point");
 		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
+		{
+			// The P90: its handle well away from where its top magazine is taken (they were 2 cm apart with the AR default).
+			float grab[3]{}, well_to_handle = 0.0f;
+			const float seated_mag[3]{ 0.0f, 0.052f, 0.378f }; // its Wep_Mag in Wep_Root axes (handle_probe)
+			expect(handle_point_for("U_P90", point) && magazine_grab_for("U_P90", grab), "P90: handle and grab measured");
+			for (int k = 0; k < 3; ++k)
+			{
+				const float d = point[k] - (seated_mag[k] + grab[k]);
+				well_to_handle += d * d;
+			}
+			expect(std::sqrt(well_to_handle) > 0.15f, "P90: handle more than 15 cm from the magazine grab");
+		}
 	}
 	// Magazine grab points: the game's hand on the magazine, from the seated Wep_Mag.
 	{
@@ -109,7 +122,8 @@ int main()
 		expect(magazine_grab_for("U_M416", grab) && grab[1] < -0.07f, "M416: the long box, grabbed ~9 cm below the magwell");
 		expect(magazine_grab_for("U_Scout", grab) && grab[1] > -0.03f, "Scout: the short box, grabbed close under the gun");
 		expect(magazine_grab_for("U_SCAR-H", grab) && grab[0] > 0.0f, "SCAR-H: from the left");
-		expect(!magazine_grab_for("U_P90", grab) && !magazine_grab_for("U_870", grab), "P90 (too few frames) and tube guns: the default");
+		expect(magazine_grab_for("U_P90", grab) && grab[2] < -0.1f, "P90: taken behind its magazine, on top of the gun");
+		expect(!magazine_grab_for("U_QBB95", grab) && !magazine_grab_for("U_870", grab), "QBB-95 (spread across takes) and tube guns: the default");
 		int measured = 0;
 		for (std::size_t i = 0; i < crate_gun_count(); ++i)
 		{
@@ -117,10 +131,26 @@ int main()
 			{
 				++measured;
 				expect(physical_reload_covers(traits_for(crate_gun_at(i))), "a grab point only for a gun with the physical magazine reload");
-				expect(grab[1] < 0.01f && grab[1] > -0.12f, "every grab within 12 cm below the magwell");
+				expect(grab[1] < 0.03f && grab[1] > -0.15f, "every grab between 3 cm above (the P90's top magazine) and 15 cm below the magwell");
 			}
 		}
-		expect(measured == 24, "24 crate guns have a measured grab point");
+		expect(measured == 29, "29 crate guns have a measured grab point");
+	}
+	// The way out: the AK-12 and SCAR-H are the reference and stay straight down; only clearly slanted guns differ.
+	{
+		float degrees = 0.0f;
+		expect(!magazine_way_out_for("U_AK12", degrees) && !magazine_way_out_for("U_SCAR-H", degrees) && !magazine_way_out_for("U_M416", degrees),
+			"AK-12, SCAR-H, M416: straight down");
+		expect(magazine_way_out_for("U_SAIGA_20K", degrees) && degrees > 15.0f, "Saiga: rocked forward");
+		expect(magazine_way_out_for("U_P90", degrees) && degrees < -90.0f, "P90: back off the top");
+		for (std::size_t i = 0; i < crate_gun_count(); ++i)
+		{
+			if (magazine_way_out_for(crate_gun_at(i), degrees))
+			{
+				expect(physical_reload_covers(traits_for(crate_gun_at(i))) && std::fabs(degrees) >= 10.0f && std::fabs(degrees) <= 110.0f,
+					"a way out only for a hand-reload gun, and only where it is clearly off straight down");
+			}
+		}
 	}
 	if (failures == 0)
 	{

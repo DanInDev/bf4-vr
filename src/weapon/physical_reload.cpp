@@ -966,6 +966,7 @@ namespace bfvr::weapon
 			float grab[3]{};
 			frame.has_magazine_grab = per_gun && magazine_grab_for(weapon.name, grab);
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
+			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
@@ -1329,16 +1330,18 @@ namespace bfvr::weapon
 			r.zone_centre[2].y, r.zone_centre[2].z, points.palm[hand][0], points.palm[hand][1], points.palm[hand][2], hand, palming ? 1 : 0,
 			r.palm_locked ? 1 : 0, palm_names[static_cast<int>(r.palm)], r.magazine_tilt * 57.29578f, r.palm_misalign_degrees, r.palm_off_degrees, r.palm_gap.x, r.palm_gap.y, r.palm_gap.z,
 			points.held_magazine[0], points.held_magazine[1], points.held_magazine[2], points.has_held ? " fist" : " none");
-		char rack[320];
+		char rack[400];
 		float gun_handle[3]{};
 		float gun_grab[3]{};
 		const bool per_gun = gun_points.load(std::memory_order_relaxed) && found != slots.end();
 		const bool handle_measured = per_gun && handle_point_for(found->second.name, gun_handle);
 		const bool grab_measured = per_gun && magazine_grab_for(found->second.name, gun_grab);
-		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f)",
+		float way_out_degrees = 0.0f;
+		const bool way_out_measured = per_gun && magazine_way_out_for(found->second.name, way_out_degrees);
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
 			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
 			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2],
-			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2]);
+			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2], way_out_measured ? "measured" : "straight", way_out_degrees);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
 			touch_enabled ? 1 : 0, accessory_busy ? 1 : 0, static_cast<unsigned long long>(accessory_toggles), points.optic[0], points.optic[1],
