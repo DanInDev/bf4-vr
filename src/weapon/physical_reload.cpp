@@ -35,6 +35,7 @@
 #include "weapon/free_hands.hpp"
 #include "weapon/reload_sounds.hpp"
 #include "weapon/weapon_swap.hpp"
+#include "weapon/zone_book.hpp"
 
 namespace bfvr::weapon
 {
@@ -989,6 +990,7 @@ namespace bfvr::weapon
 		}
 		game_reload_sounds_weapon(weapon.name, weapon.sound_folder.c_str());
 		strncpy_s(gun_folder, weapon.sound_folder.c_str(), _TRUNCATE);
+		zone_book::set_current_gun(weapon.name); // the panel's zone sliders edit this gun
 		slot_memory& memory = found->second;
 		if (weapon.launcher)
 		{
@@ -1081,6 +1083,22 @@ namespace bfvr::weapon
 			frame.feed_tray = v(points.feed_tray);
 			frame.belt_end = v(points.belt_end);
 			frame.lid_degrees = lid_degrees_for(weapon.name);
+			if (zone_book::enabled())
+			{
+				// The owner's per-gun tuning (panel Weapon > Tune grab zones, bfvr_zones.ini).
+				const zone_tuning::gun_tunes tuned = zone_book::get(weapon.name);
+				const auto shift_of = [&](zone_tuning::zone which)
+				{
+					const zone_tuning::shift s = zone_tuning::in_gun_frame(tuned.zones[static_cast<int>(which)]);
+					return v3{ s.x, s.y, s.z };
+				};
+				frame.handle_shift = shift_of(zone_tuning::zone::handle);
+				frame.handle_size = tuned.zones[static_cast<int>(zone_tuning::zone::handle)].size;
+				frame.magazine_shift = shift_of(zone_tuning::zone::magazine);
+				frame.magazine_size = tuned.zones[static_cast<int>(zone_tuning::zone::magazine)].size;
+				frame.lid_shift = shift_of(zone_tuning::zone::lid);
+				frame.lid_size = tuned.zones[static_cast<int>(zone_tuning::zone::lid)].size;
+			}
 		}
 		frame.has_held = points.has_held;
 		frame.held_top = v(points.held_magazine);
@@ -1167,6 +1185,15 @@ namespace bfvr::weapon
 			else
 			{
 				clear_grab_zone(grab_slot::handle_under);
+			}
+			if (result.has_lid_zone)
+			{
+				const float lid[3]{ result.lid_centre.x, result.lid_centre.y, result.lid_centre.z };
+				publish_grab_zone(grab_slot::lid, lid, result.lid_reach, false);
+			}
+			else
+			{
+				clear_grab_zone(grab_slot::lid);
 			}
 			if (result.has_chest_hip)
 			{

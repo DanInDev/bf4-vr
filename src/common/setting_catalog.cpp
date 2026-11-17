@@ -148,6 +148,13 @@ namespace bfvr::settings
 			{ "trigger_press", "Weapon", "Buttons", "Trigger pull to fire", "Higher: a resting finger never fires", "" },
 			{ "ads_trigger", "Weapon", "Buttons", "Left trigger aims", "The game's zoom on the left trigger", "", true },
 			{ "grab_debug", "Weapon", "Testing", "Show grab zones", "Rings around every grab spot", "", true },
+			{ "zone_edit", "Weapon", "Tune grab zones", "Zone to tune", "On the gun in your hand; rings show while tuning", "off=Off|handle=Charging handle / bolt / pump|magazine=Magazine / loading port|lid=Lid / revolver frame" },
+			{ "zone_right", "Weapon", "Tune grab zones", "Right", "Centimetres, seen from behind the gun (- left)", "" },
+			{ "zone_up", "Weapon", "Tune grab zones", "Up", "Centimetres (- down)", "" },
+			{ "zone_forward", "Weapon", "Tune grab zones", "Forward", "Centimetres along the barrel (- back)", "" },
+			{ "zone_size", "Weapon", "Tune grab zones", "Size", "Times the zone's normal size", "" },
+			{ "zone_file", "Weapon", "Tune grab zones", "Save", "Save writes every gun to bfvr_zones.ini", "keep=-|save=Save all guns|load=Undo unsaved|reset=Reset this zone" },
+			{ "zone_tunes", "Weapon", "Tune grab zones", "Use tuned zones", "Off: every gun as built, to compare", "" },
 
 			// HUD
 			{ "hud_mode", "HUD", "Placement", "HUD placement", "On the body, or in front of you", "body=On the body|head=In front" },

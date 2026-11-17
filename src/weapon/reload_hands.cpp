@@ -245,7 +245,8 @@ namespace bfvr::weapon
 		}
 		const float way_out = frame.has_way_out ? frame.way_out_degrees * 0.017453293f : 0.0f;
 		const v3 out_in_gun{ 0.0f, -std::cos(way_out), std::sin(way_out) };
-		const v3 grab_offset = frame.has_magazine_grab ? frame.magazine_grab : out_in_gun * config_.magazine_grab_drop;
+		const v3 grab_offset = (frame.has_magazine_grab ? frame.magazine_grab : out_in_gun * config_.magazine_grab_drop) + frame.magazine_shift;
+		const float magazine_reach = config_.reach_magazine * frame.magazine_size; // the grab zone's (a held magazine seats by config_'s)
 		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, grab_offset) : frame.magwell;
 		// Ahead of the grab point along the barrel (not the magwell: the AK-12's own hand takes it 3.9 cm ahead).
 		const bool on_handguard = frame.has_root && dot(reach - magazine_body, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
@@ -255,21 +256,23 @@ namespace bfvr::weapon
 		// The charging handle: from the gun frame per variant, else the slide bone. With the gun frame it
 		// has two zones (rack_zone_of): overhand beside and above the knob, underhand a larger one below.
 		v3 handle = frame.slide;
-		float handle_reach = config_.reach_slide;
-		const v3 handle_in_gun = frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar;
+		float handle_reach = config_.reach_slide * frame.handle_size;
+		const v3 handle_in_gun = (frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar) + frame.handle_shift;
 		v3 handle_grab = handle;
 		rack_zone_test rack_test;
+		hand_config zones = config_;
+		if (frame.has_rack_shape)
+		{
+			zones.rack_over_offset = frame.rack_shape.over_offset;
+			zones.rack_over_reach = frame.rack_shape.over_reach;
+			zones.rack_under_offset = frame.rack_shape.under_offset;
+			zones.rack_under_radii = frame.rack_shape.under_radii;
+		}
+		zones.rack_over_reach *= frame.handle_size;
+		zones.rack_under_radii = zones.rack_under_radii * frame.handle_size;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
-			hand_config zones = config_;
-			if (frame.has_rack_shape)
-			{
-				zones.rack_over_offset = frame.rack_shape.over_offset;
-				zones.rack_over_reach = frame.rack_shape.over_reach;
-				zones.rack_under_offset = frame.rack_shape.under_offset;
-				zones.rack_under_radii = frame.rack_shape.under_radii;
-			}
 			rack_test = rack_zone_of(reach, handle, frame.root_rotation, rack_side(handle_in_gun, ak), zones);
 			handle_reach = zones.rack_over_reach;
 			handle_grab = rack_test.over_centre;
@@ -294,7 +297,7 @@ namespace bfvr::weapon
 		const bool in_rack_zone = rack_test.zone != rack_zone::none;
 		// Zones overlap: the magazine beats the underhand zone (the large fallback below the handle);
 		// against the overhand zone the nearer one wins.
-		const bool near_magwell = !frame.handle_only && to_magwell < config_.reach_magazine && !((frame.tube || frame.revolver) && !gun.state().holding)
+		const bool near_magwell = !frame.handle_only && to_magwell < magazine_reach && !((frame.tube || frame.revolver) && !gun.state().holding)
 			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
 		const bool near_handle = in_rack_zone && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
@@ -435,13 +438,18 @@ namespace bfvr::weapon
 			return std::atan2(d.z, d.y); // grows as the lid turns up (about +x)
 		};
 		const float lid_full = frame.lid_degrees * 0.017453293f;
+		const v3 lid_grab = frame.lid_grab + rotate(frame.root_rotation, frame.lid_shift); // tuned per gun (zone_tuning)
+		const float lid_reach = config_.lid_reach * frame.lid_size;
+		result.has_lid_zone = belt_points;
+		result.lid_centre = lid_grab;
+		result.lid_reach = lid_reach;
 		const v3 belt_point = gun.state().belt_laid ? frame.feed_tray : frame.belt_end;
 		const bool near_belt = belt_points && frame.belt && valid && gun.state().lid_open && gun.state().magazine_in && !gun.state().holding
 			&& distance(reach, belt_point) < config_.belt_reach;
-		const bool near_lid = belt_points && valid && !gun.state().holding && !gun.state().belt_held && distance(reach, frame.lid_grab) < config_.lid_reach;
+		const bool near_lid = belt_points && valid && !gun.state().holding && !gun.state().belt_held && distance(reach, lid_grab) < lid_reach;
 		if (belt_points && grip_pressed && valid && !gun.state().holding && !gun.state().belt_held)
 		{
-			if (near_belt && (!near_lid || distance(reach, belt_point) <= distance(reach, frame.lid_grab)))
+			if (near_belt && (!near_lid || distance(reach, belt_point) <= distance(reach, lid_grab)))
 			{
 				emit(result, gun.take_belt());
 				belt_feed_grab = true;
@@ -450,8 +458,8 @@ namespace bfvr::weapon
 			else if (near_lid)
 			{
 				lid_held_ = true;
-				lid_closed_angle_ = hinge_angle(frame.lid_grab) - lid_ * lid_full;
-				lid_hand_offset_ = hinge_angle(reach) - hinge_angle(frame.lid_grab);
+				lid_closed_angle_ = hinge_angle(lid_grab) - lid_ * lid_full;
+				lid_hand_offset_ = hinge_angle(reach) - hinge_angle(lid_grab);
 				belt_feed_grab = true;
 			}
 		}
@@ -691,13 +699,13 @@ namespace bfvr::weapon
 		// the action is locked while a round is chambered: it moves after a shot or on an empty chamber, so a hand
 		// drifting along the fore-end while aiming never ejects a live shell. Let go at the rear, it cycles too.
 		const bool pump_free = frame.pump && frame.has_root && valid && frame.grip && !gun.state().holding && !gun.state().chamber;
-		if (pump_free && !pumping_ && distance(reach, handle) < config_.pump_reach)
+		if (pump_free && !pumping_ && distance(reach, handle) < config_.pump_reach * frame.handle_size)
 		{
 			pumping_ = true;
 			pump_back_ = false;
 			pump_start_ = reach;
 		}
-		if (pumping_ && (!pump_free || distance(reach, pump_start_) > config_.pump_reach + config_.slide_travel))
+		if (pumping_ && (!pump_free || distance(reach, pump_start_) > config_.pump_reach * frame.handle_size + config_.slide_travel))
 		{
 			if (pump_back_ && !gun.state().chamber)
 			{
@@ -734,7 +742,7 @@ namespace bfvr::weapon
 		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || in_rack_zone
 			|| lid_held_ || gun.state().belt_held || near_lid || near_belt;
 		result.zone_centre[0] = magazine_body;
-		result.zone_reach[0] = config_.reach_magazine;
+		result.zone_reach[0] = magazine_reach;
 		result.zone_centre[1] = handle_grab;
 		result.zone_reach[1] = handle_reach;
 		result.has_handle = frame.has_root || frame.has_slide;
@@ -772,10 +780,10 @@ namespace bfvr::weapon
 		// Squeezed or not: an AR's magazine waits in the closed hand for the release button.
 		const bool snap_zone = near_magwell && !near_handle && !gun.state().holding && !racking_ && gun.state().magazine_in;
 		const bool pulling = keep_snap_ && gun.state().holding && palm_ == palm_stage::none;
-		keep_snap_ = pulling && to_magwell < config_.reach_magazine;
-		if ((snap_zone || keep_snap_) && config_.reach_magazine > config_.magazine_snap_full)
+		keep_snap_ = pulling && to_magwell < magazine_reach;
+		if ((snap_zone || keep_snap_) && magazine_reach > config_.magazine_snap_full)
 		{
-			const float t = std::fmax(0.0f, std::fmin(1.0f, (config_.reach_magazine - to_magwell) / (config_.reach_magazine - config_.magazine_snap_full)));
+			const float t = std::fmax(0.0f, std::fmin(1.0f, (magazine_reach - to_magwell) / (magazine_reach - config_.magazine_snap_full)));
 			result.magazine_snap = t * t * (3.0f - 2.0f * t);
 		}
 

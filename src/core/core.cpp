@@ -56,6 +56,7 @@
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_pickup.hpp"
 #include "weapon/weapon_swap.hpp"
+#include "weapon/zone_book.hpp"
 #include "xr/controller_actions.hpp"
 #include "xr/theater.hpp"
 
@@ -168,6 +169,74 @@ namespace bfvr::core
 			body::set_pose_preview(show == "left" ? 0 : show == "right" ? 1 : -1, which);
 		}
 
+		// Grab-zone tuning (panel Weapon > Tune grab zones): the sliders are the edited zone of the gun in hand.
+		// Choosing a zone, another gun coming into the hand or loading the file puts its saved values on the
+		// sliders; moving them changes it live. zone_file is a button: save, load or reset once, then back to keep.
+		// Runs every frame (the gun in hand changes without a settings change).
+		void apply_zone_editor(settings::registry& store)
+		{
+			static std::string shown; // "<gun> <zone>" whose values the sliders hold
+			const std::string edit = store.text("zone_edit", "off");
+			const weapon::zone_tuning::zone which = weapon::zone_tuning::zone_named(edit);
+			const std::string gun = weapon::zone_book::current_gun();
+			const std::string action = store.text("zone_file", "keep");
+			const std::string key = which == weapon::zone_tuning::zone::count || gun.empty() ? std::string() : gun + " " + edit;
+			if (!key.empty() && key == shown && action != "load" && action != "reset")
+			{
+				weapon::zone_tuning::tune value;
+				value.right = store.real("zone_right", 0.0f);
+				value.up = store.real("zone_up", 0.0f);
+				value.forward = store.real("zone_forward", 0.0f);
+				value.size = store.real("zone_size", 1.0f);
+				const weapon::zone_tuning::tune saved = weapon::zone_book::get(gun, which);
+				if (value.right != saved.right || value.up != saved.up || value.forward != saved.forward || value.size != saved.size)
+				{
+					weapon::zone_book::set(gun, which, value);
+				}
+			}
+			if (action == "save")
+			{
+				log::write("zones: %s", weapon::zone_book::save().c_str());
+				store.set("zone_file", "keep");
+			}
+			else if (action == "load")
+			{
+				const std::string result = weapon::zone_book::load();
+				log::write("zones: load %s", result.empty() ? "ok" : result.c_str());
+				store.set("zone_file", "keep");
+				shown.clear();
+			}
+			else if (action == "reset")
+			{
+				if (!key.empty())
+				{
+					weapon::zone_book::set(gun, which, {});
+					log::write("zones: %s back as built", key.c_str());
+				}
+				store.set("zone_file", "keep");
+				shown.clear();
+			}
+			if (key != shown)
+			{
+				shown = key;
+				if (!key.empty())
+				{
+					const weapon::zone_tuning::tune saved = weapon::zone_book::get(gun, which);
+					char value[32];
+					std::snprintf(value, sizeof(value), "%g", saved.right);
+					store.set("zone_right", value);
+					std::snprintf(value, sizeof(value), "%g", saved.up);
+					store.set("zone_up", value);
+					std::snprintf(value, sizeof(value), "%g", saved.forward);
+					store.set("zone_forward", value);
+					std::snprintf(value, sizeof(value), "%g", saved.size);
+					store.set("zone_size", value);
+				}
+			}
+			weapon::zone_book::set_enabled(store.boolean("zone_tunes", true));
+			weapon::set_grab_debug(store.boolean("grab_debug", false) || which != weapon::zone_tuning::zone::count);
+		}
+
 		// Live settings (common/settings_store.hpp) pushed into the modules when they changed.
 		void apply_settings()
 		{
@@ -228,8 +297,7 @@ namespace bfvr::core
 			const std::string accessory = store.text("accessory_toggle", "trigger");
 			weapon::set_accessory_touch(accessory == "touch");
 			weapon::set_accessory_trigger(accessory == "trigger");
-			weapon::set_holsters(true);
-			weapon::set_grab_debug(store.boolean("grab_debug", false));
+			weapon::set_holsters(true); // grab_debug: apply_zone_editor (also on while tuning a zone)
 			weapon::set_sounds(store.boolean("reload_sounds", true));
 			weapon::set_pin_volume(store.real("pin_volume", 0.35f));
 			hooks::set_physical_pad(store.boolean("physical_pad", true));
@@ -335,6 +403,7 @@ namespace bfvr::core
 		{
 			present_thread = GetCurrentThreadId();
 			apply_settings();
+			apply_zone_editor(settings::global());
 			weapon::update_physical_reload();
 			weapon::update_hip_accuracy();
 			weapon::update_unlock_all_weapons();

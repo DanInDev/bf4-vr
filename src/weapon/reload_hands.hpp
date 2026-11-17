@@ -83,6 +83,15 @@ namespace bfvr::weapon
 		// #69: this gun's own handle zones (weapon/profiles rack_zones_for), else hand_config's.
 		bool has_rack_shape{};
 		rack_zone_shape rack_shape;
+		// Per-gun tuning (weapon/zone_tuning, panel Weapon > Tune grab zones): each zone moved in the gun frame (Wep_Root
+		// axes, metres) and its reach scaled. The handle's moves the knob (a pump's fore-end), the magazine's its grab
+		// point (a tube's loading port), the lid's the lid's (a revolver frame's) grab point.
+		v3 handle_shift;
+		float handle_size{ 1.0f };
+		v3 magazine_shift;
+		float magazine_size{ 1.0f };
+		v3 lid_shift;
+		float lid_size{ 1.0f };
 		bool grip{};          // off-hand grip held
 		bool button{};        // reload button held (AR: magazine release / bolt catch)
 		// Empty hands (#38): the off hand holds the gun by the handguard and the free gun hand is passed as
@@ -134,6 +143,9 @@ namespace bfvr::weapon
 		float zone_reach[3]{};
 		bool has_chest_hip{}; // #57: the pouch zone is a capsule down to this point (its reach as zone_reach[2])
 		v3 chest_hip;
+		bool has_lid_zone{};  // a belt-fed lid or revolver frame: its grab point and reach (grab_debug)
+		v3 lid_centre;
+		float lid_reach{};
 		bool has_handle{};
 		// The underhand handle zone (grab_debug: an ellipsoid in the gun frame), when the gun frame is known.
 		bool has_under_zone{};

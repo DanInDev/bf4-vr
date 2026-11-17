@@ -212,6 +212,19 @@ grenade = physical
 # Draw every grab zone (magazine, charging handle, chest pouch, handguard, holsters) as a ring as large
 # as its reach, green while a hand is inside: for finding the spots and for tuning them.
 grab_debug = 0
+# Grab zones tuned per gun (panel Weapon > Tune grab zones): zone_edit picks a zone of the gun in your hand (handle =
+# charging handle, bolt or pump; magazine = the magazine or a shotgun's loading port; lid = a machine gun's lid or the
+# revolver's frame) and the rings show; zone_right / zone_up / zone_forward move it in centimetres seen from behind the
+# gun, zone_size scales it. Another gun in the hand puts its own values on the sliders. zone_file = save writes every
+# gun to bfvr_zones.ini beside this file (load undoes unsaved changes, reset puts the zone back as built).
+# zone_tunes = 0 uses every gun as built, to compare.
+zone_edit = off
+zone_right = 0
+zone_up = 0
+zone_forward = 0
+zone_size = 1
+zone_file = keep
+zone_tunes = 1
 # A real gamepad on the first XInput slot also reaches the game. Off: only the VR controllers (a pad
 # with a worn or half-pressed trigger there fires the gun on its own; pipe status shows physical_pad).
 physical_pad = 1
