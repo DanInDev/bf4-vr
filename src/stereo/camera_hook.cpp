@@ -591,7 +591,9 @@ namespace bfvr::stereo
 			{
 				scripted_now = false; // the arms (body/arm_pose) read it; a menu is no scene
 			}
-			if (scripted_frame)
+			// A scene the player takes part in: scripted, with a weapon in the soldier's hands (the lean-out's
+			// M320). Plain cutscenes keep the mod's level, head-tracked view.
+			if (scripted_frame && input::current_client_weapon() != 0)
 			{
 				scene_until = GetTickCount64() + 1500;
 			}
