@@ -1077,37 +1077,56 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 
 ## Every optic kind at the eye: what BF4 draws (2026-11-19 night, monitor, Shanghai, #137)
 
-Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`, new: attachments are
-`BFUnlockAsset`s put in the weapon's `UnlockAssets`; pipe `unlockfind <text>` lists them). Release build, `fakehead
-0.064`, `free_hands 0` and `use_reach 0` for the probe (else the gun drops to the sling after each grip hold and the off
-hand reach presses "use" at the cache). Hold with the right eye on the line: CZ-805 `fakehand 0 0 0.007 -0.214 -0.600
-0.085 -0.222 -0.300` (0.4 cm off), SRS `fakehand 0 0 -0.025 -0.090 -0.400 0.053 -0.098 -0.100` (0.8 cm off); both grips
-held with `pad 0 0 0 0 9500 0300` (pad lasts at most 10 s). Per optic: `sightstate`, `zoommesh`, `reticle dump`
-(every stencil-tested draw of one first-eye render), `eyeshot` / `eyeshot2`. Draws diffed between optics by (index
-count, start, pixel shader, target).
+Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
+`BFUnlockAsset`s, vtable `0x141C46540`, found as `SoldierWeaponUnlockAsset`'s was: the getType `0x141A36B70` is
+`lea rax,[0x142BE3090]; ret`, the typeinfo `BFUnlockAsset`, and slot 0 of `0x141C46540` points at it; put in the
+weapon's `UnlockWeaponAndSlot.UnlockAssets` +0x18; pipe `unlockfind <text>` lists them). Release, `fakehead 0.064`,
+`free_hands 0` and `use_reach 0` for the probe (else the gun drops to the sling after each grip hold and the off hand
+reach presses "use" at the cache). Holds with the right eye on the line: CZ-805 `fakehand 0 0 0.007 -0.214 -0.600 0.085
+-0.222 -0.300` (0.4-1.0 cm off), SRS `fakehand 0 0 -0.025 -0.090 -0.400 0.053 -0.098 -0.100` (0.8 cm); both grips by
+`pad 0 0 0 0 9500 0300` (the pad holds at most 10 s). Per configuration: `sightstate`, then for `zoommesh 1` (hip model)
+and `zoommesh 0` (zoom model) two `reticle dump`s (every stencil-tested draw of one first-eye render) and `eyeshot2`.
+A draw counts as the optic's when it is in both dumps of the configuration and in none of the four dumps of the bare
+gun (key: index count, start, pixel shader, target, stencil reference). Script and raw files: the run's scratchpad
+(`s1probe2.py`, `s1analyse.py`, `s1b/analysis.txt`, not committed); the analysis is on #137.
 
-| Optic | Zoom levels | What the right eye shows (mod as it is) | Optic-specific draws |
+Optic-specific draws (targets: `BF20` = the lit first-person pass, `DBE0` = a later blended pass, `D760` = additive):
+
+| Configuration | Body (lit pass, stencil 32, opaque) | Blended (ONE / INV_SRC_ALPHA, stencil 2, no depth write) | Additive |
 | --- | --- | --- | --- |
-| CZ-805 EOTech (holo), magnifier folded | 3, selected 1, type 0 | clear window, the EOTech ring centred (`sight_lens`); the folded magnifier on its hinge | transparent glass/housing mesh (678 idx, ps ...79BBCC78, target ...D020, blend ONE / INV_SRC_ALPHA); the reticle quad (6 idx, same blend, target ...D920) |
-| Same, magnifier flipped in (D-pad up) | selected 2, current 2, type 2 | the mod's magnified picture (`scope_in_frame`) in the round lens with a red dot | the same mesh with 366 idx |
-| CZ-805 ACOG | 2, `magnified=1 (4.0x)` from the name table | the mod's 4x picture with its red dot; **the ACOG's own chevron not seen** | **body and glass disc drawn with stencil reference 32** in the lit scene (6951 + 6921 idx, the **glass: 30 idx at start 6993**), the same disc again additively in the transparent pass, and three reticle pieces (72 / 24 / 24 idx, alpha-blended, target ...D920) |
-| CZ-805 IRNV (night vision) | 2, `optic=none` (not in the name table) | **the whole picture turns green night vision**, the lens brighter: the game's full-screen night-vision effect comes on with the forced aim | far fewer draws (84 stencil-tested of 261) |
-| SRS Rifle_Scope (sniper) | 2, `magnified=1 (6.0x)` | the eyepiece a few cm from the eye fills the top of the view, its hole shows the world at **1x**; the mod's magnified disc floats lower down, far from it (sized and placed by the magnifier's constants) | body with stencil reference 32 (360 + 192 + 552 idx); same with the zoom mesh on or off |
+| CZ-805 PK-AS (red dot) | 5106 @780, 5106 @5916 | 6 @0, 30 @5886, 780 @0 | - |
+| CZ-805 EOTech (holo) | 330 @6141, 5991 @0, 6321 @6489 | 150 @5991, 18 @6471 (zoom model: also 6 @0) | - |
+| EOTech + magnifier, folded and flipped (identical) | the EOTech's + 6273 @48, 6273 @6351 | the EOTech's + 48 @0, 30 @6321, 6 @0 | - |
+| CZ-805 ACOG (4x) | 6921 @0, 6951 @7071, **30 @6993** | 72 @6921, 24 @7023, 24 @7047, 6 @0 | **30 @6993** |
+| CZ-805 IRNV (night vision) | 360 @0, 192 @360, 552 @582 | 24 @552, 6 @576 | **6 @0** |
+| SRS Rifle_Scope | 360 @0, 192 @360, 552 @582 (the IRNV's: same model) | 24 @552, 6 @0, 6 @576 | - |
 
-Findings for S2-S4 (#138-#140):
-- **Stencil reference 32 marks a magnified optic's body and glass** in the lit scene, as in BF3 (Great Destroyer's
-  `glassdump` keys on it). The glass of the ACOG is a 30-index disc. A generic glass hook: a draw in the first-person
-  pass with stencil reference 32 whose index range is the disc's.
-- Reflex sights (holo) carry no reference-32 glass: their lens is the transparent mesh plus the reticle quad; for them
-  the glass shader means power 1, which `sight_lens` already does.
-- The magnified picture must be placed at the real eyepiece of each optic, not with the magnifier's constants: the SRS
-  shows why (picture 10+ cm from its eyepiece).
-- Night-vision / thermal optics switch a full-screen effect with the aim: it has to be kept to the lens (or the forced
-  aim left off for them). Probably the owner's "pure black" USAS-12 scope (mark 21); the USAS's own optics are not loaded
-  in Shanghai (`unlockfind USAS` finds none).
-- The ACOG's own reticle is drawn (three pieces) but does not show where we look: S4 has to place it, not the mod's dot.
-- The right eye also shows a rounded square to the right of the optic in every optic case: the known second-eye stray
-  ("second housing", In-frame lens step 0), not a sight draw.
+Answers to the issue's question, per kind:
+- **Stencil reference 32 is not a glass marker:** every first-person draw of the lit pass carries it (the bare gun's
+  too). Great Destroyer's BF3 key does not carry over as is.
+- **Magnified scopes have a glass mesh of their own:** the ACOG's 30-index disc (`@6993`) is drawn in the lit pass and
+  again additively: that is the glass to draw on. The IRNV has a 6-index additive quad (`@0`). The SRS scope shows no
+  additive glass draw in these dumps; its 6-index blended quads (`@0`, `@576`) are the candidates.
+- **Reflex sights** (PK-AS, EOTech) have no additive glass: their lens is blended draws (the PK-AS a 6-index quad among
+  them). The 6-index blended no-depth-write quads the mod's `reticle_draw` catches exist in every optic's frame
+  (1-3 per frame), so "6 indices, stencil 2" alone does not name the lens.
+- **The magnifier flip and the zoom mesh change no draw:** folded and flipped, `zoommesh` 1 and 0 give identical draw
+  sets. They change which parts are shown (bones), not which draws run; the glass shader has to work from the draws
+  above, whatever is shown.
+- **Not answered here:** the USAS-12 (its optics are not loaded in Shanghai, `unlockfind USAS` finds none); the
+  AUG A3 (`U_SteyrAug` lists a magnifier but no red dot or holo here); the AK-12's PK-AS (not loaded here).
+
+What the right eye shows with the mod as it is (`eyeshot2`, pictures not committed):
+- EOTech: clear window, ring centred; the folded magnifier on its hinge. Flipped in: the mod's magnified picture in the
+  round lens with a red dot.
+- ACOG: the mod's picture (power from the name table) with the mod's dot; the ACOG's own chevron is not seen.
+- IRNV: **the whole picture turns green night vision**, the lens brighter: the game's full-screen effect comes on with
+  the forced aim. A candidate for the owner's "pure black" scope (mark 21), not proven.
+- SRS scope: the eyepiece a few cm from the eye fills the top of the view and its hole shows the world at 1x; the
+  mod's magnified disc floats lower down, 10+ cm from it: `scope_in_frame` places the picture with the magnifier's
+  constants for every optic.
+- Every optic: a rounded square to the right of the optic in the right eye, the known second-eye stray (In-frame lens,
+  step 0), not a sight draw.
 
 ## Open
 

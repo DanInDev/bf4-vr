@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <sstream>
@@ -29,8 +30,8 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t customize_function = 0x140FC0F30;
 		constexpr std::uint8_t customize_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xDA, 0xE8 };
 		constexpr std::uintptr_t unlock_asset_vtable = 0x141E76F40;       // SoldierWeaponUnlockAsset
-		// Attachments (optics, grips, barrels: U_<gun>_<part>) are BFUnlockAssets: typeinfo class 0x142... getType
-		// 0x141A36B70, its vtable found the same way as SoldierWeaponUnlockAsset's above (2026-11-19, #137).
+		// Attachments (optics, grips, barrels: U_<gun>_<part>) are BFUnlockAssets: getType 0x141A36B70 is
+		// lea rax,[0x142BE3090] (typeinfo BFUnlockAsset); ret, and slot 0 of this vtable points at it (2026-11-19, #137).
 		constexpr std::uintptr_t attachment_asset_vtable = 0x141C46540;
 		constexpr std::size_t max_attachments = 8;
 		constexpr std::uintptr_t customize_data_vtable = 0x141E77120;     // CustomizeSoldierData (live instances)
@@ -301,9 +302,21 @@ namespace bfvr::weapon
 		std::istringstream words(argument);
 		std::string id;
 		unsigned slot = 0;
-		if (!(words >> id) || (words >> slot && slot > 9))
+		// The slot is optional only when nothing follows: "givegun U_X U_X_Optic" would read no slot and drop the optic.
+		std::string slot_text;
+		if (!(words >> id))
 		{
 			return "error: usage: givegun <debug id, e.g. U_M416> [slot 0..9] [attachment ids, e.g. U_SteyrAug_Magnifier ...]";
+		}
+		if (words >> slot_text)
+		{
+			char* end = nullptr;
+			const unsigned long parsed = std::strtoul(slot_text.c_str(), &end, 10);
+			if (end == slot_text.c_str() || *end || parsed > 9)
+			{
+				return "error: the slot (0..9) comes before the attachments: givegun <debug id> <slot> [attachment ids ...]";
+			}
+			slot = static_cast<unsigned>(parsed);
 		}
 		give_call call;
 		call.slot = slot;
