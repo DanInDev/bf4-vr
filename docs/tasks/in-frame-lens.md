@@ -67,6 +67,46 @@ into each eye's finished image at the lens, verified in both eyes on the monitor
 Every new behaviour gets a live setting, a panel row and an ini line. Engine-free math (slope, field stop, picture
 mapping) gets a unit test.
 
+## Great Destroyer's scopes, read in full (2026-11-19)
+
+Read from `criminalvictory/Battlefield-3-VR-The-Great-Destroyer` at `85d59d2` (2026-11-19): `src/scopezoom.cpp`,
+`src/scopeview.cpp`, `src/scopemarks.h`, `src/skin.cpp` (`ScopeLens`, `DrawArms`, the held sights around line 10424).
+Their scopes work in the headset ("That looks amazing"); after the owner's 2026-11-19 marks (black scopes, a broken
+magnifier) ours do not. What they do, and where we differ:
+
+| | Great Destroyer | Ours (`main` 93cf9d9) |
+| --- | --- | --- |
+| Where the picture goes | **On the game's own glass draw**, in the lit HDR scene pass (`InScene`: target R16G16B16A16_FLOAT, before the HUD). Only the pixel shader is swapped (`scopezoom::Begin` / `End`); the glass's vertex shader, depth test and stencil stay, so the rim covers it and each eye gets its own | `scope_in_frame`: a flat textured quad at the lens pose, drawn into each eye's finished image before the reticle quad, with its stencil. No depth: "the lens blocks the view" (marks 42, 48, 69) |
+| What a glass pixel shows | Per pixel: the ray from the draw's **centre of projection** (third column of the inverse view-projection, not the tracked eye: "a few millimetres at the lens is a good part of what a pixel looks at"), its slope off the scope's axis divided by the power, then that direction looked up in the source | A picture composed once (`scope_compose`: round, dot baked in) and stretched over the quad |
+| Source picture | Two, picked per frame: **(a)** a copy of the eye's own scene target at the glass draw, the region round where the scope's line lands (no extra render, so never black, only soft); **(b)** their second world render (720x720), when it was drawn this frame | Only the third render (`render_scope`), and it runs at the hip only for the magnifier, a name-table optic or a zoom learned in the game's ADS; otherwise the hip lens stays opaque: "pure black" (mark 21, USAS-12) |
+| Power | Per sight, from their table | Magnifier constant, name table or learned. **Generic source found:** `WeaponZoomLevelData` +0x10 `RenderFov`, and the optic's `WeaponZoomModifier` +0x18 `ZoomRenderFov` (typeinfo); power = tan(hip FOV / 2) / tan(zoom FOV / 2) |
+| Field stop | Black past slope 0.30-0.38 / power off the line (an eye off-axis sees the tube go dark, as a real scope); glass edge darkened to 25 % from 82 % of its radius. Not for reflex sights | None |
+| Reticle | The sight's marks (extracted offline into `scopemarks.h` from the game's mark sheet), placed by the same slope, so collimated; the game's own reticle draw skipped while theirs shows | `sight_lens`: the game's reticle quad with our pixel shader, already by slope, but its span assumes a 40 degree ADS FOV (`sight_lens_fov`) for every optic |
+| Sharpness | FSR 1 EASU (MIT, AMD) on the source, plus a light sharpen, both in "squeezed" HDR (c / (1 + max)) so the sun leaves no dark ring; "way too blurry" before | Bilinear |
+| Second render | A second copy of the game's world renderer: own settings object (no first-person, motion blur, FXAA, screen effects, lens flares, planar reflections; 1 sample; spot-light shadows off), **terrain and particles borrowed from the first eye** (own terrain cost 4.5 ms for good; own particles came out as squares), FOV fitted to the lens plus room for one frame of recoil, its level of detail followed slowly (no pumping), near plane 0.1, left out when the frame's memory would pass 85 % | `eye_pass` `render_scope`: a third render of the world (owner: "lower third a texture bug" in the magnifier, marks 42, 48, 69) |
+| Finding the glass | Per sight, by draw key (index count, start, base) from a table (`kHeldSights`), mined with `drawscan` / `glassdump`; their glass draws carry **stencil reference 32** | The zoom mesh's lens mask: the 6-index quad with stencil reference 2 (`reticle_draw`), generic for every optic seen so far |
+| Near plane | 1 cm for world and gun ("no clipping with the eye pressed to the sight") | The game's |
+
+Their per-sight tables break the owner's "one solution for every optic" rule. The rest carries over to BF4 without them,
+because our zoom-mesh lens mask and the zoom level data already give the glass and the power for any gun.
+
+### Plan from here (replaces steps 3-4 above)
+
+1. **The glass shader on the lens mask.** Swap `scope_in_frame`'s quad for a full-lens draw with GD's pixel maths:
+   ray from the draw's centre of projection, slope / power, field stop, edge darkening. Source (b) when the scope
+   render drew this frame, else source (a), a copy of the eye's HDR scene at that draw. So a scope is never black.
+   Engine-free maths (slope, field stop, source uv) in `stereo/lens_math` with unit tests.
+2. **Power from data**, for every optic: read `RenderFov` / `ZoomRenderFov` for the selected zoom level and drop the
+   learning and the name table to a fallback. The scope render and the glass then run for any optic above 1.25x.
+3. **The reticle at the optic's own FOV**: `sight_lens` spans by that zoom level's FOV instead of the 40 degree constant.
+4. **Probe the BF4 scopes first** (none is checked yet): with a 4x and a sniper scope at the eye, `reticle dump` the
+   stencil-tested draws. Is there a stencil-2 lens quad, and is the black disc the hip mesh?
+5. **Quality, after it works in the headset:** EASU on source (a), the render's FOV fitted with recoil room, its
+   settings stripped as GD's.
+
+Copying is allowed (maintainer's OK, CLAUDE.md): credit `scopezoom.cpp` / `scopeview.cpp` in the code comment, and
+AMD's MIT notice with any EASU code.
+
 ## Headset check after steps 1-3 (VR View capture and a mark at each)
 
 1. SCAR-H holo at the right eye, then the left: the reticle stays in the window on the target as the head turns.
