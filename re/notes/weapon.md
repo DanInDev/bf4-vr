@@ -1141,6 +1141,31 @@ What the right eye shows (`eyeshot2` on the capture build above, pictures not co
 - Every optic: a rounded square to the right of the optic in the right eye, the known second-eye stray (In-frame lens,
   step 0), not a sight draw.
 
+## Every optic's zoom from the game's data (2026-11-19 night, monitor, Shanghai, #138)
+
+The aiming simulation (ClientSoldierWeapon `+0x4988`) keeps the zoom levels as the optic makes them: a
+`ZoomLevelData*` per level from `+0x238` (level 0 the hip), `FieldOfView` `+0x10`, `FieldOfViewSP` `+0x14` (the
+campaign's when > 0). Found by `find_typed.py ZoomLevelData --root <aiming>`. `WeaponZoomLevelData.RenderFov` (the
+weapon's level list) is 55/83.3 whatever the optic: the gun model's render FOV, not the zoom.
+
+`weapon::zoom_power` = tan(hip / 2) / tan(level / 2) of the selected level, 1 below 1.25x. Monitor, at the hip with no
+game aim before (`sightstate`), then the game's own ADS FOV (`ads_trigger 1` + LT, `scope` game_fov):
+
+| Gun / optic | zoom_fov (hip/levels) | power | game ADS FOV |
+| --- | --- | --- | --- |
+| CZ-805, iron | 45/42 | 1.00 | 42 |
+| CZ-805 PK-AS | 45/40 | 1.00 | 40 |
+| CZ-805 EOTech + magnifier, folded / flipped (D-pad up) | 45/40/27 | 1.00 / 1.73 | 27 (flipped) |
+| CZ-805 ACOG, AUG ACOG | 45/17.2 | 2.74 | 17.2 |
+| CZ-805 IRNV | 45/40 | 1.00 | 40 |
+| AUG magnifier (no red dot here), flipped | 45/42/27 | 1.73 | 27 |
+| SRS Rifle_Scope | 45/8.7 | 5.45 | 8.7 |
+| SRS CL6X (not in the name table) | 45/11.6 | 4.08 | 11.6 |
+
+`stereo/scope` takes this power first (the learned zoom and the name table stay as fallbacks): at the hip the PK-AS
+gets no picture (`at_hip=0`), the CL6X (4.08) and the ACOG (2.74, was the name table's 4.0) get one. The magnifier's
+1.73 equals the 1.725 learned before from the game's ADS.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
