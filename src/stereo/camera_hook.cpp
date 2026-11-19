@@ -417,6 +417,10 @@ namespace bfvr::stereo
 		// controller's ray, 27-75 degrees off what the player lined up (log 2026-11-19, re/notes/aim.md).
 		std::atomic<bool> scene_aim_head{ true };
 		std::atomic<bool> scene_aiming{}; // this frame aims along the view (read by weapon/shot_origin)
+		// The view's centre in LOCAL while scene_aiming. The game resets its aimer when the scene's launcher fires
+		// (log 2026-11-19: back to the car's heading at each trigger pull), so the round follows the shot frame,
+		// which weapon/shot_origin points along this.
+		std::atomic<float> scene_view_local[3]{ 0.0f, 0.0f, -1.0f };
 
 		void aim_with_controller(std::uint8_t* params, const head_sample& head, bool scripted_frame)
 		{
@@ -460,6 +464,10 @@ namespace bfvr::stereo
 				// The view's centre (both eyes' middle) in LOCAL, then in world axes.
 				const float* h = eye_math::centre_pose(head).orientation;
 				const float view[3] = { -2 * (h[0] * h[2] + h[1] * h[3]), -2 * (h[1] * h[2] - h[0] * h[3]), -(1 - 2 * (h[0] * h[0] + h[1] * h[1])) };
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					scene_view_local[axis] = view[axis];
+				}
 				float direction[3];
 				for (int axis = 0; axis < 3; ++axis)
 				{
@@ -1073,6 +1081,15 @@ namespace bfvr::stereo
 
 	bool scene_aims_along_view()
 	{
+		return scene_aiming.load(std::memory_order_relaxed);
+	}
+
+	bool scene_view_direction(float (&local)[3])
+	{
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			local[axis] = scene_view_local[axis].load(std::memory_order_relaxed);
+		}
 		return scene_aiming.load(std::memory_order_relaxed);
 	}
 

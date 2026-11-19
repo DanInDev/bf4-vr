@@ -99,6 +99,8 @@ namespace bfvr::stereo
 	void set_scene_aim_head(bool head);
 	// This frame aims along the view (scene_aim = head in a scripted scene).
 	bool scene_aims_along_view();
+	// The view's centre in OpenXR LOCAL while that is so (false otherwise).
+	bool scene_view_direction(float (&local)[3]);
 	// Live setting physical_stance (#33): crouching or lying down in the room changes the game's
 	// stance (input/physical_stance), and the view follows the real head only (the game's own eye
 	// drop for its stance is added back). Switching it on measures standing afresh.
