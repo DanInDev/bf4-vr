@@ -468,6 +468,10 @@ sight_lens = 1
 sight_lens_cone = 8
 sight_lens_fov = 40
 sight_lens_brightness = 4
+# Scopes and flipped magnifiers: the world magnified on the optic's own glass, by the optic's power from the game's
+# zoom data, dark past the field stop as through a real scope (the BF3 mod Great Destroyer's lens). 0 = the
+# separate scope picture (scope_in_frame above).
+scope_glass = 1
 # When the barrel points at nothing (the sky), shots meet the barrel line this many metres away.
 aim_convergence = 25
 

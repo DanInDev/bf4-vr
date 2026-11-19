@@ -26,4 +26,20 @@ namespace bfvr::stereo
 		up_out[2] = right_out[0] * along[1] - right_out[1] * along[0];
 		return true;
 	}
+
+	float glass_picture_scale(float power, float lens_tan)
+	{
+		// The disc edge (uv 0.5 from the centre) is lens_tan off the line; the glass shows the world at slope / power.
+		if (!(power >= 1.0f) || !(lens_tan > 1e-4f) || !std::isfinite(lens_tan) || !std::isfinite(power))
+		{
+			return 0.0f;
+		}
+		return 0.5f / (power * lens_tan);
+	}
+
+	float glass_field_stop(float eye_off_line_metres)
+	{
+		const float off = std::isfinite(eye_off_line_metres) ? std::fabs(eye_off_line_metres) : glass_eye_box;
+		return glass_field_stop_on_line * std::fmax(0.0f, 1.0f - off / glass_eye_box);
+	}
 }

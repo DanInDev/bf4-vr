@@ -72,6 +72,16 @@ int main()
 	add_optic(holo_scope, "U_X_EOTech");
 	add_optic(holo_scope, "U_X_ACOG");
 	expect(needs_game_aim(holo_scope), "a holo with a scope");
+	// #139: with the scope glass the zoom is in the optic's own glass: scopes and magnifiers go without the game's aim.
+	expect(!needs_game_aim(acog, true), "glass: a scope needs no game aim");
+	expect(!needs_game_aim(holo_scope, true), "glass: a clear holo with a scope");
+	gun_optics holo_magnifier;
+	add_optic(holo_magnifier, "U_X_EOTech");
+	add_optic(holo_magnifier, "U_X_Magnifier");
+	expect(holo_magnifier.magnifier && !needs_game_aim(holo_magnifier, true), "glass: a clear holo with a magnifier");
+	expect(needs_game_aim(ak, true), "glass: the AK-12's PK-AS is still black at the hip");
+	expect(needs_game_aim(irons, true), "glass: iron sights keep the game's aim");
+	expect(!needs_game_aim(scar, true), "glass: a clear holo alone, as before");
 	// #138: power from the game's zoom data (live FOVs, hip 45).
 	expect(std::fabs(optic_power(45.0f, 27.0f) - 1.725f) < 0.01f, "the magnifier: 1.73x, as the game's aim showed");
 	expect(std::fabs(optic_power(45.0f, 17.2f) - 2.74f) < 0.01f, "ACOG / PSO-1: 2.74x");

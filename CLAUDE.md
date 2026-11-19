@@ -178,6 +178,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   when a grip hold ends (a re-give does not bring it back, `holster` says `dropped=1`) and the off hand ahead and low
   presses "use". `pad` holds at most 10 s. `zoommesh 1` forces the **hip** model, `0` the zoom model. Pipe `scan` is a
   full heap walk: 91 s, and the pipe answers nothing meanwhile; never put it in a polling loop.
+- 2026-11-20 (#139): with the game aiming through a high-power scope (SRS) the dark shape with a round hole in the eye
+  is BF4's **flat sniper overlay**, not the 3D scope; judge optics with the game's aim off. A copy of the eye's HDR
+  image always holds the first-person gun (lit with the world); a lens quad's own shape is not the glass (it draws
+  only where no first-person stencil bit is). Pipe `glassdebug 1` paints the glass mask's lens quads, `scopeshot`
+  saves the scope render (`re/notes/weapon.md` "The picture in the optic's own glass").
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

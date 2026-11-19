@@ -36,8 +36,11 @@ namespace bfvr::weapon
 		bool reflex_clear{};          // the red dot or holo is see-through at the hip
 	};
 	// sight_ads: does this gun need the game's aim to see through its sight? Not for a clear holo alone
-	// (the game then draws no reticle of its own and walks at full speed); yes for everything else.
-	bool needs_game_aim(const gun_optics& gun);
+	// (the game then draws no reticle of its own and walks at full speed); yes for everything else. #139: with the
+	// scope glass on (`glass`) a scope or magnifier shows its zoom in its own glass, so it needs no game aim either
+	// (the game's aim with a high-power scope hides the gun and draws its flat sniper overlay); a red dot or holo that
+	// is black at the hip and iron sights still do.
+	bool needs_game_aim(const gun_optics& gun, bool glass = false);
 	void add_optic(gun_optics& gun, const char* unlock_name);
 
 	// #138: an optic's magnification from the game's own zoom data (no name table): the hip's vertical FOV

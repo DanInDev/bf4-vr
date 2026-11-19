@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "body/arm_pose.hpp"
+#include "common/settings_store.hpp"
 #include "input/haptics.hpp"
 #include "input/vr_controls.hpp"
 #include "stereo/aim_depth.hpp"
@@ -360,7 +361,8 @@ namespace bfvr::weapon
 			// A clear holo alone needs no game aim once the hip is as accurate as ADS (hip_accuracy 1): the
 			// game then draws no reticle of its own over ours and walks at full speed.
 			const sight_state sight = read_sight_state();
-			const bool game_aim = !sight.attachments_known || needs_game_aim(sight.optics) || hip_accuracy_strength() < 0.99f;
+			const bool glass = settings::global().boolean("scope_glass", true);
+			const bool game_aim = !sight.attachments_known || needs_game_aim(sight.optics, glass) || hip_accuracy_strength() < 0.99f;
 			if (sight_ads.load(std::memory_order_relaxed) && game_aim)
 			{
 				aiming = sight_latch.update(enter, stay, seconds, sight_leave_hold_seconds);

@@ -1166,6 +1166,42 @@ game aim before (`sightstate`), then the game's own ADS FOV (`ads_trigger 1` + L
 gets no picture (`at_hip=0`), the CL6X (4.08) and the ACOG (2.74, was the name table's 4.0) get one. The magnifier's
 1.73 equals the 1.725 learned before from the game's ADS.
 
+## The picture in the optic's own glass (2026-11-20 night, monitor, Shanghai, #139)
+
+`scope_glass` (on): the scope picture (the separate gun-free scope render, `scope_compose`) composed into the eye's
+image only inside the optic's own glass, read by angle as Great Destroyer's lens does (`scopezoom.cpp`: what is seen
+at a slope off the sight line through an optic of power P is the world at slope / P). What was learned on the way:
+
+- **The eye's own HDR image cannot be the source.** A copy taken at the lens quad already holds the optic's housing:
+  the first-person gun is drawn into the G-buffer (target `..BF20`, stencil 32) and lit together with the world, so
+  there is no lit image without it (S1 dumps: the ref-32 draws all go to `..BF20` before the HDR pass `..DBE0`).
+  Magnified, the housing filled the SRS glass black. Dead end; the picture is the scope render.
+- **Lens quads draw only where no first-person geometry is**: depth-stencil `func 7` (GREATER_EQUAL) with read mask
+  `0xF0` against ref 2, so a pixel with the first-person bit `0x20` fails. The quad's own shape is therefore not the
+  glass: for the CZ-805 optics (shared reticle PS `..784CF8`) it is the reticle's square, cut by the housing into the
+  eyepiece; the ACOG draws two at two depths (5.8k and 5.7k pixels at 14 cm), the flipped magnifier one (4.1k).
+- **The game's aim with a high-power scope is not the 3D optic**: the dark shape with a round hole seen with the SRS
+  while the game aims is BF4's flat sniper overlay (the "gun hidden" of #137). With the glass on, scopes and
+  magnifiers no longer start the game's aim (`needs_game_aim(optics, glass)`): the SRS then shows its 3D scope.
+- **The SRS's two lens-blend quads lie off its sight line** (beside the scope, 116k/106k pixels): which quads are the
+  glass is decided per eye by an occlusion query of a 3-pixel probe at the sight line's point (`on_line`); the SRS
+  has none, so it keeps the flat picture. Where the SRS draws its real eyepiece glass is not known (open).
+- Mask: each lens quad adds its bit into an R8G8B8A8 target (blend add) with the reticle art in alpha (blend max), the
+  game's depth-stencil bound, so rim and hands cover it; composed after the eye render, before the copy out.
+
+Monitor (fake head 0.064, CZ-805 hold, right eye 0.3 cm off the line; `scope`, `eyeshot2`, `eyeshot`):
+
+| Optic | power | glass | quads on the line | notes |
+| --- | --- | --- | --- | --- |
+| bare, PK-AS, EOTech, magnifier folded, IRNV | 1.00 | none | - | reticle lens as before; bare fps 157-158 |
+| magnifier flipped | 1.73 | yes | 1 of 1 | flip in 0.1-0.3 s, out 0.5 s |
+| ACOG | 2.74 | yes | 2 of 2 | the rim covers the edge; left eye (6 cm off): the plain optic |
+| ACOG, eye 1.7 cm off | 2.74 | yes | 0 (kept) | field stop 0.127 (0.38 on the line): darkens from the edge |
+| SRS Rifle_Scope (hip model) | 5.45 | none | 0 of 2 | the flat picture, as before |
+
+fps with a magnified optic is the scope render's cost (~5-9 ms `scope_ms`), the same with the glass on or off (SRS
+93/94, ACOG 98/99 in one A/B).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

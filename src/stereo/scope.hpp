@@ -30,6 +30,11 @@ namespace bfvr::stereo
 	// The latest request; inactive when not aiming through a magnifying sight or the gun is not tracked.
 	scope_request latest_scope_request();
 
+	// #139: the held optic's selected level as the game's data has it (weapon::zoom_power, else the learned zoom or the
+	// name table): 1 for a red dot or holo, the magnification for a scope or a flipped magnifier; 0 when unknown.
+	// Any thread (the eye pass's lens glass reads it).
+	float optic_power_now();
+
 	// Pipe "scope": the game FOVs, magnification, request and the eye pass's scope renders.
 	std::string scope_report();
 }

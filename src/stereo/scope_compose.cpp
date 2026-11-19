@@ -12,6 +12,7 @@
 #include <mutex>
 
 #include "common/log.hpp"
+#include "stereo/eye_pass.hpp"
 #include "stereo/pipeline_state.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -195,7 +196,9 @@ float4 ps(vertex v) : SV_Target
 		const D3D11_BOX box{ (desc.Width - width) / 2, (desc.Height - height) / 2, 0, (desc.Width - width) / 2 + width, (desc.Height - height) / 2 + height, 1 };
 		context->CopySubresourceRegion(source.Get(), 0, 0, 0, 0, back_buffer, 0, &box);
 
-		const constants values{ { 0.022f, 0.04f, 0.35f, 0.0f }, { 1.0f, 0.12f, 0.06f, 0.95f } };
+		// #139: the optic's own glass draws the optic's own reticle over the picture: no dot burnt in then.
+		const float dot = scope_glass_shown() ? 0.0f : 0.95f;
+		const constants values{ { 0.022f, 0.04f, 0.35f, 0.0f }, { 1.0f, 0.12f, 0.06f, dot } };
 		context->UpdateSubresource(constant_buffer.Get(), 0, nullptr, &values, 0, 0);
 
 		saved_pipeline state;
@@ -231,6 +234,8 @@ float4 ps(vertex v) : SV_Target
 		latest.quad = request.quad;
 		latest.quad_size = request.quad_size;
 		latest.eye = request.eye;
+		latest.lens_tan = std::tan(0.5f * request.render_fov_y) * request.crop;
+		latest.magnification = request.magnification;
 		latest.at = GetTickCount64();
 		return true;
 	}

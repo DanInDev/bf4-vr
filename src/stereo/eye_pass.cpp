@@ -24,6 +24,7 @@
 
 #include "common/log.hpp"
 #include "safety/mp_guard.hpp"
+#include "body/arm_pose.hpp"
 #include "stereo/constant_patch.hpp"
 #include "stereo/eye_math.hpp"
 #include "stereo/extra_mesh.hpp"
@@ -1184,6 +1185,54 @@ namespace bfvr::stereo
 		bool lens_eye_valid{};
 		std::atomic<std::uint64_t> lens_draws{};
 		std::atomic<std::uint64_t> lens_skipped{};
+		std::mutex lens_axes_lock;
+		bool lens_axes_valid{};
+		float lens_along[3]{}, lens_up[3]{}; // view space of the rendered eyes (both share the orientation)
+		std::atomic<bool> scope_glass_on{ true };
+		std::atomic<std::uint64_t> glass_masks{};
+		std::atomic<std::uint64_t> glass_composed{};
+		std::atomic<std::uint64_t> glass_no_picture{};
+		std::atomic<float> glass_power_seen{};
+		std::atomic<float> glass_scale_seen{};
+		std::atomic<bool> glass_debug{}; // research (pipe glassdebug 1): the mask's quads in colour
+		std::atomic<int> glass_quads_seen{};
+		int glass_quads{};    // render thread: lens quads drawn into the mask in this eye render
+		// The glass is the optic's smallest lens quad: every lens quad draws only where no first-person geometry is
+		// (stencil test against 0x20), and the SRS's second one (its reticle, cull none) covers the world around the
+		// scope, not its glass. Each quad's pixels are counted by an occlusion query; the count is read back when the
+		// same query is issued again (the same quad two eye renders later).
+		constexpr int glass_max_quads = 8;
+		int glass_ring{};     // render thread: which set of queries this eye render uses
+		std::uint64_t glass_area[2][glass_max_quads]{};    // per query set (the eye renders alternate)
+		std::uint64_t glass_on_line[2][glass_max_quads]{};
+		int glass_last_pick[2]{ -1, -1 };                  // per query set: the glass while the line leaves it
+		unsigned glass_last_bits[2]{};
+		std::uint64_t glass_last_pick_area[2]{};
+		std::atomic<float> glass_field_seen{};
+		std::atomic<std::uint64_t> glass_fallbacks{};
+		std::atomic<ULONGLONG> glass_shown_at{};
+		std::atomic<int> glass_pick_seen{ -1 };
+		std::atomic<std::uint64_t> glass_area_seen[glass_max_quads]{};
+		constexpr float glass_min_power = 1.25f;
+		struct lens_reticle_resources
+		{
+			ComPtr<ID3D11Device> device;
+			ComPtr<ID3D11PixelShader> ps;
+			ComPtr<ID3D11PixelShader> mask_ps;
+			ComPtr<ID3D11Buffer> constants;
+			ComPtr<ID3D11SamplerState> sampler;
+			ComPtr<ID3D11BlendState> mask_blend;
+			ComPtr<ID3D11Texture2D> mask;         // #139: which lens quads cover each pixel (r, bit k = quad k), the reticle (a)
+			ComPtr<ID3D11Query> area[2][glass_max_quads];
+			bool area_issued[2][glass_max_quads]{};
+			ComPtr<ID3D11Query> on_line[2][glass_max_quads]; // the quad's pixels at the sight line's point
+			bool on_line_issued[2][glass_max_quads]{};
+			ComPtr<ID3D11PixelShader> probe_ps;
+			ComPtr<ID3D11BlendState> probe_blend;
+			ComPtr<ID3D11RenderTargetView> mask_target;
+			ComPtr<ID3D11ShaderResourceView> mask_view;
+			bool failed{};
+		} lens_reticle;
 		// Research (pipe lensfix <dx eye 1> <dx eye 2>): metres added to each eye's view x; and what the last
 		// draw of each eye used, for the report.
 		std::atomic<float> lens_extra_dx[2]{};
@@ -1192,8 +1241,20 @@ namespace bfvr::stereo
 		float lens_debug_centre[2][4]{}; // the lens centre in view space, and its ndc x
 		float lens_debug_quad[3]{};
 		const char lens_shader[] = R"(
-cbuffer corners : register(b0) { float4 clip[4]; };
+cbuffer corners : register(b0)
+{
+	float4 clip[4];
+	// #139 scope_glass, ps_glass only:
+	float4 view;   // the eye's image: x, y, width, height
+	float4 proj;   // x scale, y scale, mask pixels per image pixel (x, y)
+	float4 right;  // the gun's right, up and sight line in this eye's view space
+	float4 up;
+	float4 along;  // w: the field stop (slope off the line), closing as the eye leaves the line
+	float4 glass;  // picture uv per slope, the lens quads that are the glass (bits), 1 = dark (not the sighting eye)
+	float4 colour; // the reticle
+};
 Texture2D picture : register(t0);
+Texture2D mask : register(t1);
 SamplerState linear_clamp : register(s0);
 struct v2p { float4 position : SV_Position; float2 uv : TEXCOORD0; };
 v2p vs(uint id : SV_VertexID)
@@ -1204,12 +1265,53 @@ v2p vs(uint id : SV_VertexID)
 	return o;
 }
 float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
+v2p vs_full(uint id : SV_VertexID)
+{
+	v2p o;
+	o.uv = float2((id << 1) & 2, id & 2);
+	o.position = float4(o.uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
+	return o;
+}
+// Inside the optic's glass (every lens quad of this eye render covers it): Great Destroyer's lens, what is seen at a
+// slope off the sight line is the world at slope / power, read from the scope picture (centred on the sight line);
+// past the picture's disc black, the tube; the reticle over it.
+float4 ps_glass(v2p i) : SV_Target
+{
+	float4 m = mask.Load(int3(i.position.xy * proj.zw, 0));
+	uint quads = (uint)round(m.r * 255.0);
+	float2 ndc = float2((i.position.x - view.x) / view.z * 2.0 - 1.0, 1.0 - (i.position.y - view.y) / view.w * 2.0);
+	if (glass.w > 0.5) // research (pipe glassdebug): quad 0 red, 1 green, 2 blue; the sight line's point white
+	{
+		float2 line_at = float2(along.x / -along.z * proj.x, along.y / -along.z * proj.y);
+		if (along.z < 0.0 && length((ndc - line_at) * view.zw * 0.5) < 6.0)
+			return float4(1.0, 1.0, 1.0, 1.0);
+		if (quads == 0)
+			discard;
+		return float4(quads & 1, (quads >> 1) & 1, (quads >> 2) & 1, 1.0) * 0.6;
+	}
+	if ((quads & (uint)glass.y) == 0)
+		discard;
+	float3 ray = float3(ndc.x / proj.x, ndc.y / proj.y, -1.0);
+	float ahead = dot(ray, along.xyz);
+	float3 seen = float3(0.0, 0.0, 0.0);
+	if (ahead > 0.0 && glass.z < 0.5)
+	{
+		float2 slope = float2(dot(ray, right.xyz), dot(ray, up.xyz)) / ahead;
+		float2 uv = 0.5 + float2(slope.x, -slope.y) * glass.x;
+		if (all(uv >= 0.0) && all(uv <= 1.0))
+			seen = picture.SampleLevel(linear_clamp, uv, 0).rgb;
+		seen *= 1.0 - smoothstep(along.w * 0.8, along.w, length(slope)); // field stop
+	}
+	return float4(seen * (1.0 - m.a) + colour.rgb * m.a, 1.0);
+}
 )";
 		struct lens_resources
 		{
 			ComPtr<ID3D11Device> device;
 			ComPtr<ID3D11VertexShader> vs;
 			ComPtr<ID3D11PixelShader> ps;
+			ComPtr<ID3D11VertexShader> glass_vs; // #139
+			ComPtr<ID3D11PixelShader> glass_ps;
 			ComPtr<ID3D11Buffer> corners;
 			ComPtr<ID3D11SamplerState> sampler;
 			ComPtr<ID3D11BlendState> blend;
@@ -1235,9 +1337,11 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			}
 			lens = {};
 			lens.device = device;
-			ComPtr<ID3DBlob> vs, ps, messages;
+			ComPtr<ID3DBlob> vs, ps, glass_vs, glass_ps, messages;
 			if (FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &vs, &messages))
-				|| FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &ps, &messages)))
+				|| FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &ps, &messages))
+				|| FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "vs_full", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &glass_vs, &messages))
+				|| FAILED(D3DCompile(lens_shader, sizeof(lens_shader) - 1, "lens", nullptr, nullptr, "ps_glass", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &glass_ps, &messages)))
 			{
 				log::write("eye pass: lens shader failed: %s", messages ? static_cast<const char*>(messages->GetBufferPointer()) : "");
 				lens.failed = true;
@@ -1266,6 +1370,8 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			raster.DepthClipEnable = FALSE;
 			if (FAILED(device->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr, &lens.vs))
 				|| FAILED(device->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr, &lens.ps))
+				|| FAILED(device->CreateVertexShader(glass_vs->GetBufferPointer(), glass_vs->GetBufferSize(), nullptr, &lens.glass_vs))
+				|| FAILED(device->CreatePixelShader(glass_ps->GetBufferPointer(), glass_ps->GetBufferSize(), nullptr, &lens.glass_ps))
 				|| FAILED(device->CreateBuffer(&buffer, nullptr, &lens.corners)) || FAILED(device->CreateSamplerState(&sampler, &lens.sampler))
 				|| FAILED(device->CreateBlendState(&blend, &lens.blend)) || FAILED(device->CreateRasterizerState(&raster, &lens.raster)))
 			{
@@ -1300,8 +1406,76 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 		// picture onto that image. True when it was drawn.
 		bool draw_lens_picture(ID3D11DeviceContext* c, int which)
 		{
-			if (!c || !scope_in_frame_on.load(std::memory_order_relaxed) || !original_draw || projection_sx <= 0.0f || projection_sy <= 0.0f)
+			// #139: an optic's glass was marked in this eye render: the picture goes into it, not onto a flat quad; the
+			// mask is cleared for the next eye render either way.
+			const int quads = glass_quads;
+			glass_quads = 0;
+			const int ring = glass_ring;
+			glass_ring ^= 1;
+			// The glass: the lens quads the sight line passes through (the ACOG's two lie at two depths: together they
+			// cover more of its eyepiece), by the last counts read back for this eye; `pick` the smallest, to notice an
+			// optic change. They stay the glass while the eye leaves the line (the field stop then closes in), until the
+			// optic changes (no lens quad, or the smallest one's size more than doubles or halves). None (an optic whose
+			// lens quads sit off its line, or not counted yet): no glass, the flat picture as before.
+			int pick = -1;
+			unsigned bits = 0;
+			const std::uint64_t* area = glass_area[ring];
+			for (int k = 0; k < (std::min)(quads, glass_max_quads); ++k)
 			{
+				if (glass_on_line[ring][k] > 0 && area[k] > 0)
+				{
+					bits |= 1u << k;
+					if (pick < 0 || area[k] < area[pick])
+					{
+						pick = k;
+					}
+				}
+			}
+			const int last = glass_last_pick[ring];
+			const bool same_optic = last >= 0 && last < quads && area[last] > 0 && area[last] < 2 * glass_last_pick_area[ring]
+				&& 2 * area[last] > glass_last_pick_area[ring];
+			if (pick >= 0)
+			{
+				glass_last_pick[ring] = pick;
+				glass_last_pick_area[ring] = area[pick];
+				glass_last_bits[ring] = bits;
+			}
+			else if (same_optic)
+			{
+				pick = last;
+				bits = glass_last_bits[ring];
+			}
+			else if (quads == 0 || last >= 0)
+			{
+				glass_last_pick[ring] = -1;
+			}
+			glass_pick_seen = pick;
+			const bool glass = quads > 0 && pick >= 0;
+			if (quads > 0 && pick < 0)
+			{
+				++glass_fallbacks;
+			}
+			struct clear_mask
+			{
+				ID3D11DeviceContext* c;
+				bool on;
+				~clear_mask()
+				{
+					if (on && c && lens_reticle.mask_target)
+					{
+						const float zero[4]{};
+						c->ClearRenderTargetView(lens_reticle.mask_target.Get(), zero);
+					}
+				}
+			} clear_after{ c, quads > 0 };
+			if (!c || (!glass && !scope_in_frame_on.load(std::memory_order_relaxed)) || !original_draw || projection_sx <= 0.0f || projection_sy <= 0.0f)
+			{
+				return false;
+			}
+			// The other eye shows the glass: no flat picture in this one (a real scope shows nothing to the eye beside it).
+			if (!glass && scope_glass_shown())
+			{
+				++lens_skipped;
 				return false;
 			}
 			const scope_image lens_image = latest_scope_image();
@@ -1348,7 +1522,7 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 				}
 				to_view(eye, corner, v);
 				v[0] -= eye_shift;
-				if (v[2] > -0.01f)
+				if (v[2] > -0.01f && !glass) // the glass reads the picture by angle, not through this quad
 				{
 					++lens_skipped;
 					return false;
@@ -1395,6 +1569,55 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 				return false;
 			}
 			target_texture->GetDesc(&target_desc);
+			if (glass)
+			{
+				D3D11_TEXTURE2D_DESC mask_desc{};
+				lens_reticle.mask->GetDesc(&mask_desc);
+				float along[3]{}, line_up[3]{}, r[3]{}, u[3]{};
+				{
+					const std::lock_guard guard(lens_axes_lock);
+					std::memcpy(along, lens_along, sizeof(along));
+					std::memcpy(line_up, lens_up, sizeof(line_up));
+				}
+				const float scale = glass_picture_scale(lens_image.magnification, lens_image.lens_tan);
+				if (!lens_axes(along, line_up, r, u) || scale <= 0.0f)
+				{
+					return false;
+				}
+				glass_scale_seen = scale;
+				// The eye's distance off the sight line closes the field stop (a scope's eye box).
+				float eye_off = 0.0f;
+				{
+					const body::weapon_points points = body::latest_weapon_points();
+					if (points.has_sight)
+					{
+						float p[3]{};
+						to_view(eye, points.sight_eye, p);
+						p[0] -= eye_shift;
+						const float a = p[0] * along[0] + p[1] * along[1] + p[2] * along[2];
+						const float d[3]{ p[0] - a * along[0], p[1] - a * along[1], p[2] - a * along[2] };
+						eye_off = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+					}
+				}
+				const float field = glass_field_stop(eye_off);
+				glass_field_seen = field;
+				const float width = static_cast<float>(target_desc.Width), height = static_cast<float>(target_desc.Height);
+				const float glass_constants[7][4]{
+					{ 0.0f, 0.0f, width, height },
+					{ projection_sx, projection_sy, static_cast<float>(mask_desc.Width) / width, static_cast<float>(mask_desc.Height) / height },
+					{ r[0], r[1], r[2], 0.0f },
+					{ u[0], u[1], u[2], 0.0f },
+					{ along[0], along[1], along[2], field },
+					{ scale, static_cast<float>(bits), lens_image.eye == which ? 0.0f : 1.0f, glass_debug.load(std::memory_order_relaxed) ? 1.0f : 0.0f },
+					{ 1.0f, 0.12f, 0.06f, 1.0f },
+				};
+				std::memcpy(&clip[4][0], glass_constants, sizeof(glass_constants));
+				glass_quads_seen = quads;
+				for (int k = 0; k < glass_max_quads; ++k)
+				{
+					glass_area_seen[k] = k < quads ? area[k] : 0;
+				}
+			}
 			// The game's state, put back afterwards.
 			ComPtr<ID3D11RenderTargetView> old_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
 			ComPtr<ID3D11DepthStencilView> old_depth_view;
@@ -1441,15 +1664,23 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			c->PSGetShaderResources(0, 1, &srv);
 			ComPtr<ID3D11SamplerState> sampler;
 			c->PSGetSamplers(0, 1, &sampler);
+			ComPtr<ID3D11ShaderResourceView> srv_mask;
+			c->PSGetShaderResources(1, 1, &srv_mask);
 
 			c->UpdateSubresource(lens.corners.Get(), 0, nullptr, clip, 0, 0);
-			c->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			c->IASetPrimitiveTopology(glass ? D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST : D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 			c->IASetInputLayout(nullptr);
-			c->VSSetShader(lens.vs.Get(), nullptr, 0);
-			c->PSSetShader(lens.ps.Get(), nullptr, 0);
+			c->VSSetShader(glass ? lens.glass_vs.Get() : lens.vs.Get(), nullptr, 0);
+			c->PSSetShader(glass ? lens.glass_ps.Get() : lens.ps.Get(), nullptr, 0);
 			ID3D11Buffer* corners = lens.corners.Get();
 			const UINT zero = 0, sixteen = 16;
 			original_vs_set_constant_buffers1(c, 0, 1, &corners, &zero, &sixteen);
+			if (glass)
+			{
+				original_ps_set_constant_buffers1(c, 0, 1, &corners, &zero, &sixteen);
+				ID3D11ShaderResourceView* mask = lens_reticle.mask_view.Get();
+				c->PSSetShaderResources(1, 1, &mask);
+			}
 			ID3D11ShaderResourceView* view = lens.view.Get();
 			c->PSSetShaderResources(0, 1, &view);
 			ID3D11SamplerState* linear = lens.sampler.Get();
@@ -1461,8 +1692,19 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 			c->OMSetBlendState(lens.blend.Get(), nullptr, 0xffffffff);
 			c->OMSetDepthStencilState(nullptr, 0);
 			c->RSSetState(lens.raster.Get());
-			original_draw(c, 4, 0);
-			++lens_draws;
+			if (glass)
+			{
+				original_draw(c, 3, 0);
+				++glass_composed;
+				glass_shown_at = GetTickCount64();
+				ID3D11ShaderResourceView* back_mask = srv_mask.Get();
+				c->PSSetShaderResources(1, 1, &back_mask);
+			}
+			else
+			{
+				original_draw(c, 4, 0);
+				++lens_draws;
+			}
 			{
 				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
 				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
@@ -1515,11 +1757,16 @@ float4 ps(v2p i) : SV_Target { return picture.Sample(linear_clamp, i.uv); }
 		std::atomic<bool> sight_lens_on{ true };
 		std::atomic<float> sight_lens_fov{ 40.0f };
 		std::atomic<float> sight_lens_brightness{ 4.0f };
-		std::mutex lens_axes_lock;
-		bool lens_axes_valid{};
-		float lens_along[3]{}, lens_up[3]{}; // view space of the rendered eyes (both share the orientation)
 		std::atomic<std::uint64_t> lens_reticles{};
 		std::atomic<float> lens_size_seen{};
+		// #139 scope_glass: an optic whose selected level magnifies (a scope, a flipped magnifier; the power from the
+		// game's zoom data, #138) shows the scope picture in its own glass. The game's lens quad of that optic draws
+		// only a mask here (its own geometry, depth and stencil: so the rim and the hands cover it as they cover the
+		// glass), with the reticle art in its second channel; right after the eye render the picture is composed into
+		// the eye's image inside that mask (draw_lens_picture). The picture cannot come from the eye's own image: the
+		// first-person gun is in the G-buffer (stencil 32) and lit together with the world, so every copy of the lit
+		// image already holds the optic's own housing (S3 monitor check, re/notes/weapon.md). A reflex sight (power 1)
+		// keeps the reticle-only lens above.
 		const char lens_reticle_shader[] = R"(
 cbuffer lens : register(b13)
 {
@@ -1532,29 +1779,198 @@ cbuffer lens : register(b13)
 };
 Texture2D art : register(t3);
 SamplerState linear_clamp : register(s15);
-float4 ps(float4 position : SV_Position) : SV_Target
+float mark_at(float4 position, out bool ahead)
 {
 	float2 ndc = float2((position.x - view.x) / view.z * 2.0 - 1.0, 1.0 - (position.y - view.y) / view.w * 2.0);
 	float3 ray = float3(ndc.x / proj.x, ndc.y / proj.y, -1.0);
-	float ahead = dot(ray, along.xyz);
-	if (ahead <= 0.0)
-		discard;
-	float2 slope = float2(dot(ray, right.xyz), dot(ray, up.xyz)) / ahead;
+	float forward = dot(ray, along.xyz);
+	ahead = forward > 0.0;
+	float2 slope = float2(dot(ray, right.xyz), dot(ray, up.xyz)) / max(forward, 1e-6);
 	float2 uv = 0.5 + float2(slope.x, -slope.y) / proj.z;
-	if (any(uv < 0.0) || any(uv > 1.0))
+	return ahead && all(uv >= 0.0) && all(uv <= 1.0) ? art.SampleLevel(linear_clamp, uv, 0).a : 0.0;
+}
+float4 ps(float4 position : SV_Position) : SV_Target
+{
+	bool ahead;
+	float mark = mark_at(position, ahead);
+	if (mark <= 0.0)
 		discard;
-	float mark = art.SampleLevel(linear_clamp, uv, 0).a;
 	return float4(colour.rgb * mark * proj.w, mark);
 }
+float4 mask(float4 position : SV_Position) : SV_Target
+{
+	bool ahead;
+	float mark = mark_at(position, ahead);
+	if (!ahead)
+		discard;
+	return float4(exp2(colour.w) / 255.0, 0.0, 0.0, mark); // r: this quad's bit (blend add), a: the reticle (blend max)
+}
+// The quad's pixels within 3 of the sight line's point (counted by an occlusion query; writes nothing).
+float4 probe(float4 position : SV_Position) : SV_Target
+{
+	if (along.z >= 0.0)
+		discard;
+	float2 at = float2(along.x / -along.z * proj.x, along.y / -along.z * proj.y);
+	float2 pixel = float2(view.x + (at.x * 0.5 + 0.5) * view.z, view.y + (0.5 - at.y * 0.5) * view.w);
+	if (length(position.xy - pixel) > 3.0)
+		discard;
+	return float4(0.0, 0.0, 0.0, 0.0);
+}
 )";
-		struct lens_reticle_resources
+
+		// The optic's lens quad blends ONE / INV_SRC_ALPHA (every optic, #137 S1); the two additive 6-index quads
+		// every gun also draws (ONE / ONE) are not a lens and get no glass.
+		bool lens_quad_blend(ID3D11DeviceContext* c)
 		{
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT mask = 0;
+			c->OMGetBlendState(&blend, factor, &mask);
+			if (!blend)
+			{
+				return false;
+			}
+			D3D11_BLEND_DESC desc{};
+			blend->GetDesc(&desc);
+			return desc.RenderTarget[0].BlendEnable && desc.RenderTarget[0].SrcBlend == D3D11_BLEND_ONE && desc.RenderTarget[0].DestBlend == D3D11_BLEND_INV_SRC_ALPHA;
+		}
+
+		// The mask target, the size of the bound target 0 (the game's depth buffer matches it).
+		bool glass_mask_target(ID3D11DeviceContext* c)
+		{
+			ComPtr<ID3D11RenderTargetView> target;
+			c->OMGetRenderTargets(1, &target, nullptr);
+			if (!target)
+			{
+				return false;
+			}
+			ComPtr<ID3D11Resource> resource;
+			target->GetResource(&resource);
+			ComPtr<ID3D11Texture2D> texture;
+			if (!resource || FAILED(resource.As(&texture)))
+			{
+				return false;
+			}
+			D3D11_TEXTURE2D_DESC desc{};
+			texture->GetDesc(&desc);
+			if (desc.SampleDesc.Count != 1)
+			{
+				return false;
+			}
+			D3D11_TEXTURE2D_DESC have{};
+			if (lens_reticle.mask)
+			{
+				lens_reticle.mask->GetDesc(&have);
+			}
+			if (lens_reticle.mask && have.Width == desc.Width && have.Height == desc.Height)
+			{
+				return true;
+			}
 			ComPtr<ID3D11Device> device;
-			ComPtr<ID3D11PixelShader> ps;
-			ComPtr<ID3D11Buffer> constants;
-			ComPtr<ID3D11SamplerState> sampler;
-			bool failed{};
-		} lens_reticle;
+			c->GetDevice(&device);
+			D3D11_TEXTURE2D_DESC mask{};
+			mask.Width = desc.Width;
+			mask.Height = desc.Height;
+			mask.MipLevels = 1;
+			mask.ArraySize = 1;
+			mask.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			mask.SampleDesc.Count = 1;
+			mask.Usage = D3D11_USAGE_DEFAULT;
+			mask.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+			lens_reticle.mask.Reset();
+			lens_reticle.mask_target.Reset();
+			lens_reticle.mask_view.Reset();
+			if (!device || FAILED(device->CreateTexture2D(&mask, nullptr, &lens_reticle.mask))
+				|| FAILED(device->CreateRenderTargetView(lens_reticle.mask.Get(), nullptr, &lens_reticle.mask_target))
+				|| FAILED(device->CreateShaderResourceView(lens_reticle.mask.Get(), nullptr, &lens_reticle.mask_view)))
+			{
+				log::write("eye pass: glass mask %ux%u failed", desc.Width, desc.Height);
+				lens_reticle.mask.Reset();
+				lens_reticle.mask_target.Reset();
+				lens_reticle.mask_view.Reset();
+				return false;
+			}
+			const float clear[4]{};
+			c->ClearRenderTargetView(lens_reticle.mask_target.Get(), clear);
+			log::write("eye pass: glass mask %ux%u", desc.Width, desc.Height);
+			return true;
+		}
+
+		// The lens quad once more, into the mask: the game's vertex shader, geometry, depth and stencil, our mask PS.
+		void draw_glass_mask(ID3D11DeviceContext* c, UINT count, UINT start, INT base, int quad)
+		{
+			// Each query is read back when it is issued again (the same quad two eye renders later).
+			const auto prepare = [c](ComPtr<ID3D11Query>& query, bool& issued, std::uint64_t& result) {
+				if (!query)
+				{
+					ComPtr<ID3D11Device> device;
+					c->GetDevice(&device);
+					const D3D11_QUERY_DESC desc{ D3D11_QUERY_OCCLUSION, 0 };
+					if (device)
+					{
+						device->CreateQuery(&desc, &query);
+					}
+					issued = false;
+				}
+				UINT64 pixels = 0;
+				if (query && issued && c->GetData(query.Get(), &pixels, sizeof(pixels), D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK)
+				{
+					result = pixels;
+				}
+			};
+			ComPtr<ID3D11Query>& query = lens_reticle.area[glass_ring][quad];
+			bool& issued = lens_reticle.area_issued[glass_ring][quad];
+			ComPtr<ID3D11Query>& line_query = lens_reticle.on_line[glass_ring][quad];
+			bool& line_issued = lens_reticle.on_line_issued[glass_ring][quad];
+			prepare(query, issued, glass_area[glass_ring][quad]);
+			prepare(line_query, line_issued, glass_on_line[glass_ring][quad]);
+			ComPtr<ID3D11RenderTargetView> old_targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+			ComPtr<ID3D11DepthStencilView> old_depth_view;
+			{
+				ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+				ID3D11DepthStencilView* depth_view = nullptr;
+				c->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, &depth_view);
+				for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+				{
+					old_targets[i].Attach(targets[i]);
+				}
+				old_depth_view.Attach(depth_view);
+			}
+			ComPtr<ID3D11BlendState> blend;
+			float factor[4]{};
+			UINT sample_mask = 0;
+			c->OMGetBlendState(&blend, factor, &sample_mask);
+			ID3D11RenderTargetView* mask = lens_reticle.mask_target.Get();
+			c->OMSetRenderTargets(1, &mask, old_depth_view.Get());
+			c->OMSetBlendState(lens_reticle.mask_blend.Get(), nullptr, 0xffffffff);
+			c->PSSetShader(lens_reticle.mask_ps.Get(), nullptr, 0);
+			if (query)
+			{
+				c->Begin(query.Get());
+			}
+			original_draw_indexed(c, count, start, base);
+			if (query)
+			{
+				c->End(query.Get());
+				issued = true;
+			}
+			if (line_query)
+			{
+				c->OMSetBlendState(lens_reticle.probe_blend.Get(), nullptr, 0xffffffff);
+				c->PSSetShader(lens_reticle.probe_ps.Get(), nullptr, 0);
+				c->Begin(line_query.Get());
+				original_draw_indexed(c, count, start, base);
+				c->End(line_query.Get());
+				line_issued = true;
+			}
+			ID3D11RenderTargetView* targets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+			for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i)
+			{
+				targets[i] = old_targets[i].Get();
+			}
+			c->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, targets, old_depth_view.Get());
+			c->OMSetBlendState(blend.Get(), factor, sample_mask);
+		}
 
 		bool draw_reticle_lens(ID3D11DeviceContext* c, UINT count, UINT start, INT base)
 		{
@@ -1582,7 +1998,18 @@ float4 ps(float4 position : SV_Position) : SV_Target
 			{
 				lens_reticle = {};
 				lens_reticle.device = device;
-				ComPtr<ID3DBlob> code, messages;
+				ComPtr<ID3DBlob> code, mask_code, probe_code, messages;
+				D3D11_BLEND_DESC probe_blend{};
+				probe_blend.RenderTarget[0].RenderTargetWriteMask = 0;
+				D3D11_BLEND_DESC mask_blend{};
+				mask_blend.RenderTarget[0].BlendEnable = TRUE;
+				mask_blend.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+				mask_blend.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+				mask_blend.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+				mask_blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+				mask_blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+				mask_blend.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_MAX;
+				mask_blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_RED | D3D11_COLOR_WRITE_ENABLE_ALPHA;
 				D3D11_BUFFER_DESC buffer{};
 				buffer.ByteWidth = 16 * 16;
 				buffer.Usage = D3D11_USAGE_DEFAULT;
@@ -1594,6 +2021,14 @@ float4 ps(float4 position : SV_Position) : SV_Target
 				if (FAILED(D3DCompile(lens_reticle_shader, sizeof(lens_reticle_shader) - 1, "lens_reticle", nullptr, nullptr, "ps", "ps_5_0",
 						D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &messages))
 					|| FAILED(device->CreatePixelShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr, &lens_reticle.ps))
+					|| FAILED(D3DCompile(lens_reticle_shader, sizeof(lens_reticle_shader) - 1, "lens_reticle", nullptr, nullptr, "mask", "ps_5_0",
+						D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &mask_code, &messages))
+					|| FAILED(device->CreatePixelShader(mask_code->GetBufferPointer(), mask_code->GetBufferSize(), nullptr, &lens_reticle.mask_ps))
+					|| FAILED(device->CreateBlendState(&mask_blend, &lens_reticle.mask_blend))
+					|| FAILED(D3DCompile(lens_reticle_shader, sizeof(lens_reticle_shader) - 1, "lens_reticle", nullptr, nullptr, "probe", "ps_5_0",
+						D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &probe_code, &messages))
+					|| FAILED(device->CreatePixelShader(probe_code->GetBufferPointer(), probe_code->GetBufferSize(), nullptr, &lens_reticle.probe_ps))
+					|| FAILED(device->CreateBlendState(&probe_blend, &lens_reticle.probe_blend))
 					|| FAILED(device->CreateBuffer(&buffer, nullptr, &lens_reticle.constants))
 					|| FAILED(device->CreateSamplerState(&sampler, &lens_reticle.sampler)))
 				{
@@ -1632,13 +2067,30 @@ float4 ps(float4 position : SV_Position) : SV_Target
 			{
 				return false;
 			}
+			// #139: a magnifying level with a fresh scope picture: this quad only marks the glass (draw_glass_mask).
+			const float power = optic_power_now();
+			glass_power_seen = power;
+			bool glass = scope_glass_on.load(std::memory_order_relaxed) && power >= glass_min_power && lens_quad_blend(c);
+			if (glass)
+			{
+				const scope_image picture = latest_scope_image();
+				if (!picture.texture || GetTickCount64() - picture.at > 200 || !glass_mask_target(c))
+				{
+					glass = false;
+					++glass_no_picture;
+				}
+			}
+			if (glass && glass_quads >= glass_max_quads)
+			{
+				glass = false;
+			}
 			const float constants[16][4]{
 				{ viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height },
 				{ projection_sx, projection_sy, reticle_span(size, sight_lens_fov.load(std::memory_order_relaxed)), sight_lens_brightness.load(std::memory_order_relaxed) },
 				{ r[0], r[1], r[2], 0.0f },
 				{ u[0], u[1], u[2], 0.0f },
 				{ along[0], along[1], along[2], 0.0f },
-				{ 1.0f, 0.12f, 0.06f, 1.0f },
+				{ 1.0f, 0.12f, 0.06f, glass ? static_cast<float>(glass_quads) : 1.0f }, // w: the mask bit of this quad
 			};
 			c->UpdateSubresource(lens_reticle.constants.Get(), 0, nullptr, constants, 0, 0);
 			ComPtr<ID3D11PixelShader> old_ps;
@@ -1648,14 +2100,22 @@ float4 ps(float4 position : SV_Position) : SV_Target
 			c1->PSGetConstantBuffers1(13, 1, &old_cb, &old_first, &old_count);
 			ComPtr<ID3D11SamplerState> old_sampler;
 			c->PSGetSamplers(15, 1, &old_sampler);
-			c->PSSetShader(lens_reticle.ps.Get(), nullptr, 0);
 			ID3D11Buffer* own = lens_reticle.constants.Get();
 			const UINT zero = 0, sixteen = 16;
 			original_ps_set_constant_buffers1(c, 13, 1, &own, &zero, &sixteen);
 			ID3D11SamplerState* linear = lens_reticle.sampler.Get();
 			c->PSSetSamplers(15, 1, &linear);
+			// The reticle lens as before; when this quad may be the glass, also into the mask (the composed glass then
+			// covers this reticle with its own; an optic whose lens quads are off its line keeps this one).
+			c->PSSetShader(lens_reticle.ps.Get(), nullptr, 0);
 			original_draw_indexed(c, count, start, base);
 			++lens_reticles;
+			if (glass)
+			{
+				draw_glass_mask(c, count, start, base, glass_quads);
+				++glass_quads;
+				++glass_masks;
+			}
 			c->PSSetShader(old_ps.Get(), nullptr, 0);
 			ID3D11Buffer* back = old_cb.Get();
 			if (old_count)
@@ -2971,6 +3431,22 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		std::memcpy(lens_up, up, sizeof(lens_up));
 	}
 
+	void set_scope_glass(bool on)
+	{
+		scope_glass_on = on;
+	}
+
+	bool scope_glass_shown()
+	{
+		return scope_glass_on.load(std::memory_order_relaxed) && GetTickCount64() - glass_shown_at.load(std::memory_order_relaxed) < 300;
+	}
+
+	std::string set_glass_debug(bool on)
+	{
+		glass_debug = on;
+		return on ? "glassdebug: lens quads in colour (0 red, 1 green, 2 blue), sight line white" : "glassdebug: off";
+	}
+
 	void set_sight_lens(bool on, float ads_fov_degrees, float brightness)
 	{
 		sight_lens_on = on;
@@ -3006,11 +3482,17 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 
 	std::string lens_report()
 	{
-		char text[900];
+		char text[1400];
 		const std::lock_guard guard(lens_debug_lock);
 		std::snprintf(text, sizeof(text),
-			"sight_lens=%d reticles=%llu art_size=%.4f fov=%.1f | scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
+			"scope_glass=%d glass_masks=%llu glass_composed=%llu glass_no_picture=%llu power=%.2f uv_per_slope=%.3f quads=%d glass_quad=%d areas=%llu/%llu/%llu on_line=%llu/%llu/%llu field=%.3f fallbacks=%llu | sight_lens=%d reticles=%llu art_size=%.4f fov=%.1f | scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
 			"  eye1 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f\n  eye2 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f",
+			scope_glass_on.load() ? 1 : 0, static_cast<unsigned long long>(glass_masks.load()), static_cast<unsigned long long>(glass_composed.load()),
+			static_cast<unsigned long long>(glass_no_picture.load()), glass_power_seen.load(), glass_scale_seen.load(), glass_quads_seen.load(), glass_pick_seen.load(),
+			static_cast<unsigned long long>(glass_area_seen[0].load()), static_cast<unsigned long long>(glass_area_seen[1].load()), static_cast<unsigned long long>(glass_area_seen[2].load()),
+			static_cast<unsigned long long>(glass_on_line[0][0] + glass_on_line[1][0]), static_cast<unsigned long long>(glass_on_line[0][1] + glass_on_line[1][1]),
+			static_cast<unsigned long long>(glass_on_line[0][2] + glass_on_line[1][2]), glass_field_seen.load(),
+			static_cast<unsigned long long>(glass_fallbacks.load()),
 			sight_lens_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_reticles.load()), lens_size_seen.load(), sight_lens_fov.load(), scope_in_frame_on.load() ? 1 : 0, static_cast<unsigned long long>(lens_draws.load()), static_cast<unsigned long long>(lens_skipped.load()),
 			eye_shift_metres.load(), lens_extra_dx[0].load(), lens_extra_dx[1].load(), lens_debug_quad[0], lens_debug_quad[1], lens_debug_quad[2],
 			lens_debug_eye[0][0], lens_debug_eye[0][1], lens_debug_eye[0][2], lens_debug_centre[0][0], lens_debug_centre[0][1], lens_debug_centre[0][2],

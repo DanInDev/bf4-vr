@@ -585,7 +585,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe", "givegun", "fakefocus" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe", "givegun", "fakefocus", "glassdebug" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -724,6 +724,7 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
 				return stereo::set_eye_pass(mode, shift); // no argument = report only
 			}
+			if (command == "glassdebug") return stereo::set_glass_debug(argument == "1");
 			if (command == "scopescissor")
 			{
 				int on = -1;
