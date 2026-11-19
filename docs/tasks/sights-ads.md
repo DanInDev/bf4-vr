@@ -20,6 +20,24 @@ In the Quest 3, holding a gun's optic up to one eye must work like a real optic:
 Done means the headset rows below are confirmed by the user (`docs/HEADSET-TESTS.md`), with
 `tools\gate.ps1` green and the monitor checks recorded in `re/notes/weapon.md`.
 
+## Headset 2026-11-19: the owner's sight marks (start here)
+
+Release `4b74235`, crate guns in the Prologue. Full-size screenshots with the owner's comments, kept for this work:
+`re/screenshots/headset/2026-11-19/scopes/` (its `README.md` lists them; local, git-ignored, never committed). The
+state at each mark (`scope`, `zoommesh`, `sight` lines) is in `re/screenshots/headset/2026-11-19/marks/<n>-<gun>.txt`.
+
+| Mark | Gun | What it shows |
+| --- | --- | --- |
+| 8 | Hawk | a red square on the iron sight (#93) |
+| 9, 43 | M1014, AUG | the same red square in a holo (#93) |
+| 21 | USAS-12 | a magnified scope pure black |
+| 42, 48 | AUG, CZ-805 | the magnifier: its lower third a texture bug, the lens blocks the view |
+| 69 | M249 | "the best showcase of the bad view you get in the magnifier" |
+| 75 | SRS | aiming down sights with long sniper rifles not supported |
+
+Owner: "All magnified scopes dont really work. Some are pure black like this, others use the horrible magnifier
+solution we created."
+
 ## Where it stands (headset 2026-11-11, `main` 410ea2f)
 
 | Element | Headset result | State |
