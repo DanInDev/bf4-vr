@@ -411,7 +411,14 @@ namespace bfvr::stereo
 		// Controller aim (#12): the world camera turns with the body yaw only (the head adds the rest),
 		// the first-person camera (soldier space) is turned to match, and the aimer follows the right
 		// controller's aim ray.
-		void aim_with_controller(std::uint8_t* params)
+		// scene_aim = head: in a scripted scene the game holds the weapon itself (the Baku car's M320 lean-out:
+		// its launcher is drawn fixed to the view, no gun is in the mod's hands), so the game aims along the
+		// view's centre and its shot frame is left alone (weapon/shot_origin). Before, rounds followed the
+		// controller's ray, 27-75 degrees off what the player lined up (log 2026-11-19, re/notes/aim.md).
+		std::atomic<bool> scene_aim_head{ true };
+		std::atomic<bool> scene_aiming{}; // this frame aims along the view (read by weapon/shot_origin)
+
+		void aim_with_controller(std::uint8_t* params, const head_sample& head, bool scripted_frame)
 		{
 			auto* world = reinterpret_cast<float*>(params + transform);
 			const float game_yaw = std::atan2(-world[8], -world[10]);
@@ -438,6 +445,29 @@ namespace bfvr::stereo
 				fp_turn_until = GetTickCount64() + fp_turn_hold_ms;
 			}
 			mark_dirty(params);
+			// Held 1.5 s past the scene's end: with the aim on the view the detector (camera against aim) can let
+			// go for a moment in the middle of the lean-out, and the rounds would follow the controller again.
+			static ULONGLONG scene_until{};
+			const ULONGLONG now_ms = GetTickCount64();
+			if (scripted_frame)
+			{
+				scene_until = now_ms + 1500;
+			}
+			const bool along_view = now_ms < scene_until && head.valid && scene_aim_head.load(std::memory_order_relaxed);
+			scene_aiming = along_view;
+			if (along_view)
+			{
+				// The view's centre (both eyes' middle) in LOCAL, then in world axes.
+				const float* h = eye_math::centre_pose(head).orientation;
+				const float view[3] = { -2 * (h[0] * h[2] + h[1] * h[3]), -2 * (h[1] * h[2] - h[0] * h[3]), -(1 - 2 * (h[0] * h[0] + h[1] * h[1])) };
+				float direction[3];
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					direction[axis] = view[0] * world[axis] + view[1] * world[4 + axis] + view[2] * world[8 + axis];
+				}
+				input::aim_along(direction);
+				return;
+			}
 			const hand_sample hands = latest_hand_sample();
 			if (!hands.valid[1])
 			{
@@ -593,7 +623,11 @@ namespace bfvr::stereo
 				}
 				if (input::controller_aim_active())
 				{
-					aim_with_controller(params);
+					aim_with_controller(params, head, scripted_frame);
+				}
+				else
+				{
+					scene_aiming = false;
 				}
 				if (physical_stance_on.load(std::memory_order_relaxed) && !scripted_frame)
 				{
@@ -1030,6 +1064,16 @@ namespace bfvr::stereo
 	bool scripted_scene()
 	{
 		return scripted_now.load(std::memory_order_relaxed);
+	}
+
+	void set_scene_aim_head(bool head)
+	{
+		scene_aim_head = head;
+	}
+
+	bool scene_aims_along_view()
+	{
+		return scene_aiming.load(std::memory_order_relaxed);
 	}
 
 	std::string cutscene_report()

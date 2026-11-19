@@ -55,8 +55,9 @@ namespace bfvr::weapon
 		void __fastcall setter_detour(std::uintptr_t weapon, const float* frame)
 		{
 			++calls;
+			// scene_aim = head: in a scripted scene the game aims along the view; its frame is left as it is.
 			if (frame && weapon && enabled.load(std::memory_order_relaxed) && input::controller_aim_active() && !safety::mod_disabled()
-				&& weapon == current_local_weapon())
+				&& weapon == current_local_weapon() && !stereo::scene_aims_along_view())
 			{
 				shot_line_local line;
 				float yaw{};

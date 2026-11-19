@@ -252,6 +252,7 @@ namespace bfvr::core
 			applied = revision;
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
+			stereo::set_scene_aim_head(store.text("scene_aim", "head") == "head");
 			body::set_cutscene_hands(store.text("cutscene_hands", "game") == "game");
 			stereo::set_stream_view(store.boolean("stream_view", true), store.real("stream_fov", 80.0f), store.real("stream_smoothing", 0.3f),
 				store.boolean("stream_hud", true));

@@ -91,6 +91,10 @@ stereo_render = pair
 # head looks around inside the scene while the game moves you. Detected when the camera turns away
 # from the aim for a quarter second, or the soldier is dead or absent; pipe `cutscene` shows it.
 cutscene_view = screen
+# In a scripted scene where the game holds the weapon itself (the Baku car chase: leaning out with the grenade
+# launcher at the helicopter), the shot goes where you look (head; line the game's launcher or crosshair up with
+# your view), or along the controller (controller: the old way, which sent those rounds wide).
+scene_aim = head
 # In cutscenes (look): the arms, gun and fingers as the game animates them (game), or following your
 # controllers as in play (controllers; the scene's animated body then fights them: hands reversed).
 cutscene_hands = game

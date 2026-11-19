@@ -93,6 +93,12 @@ namespace bfvr::stereo
 	std::string cutscene_report();
 	// The game moves the camera itself now (a cutscene or the death fall; stereo/scripted_view), outside menus.
 	bool scripted_scene();
+	// Live setting scene_aim: in a scripted scene with controller aim, the game aims along the view's centre
+	// (head) instead of the controller, and the shot frame is the game's (weapon/shot_origin). For scenes where
+	// the game holds the weapon itself, like the Baku car's M320 lean-out.
+	void set_scene_aim_head(bool head);
+	// This frame aims along the view (scene_aim = head in a scripted scene).
+	bool scene_aims_along_view();
 	// Live setting physical_stance (#33): crouching or lying down in the room changes the game's
 	// stance (input/physical_stance), and the view follows the real head only (the game's own eye
 	// drop for its stance is added back). Switching it on measures standing afresh.
