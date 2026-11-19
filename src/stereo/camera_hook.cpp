@@ -415,6 +415,12 @@ namespace bfvr::stereo
 		{
 			auto* world = reinterpret_cast<float*>(params + transform);
 			const float game_yaw = std::atan2(-world[8], -world[10]);
+			if (input::vehicle_view(game_yaw))
+			{
+				// Driving: the view rides with the vehicle (its camera as the game gives it, pitch and roll
+				// included, so the cockpit stays put around the head); nothing to aim.
+				return;
+			}
 			const float body = input::body_camera_yaw(game_yaw);
 			level_rows(world, body);
 			if (stereo_first_person)

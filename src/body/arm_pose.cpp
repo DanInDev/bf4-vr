@@ -1,5 +1,7 @@
 #include "body/arm_pose.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <atomic>
@@ -41,7 +43,6 @@ namespace bfvr::body
 		// rotation), +0x230 SkeletonAsset (+0x10 name, +0x18 BoneNames, +0x28 Hierarchy Array<Int32>,
 		// count at data-4). The object handed to the conversion holds the local-pose pointer at +0x128
 		// and the model pose at +0x130 (re/notes/skeleton.md).
-		constexpr std::uint64_t local_soldier_global = 0x14230f260;
 		constexpr std::uint64_t pose_conversion = 0x140716050;
 		// push rbx; sub rsp,20h; xor r9d,r9d; mov rbx,rcx; cmp [rcx+16Ah],r9b
 		constexpr std::uint8_t expected_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xec, 0x20, 0x45, 0x33, 0xc9, 0x48, 0x8b, 0xd9, 0x44, 0x38, 0x89, 0x6a, 0x01 };
@@ -618,7 +619,7 @@ namespace bfvr::body
 		void refresh_rig()
 		{
 			std::uint64_t soldier = 0, component = 0, animatable = 0, local_pose = 0, skeleton = 0;
-			if (!read(local_soldier_global, soldier) || !read(soldier + 0x1e8, component) || !read(component + 0x128, animatable)
+			if (!(soldier = game::local_soldier()) != 0 || !read(soldier + 0x1e8, component) || !read(component + 0x128, animatable)
 				|| !read(animatable + 0x48, local_pose) || local_pose == 0 || !read(animatable + 0x230, skeleton) || skeleton == 0)
 			{
 				forget_rig();

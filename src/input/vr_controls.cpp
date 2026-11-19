@@ -13,7 +13,9 @@
 #include <mutex>
 
 #include "common/config.hpp"
+#include "common/controlled.hpp"
 #include "common/log.hpp"
+#include "input/drive_wheel.hpp"
 #include "input/move_steer.hpp"
 #include "input/right_stick.hpp"
 #include "stereo/tracking.hpp"
@@ -71,7 +73,6 @@ namespace bfvr::input
 	namespace
 	{
 		// BF4 179547 (re/notes/aim.md, re/symbols/bf4-179547.md).
-		constexpr std::uintptr_t local_soldier_global = 0x14230F260;
 		constexpr std::size_t soldier_weapons = 0x570;
 		constexpr std::size_t soldier_stance = 0x4F0; // u32: 0 stand, 1 crouch, 2 prone (tools/pose_probe.py)
 		constexpr std::size_t weapons_flags = 0x28;
@@ -156,10 +157,102 @@ namespace bfvr::input
 			}
 		}
 
+		// Only a soldier: in a vehicle the global holds the ClientVehicleEntity (common/controlled).
 		std::uintptr_t local_soldier()
 		{
-			std::uintptr_t soldier{};
-			return read(local_soldier_global, soldier) ? soldier : 0;
+			return game::local_soldier();
+		}
+
+		// Driving (set_drive_controls): XInput thread state.
+		std::atomic<drive_controls> drive_mode{ drive_controls::stick };
+		std::mutex drive_lock;
+		drive_wheel wheel;
+		LARGE_INTEGER wheel_last{};
+		bool driving{};
+		bool centre_known{};
+		float wheel_centre[3]{};
+		wheel_output last_wheel{};
+		std::atomic<std::uint64_t> drive_polls{}, vehicle_entries{};
+		// The wheel sits this far below and ahead of the eyes until two hands on it show where it is.
+		constexpr float wheel_below = 0.32f;
+		constexpr float wheel_ahead = 0.38f;
+
+		std::int16_t stick_axis(float v)
+		{
+			return static_cast<std::int16_t>(std::lround(std::fmax(-1.0f, std::fmin(1.0f, v)) * 32767.0f));
+		}
+
+		gamepad_state for_vehicle(const gamepad_state& raw)
+		{
+			gamepad_state pad = raw;
+			if (!grips_to_game.load(std::memory_order_relaxed))
+			{
+				pad.buttons &= static_cast<std::uint16_t>(~(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER));
+			}
+			if (x_menu.load(std::memory_order_relaxed) && (pad.buttons & XINPUT_GAMEPAD_X))
+			{
+				pad.buttons = static_cast<std::uint16_t>((pad.buttons & ~XINPUT_GAMEPAD_X) | XINPUT_GAMEPAD_START);
+			}
+			// The head looks around; the game's own look (right stick) would turn the camera under it.
+			pad.right_x = 0;
+			pad.right_y = 0;
+			++drive_polls;
+			const std::lock_guard guard(drive_lock);
+			LARGE_INTEGER now{}, frequency{};
+			QueryPerformanceCounter(&now);
+			QueryPerformanceFrequency(&frequency);
+			const float seconds = wheel_last.QuadPart ? static_cast<float>(now.QuadPart - wheel_last.QuadPart) / static_cast<float>(frequency.QuadPart) : 0.0f;
+			wheel_last = now;
+			if (drive_mode.load(std::memory_order_relaxed) != drive_controls::wheel)
+			{
+				if (!ads_trigger.load(std::memory_order_relaxed))
+				{
+					pad.left_trigger = 0;
+				}
+				return pad; // stick: the left stick drives as it is
+			}
+			const stereo::hand_sample hands = stereo::latest_hand_sample();
+			const stereo::head_sample head = stereo::latest_head_sample();
+			if (!centre_known && head.valid)
+			{
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					wheel_centre[axis] = 0.5f * (head.eyes[0].position[axis] + head.eyes[1].position[axis]);
+				}
+				wheel_centre[1] -= wheel_below;
+				wheel_centre[2] -= wheel_ahead; // LOCAL -z: the seat faces the car's front (the view rides with it)
+				centre_known = true;
+			}
+			wheel_input in;
+			in.seconds = seconds;
+			const std::uint16_t grips[2] = { XINPUT_GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER };
+			for (int hand = 0; hand < 2; ++hand)
+			{
+				in.hands[hand].held = hands.valid[hand] && (raw.buttons & grips[hand]) != 0;
+				in.hands[hand].x = hands.grip[hand].position[0] - wheel_centre[0];
+				in.hands[hand].y = hands.grip[hand].position[1] - wheel_centre[1];
+			}
+			if (in.hands[0].held && in.hands[1].held)
+			{
+				// Two hands show where the wheel is: its centre follows their midpoint (slowly, so it does not
+				// jump under a hand that lets go).
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					const float middle = 0.5f * (hands.grip[0].position[axis] + hands.grip[1].position[axis]);
+					wheel_centre[axis] += (middle - wheel_centre[axis]) * std::fmin(1.0f, seconds * 2.0f);
+				}
+			}
+			in.throttle = raw.right_trigger / 255.0f;
+			in.brake = raw.left_trigger / 255.0f;
+			in.stick_x = raw.left_x / 32767.0f;
+			in.stick_y = raw.left_y / 32767.0f;
+			last_wheel = wheel.update(in);
+			pad.left_x = stick_axis(last_wheel.steer);
+			pad.left_y = stick_axis(last_wheel.drive);
+			pad.left_trigger = 0;
+			pad.right_trigger = 0;
+			pad.connected = true;
+			return pad;
 		}
 
 		// The local soldier's weapons component and current ClientSoldierWeapon (0 when unreadable).
@@ -267,6 +360,29 @@ namespace bfvr::input
 		// The grips hold the gun and drive the mod's gestures (reload, grenades, holsters, signals);
 		// as LB/RB they would throw grenades and fire. The left trigger (ADS) zooms the view, which in
 		// VR changes the field of view under the player. Both stay out of the game unless enabled.
+		const bool vehicle = game::in_vehicle();
+		{
+			const std::lock_guard guard(drive_lock);
+			if (vehicle != driving)
+			{
+				driving = vehicle;
+				wheel.reset();
+				centre_known = false;
+				last_wheel = {};
+				vehicle_entries += vehicle ? 1 : 0;
+				log::write("drive: %s (controls %s)", vehicle ? "in a vehicle" : "on foot", drive_mode.load() == drive_controls::wheel ? "wheel" : "stick");
+			}
+		}
+		if (vehicle)
+		{
+			if (steering.exchange(false))
+			{
+				steer.reset();
+			}
+			move_rotation = 0.0f;
+			physical_target = -1;
+			return for_vehicle(raw);
+		}
 		gamepad_state pad = raw;
 		if (!grips_to_game.load(std::memory_order_relaxed))
 		{
@@ -461,6 +577,41 @@ namespace bfvr::input
 		return body_yaw;
 	}
 
+	bool vehicle_view(float game_yaw)
+	{
+		if (!game::in_vehicle())
+		{
+			return false;
+		}
+		// Leaving the vehicle carries on from the way it faced.
+		body_yaw = game_yaw;
+		body_yaw_known = true;
+		return true;
+	}
+
+	void set_drive_controls(drive_controls controls, float lock_degrees)
+	{
+		drive_mode = controls;
+		wheel_config config;
+		if (lock_degrees >= 30.0f && lock_degrees <= 540.0f)
+		{
+			config.lock = lock_degrees * 3.14159265f / 180.0f;
+		}
+		const std::lock_guard guard(drive_lock);
+		wheel.configure(config);
+	}
+
+	std::string drive_report()
+	{
+		const std::lock_guard guard(drive_lock);
+		char text[256];
+		std::snprintf(text, sizeof(text), "drive: vehicle=%d controls=%s entries=%llu polls=%llu wheel angle=%.1f deg hands=%d steer=%.2f drive=%.2f centre=%s",
+			driving ? 1 : 0, drive_mode.load() == drive_controls::wheel ? "wheel" : "stick", static_cast<unsigned long long>(vehicle_entries.load()),
+			static_cast<unsigned long long>(drive_polls.load()), last_wheel.angle * 57.29578f, last_wheel.hands, last_wheel.steer, last_wheel.drive,
+			centre_known ? "set" : "-");
+		return text;
+	}
+
 	bool body_yaw_now(float& yaw)
 	{
 		yaw = body_yaw;
@@ -609,6 +760,9 @@ namespace bfvr::input
 	// BF3 (x86) has no mapped aimer or stance: the right stick stays a look stick.
 	void set_sprint_steer(bool) {}
 	bool sprint_steer_yaw(float&) { return false; }
+	void set_drive_controls(drive_controls, float) {}
+	bool vehicle_view(float) { return false; }
+	std::string drive_report() { return "drive: x64 only"; }
 	void set_game_buttons(bool, bool, bool) {}
 	void set_item_left_trigger(bool) {}
 	void set_sight_aim(bool) {}

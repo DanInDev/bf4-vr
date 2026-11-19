@@ -1,5 +1,7 @@
 #include "weapon/zoom_mesh.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <algorithm>
@@ -24,7 +26,6 @@ namespace bfvr::weapon
 #if defined(_M_X64)
 		// Chain as weapon/hip_accuracy; WeaponStates and the factor from the type registry, read and
 		// written live on the SCAR-H (re/symbols/bf4-179547.md).
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull);
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_begin = 0x890;
 		constexpr std::uintptr_t weapons_end = 0x898;
@@ -142,7 +143,7 @@ namespace bfvr::weapon
 			return;
 		}
 		std::uintptr_t soldier{}, weapons{}, begin{}, end{};
-		if (!read(local_soldier_global, soldier) || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_begin, begin)
+		if (!(soldier = game::local_soldier()) != 0 || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_begin, begin)
 			|| !read(weapons + weapons_end, end) || !begin || end <= begin)
 		{
 			return;

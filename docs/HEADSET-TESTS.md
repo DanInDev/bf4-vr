@@ -266,6 +266,16 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | GUN-41 | open | With an AK-12, a SCAR-H, an M416 and a Scout: pull the charging handle (bolt) slowly all the way back, hold it a moment, let go. Then with an 870: take a shell from the pouch; take a grenade and pull its pin | At the back a short knock from that gun's own rack sound (the M416: the G36C's), then the gun's bolt going home. Taking a shell sounds like the cloth of a weapon switch; the pin sounds like the game's own grenade pin, not a synthetic ping. Nothing of it sounds recorded or noisy. `python -E -P tools\game_cues.py --remove` takes them all out again | game-file cues | monitor 2026-11-17 (Prologue): rear stop AK-12 +28 dB (the game's rack +30), SCAR-H +20, M416 (G36C's) +11, Scout +32; 870 shell from the pouch +21; pin +15 (pin_volume 0 silences it); log names each gun's file |
 | GUN-42 | open | Panel Weapon > Tune grab zones with a gun in hand: pick Zone to tune = Charging handle; move Right, Up, Forward and Size and watch the ring move; grab there and rack. Take another gun: the sliders show its own values. Pick Magazine, then (M249) Lid. Save all guns; Use tuned zones off and on to compare | The ring follows each slider at once, and the grab works where the ring is. Each gun keeps its own values; after Save they are in bfvr_zones.ini beside bfvr.ini and come back after a restart | grab-zone tuner | not checked in game (owner: merge now, test later): unit test zone_tuning, gate green, 2026-11-17 |
 
+## Driving
+
+Baku checkpoint "Reach Secondary Extraction" (you start in the driver's seat). Panel Controls > Driving.
+
+| ID | Status | Check | Look for | Issue | Last result |
+| --- | --- | --- | --- | --- | --- |
+| DRIVE-1 | open | `drive_controls = stick`: drive with the left stick (forward, back to brake and reverse, sideways to steer), take a few turns, look around with your head | The car goes where the stick says, also with your head turned; the view turns with the car (the dashboard stays in front of you), the horizon tilts with the car on bumps without making you sick; the right stick does nothing | vehicle controls | 2026-11-19 monitor: stick forward 9.4 m in 2.5 s, back reverses, sideways steers ~70 deg; the view followed the car only after this change (before it stayed facing the passenger) |
+| DRIVE-2 | open | Panel: Drive with = Steering wheel. Put both hands where the car's wheel is, squeeze both grips, turn it like a real wheel; right trigger to drive, left to brake and reverse; let go of the wheel in a turn | Turning the wheel steers in the same direction, about 90 degrees of wheel for full lock (Wheel turn for full lock tunes it); triggers work as pedals; let go, the steering springs back to straight. With one hand on the rim it still steers | vehicle controls | monitor pending (fake hands) |
+| DRIVE-3 | open | Get out of the car and back in if the level allows; then walk on after the drive | On foot everything is as before: walk where you look, snap turn, sprint, gun aim; no jump in facing when you step out | vehicle controls | |
+
 ## Haptics and sound
 
 | ID | Status | Check | Look for | Issue | Last result |

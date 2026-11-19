@@ -1,5 +1,7 @@
 #include "stereo/gun_pass_fov.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <cstdint>
@@ -20,7 +22,6 @@ namespace bfvr::stereo::gun_pass_fov
 		constexpr std::uintptr_t view_hip_fov = 0x13D0;
 		// The local soldier's current weapon (as weapon/physical_reload reads it) and its runtime zoom
 		// levels: begin/end of an array of WeaponZoomLevelData*, RenderFov at +0x10 (0x140FB8290).
-		constexpr std::uintptr_t local_soldier_global = 0x14230f260ull;
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_flags = 0x28;
 		constexpr std::uintptr_t weapons_index_a = 0x8d8;
@@ -95,7 +96,7 @@ namespace bfvr::stereo::gun_pass_fov
 		{
 			std::uintptr_t soldier{}, weapons{}, holder{}, begin{}, end{}, weapon{};
 			std::uint32_t flags{}, index{};
-			if (!read(local_soldier_global, soldier) || !soldier || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
+			if (!(soldier = game::local_soldier()) != 0 || !soldier || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
 				|| !read(weapons + ((flags & 4) ? weapons_index_b : weapons_index_a), holder) || !read(holder + 0x8, index)
 				|| !read(weapons + weapons_begin, begin) || !read(weapons + weapons_end, end) || !begin || end <= begin
 				|| index >= (end - begin) / 8 || index >= max_slots || !read(begin + index * 8, weapon))

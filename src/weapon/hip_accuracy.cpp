@@ -1,5 +1,7 @@
 #include "weapon/hip_accuracy.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <algorithm>
@@ -21,7 +23,6 @@ namespace bfvr::weapon
 
 #if defined(_M_X64)
 		// Chain as weapon/physical_reload (re/notes/weapon.md "Recoil data", typeinfo GunSwayData).
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull);
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_begin = 0x890;
 		constexpr std::uintptr_t weapons_end = 0x898;
@@ -179,7 +180,7 @@ namespace bfvr::weapon
 		last_scan = now;
 		applied = t;
 		std::uintptr_t soldier{}, weapons{}, begin{}, end{};
-		if (!read(local_soldier_global, soldier) || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_begin, begin)
+		if (!(soldier = game::local_soldier()) != 0 || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_begin, begin)
 			|| !read(weapons + weapons_end, end) || !begin || end <= begin)
 		{
 			return;

@@ -195,6 +195,8 @@ namespace bfvr::settings
 			{ "dominant_hand", "Controls", "Moving and turning", "Gun hand", "Left mirrors the controllers", "right=Right|left=Left" },
 			{ "move_direction", "Controls", "Moving and turning", "Walk towards", "Where you look, the gun, or the body", "head=Head|gun=Gun|body=Body" },
 			{ "sprint_steer", "Controls", "Moving and turning", "Sprint and vault where you look", "The soldier turns with you while sprinting", "" },
+			{ "drive_controls", "Controls", "Driving", "Drive with", "Left stick, or a wheel with the triggers as pedals", "stick=Left stick|wheel=Steering wheel" },
+			{ "wheel_lock_degrees", "Controls", "Driving", "Wheel turn for full lock", "Degrees; less is quicker steering", "", true },
 			{ "right_stick", "Controls", "Moving and turning", "Right stick", "Turn and stance, or the game's aiming", "turn=Turn|look=Aim" },
 			{ "turn", "Controls", "Moving and turning", "Turning", "With the right stick", "snap=Snap|smooth=Smooth|off=Off" },
 			{ "snap_turn_degrees", "Controls", "Moving and turning", "Snap turn angle", "Degrees per flick", "" },

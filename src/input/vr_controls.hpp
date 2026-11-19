@@ -71,6 +71,23 @@ namespace bfvr::input
 	// Game thread: while sprinting or vaulting, the yaw the soldier should face (camera convention).
 	bool sprint_steer_yaw(float& yaw);
 
+	// Driving (the controlled entity is a vehicle, common/controlled): the left stick reaches the game as it is
+	// (the game drives with it: y throttle / brake and reverse, x steering), the right stick is the head's job
+	// (zeroed), stance, sprint steer and snap turns rest. drive_controls = wheel: the grips hold a steering
+	// wheel in front of the seat (input/drive_wheel), the right trigger is throttle and the left brake /
+	// reverse; the left stick still drives while the wheel is free and no trigger is pressed.
+	enum class drive_controls
+	{
+		stick,
+		wheel,
+	};
+	void set_drive_controls(drive_controls controls, float lock_degrees);
+	// Game thread (view copy): in a vehicle the view rides with it: the body yaw follows the game's camera
+	// yaw (no levelling, no controller aim). True while in a vehicle.
+	bool vehicle_view(float game_yaw);
+	// Pipe "drive": what the driving controls do now.
+	std::string drive_report();
+
 	// Holds the aimer pitch at 0 every frame (the head alone pitches the view, #5).
 	void set_neutral_pitch(bool enabled);
 
