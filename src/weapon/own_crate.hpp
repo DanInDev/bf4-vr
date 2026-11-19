@@ -9,9 +9,12 @@
 // 100, the call ServerCustomizeSoldierEntity makes on its apply event). Research stage: pipe `givegun`.
 namespace bfvr::weapon
 {
-	// Pipe "givegun <debug id> [slot]", e.g. "givegun U_M416 0": finds the gun's SoldierWeaponUnlockAsset and queues
-	// the customization for the game thread; waits up to 2 s for it to run.
+	// Pipe "givegun <debug id> [slot] [attachment ids]", e.g. "givegun U_SteyrAug 0 U_SteyrAug_Magnifier": finds the
+	// gun's SoldierWeaponUnlockAsset (and each attachment's BFUnlockAsset, put in its UnlockAssets) and queues the
+	// customization for the game thread; waits up to 2 s for it to run.
 	std::string give_gun_pipe_command(const std::string& argument);
+	// Pipe "unlockfind <text>": the attachment unlocks (BFUnlockAsset) whose name contains the text.
+	std::string unlock_find_pipe_command(const std::string& text);
 
 	// Settings crate_primary / crate_secondary, every frame (from own_crate_on_game_thread): a gun picked on the panel
 	// goes into slot 0 / 1 and into the hand once the pick has settled (the asset is looked up in the background, the

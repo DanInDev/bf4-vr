@@ -172,6 +172,12 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   soldier through `common/controlled` `game::local_soldier()`, never the raw global. Pad X is Start under `x_menu`
   (a test pressing X pauses); the pause menu ignores `pipe pointer` clicks, pad A on the highlighted RESUME closes it.
   The campaign menu's objective text can lag (it showed "Help Dunn" but resumed in the car). `re/notes/vehicle.md`.
+- 2026-11-19 (sights probe, #137): `givegun` gives a gun **without attachments** unless you name them
+  (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; `unlockfind <text>` lists them, not every optic is loaded in
+  every level). For fake-hand sight tests set `free_hands 0` and `use_reach 0` live: else the gun drops to the sling
+  when a grip hold ends (a re-give does not bring it back, `holster` says `dropped=1`) and the off hand ahead and low
+  presses "use". `pad` holds at most 10 s. `zoommesh 1` forces the **hip** model, `0` the zoom model. Pipe `scan` is a
+  full heap walk: 91 s, and the pipe answers nothing meanwhile; never put it in a polling loop.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
