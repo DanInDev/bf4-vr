@@ -1,5 +1,7 @@
 #include "body/soldier_radius.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <algorithm>
@@ -30,7 +32,6 @@ namespace bfvr::body
 	{
 		// re/symbols/bf4-179547.md "Soldier collision": local soldier -> +0x30 SoldierEntityData ->
 		// +0x118 CharacterPhysicsData -> +0x48 PhysicalRadius (read at spawn).
-		constexpr std::uintptr_t local_soldier_global = 0x14230F260;
 		constexpr std::size_t soldier_data = 0x30;
 		constexpr std::size_t character_physics = 0x118;
 		constexpr std::size_t physical_radius = 0x48;
@@ -159,7 +160,7 @@ namespace bfvr::body
 		std::uintptr_t physics_data()
 		{
 			std::uintptr_t soldier{}, data{}, physics{};
-			if (!read(local_soldier_global, soldier) || !soldier || !read(soldier + soldier_data, data) || !data || !read(data + character_physics, physics))
+			if (!(soldier = game::local_soldier()) != 0 || !soldier || !read(soldier + soldier_data, data) || !data || !read(data + character_physics, physics))
 			{
 				return 0;
 			}

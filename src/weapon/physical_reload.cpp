@@ -1,5 +1,7 @@
 #include "weapon/physical_reload.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 #include <Xinput.h>
 
@@ -42,7 +44,6 @@ namespace bfvr::weapon
 	namespace
 	{
 		// BF4 179547 (re/notes/weapon.md). Client: local soldier -> weapons component -> current slot.
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull); // x64 only: update() is compiled out on x86
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_flags = 0x28;
 		constexpr std::uintptr_t weapons_index_a = 0x8d8;
@@ -133,7 +134,7 @@ namespace bfvr::weapon
 			game_weapon weapon;
 			std::uintptr_t soldier{}, weapons{}, holder{}, begin{}, end{}, client{};
 			std::uint32_t flags{}, index{};
-			if (!read(local_soldier_global, soldier) || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
+			if (!(soldier = game::local_soldier()) != 0 || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
 				|| !read(weapons + ((flags & 4) ? weapons_index_b : weapons_index_a), holder) || !read(holder + 0x8, index)
 				|| !read(weapons + weapons_begin, begin) || !read(weapons + weapons_end, end) || !begin || end <= begin
 				|| index >= (end - begin) / 8 || index >= max_slots || !read(begin + index * 8, client) || !client)

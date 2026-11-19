@@ -164,6 +164,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-17: pipe `reload setammo 0` only starts the game's empty reload on a freshly given gun (`givegun` first),
   and only with BF4 in front (`tools\game.ps1 focus`, ask first). `handle_probe` gives into the slot in hand; giving
   into another slot recorded the gun in hand for every gun.
+- 2026-11-19 (driving): `[0x14230F260]` is the **controlled entity**, a `ClientVehicleEntity` while driving: read the
+  soldier through `common/controlled` `game::local_soldier()`, never the raw global. Pad X is Start under `x_menu`
+  (a test pressing X pauses); the pause menu ignores `pipe pointer` clicks, pad A on the highlighted RESUME closes it.
+  The campaign menu's objective text can lag (it showed "Help Dunn" but resumed in the car). `re/notes/vehicle.md`.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

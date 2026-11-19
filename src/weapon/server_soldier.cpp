@@ -1,5 +1,7 @@
 #include "weapon/server_soldier.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <atomic>
@@ -16,7 +18,6 @@ namespace bfvr::weapon
 	namespace
 	{
 		// BF4 179547, x64 only (re/symbols/bf4-179547.md "The player's server soldier").
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull);   // ClientSoldierEntity*
 		constexpr std::uintptr_t client_animatable = 0x1e8;               // first-person rig: +0x90 world transform, feet at +0x30
 		constexpr std::uintptr_t client_feet = 0x90 + 0x30;
 		constexpr std::uintptr_t server_soldier_vtable = static_cast<std::uintptr_t>(0x141e67ba0ull);   // ServerSoldierEntity (typeinfo vtable map)
@@ -54,7 +55,7 @@ namespace bfvr::weapon
 		bool feet_of_client(std::uintptr_t& soldier, float (&feet)[3])
 		{
 			std::uintptr_t rig{};
-			return read(local_soldier_global, soldier) && soldier && read(soldier + client_animatable, rig) && rig && read(rig + client_feet, feet);
+			return (soldier = game::local_soldier()) != 0 && soldier && read(soldier + client_animatable, rig) && rig && read(rig + client_feet, feet);
 		}
 
 		soldier_candidate candidate(std::uintptr_t address)

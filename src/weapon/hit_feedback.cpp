@@ -1,5 +1,7 @@
 #include "weapon/hit_feedback.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 
 #include <cmath>
@@ -22,7 +24,6 @@ namespace bfvr::weapon
 {
 	namespace
 	{
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull);
 		constexpr std::uintptr_t soldier_health_component = 0x140; // BFClientSoldierHealthComponent*
 		constexpr std::uintptr_t component_health = 0x20;          // health, then max health
 
@@ -62,7 +63,7 @@ namespace bfvr::weapon
 #if defined(_M_X64)
 		std::uintptr_t soldier{}, component{};
 		float health[2]{}; // health, max
-		const bool known = read(local_soldier_global, soldier) && soldier && read(soldier + soldier_health_component, component)
+		const bool known = (soldier = game::local_soldier()) != 0 && soldier && read(soldier + soldier_health_component, component)
 			&& read(component + component_health, health) && std::isfinite(health[0]) && health[1] > 0.0f && health[1] <= 10000.0f;
 		const ULONGLONG now = GetTickCount64();
 		switch (life.update(known, health[0]))

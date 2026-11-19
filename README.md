@@ -130,6 +130,10 @@ Grab by putting a hand into a zone and squeezing its grip.
 
 ![Grab zones around the body: shoulders, chest and hips](docs/img/grab-zones.svg)
 
+Driving a car: the left stick drives (forward, back to brake and reverse, sideways to steer) and the view rides
+with the car. On the panel (Controls > Driving) you can switch to a steering wheel: squeeze both grips to hold it
+and turn it, with the right trigger as throttle and the left as brake and reverse.
+
 Hold the left menu button (≡) for the settings panel inside VR. Buttons can be remapped on its Controls page
 or in the launcher, with presets such as "Jump on B, reload on A". The full controller mapping for menus is in
 the [technical notes](docs/architecture/README.md#controller-mapping-in-menus-theater-mode).

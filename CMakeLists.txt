@@ -82,6 +82,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/generated/ui_art_data.cpp
 
 add_library(bfvr_common STATIC
 	src/common/config.cpp
+	src/common/controlled.cpp
 	src/common/log.cpp
 	src/common/settings.cpp
 	src/common/settings_store.cpp
@@ -129,6 +130,7 @@ add_library(bfvr_runtime STATIC
 	src/input/virtual_pad.cpp
 	src/input/vr_controls.cpp
 	src/input/move_steer.cpp
+	src/input/drive_wheel.cpp
 	src/safety/mp_guard.cpp
 	src/safety/mp_rules.cpp
 	src/body/arm_ik.cpp
@@ -286,6 +288,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_break_open_test PRIVATE bfvr_common)
 	add_executable(bfvr_move_steer_test tests/move_steer_test.cpp src/input/move_steer.cpp)
 	target_link_libraries(bfvr_move_steer_test PRIVATE bfvr_common)
+	add_executable(bfvr_drive_wheel_test tests/drive_wheel_test.cpp src/input/drive_wheel.cpp src/input/move_steer.cpp)
+	target_link_libraries(bfvr_drive_wheel_test PRIVATE bfvr_common)
 	add_executable(bfvr_right_stick_test tests/right_stick_test.cpp src/input/right_stick.cpp)
 	target_link_libraries(bfvr_right_stick_test PRIVATE bfvr_common)
 	# Where the shot line meets the scene, from the depth (the green dot's distance).
@@ -450,6 +454,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME muzzle_move COMMAND bfvr_muzzle_move_test)
 	add_test(NAME break_open COMMAND bfvr_break_open_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
+	add_test(NAME drive_wheel COMMAND bfvr_drive_wheel_test)
 	add_test(NAME trigger_latch COMMAND bfvr_trigger_latch_test)
 	add_test(NAME crate_guns COMMAND bfvr_crate_guns_test)
 	add_test(NAME pin_sound COMMAND bfvr_pin_sound_test)

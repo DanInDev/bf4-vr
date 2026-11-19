@@ -1,5 +1,7 @@
 #include "weapon/weapon_swap.hpp"
 
+#include "common/controlled.hpp"
+
 #include <windows.h>
 #include <Xinput.h>
 
@@ -44,7 +46,6 @@ namespace bfvr::weapon
 	namespace
 	{
 		// BF4 179547: local soldier -> weapons component -> current slot index (re/notes/aim.md).
-		constexpr std::uintptr_t local_soldier_global = static_cast<std::uintptr_t>(0x14230f260ull); // x64 only
 		constexpr std::uintptr_t soldier_weapons = 0x570;
 		constexpr std::uintptr_t weapons_flags = 0x28;
 		constexpr std::uintptr_t weapons_index_a = 0x8d8;
@@ -79,7 +80,7 @@ namespace bfvr::weapon
 			slot_state state;
 			std::uintptr_t soldier{}, weapons{}, holder{}, begin{}, end{}, weapon{}, unlock{}, name{};
 			std::uint32_t flags{}, index{};
-			if (!read(local_soldier_global, soldier) || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
+			if (!(soldier = game::local_soldier()) != 0 || !read(soldier + soldier_weapons, weapons) || !read(weapons + weapons_flags, flags)
 				|| !read(weapons + ((flags & 4) ? weapons_index_b : weapons_index_a), holder) || !read(holder + 0x8, index)
 				|| !read(weapons + weapons_begin, begin) || !read(weapons + weapons_end, end) || !begin || index >= (end - begin) / 8)
 			{
