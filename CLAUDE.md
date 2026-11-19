@@ -100,6 +100,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   `setting set right_stick look` to pitch the view, then back.
 - The user's own mouse and keyboard reach BF4 when they use the PC: check `GetLastInputInfo` or ask before
   sending input; stop if shots or weapon swaps happen that you did not cause.
+- From 2026-11-19 the resume checkpoint is **Shanghai, in front of a weapon cache** (level `SP_Shanghai`): the Baku notes
+  below (crate beside you, gadget stash, red room) describe the old one. Crate guns for tests: `givegun` / the own crate
+  (#80), e.g. `U_USAS-12_SP` (scope), `U_SteyrAug` (magnifier), `U_SRS` (sniper scope). Untested there yet: say so if
+  `givegun` fails in Shanghai.
 - Esc skips a cutscene during its loading screen (owner, 2026-11-15); the resume checkpoint starts with the
   Shanghai briefing cutscene, which at the headless ~3 fps otherwise takes minutes. The level no longer spawns
   you with the SCAR and AK: they are in the weapon crate beside you (owner, 2026-11-15).
