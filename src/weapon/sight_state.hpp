@@ -23,6 +23,9 @@ namespace bfvr::weapon
 		int selected{};       // the level the next aim uses (aiming simulation +0x1F8)
 		int current{};        // the level in use now (0 at the hip; +0x1E8)
 		sight_type selected_type{ sight_type::none };
+		// Each level's vertical FOV as the game zooms to it (degrees, 0 unreadable), level 0 = the hip: the aiming
+		// simulation's resolved ZoomLevelData (the optic's modifiers applied), FieldOfViewSP else FieldOfView.
+		float level_fov[8]{};
 		// The gun's attachments from its unlock set (weapons component +0x120 + 0xC0 * slot: a tree of
 		// unlock assets, re/notes/weapon.md): which optics it carries, and the optic's unlock name.
 		bool attachments_known{};
@@ -32,6 +35,9 @@ namespace bfvr::weapon
 
 	// Reads the game (any thread; a dozen ReadProcessMemory calls).
 	sight_state read_sight_state();
+	// The selected level's magnification from the game's data (#138): tan(hip / 2) / tan(level / 2), 1 for a 1x sight
+	// (below min_optic_power: a red dot or holo), 0 when unknown.
+	float zoom_power(const sight_state& state);
 	// Pipe "sightstate".
 	std::string sight_state_report();
 }

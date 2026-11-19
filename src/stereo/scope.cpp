@@ -94,10 +94,14 @@ namespace bfvr::stereo
 		// At the hip: the magnifier (marked in the data), or any sight whose zoom the game has shown (a 4x).
 		// Until the game has shown a level's zoom: the magnifier's measured 1.73x, a magnified scope's
 		// nominal zoom (weapon/optics), else none.
+		// #138: first the game's own zoom data for the selected level (every optic, no name table): a red dot or
+		// holo comes out below min_magnification, so it gets no picture.
+		const float data_zoom = weapon::zoom_power(sight);
 		const bool magnifier = sight.selected_type == weapon::sight_type::magnifier;
 		const bool scope_level = sight.selected_type == weapon::sight_type::none && sight.optics.magnified;
 		const float unlearned = magnifier ? magnifier_default : scope_level ? sight.optics.magnification : 1.0f;
-		const float hip_zoom = sight.valid && sight.selected > 0 ? learned.lookup(sight.weapon, sight.selected, unlearned) : 1.0f;
+		const float hip_zoom = data_zoom > 0.0f ? data_zoom
+			: sight.valid && sight.selected > 0 ? learned.lookup(sight.weapon, sight.selected, unlearned) : 1.0f;
 		const bool at_hip = !aiming && hip_zoom >= min_magnification;
 		if (at_hip)
 		{

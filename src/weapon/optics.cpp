@@ -1,6 +1,7 @@
 #include "weapon/optics.hpp"
 
 #include <cctype>
+#include <cmath>
 #include <cstring>
 
 namespace bfvr::weapon
@@ -97,5 +98,15 @@ namespace bfvr::weapon
 	bool needs_game_aim(const gun_optics& gun)
 	{
 		return !(gun.reflex && gun.reflex_clear && !gun.magnifier && !gun.magnified);
+	}
+
+	float optic_power(float hip_fov_degrees, float level_fov_degrees)
+	{
+		constexpr float half_degree = 3.14159265f / 360.0f;
+		if (!(hip_fov_degrees > 1.0f && hip_fov_degrees < 170.0f && level_fov_degrees > 0.5f && level_fov_degrees < 170.0f))
+		{
+			return 0.0f;
+		}
+		return std::tan(hip_fov_degrees * half_degree) / std::tan(level_fov_degrees * half_degree);
 	}
 }

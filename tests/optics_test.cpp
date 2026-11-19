@@ -72,6 +72,12 @@ int main()
 	add_optic(holo_scope, "U_X_EOTech");
 	add_optic(holo_scope, "U_X_ACOG");
 	expect(needs_game_aim(holo_scope), "a holo with a scope");
+	// #138: power from the game's zoom data (live FOVs, hip 45).
+	expect(std::fabs(optic_power(45.0f, 27.0f) - 1.725f) < 0.01f, "the magnifier: 1.73x, as the game's aim showed");
+	expect(std::fabs(optic_power(45.0f, 17.2f) - 2.74f) < 0.01f, "ACOG / PSO-1: 2.74x");
+	expect(std::fabs(optic_power(45.0f, 8.7f) - 5.44f) < 0.02f, "SRS rifle scope: 5.44x");
+	expect(optic_power(45.0f, 40.0f) < min_optic_power && optic_power(45.0f, 42.0f) < min_optic_power, "red dots, holos and irons count as 1x");
+	expect(optic_power(0.0f, 17.2f) == 0.0f && optic_power(45.0f, 0.0f) == 0.0f && optic_power(45.0f, 200.0f) == 0.0f, "unread or nonsense FOVs give no power");
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);
