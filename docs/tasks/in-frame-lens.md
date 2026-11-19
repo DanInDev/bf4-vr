@@ -92,6 +92,11 @@ because our zoom-mesh lens mask and the zoom level data already give the glass a
 
 ### Plan from here (replaces steps 3-4 above)
 
+"Scope" here means every optic (owner, 2026-11-19), each kind checked at every step: **1x reflex sights** (red dots,
+holos), **magnified scopes** (real zoom, sniper scopes) and **flip magnifiers** behind a reflex sight (1x flipped out,
+magnified flipped in, switching live). One glass shader for all: power 1 and no field stop for reflex sights. Issues
+#137-#140 (S1-S4).
+
 1. **The glass shader on the lens mask.** Swap `scope_in_frame`'s quad for a full-lens draw with GD's pixel maths:
    ray from the draw's centre of projection, slope / power, field stop, edge darkening. Source (b) when the scope
    render drew this frame, else source (a), a copy of the eye's HDR scene at that draw. So a scope is never black.
