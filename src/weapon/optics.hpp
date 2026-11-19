@@ -46,4 +46,8 @@ namespace bfvr::weapon
 	float optic_power(float hip_fov_degrees, float level_fov_degrees);
 	// Below this the zoom is the game's ADS nudge of a red dot or holo (45 -> 40 degrees): a 1x sight.
 	constexpr float min_optic_power = 1.25f;
+	// The selected zoom level's power from the levels' FOVs (degrees, level 0 = the hip): optic_power of that level,
+	// 1 for a 1x sight (below min_optic_power), 0 when the level is out of range (0, past the levels or the array)
+	// or a FOV is unusable (the caller falls back to the learned zoom or the name table).
+	float level_power(const float* level_fov, int levels, int capacity, int selected);
 }

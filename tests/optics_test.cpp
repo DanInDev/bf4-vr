@@ -78,6 +78,18 @@ int main()
 	expect(std::fabs(optic_power(45.0f, 8.7f) - 5.44f) < 0.02f, "SRS rifle scope: 5.44x");
 	expect(optic_power(45.0f, 40.0f) < min_optic_power && optic_power(45.0f, 42.0f) < min_optic_power, "red dots, holos and irons count as 1x");
 	expect(optic_power(0.0f, 17.2f) == 0.0f && optic_power(45.0f, 0.0f) == 0.0f && optic_power(45.0f, 200.0f) == 0.0f, "unread or nonsense FOVs give no power");
+	// level_power: the selected level against the hip, its bounds and the 1x clamp.
+	const float cz_magnifier[8]{ 45.0f, 40.0f, 27.0f };
+	expect(level_power(cz_magnifier, 3, 8, 1) == 1.0f, "the holo level reports 1x (1.14 clamped)");
+	expect(std::fabs(level_power(cz_magnifier, 3, 8, 2) - 1.725f) < 0.01f, "the magnifier level: 1.73x");
+	expect(level_power(cz_magnifier, 3, 8, 0) == 0.0f, "level 0 (the hip) is no optic level");
+	expect(level_power(cz_magnifier, 3, 8, 3) == 0.0f && level_power(cz_magnifier, 3, 8, -1) == 0.0f, "out of the levels: unknown");
+	expect(level_power(cz_magnifier, 9, 8, 8) == 0.0f, "past the array: unknown");
+	const float unread[8]{ 0.0f, 17.2f };
+	expect(level_power(unread, 2, 8, 1) == 0.0f, "an unread hip FOV: unknown, the caller falls back");
+	expect(level_power(nullptr, 2, 8, 1) == 0.0f, "no levels: unknown");
+	const float acog_levels[8]{ 45.0f, 17.2f };
+	expect(std::fabs(level_power(acog_levels, 2, 8, 1) - 2.74f) < 0.01f, "ACOG level: 2.74x, not clamped");
 	if (failures)
 	{
 		std::printf("%d failure(s)\n", failures);

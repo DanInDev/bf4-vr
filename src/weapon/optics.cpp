@@ -109,4 +109,14 @@ namespace bfvr::weapon
 		}
 		return std::tan(hip_fov_degrees * half_degree) / std::tan(level_fov_degrees * half_degree);
 	}
+
+	float level_power(const float* level_fov, int levels, int capacity, int selected)
+	{
+		if (!level_fov || selected <= 0 || selected >= levels || selected >= capacity)
+		{
+			return 0.0f;
+		}
+		const float power = optic_power(level_fov[0], level_fov[selected]);
+		return power > 0.0f && power < min_optic_power ? 1.0f : power;
+	}
 }

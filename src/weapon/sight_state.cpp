@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
 
 namespace bfvr::weapon
 {
@@ -190,13 +191,7 @@ namespace bfvr::weapon
 
 	float zoom_power(const sight_state& state)
 	{
-		if (!state.valid || state.selected <= 0 || state.selected >= state.levels || state.selected >= 8)
-		{
-			return 0.0f;
-		}
-		const float power = optic_power(state.level_fov[0], state.level_fov[state.selected]);
-		// The game nudges red dots and holos 45 -> 40 degrees in its ADS: still a 1x sight.
-		return power > 0.0f && power < min_optic_power ? 1.0f : power;
+		return state.valid ? level_power(state.level_fov, state.levels, static_cast<int>(std::size(state.level_fov)), state.selected) : 0.0f;
 	}
 #else
 	sight_state read_sight_state()
