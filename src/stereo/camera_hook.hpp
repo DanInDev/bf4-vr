@@ -93,10 +93,19 @@ namespace bfvr::stereo
 	std::string cutscene_report();
 	// The game moves the camera itself now (a cutscene or the death fall; stereo/scripted_view), outside menus.
 	bool scripted_scene();
-	// Live setting scene_aim: in a scripted scene with controller aim, the game aims along the view's centre
-	// (head) instead of the controller, and the shot frame is the game's (weapon/shot_origin). For scenes where
-	// the game holds the weapon itself, like the Baku car's M320 lean-out.
-	void set_scene_aim_head(bool head);
+	// Live setting scene_aim, for scripted scenes where the game holds the weapon itself (the Baku car's M320
+	// lean-out at the helicopter): game = the mod lets go (the scene's own camera with the head on top, the game's
+	// aim and shot, the right stick and left trigger to the game); head = the shot along the view's centre (hits
+	// as seen, but the game's server round, which deals the damage, does not follow); controller = as in play.
+	enum class scene_aim
+	{
+		controller,
+		head,
+		game,
+	};
+	void set_scene_aim(scene_aim mode);
+	// A scripted scene (held 1.5 s past the detector's end) with scene_aim = game: the mod keeps out.
+	bool scene_game_control();
 	// This frame aims along the view (scene_aim = head in a scripted scene).
 	bool scene_aims_along_view();
 	// The view's centre in OpenXR LOCAL while that is so (false otherwise).

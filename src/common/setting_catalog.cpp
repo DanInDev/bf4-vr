@@ -28,7 +28,7 @@ namespace bfvr::settings
 			{ "vignette", "View", "Comfort", "Comfort vignette", "Darkens the edges when the game moves you", "off=Off|turning=Turning|moving=Moving|both=Both" },
 			{ "vignette_strength", "View", "Comfort", "Vignette strength", "How far it closes in", "" },
 			{ "cutscene_view", "View", "Comfort", "Cutscenes", "A flat screen, or look around in 3D", "screen=Flat screen|look=Look around" },
-			{ "scene_aim", "View", "Comfort", "Aim in scripted scenes", "Where you look (the game's weapon), or the controller", "head=Where you look|controller=Controller" },
+			{ "scene_aim", "View", "Comfort", "Aim in scripted scenes", "The game's own (right stick, left trigger), where you look, or the controller", "game=Game|head=Where you look|controller=Controller" },
 			{ "stream_view", "View", "Recording", "Stream view", "Steady 16:9 picture in the game window, for OBS", "" },
 			{ "stream_fov", "View", "Recording", "Stream width", "Degrees across", "" },
 			{ "stream_smoothing", "View", "Recording", "Stream steadiness", "Seconds to settle; 0 = follows your head exactly", "" },

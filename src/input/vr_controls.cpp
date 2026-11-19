@@ -18,6 +18,7 @@
 #include "input/drive_wheel.hpp"
 #include "input/move_steer.hpp"
 #include "input/right_stick.hpp"
+#include "stereo/camera_hook.hpp"
 #include "stereo/tracking.hpp"
 
 namespace bfvr::input
@@ -396,6 +397,18 @@ namespace bfvr::input
 		if (x_menu.load(std::memory_order_relaxed) && (pad.buttons & XINPUT_GAMEPAD_X))
 		{
 			pad.buttons = static_cast<std::uint16_t>((pad.buttons & ~XINPUT_GAMEPAD_X) | XINPUT_GAMEPAD_START);
+		}
+		// scene_aim = game (stereo/camera_hook): a scripted scene where the game holds the weapon, like the Baku car's
+		// M320 lean-out. The game aims as on a flat screen: the right stick looks, the left trigger aims down the sight.
+		if (stereo::scene_game_control())
+		{
+			pad.left_trigger = raw.left_trigger;
+			if (steering.exchange(false))
+			{
+				steer.reset();
+			}
+			move_rotation = 0.0f;
+			return pad;
 		}
 		const move_reference reference = move_from.load(std::memory_order_relaxed);
 		float angle = 0.0f;

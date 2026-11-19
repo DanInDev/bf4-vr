@@ -56,7 +56,7 @@ namespace bfvr::weapon
 		{
 			++calls;
 			if (frame && weapon && enabled.load(std::memory_order_relaxed) && input::controller_aim_active() && !safety::mod_disabled()
-				&& weapon == current_local_weapon())
+				&& weapon == current_local_weapon() && !stereo::scene_game_control())
 			{
 				shot_line_local line;
 				float yaw{};

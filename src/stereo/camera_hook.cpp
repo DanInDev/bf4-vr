@@ -415,7 +415,18 @@ namespace bfvr::stereo
 		// its launcher is drawn fixed to the view, no gun is in the mod's hands), so the game aims along the
 		// view's centre and its shot frame is left alone (weapon/shot_origin). Before, rounds followed the
 		// controller's ray, 27-75 degrees off what the player lined up (log 2026-11-19, re/notes/aim.md).
-		std::atomic<bool> scene_aim_head{ true };
+		// scene_aim = game (default): the visible hit was not enough there. The launcher's round is spawned by the
+		// game's in-process server from the game's own aim, which the scene resets as it fires: the round seen
+		// hit, the helicopter took nothing (owner, 2026-11-19). So in a scripted scene the mod lets go: the game's
+		// scene camera is shown (the head on top), its aim and shot frame are its own, and the right stick and the
+		// left trigger (its aim down sights) reach it (input/vr_controls), as on a flat screen.
+		std::atomic<scene_aim> scene_aim_mode{ scene_aim::game };
+		// Held 1.5 s past the detector's end (camera against aim): it can let go for a moment mid-scene.
+		std::atomic<ULONGLONG> scene_until{};
+		bool scene_now()
+		{
+			return GetTickCount64() < scene_until.load(std::memory_order_relaxed);
+		}
 		std::atomic<bool> scene_aiming{}; // this frame aims along the view (read by weapon/shot_origin)
 		// The view's centre in LOCAL while scene_aiming. The game resets its aimer when the scene's launcher fires
 		// (log 2026-11-19: back to the car's heading at each trigger pull), so the round follows the shot frame,
@@ -449,15 +460,7 @@ namespace bfvr::stereo
 				fp_turn_until = GetTickCount64() + fp_turn_hold_ms;
 			}
 			mark_dirty(params);
-			// Held 1.5 s past the scene's end: with the aim on the view the detector (camera against aim) can let
-			// go for a moment in the middle of the lean-out, and the rounds would follow the controller again.
-			static ULONGLONG scene_until{};
-			const ULONGLONG now_ms = GetTickCount64();
-			if (scripted_frame)
-			{
-				scene_until = now_ms + 1500;
-			}
-			const bool along_view = now_ms < scene_until && head.valid && scene_aim_head.load(std::memory_order_relaxed);
+			const bool along_view = scripted_frame && head.valid && scene_aim_mode.load(std::memory_order_relaxed) == scene_aim::head;
 			scene_aiming = along_view;
 			if (along_view)
 			{
@@ -588,6 +591,10 @@ namespace bfvr::stereo
 			{
 				scripted_now = false; // the arms (body/arm_pose) read it; a menu is no scene
 			}
+			if (scripted_frame)
+			{
+				scene_until = GetTickCount64() + 1500;
+			}
 			const bool menu = menu_frame || (scripted_frame && cutscene_screen.load(std::memory_order_relaxed));
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
 			float world_half_vertical = 0.0f; // set in head-tracked frames: the FOV the world is rendered with
@@ -629,9 +636,9 @@ namespace bfvr::stereo
 						eye_pose.position[axis] = centre.position[axis] + (eye_pose.position[axis] - centre.position[axis]) * scale;
 					}
 				}
-				if (input::controller_aim_active())
+				if (input::controller_aim_active() && !scene_game_control())
 				{
-					aim_with_controller(params, head, scripted_frame);
+					aim_with_controller(params, head, scene_now());
 				}
 				else
 				{
@@ -1074,9 +1081,14 @@ namespace bfvr::stereo
 		return scripted_now.load(std::memory_order_relaxed);
 	}
 
-	void set_scene_aim_head(bool head)
+	void set_scene_aim(scene_aim mode)
 	{
-		scene_aim_head = head;
+		scene_aim_mode = mode;
+	}
+
+	bool scene_game_control()
+	{
+		return scene_aim_mode.load(std::memory_order_relaxed) == scene_aim::game && scene_now();
 	}
 
 	bool scene_aims_along_view()
