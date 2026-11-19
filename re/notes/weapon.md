@@ -1077,7 +1077,8 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 
 ## Every optic kind at the eye: what BF4 draws (2026-11-19 night, monitor, Shanghai, #137)
 
-Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
+Build of the captures: `sights/s2-zoom-power` 710e93f (this S1 work plus #138's zoom power from data; the draws do
+not depend on it, the mod's lens picture does: its power came from the data, ACOG 2.74). Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
 `BFUnlockAsset`s, vtable `0x141C46540`, found as `SoldierWeaponUnlockAsset`'s was: the getType `0x141A36B70` is
 `lea rax,[0x142BE3090]; ret`, the typeinfo `BFUnlockAsset`, and slot 0 of `0x141C46540` points at it; put in the
 weapon's `UnlockWeaponAndSlot.UnlockAssets` +0x18; pipe `unlockfind <text>` lists them). Release, `fakehead 0.064`,
@@ -1098,10 +1099,19 @@ Optic-specific draws (targets: `BF20` = the lit first-person pass, `DBE0` = a la
 | CZ-805 EOTech (holo) | 330 @6141, 5991 @0, 6321 @6489 | 150 @5991, 18 @6471 (zoom model: also 6 @0) | - |
 | EOTech + magnifier, folded and flipped (identical) | the EOTech's + 6273 @48, 6273 @6351 | the EOTech's + 48 @0, 30 @6321, 6 @0 | - |
 | CZ-805 ACOG (4x) | 6921 @0, 6951 @7071, **30 @6993** | 72 @6921, 24 @7023, 24 @7047, 6 @0 | **30 @6993** |
-| CZ-805 IRNV (night vision) | 360 @0, 192 @360, 552 @582 | 24 @552, 6 @576 | **6 @0** |
-| SRS Rifle_Scope | 360 @0, 192 @360, 552 @582 (the IRNV's: same model) | 24 @552, 6 @0, 6 @576 | - |
+| CZ-805 IRNV (night vision) | 360 @0, 192 @360, 552 @582: **the only lit-pass draws left, the gun and arms are gone** (see below) | 24 @552, 6 @576 | **6 @0** |
+| SRS Rifle_Scope | the same 3 draws, **the gun gone** | 24 @552, 6 @0, 6 @576 | - |
 
 Answers to the issue's question, per kind:
+- **Scope optics (IRNV, SRS rifle scope) hide the whole first-person gun while the game aims:** of the bare gun's
+  draws present in every bare capture, the IRNV removes 34 (the lit pass drops from 10 stencil-32 draws to 3: gun body
+  and arms gone), the SRS scope all 10 of its lit-pass gun draws; both leave the same three scope-model draws (360 @0,
+  192 @360, 552 @582, same shaders on two guns). The red dot, holo, magnifier and ACOG remove nothing. The mod's forced
+  aim (`sight_ads`: every capture had the game aiming, `current` 1 or 2) triggers it: that is why the SRS's gun vanished
+  in the headset ("long sniper rifles not supported", mark 75), and a candidate for the "pure black" scope (mark 21).
+  Such optics need the game's aim left off (their picture from the mod) or the gun kept drawn.
+- **The EOTech alone was not aiming** (`current=0`): by design, a clear holo skips the game's aim
+  (`weapon/optics::needs_game_aim`); with the magnifier fitted it aims (`current` 1, flipped 2).
 - **Stencil reference 32 is not a glass marker:** every first-person draw of the lit pass carries it (the bare gun's
   too). Great Destroyer's BF3 key does not carry over as is.
 - **Magnified scopes have a glass mesh of their own:** the ACOG's 30-index disc (`@6993`) is drawn in the lit pass and
@@ -1116,10 +1126,10 @@ Answers to the issue's question, per kind:
 - **Not answered here:** the USAS-12 (its optics are not loaded in Shanghai, `unlockfind USAS` finds none); the
   AUG A3 (`U_SteyrAug` lists a magnifier but no red dot or holo here); the AK-12's PK-AS (not loaded here).
 
-What the right eye shows with the mod as it is (`eyeshot2`, pictures not committed):
+What the right eye shows (`eyeshot2` on the capture build above, pictures not committed):
 - EOTech: clear window, ring centred; the folded magnifier on its hinge. Flipped in: the mod's magnified picture in the
   round lens with a red dot.
-- ACOG: the mod's picture (power from the name table) with the mod's dot; the ACOG's own chevron is not seen.
+- ACOG: the mod's picture (power 2.74 from the data on this build) with the mod's dot; the ACOG's own chevron is not seen.
 - IRNV: **the whole picture turns green night vision**, the lens brighter: the game's full-screen effect comes on with
   the forced aim. A candidate for the owner's "pure black" scope (mark 21), not proven.
 - SRS scope: the eyepiece a few cm from the eye fills the top of the view and its hole shows the world at 1x; the
