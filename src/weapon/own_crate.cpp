@@ -6,8 +6,11 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <sstream>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -27,6 +30,10 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t customize_function = 0x140FC0F30;
 		constexpr std::uint8_t customize_prologue[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xDA, 0xE8 };
 		constexpr std::uintptr_t unlock_asset_vtable = 0x141E76F40;       // SoldierWeaponUnlockAsset
+		// Attachments (optics, grips, barrels: U_<gun>_<part>) are BFUnlockAssets: getType 0x141A36B70 is
+		// lea rax,[0x142BE3090] (typeinfo BFUnlockAsset); ret, and slot 0 of this vtable points at it (2026-11-19, #137).
+		constexpr std::uintptr_t attachment_asset_vtable = 0x141C46540;
+		constexpr std::size_t max_attachments = 8;
 		constexpr std::uintptr_t customize_data_vtable = 0x141E77120;     // CustomizeSoldierData (live instances)
 		constexpr std::size_t customize_data_size = 0x58;
 		constexpr std::uintptr_t soldier_player = 0x240;                  // ServerSoldierEntity -> its player
@@ -82,10 +89,10 @@ namespace bfvr::weapon
 			}
 		}
 
-		std::uintptr_t find_unlock_asset(const std::string& debug_id)
+		std::uintptr_t find_unlock_asset(const std::string& debug_id, std::uintptr_t vtable = unlock_asset_vtable)
 		{
 			std::uintptr_t found{};
-			scan_heap(unlock_asset_vtable, [&](std::uintptr_t asset) {
+			scan_heap(vtable, [&](std::uintptr_t asset) {
 				char id[96]{};
 				if (read_text(asset + 0x20, id) && debug_id == id)
 				{
@@ -111,6 +118,7 @@ namespace bfvr::weapon
 		struct give_call
 		{
 			std::uintptr_t asset{};
+			std::vector<std::uintptr_t> attachments; // BFUnlockAssets put in the weapon's UnlockAssets
 			std::uint32_t slot{};
 			std::uintptr_t data_template{};
 			bool done{};
@@ -166,6 +174,9 @@ namespace bfvr::weapon
 				return "error: allocation";
 			}
 			const std::uintptr_t empty = make_array(block + 0x10, nullptr, 0, 8);
+			// UnlockWeaponAndSlot +0x18 UnlockAssets (typeinfo): the gun's attachments, at +0x80 (up to 8 pointers).
+			const std::uintptr_t attachments = call.attachments.empty() ? empty
+				: make_array(block + 0x80, call.attachments.data(), static_cast<std::uint32_t>((std::min)(call.attachments.size(), max_attachments)), 8);
 			struct unlock_weapon_and_slot
 			{
 				std::uintptr_t weapon;
@@ -173,7 +184,7 @@ namespace bfvr::weapon
 				std::uint32_t pad;
 				std::uintptr_t customization_unlocks;
 				std::uintptr_t unlocks;
-			} entry{ call.asset, call.slot, 0, empty, empty };
+			} entry{ call.asset, call.slot, 0, empty, attachments };
 			static_assert(sizeof(unlock_weapon_and_slot) == 32);
 			const std::uintptr_t weapons = make_array(block + 0x40, &entry, 1, sizeof(entry));
 			std::uint8_t* const data = block + 0x100;
@@ -288,17 +299,46 @@ namespace bfvr::weapon
 
 	std::string give_gun_pipe_command(const std::string& argument)
 	{
-		char id[64]{};
+		std::istringstream words(argument);
+		std::string id;
 		unsigned slot = 0;
-		if (sscanf_s(argument.c_str(), "%63s %u", id, static_cast<unsigned>(sizeof(id)), &slot) < 1 || slot > 9)
+		// The slot is optional only when nothing follows: "givegun U_X U_X_Optic" would read no slot and drop the optic.
+		std::string slot_text;
+		if (!(words >> id))
 		{
-			return "error: usage: givegun <debug id, e.g. U_M416> [slot 0..9]";
+			return "error: usage: givegun <debug id, e.g. U_M416> [slot 0..9] [attachment ids, e.g. U_SteyrAug_Magnifier ...]";
+		}
+		if (words >> slot_text)
+		{
+			char* end = nullptr;
+			const unsigned long parsed = std::strtoul(slot_text.c_str(), &end, 10);
+			if (end == slot_text.c_str() || *end || parsed > 9)
+			{
+				return "error: the slot (0..9) comes before the attachments: givegun <debug id> <slot> [attachment ids ...]";
+			}
+			slot = static_cast<unsigned>(parsed);
 		}
 		give_call call;
 		call.slot = slot;
 		if (const std::string error = prepare(call, id); !error.empty())
 		{
 			return error;
+		}
+		std::string missing;
+		for (std::string part; words >> part && call.attachments.size() < max_attachments;)
+		{
+			if (const std::uintptr_t asset = find_unlock_asset(part, attachment_asset_vtable))
+			{
+				call.attachments.push_back(asset);
+			}
+			else
+			{
+				missing += " " + part;
+			}
+		}
+		if (!missing.empty())
+		{
+			return "error: no attachment (BFUnlockAsset) named" + missing + " (pipe unlockfind <text> lists them)";
 		}
 		{
 			const std::lock_guard guard(lock);
@@ -318,6 +358,26 @@ namespace bfvr::weapon
 		const std::lock_guard guard(lock);
 		std::erase(queue, &call);
 		return call.done ? call.result : "error: the game thread did not run it within 2 s";
+	}
+
+	std::string unlock_find_pipe_command(const std::string& text)
+	{
+		if (text.size() < 3)
+		{
+			return "error: usage: unlockfind <part of a name, e.g. SteyrAug> (lists attachment unlocks)";
+		}
+		std::string out;
+		int found = 0;
+		scan_heap(attachment_asset_vtable, [&](std::uintptr_t asset) {
+			char id[96]{};
+			if (read_text(asset + 0x20, id) && std::strstr(id, text.c_str()) && out.find(std::string(id) + "\n") == std::string::npos)
+			{
+				out += std::string(id) + "\n";
+				++found;
+			}
+			return found < 200;
+		});
+		return out.empty() ? "unlockfind: none for " + text : out + std::to_string(found) + " attachment unlocks";
 	}
 
 	void own_crate_on_game_thread()
@@ -340,6 +400,7 @@ namespace bfvr::weapon
 #else
 	void own_crate_settings(std::string_view, std::string_view) {}
 	std::string give_gun_pipe_command(const std::string&) { return "error: x64 only"; }
+	std::string unlock_find_pipe_command(const std::string&) { return "error: x64 only"; }
 	void own_crate_on_game_thread() {}
 #endif
 }
