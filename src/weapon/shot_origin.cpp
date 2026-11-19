@@ -56,11 +56,19 @@ namespace bfvr::weapon
 		{
 			++calls;
 			if (frame && weapon && enabled.load(std::memory_order_relaxed) && input::controller_aim_active() && !safety::mod_disabled()
-				&& weapon == current_local_weapon())
+				&& weapon == current_local_weapon() && !stereo::scene_game_control())
 			{
 				shot_line_local line;
 				float yaw{};
-				if (input::shot_line(line.start, line.direction) && input::body_yaw_now(yaw))
+				// scene_aim = head: in a scripted scene (the Baku car's M320 lean-out) the round leaves from the game's
+				// own place along the view's centre. Writing the aimer alone was not enough there: the scene resets it
+				// as the launcher fires and the round went "nowhere near" (owner, 2026-11-19).
+				const bool scene = stereo::scene_view_direction(line.direction);
+				if (scene)
+				{
+					line.start[0] = line.start[1] = line.start[2] = 0.0f;
+				}
+				if ((scene || input::shot_line(line.start, line.direction)) && input::body_yaw_now(yaw))
 				{
 					float game[16];
 					std::memcpy(game, frame, sizeof(game));

@@ -1380,8 +1380,16 @@ namespace bfvr::xr
 			const settings::registry& store = settings::global();
 			const stereo::head_sample head = stereo::latest_head_sample();
 			float point[3]{};
-			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || store.text("aim", "controller") != "controller" || !head.valid || !weapon::aim_point(point)
-				|| !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
+			// A scene the game aims itself (scene_aim = game, the Baku lean-out): its camera is the aim, and the view is
+			// that camera with the head on top, so its centre line is LOCAL -z from the tracking origin. The dot marks
+			// it 30 m out, where the game's crosshair and the round point, wherever the head looks.
+			const bool scene = stereo::scene_game_control();
+			if (scene)
+			{
+				point[2] = -30.0f;
+			}
+			if (scope_visible() || sight_dot_shown || !store.boolean("reticle", true) || (!scene && store.text("aim", "controller") != "controller") || !head.valid
+				|| (!scene && !weapon::aim_point(point)) || !ensure_overlay(reticle_overlay, reticle_pixels_size, reticle_pixels_size))
 			{
 				return;
 			}

@@ -45,6 +45,7 @@ namespace bfvr::settings
 			{ "hud_show_ammo", kind::boolean, 0, 0, 0, "1", "", "HUD: health, ammo and grenade counters" },
 			{ "hud_show_bottom", kind::boolean, 0, 0, 0, "0", "", "HUD: the weapon cross and stance icons at the bottom (off by default: in VR the guns are in your hands and on your body; headset 2026-11-15)" },
 			{ "stereo_render", kind::choice, 0, 0, 0, "pair", "aer|pair", "both eyes from one game frame, or alternate eyes" },
+			{ "scene_aim", kind::choice, 0, 0, 0, "game", "game|head|controller", "in a scripted scene where the game holds the weapon (the Baku car's grenade launcher): the game's own aiming with the right stick and left trigger, the shot where you look, or along the controller" },
 			{ "cutscene_view", kind::choice, 0, 0, 0, "screen", "screen|look", "while the game moves the camera (cutscenes, the death fall): a flat screen, or 3D with your head looking around in the scene" },
 			{ "stream_view", kind::boolean, 0, 0, 0, "1", "", "the game window shows a steadied, level 16:9 picture of the left eye for recording (OBS Window Capture); off: the raw eye image" },
 			{ "stream_fov", kind::real, 60.0f, 110.0f, 5.0f, "80", "", "stream view: degrees across; narrower leaves more room to steady a fast turn" },

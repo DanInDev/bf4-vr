@@ -252,6 +252,8 @@ namespace bfvr::core
 			applied = revision;
 			stereo::set_gun_scale(store.real("gun_scale", 1.0f));
 			stereo::set_cutscene_screen(store.text("cutscene_view", "screen") != "look");
+			const std::string scene = store.text("scene_aim", "game");
+			stereo::set_scene_aim(scene == "head" ? stereo::scene_aim::head : scene == "controller" ? stereo::scene_aim::controller : stereo::scene_aim::game);
 			body::set_cutscene_hands(store.text("cutscene_hands", "game") == "game");
 			stereo::set_stream_view(store.boolean("stream_view", true), store.real("stream_fov", 80.0f), store.real("stream_smoothing", 0.3f),
 				store.boolean("stream_hud", true));
