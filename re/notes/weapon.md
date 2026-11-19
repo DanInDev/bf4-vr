@@ -1077,8 +1077,9 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 
 ## Every optic kind at the eye: what BF4 draws (2026-11-19 night, monitor, Shanghai, #137)
 
-Build of the captures: `sights/s2-zoom-power` 710e93f (this S1 work plus #138's zoom power from data; the draws do
-not depend on it, the mod's lens picture does: its power came from the data, ACOG 2.74). Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
+Build of the captures: the #138 code (zoom power from data) on top of this S1 work, built as 710e93f, now
+`sights/s2-zoom-power` 7e8c07d with the same sources. The draws do not depend on it; the mod's lens picture does (its
+power came from the data, ACOG 2.74). Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
 `BFUnlockAsset`s, vtable `0x141C46540`, found as `SoldierWeaponUnlockAsset`'s was: the getType `0x141A36B70` is
 `lea rax,[0x142BE3090]; ret`, the typeinfo `BFUnlockAsset`, and slot 0 of `0x141C46540` points at it; put in the
 weapon's `UnlockWeaponAndSlot.UnlockAssets` +0x18; pipe `unlockfind <text>` lists them). Release, `fakehead 0.064`,
@@ -1106,9 +1107,11 @@ Answers to the issue's question, per kind:
 - **Scope optics (IRNV, SRS rifle scope) hide the whole first-person gun while the game aims:** of the bare gun's
   draws present in every bare capture, the IRNV removes 34 (the lit pass drops from 10 stencil-32 draws to 3: gun body
   and arms gone), the SRS scope all 10 of its lit-pass gun draws; both leave the same three scope-model draws (360 @0,
-  192 @360, 552 @582, same shaders on two guns). The red dot, holo, magnifier and ACOG remove nothing. The mod's forced
-  aim (`sight_ads`: every capture had the game aiming, `current` 1 or 2) triggers it: that is why the SRS's gun vanished
-  in the headset ("long sniper rifles not supported", mark 75), and a candidate for the "pure black" scope (mark 21).
+  192 @360, 552 @582, same shaders on two guns). The red dot, holo, magnifier and ACOG remove nothing. **It is the
+  game's aim with such a scope:** the bare SRS aiming keeps its gun; the scoped SRS at the eye with `sight_ads 0`
+  (`current=0`) has 13 stencil-32 draws and the gun and hand in `eyeshot2`, with `sight_ads 1` (`current=1`) 3 and no
+  gun, both ways twice (0, 1, 0). So the mod's forced aim hides these guns; that matches the headset's "long sniper
+  rifles not supported" (mark 75, not re-checked in the headset) and may be the "pure black" scope (mark 21, unproven).
   Such optics need the game's aim left off (their picture from the mod) or the gun kept drawn.
 - **The EOTech alone was not aiming** (`current=0`): by design, a clear holo skips the game's aim
   (`weapon/optics::needs_game_aim`); with the magnifier fitted it aims (`current` 1, flipped 2).
