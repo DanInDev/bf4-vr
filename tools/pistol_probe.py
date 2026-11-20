@@ -1,8 +1,10 @@
-"""Pistols with both hands (#99), live: for each gun (given into the slot named, default 1) the fake off hand closed round
+"""Pistols with both hands (#99), live: for each gun (given into the slot in hand, so it is the gun in hand) the fake off hand closed round
 the gun hand: does the two-handed hold take it (`twohand` held, pistol), and does the reload leave the hand alone
 (`reload` zone, busy)? Then the gun hand alone turns 4 degrees (the gun should turn about half), then both hands.
 
-    python -E -P tools\\pistol_probe.py U_M9:1 U_MP412Rex:1 U_CZ805:0
+    python -E -P tools\\pistol_probe.py U_P226:1 U_MP412Rex:1 U_CZ805:0 U_P226:1:off
+
+A third field "off" runs that gun with the setting pistol_two_hands off (set back afterwards).
 
 Needs a level with the mod loaded; no focus. free_hands and use_reach are switched off while it runs and set back to
 their earlier values; the gun in each slot is not given back.
@@ -41,7 +43,9 @@ def barrel_yaw():
 def state():
     t = command('twohand')
     r = command('reload')
-    return ' | '.join([grab(t, r'two_handed=\d held=\d weight=[\d.]+'), grab(t, r'pistol=\d'), grab(t, r'input tracked=\d grip=\d busy=\d'),
+    a = command('arms')
+    return ' | '.join([grab(t, r'two_handed=\d held=\d weight=[\d.]+'), grab(t, r'pistol=\d along=[-\d.]+'), grab(t, r'input tracked=\d grip=\d busy=\d'),
+                       grab(a, r'support along_now=[-\d.]+ along_max=[-\d.]+ cupping=\d held=\d drawn_in_gun=\([^)]*\) game_hand_in_gun=\([^)]*\)'),
                        grab(r, r'weapon=\S+'), grab(r, r'zone=\S+ snap=\S+ busy=\d'), grab(r, r'magazine_in=\d magazine=\d+')])
 
 
@@ -52,8 +56,11 @@ def hands(right_yaw=0.0, left_yaw=0.0):
 
 def run(gun, slot):
     hands()
+    m = re.search(r' slot=(\d+)', command('reload'))
+    if m:
+        slot = int(m.group(1))  # into the slot in hand: a gun given to the other slot stays there (no switch)
     print('> givegun %s %d -> %s' % (gun, slot, command(f'givegun {gun} {slot}').strip()[:24]), flush=True)
-    time.sleep(3)
+    time.sleep(3.5)  # the draw, then half a second of the gun's steady hold
     command('pad 0 0 0 0 300 0000')
     time.sleep(0.5)
     print('  cupped, open hand: ' + state(), flush=True)
@@ -75,16 +82,25 @@ def run(gun, slot):
 
 
 def main():
-    guns = sys.argv[1:] or ['U_M9:1', 'U_MP412Rex:1', 'U_CZ805:0']
+    guns = sys.argv[1:] or ['U_P226:1', 'U_MP412Rex:1', 'U_CZ805:0']
     print('### pistol_probe ' + time.strftime('%H:%M:%S'), flush=True)
-    saved = {name: setting_value(name) for name in ('free_hands', 'use_reach')}
+    saved = {name: setting_value(name) for name in ('free_hands', 'use_reach', 'pistol_two_hands')}
     command('fakehead 0.064')
     command('setting set free_hands 0')
     command('setting set use_reach 0')
     try:
         for item in guns:
-            name, _, slot = item.partition(':')
-            run(name, int(slot or 1))
+            parts = item.split(':')
+            name, slot = parts[0], int(parts[1]) if len(parts) > 1 and parts[1] else 1
+            off = len(parts) > 2 and parts[2] == 'off'
+            if off:
+                command('setting set pistol_two_hands 0')
+                print('  (pistol_two_hands 0 for %s)' % name, flush=True)
+            try:
+                run(name, slot)
+            finally:
+                if off:
+                    command('setting set pistol_two_hands 1')
     finally:
         for name, value in saved.items():
             if value is not None:

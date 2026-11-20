@@ -570,6 +570,19 @@ namespace bfvr::body
 		// #94: a pump gun's fore-end at rest (set_pump_rest); the rest and the report under rig_lock.
 		std::atomic<bool> pump_rest_on{ false };
 		std::atomic<unsigned> pump_rest_key{ 0 };
+		// #99: the game's two hands' separation along the barrel as this gun's hold: the value the game keeps steady (within
+		// 1 cm) for half a second (draws, switches and reload poses move the hands; the hold is what stays). Under rig_lock.
+		unsigned along_key{};
+		float along_max{ -1.0f };   // the gun's hold (-1: not settled yet)
+		float along_now{};
+		float along_candidate{ -1.0f };
+		float along_still{};
+		ULONGLONG along_last_ms{};
+		// Below this the gun is held at the grip (a pistol or revolver). Monitor 2026-11-20 (Shanghai): pistols and the REX
+		// 0.007-0.012 m; the shortest two-handed guns P90 0.141, MX4 0.163, FAMAS 0.180, AUG 0.193, rifles 0.24-0.38.
+		constexpr float pistol_along = 0.06f;
+		ik::vec3 support_drawn_in_gun{}, support_game_in_gun{}; // the drawn off wrist and the game's own, gun axes (report)
+		bool support_drawn{};
 		contact::slide_rest pump_rest;
 		bool pump_rest_held{};
 		float pump_animated_z{}, pump_drawn_z{}, pump_hidden_mm{};
@@ -1050,6 +1063,36 @@ namespace bfvr::body
 						has_sling_grip = true;
 					}
 					geometry.has_ik[hand] = rig.ik_hand[hand] >= 0;
+					if (hand == 1)
+					{
+						along_now = geometry.hand[0].position.z - geometry.hand[1].position.z;
+						const unsigned key = pump_rest_key.load(std::memory_order_relaxed);
+						if (key != along_key)
+						{
+							along_key = key;
+							along_max = along_candidate = -1.0f;
+							along_still = 0.0f;
+						}
+						const ULONGLONG now_ms = GetTickCount64();
+						const float dt = along_last_ms && now_ms >= along_last_ms ? std::fmin(0.1f, static_cast<float>(now_ms - along_last_ms) * 0.001f) : 0.0f;
+						along_last_ms = now_ms;
+						if (std::isfinite(along_now))
+						{
+							if (along_candidate >= -0.5f && std::fabs(along_now - along_candidate) <= 0.01f)
+							{
+								along_still += dt;
+							}
+							else
+							{
+								along_candidate = along_now;
+								along_still = 0.0f;
+							}
+							if (along_still >= 0.5f)
+							{
+								along_max = along_candidate;
+							}
+						}
+					}
 					if (geometry.has_ik[hand])
 					{
 						geometry.ik_hand[hand] = ik::compose(to_gun, ik::model_of(local, rig.parents, rig.ik_hand[hand]));
@@ -1410,6 +1453,7 @@ namespace bfvr::body
 				if (hand != carrier && !(support > 0.0f))
 				{
 					support_place.update(false, 0.0f, 0.0f, 0.0f, 0.0f, true); // the hold ended: the next grab takes its place afresh
+					support_drawn = false;
 				}
 				if (hand != carrier && (carrier == 1 || off_by_grip.load(std::memory_order_relaxed)) && gun_placed && geometry.valid && support > 0.0f)
 				{
@@ -1425,9 +1469,14 @@ namespace bfvr::body
 					}
 					// Locked where the hold took it (support_lock), within the range (support_slide_back/forward).
 					const float along = ik::rotate(ik::conjugate(gun.rotation), goal.wrist - gun.position).z;
-					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y,
-						support_place.update(true, along, held_at.position.z, support_back.load(std::memory_order_relaxed),
+					// #99: a pistol's cupping hand stays where the game's own left hand wraps it (no slide along a pistol).
+					const bool cupping = along_max >= 0.0f && along_max < pistol_along;
+					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y, cupping ? held_at.position.z
+						: support_place.update(true, along, held_at.position.z, support_back.load(std::memory_order_relaxed),
 							support_forward.load(std::memory_order_relaxed), support_lock.load(std::memory_order_relaxed)) };
+					support_game_in_gun = held_at.position;
+					support_drawn_in_gun = on_gun; // where the wrist goal is pulled to at full hold
+					support_drawn = support >= 0.99f;
 					const ik::vec3 snapped = gun.position + ik::rotate(gun.rotation, on_gun);
 					goal.wrist = goal.wrist + (snapped - goal.wrist) * support;
 					goal.hand = nlerp(goal.hand, gun.rotation * held_at.rotation, support);
@@ -4022,8 +4071,8 @@ namespace bfvr::body
 		{
 			return false;
 		}
-		along = geometry.hand[0].position.z - geometry.hand[1].position.z;
-		return std::isfinite(along);
+		along = along_max; // the largest since this gun came into hand (an animation can bring a rifle's hands together)
+		return along >= 0.0f && std::isfinite(along);
 	}
 
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3])
@@ -4127,6 +4176,13 @@ namespace bfvr::body
 			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f,
 			r.palette_camera.x, r.palette_camera.y, r.palette_camera.z, r.palette_weapon.x, r.palette_weapon.y, r.palette_weapon.z,
 			r.reference.x, r.reference.y, r.reference.z);
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += std::snprintf(text + length, sizeof(text) - length,
+				"support along_now=%.3f along_max=%.3f cupping=%d held=%d drawn_in_gun=(%.3f,%.3f,%.3f) game_hand_in_gun=(%.3f,%.3f,%.3f)\n",
+				along_now, along_max, along_max >= 0.0f && along_max < pistol_along ? 1 : 0, support_drawn ? 1 : 0, support_drawn_in_gun.x,
+				support_drawn_in_gun.y, support_drawn_in_gun.z, support_game_in_gun.x, support_game_in_gun.y, support_game_in_gun.z);
+		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			length += std::snprintf(text + length, sizeof(text) - length,

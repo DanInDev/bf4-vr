@@ -1431,21 +1431,26 @@ a second cycle on a live round: `round_ejected`; `fingers` `handle_hold=1.00 fis
 ## Pistols and the revolver with both hands (2026-11-20, monitor, Shanghai, #99)
 
 BF4's own first-person pose holds every pistol two-handed: the game's left hand sits at the gun hand. That gives a
-data-driven test for "one-handed gun": the two game hands' separation along the barrel (`body::support_along`,
-geometry hand[0] - hand[1], Wep_Root z): rifles 25-45 cm (the handguard), pistols and the REX a few cm
-(`weapon::pistol_cup`: under 15 cm, with the setting `pistol_two_hands` on). For them:
-- **The hold** (`two_hand_grip::update_pistol`): the off hand closing within 15 cm of the gun hand cups it (no handguard
-  line: two hands a few cm apart give no barrel direction). The aim stays the gun hand's, blended half and half with
-  the off hand's own aim as it was at the grab: each hand's shake moves the gun half as much; both hands turning turn it
-  fully. Drawn: the off hand where the game's own left hand wraps (the support hand, as for rifles).
+data-driven test for "held at the grip": the two game hands' separation along the barrel (geometry hand[0] - hand[1],
+Wep_Root z), **as the game holds it steady** (within 1 cm for half a second, kept per gun: draws, switches and reload
+poses move the hands; `arm_pose` `along_max`, `body::support_along`). Measured (pipe `arms` `support along_now=`):
+P226 0.012, M1911 0.012, Glock 18 0.012, REX 0.007; the shortest two-handed guns P90 0.141, MX4 0.163, FAMAS 0.180,
+AUG 0.193; CZ-805 0.278, Scorpion 0.243, 870 0.369, M240 0.377. **Under 6 cm** (with the setting `pistol_two_hands`
+on: `weapon::pistol_cup`) the gun gets:
+- **The cup grip** (`two_hand_grip::update_pistol`): the off hand closing within 15 cm of the gun hand cups it (no
+  handguard line: two hands a few cm apart give no barrel direction). The aim stays the gun hand's, blended half and
+  half with the off hand's own aim as it was at the grab: one hand's shake moves the gun half as much; both hands
+  turning turn it fully. A hold whose gun changes kind (a switch) lets go instead of mixing the two aims.
+- **Drawn** exactly at the game's own left hand (no slide along a pistol: `arm_pose` `cupping`), the game's fingers.
 - **The reload**: a pistol's magazine well is in its grip, under the cup; with the magazine seated and the hand empty
-  that spot is the cup's (`hand_frame::cup_grip`), so the reload does not snap or lock the hand onto the seated
-  magazine; a magazine brought there still goes in.
-Monitor (`tools/pistol_probe.py`): P226, M1911, Glock 18 and the REX: the cupped grip `held=1 pistol=1`, the reload's
-zone none; the gun hand alone turning 4 degrees turns the barrel 2.0, both hands 4.0; the CZ-805 (a rifle) takes no cup
-hold; the P226 with the setting off: `zone=magazine busy=1`, no hold (the old behaviour). Unlock names: U_P226,
-U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`); there is no U_M9 (a `givegun U_M9` answered "ok" and left
-the old gun in hand: check `reload` `weapon=` after a give).
+  that spot is the cup's (`hand_frame::cup_grip`): no snap or lock onto the seated magazine; a magazine brought there
+  still goes in.
+Monitor (`tools/pistol_probe.py`, the gun given into the slot in hand): P226, M1911, Glock 18, REX: the cupped grip
+`held=1 pistol=1`, the drawn wrist = the game's hand ((0.031, -0.071, -0.031) in gun axes); the gun hand alone turning 4
+degrees turns the barrel 2.0, both hands 4.0; P90, MX4, FAMAS, AUG, CZ-805, 870, M240: `pistol=0`, no cup hold; the P226
+with the setting off: `zone=magazine busy=1`, no hold. Once, the first give right after a level load read 0.179 at 3.5 s
+(the new gun's pose not settled yet: no cup then, the rifle rules); a give after a rifle settles at 0.007 as above.
+Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`); there is no U_M9.
 
 ## Open
 

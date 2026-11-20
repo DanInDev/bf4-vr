@@ -77,6 +77,7 @@ namespace bfvr::weapon
 		float line_in_gun_[3]{};          // hand line at the grab, gun-hand axes
 		float two_handed_[4]{ 0, 0, 0, 1 }; // last two-handed rotation (kept for the release blend)
 		float off_to_gun_[4]{ 0, 0, 0, 1 }; // #99: the gun hand's aim in the off hand's at the cup grab
+		bool held_as_pistol_{};               // the running hold's kind: a change of kind lets go (never mixes the two)
 		two_hand_output update_pistol(const two_hand_input& input);
 	};
 

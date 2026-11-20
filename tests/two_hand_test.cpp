@@ -120,6 +120,14 @@ namespace
 		two_hand_grip far;
 		out = far.update(pistol_frame({}, off_pose, vec3{ 0.2f, -0.34f, -0.62f }, true));
 		expect(!out.held, "pistol: 32 cm ahead is no cup (and a pistol has no handguard)");
+		// A rifle hold that suddenly reads as a pistol (or back) lets go instead of mixing the two aims.
+		two_hand_grip rifle;
+		out = rifle.update(frame_with(level_gun, handguard, true));
+		expect(out.held, "kind change: a rifle hold");
+		two_hand_input flipped = frame_with(level_gun, handguard, true);
+		flipped.pistol = true;
+		out = rifle.update(flipped);
+		expect(!out.held, "kind change: the gun reads as a pistol mid-hold: the hold lets go (no aim jump)");
 		two_hand_grip busy;
 		two_hand_input b = pistol_frame({}, off_pose, cupped, true);
 		b.busy = true;

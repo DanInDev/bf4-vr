@@ -65,6 +65,7 @@ namespace bfvr::weapon
 		{
 			store(body::ik::normalize(body::ik::conjugate(off) * one_handed), off_to_gun_);
 			held_ = true;
+			held_as_pistol_ = true;
 		}
 		untracked_ = held_ && !input.tracked ? untracked_ + std::max(input.seconds, 0.0f) : 0.0f;
 		if (held_ && (!input.grip || input.busy || untracked_ > config_.release_grace))
@@ -92,6 +93,10 @@ namespace bfvr::weapon
 
 	two_hand_output two_hand_grip::update(const two_hand_input& input)
 	{
+		if (held_ && input.pistol != held_as_pistol_)
+		{
+			held_ = false; // the gun in hand changed kind under the hold (a weapon switch): let go, take it afresh
+		}
 		if (input.pistol)
 		{
 			return update_pistol(input);
@@ -113,6 +118,7 @@ namespace bfvr::weapon
 			line_in_gun_[1] = local.y;
 			line_in_gun_[2] = local.z;
 			held_ = true;
+			held_as_pistol_ = false;
 		}
 		untracked_ = held_ && !input.tracked ? untracked_ + std::max(input.seconds, 0.0f) : 0.0f;
 		if (held_ && (!input.grip || input.busy || untracked_ > config_.release_grace))

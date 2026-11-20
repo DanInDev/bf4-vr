@@ -33,7 +33,7 @@ namespace bfvr::weapon
 	{
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> pistol_hold_on{ true }; // setting pistol_two_hands (#99)
-		constexpr float pistol_support_along = 0.15f; // the game's off hand this near the gun hand: a pistol held at the grip
+		constexpr float pistol_support_along = 0.06f; // the game's off hand this near the gun hand: a pistol held at the grip (arm_pose: measured 0.007-0.012; P90 0.141)
 		std::atomic<float> convergence{ 25.0f };
 		std::atomic<bool> shot_from_gun{ true }; // live setting shot_line
 		bool sight_line{};                        // the drawn line is the gun's measured sight, not its barrel
@@ -121,6 +121,16 @@ namespace bfvr::weapon
 	void set_pistol_two_hands(bool on)
 	{
 		pistol_hold_on = on;
+	}
+
+	namespace
+	{
+		float report_along()
+		{
+			float along = -1.0f;
+			body::support_along(along);
+			return along;
+		}
 	}
 
 	bool pistol_cup()
@@ -506,10 +516,10 @@ namespace bfvr::weapon
 		const float barrel[3]{ -2 * (q[0] * q[2] + q[1] * q[3]), -2 * (q[1] * q[2] - q[0] * q[3]), -(1 - 2 * (q[0] * q[0] + q[1] * q[1])) };
 		const two_hand_input& in = last_input;
 		char text[1024];
-		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f dot=%.2f%s aim_controller=%d pistol=%d",
+		const int length = std::snprintf(text, sizeof(text), "two_handed=%d held=%d weight=%.2f grabs=%llu accessory_trigger=%d toggles=%llu barrel=(%.3f %.3f %.3f) shot=%s(%.3f %.3f %.3f) shot_line=%s convergence=%.1f dot=%.2f%s aim_controller=%d pistol=%d along=%.3f",
 			enabled.load() ? 1 : 0, last.held ? 1 : 0, last.weight, static_cast<unsigned long long>(grabs), trigger_toggles.load() ? 1 : 0,
 			static_cast<unsigned long long>(toggles), barrel[0], barrel[1], barrel[2],
-			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), last_metres, hit_valid ? "(hit)" : "", input::controller_aim_active() ? 1 : 0, last_input.pistol ? 1 : 0);
+			shot_valid ? "" : "invalid", last_shot[0], last_shot[1], last_shot[2], sight_line ? "sight" : drawn_line ? "gun" : "controller", convergence.load(), last_metres, hit_valid ? "(hit)" : "", input::controller_aim_active() ? 1 : 0, last_input.pistol ? 1 : 0, report_along());
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			std::snprintf(text + length, sizeof(text) - length, "\nsight up=%.2f right=%.2f deg from_ads=%d sight_ads=%d aiming=%d changes=%llu dot_seen=%d/%d eye_from_optic=(%.3f %.3f %.3f)"
