@@ -1501,7 +1501,7 @@ namespace bfvr::weapon
 		const bool way_out_measured = per_gun && magazine_way_out_for(found->second.name, way_out_degrees);
 		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
 			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
-			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2],
+			!handle_measured ? "variant-default" : handle_point_from_model(found->second.name) ? "model" : "measured", gun_handle[0], gun_handle[1], gun_handle[2],
 			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2], way_out_measured ? "measured" : "straight", way_out_degrees);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",

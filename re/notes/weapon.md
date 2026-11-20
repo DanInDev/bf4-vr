@@ -1075,6 +1075,18 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Charging handles from the model (2026-11-20 night, monitor, Shanghai, #88)
+
+11 guns whose empty reload never pulls the handle (the bolt release, or no hand on it: `handle_probe analyse` says
+"bolt moved, no hand riding it" or "no pull") had no measured point. Their bolt bone at rest (`handle_probe record
+--all-bones`, Wep_Slide in Wep_Root axes, +x left) fits the owner's side table: AUG (0.016, 0.025, 0.454) front left,
+UMP-45 (0, 0.056, 0.576) front top ahead of the magwell, M240 / M249 (-0.027, ...) right, AEK-971 (-0.009, ...); the
+M16A4, M416 and MK11 share the AR receiver's bolt (0, 0.049, 0.373). Each handle is that bone moved out to the
+table's side by ~3.5 cm (4.5 for the belt-feds); the AR T-handle guns keep the AR point (0, 0.06, 0.20), which the
+owner called right. `handle_point_from_model` marks them; pipe `reload` says `handle_in_gun=model(...)`. Monitor: all
+11 report `model`, and the off hand at the handle zone's centre gives `zone=handle`. Not checked against the drawn
+mesh: the headset (GUN-45) and the grab-zone tuner (GUN-42) correct them.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

@@ -191,7 +191,22 @@ int main()
 		expect(handle_point_for("U_SAIGA_20K", point) && point[0] < 0.0f, "Saiga: on the right, as an AK");
 		expect(handle_point_for("U_AK12", point) && point[0] < 0.0f, "AK-12: the 11-03 point kept");
 		expect(handle_point_for("U_SCAR-HSV", point) && point[0] > 0.0f, "SCAR-H SV: the SCAR-H's");
-		expect(!handle_point_for("U_M416", point), "M416: its empty reload uses the bolt release: the variant's point");
+		// #88: the 11 guns whose reload never pulls the handle, placed from the model, on the owner's side.
+		for (const char* right : { "U_AK5C", "U_AEK971", "U_SG553LB", "U_M240", "U_M249" })
+		{
+			expect(handle_point_for(right, point) && point[0] < 0.0f && handle_point_from_model(right), "model: on the right (-x)");
+		}
+		for (const char* left : { "U_UMP45", "U_SteyrAug" })
+		{
+			expect(handle_point_for(left, point) && point[0] > 0.0f && handle_point_from_model(left), "model: front left (+x)");
+		}
+		for (const char* top : { "U_M16A4", "U_M416", "U_MK11", "U_QBZ951" })
+		{
+			expect(handle_point_for(top, point) && point[0] == 0.0f && point[1] > 0.05f && handle_point_from_model(top), "model: on top");
+		}
+		expect(handle_point_for("U_M416", point) && point[2] < 0.25f, "M416: the rear T-handle");
+		expect(!handle_point_from_model("U_FAMAS") && !handle_point_from_model("U_AK12"), "measured guns are not from the model");
+		expect(handle_point_for("U_M416", point) && handle_point_from_model("U_M416"), "M416: its empty reload uses the bolt release: placed from the model (#88)");
 		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
 		{
 			// The P90: its handle well away from where its top magazine is taken (they were 2 cm apart with the AR default).

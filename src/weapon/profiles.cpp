@@ -6,6 +6,20 @@
 
 namespace bfvr::weapon
 {
+	bool handle_point_from_model(std::string_view unlock_name)
+	{
+		static constexpr std::string_view names[] = { "U_AK5C", "U_UMP45", "U_AEK971", "U_SG553LB", "U_SteyrAug", "U_M16A4", "U_M416", "U_MK11",
+			"U_QBZ951", "U_M240", "U_M249" };
+		for (const std::string_view name : names)
+		{
+			if (name == unlock_name)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool handle_point_for(std::string_view unlock_name, float (&point)[3])
 	{
 		struct measured
@@ -67,7 +81,32 @@ namespace bfvr::weapon
 			// back (4.2 cm), moved forward by that travel.
 			{ "U_SV98", { -0.082f, 0.081f, 0.407f } },
 		};
+		// #88, from the model (handle_point_from_model): guns whose empty reload never pulls the handle (the bolt
+		// release, or no hand on it). The bolt bone at rest (tools/handle_probe.py record --all-bones, 2026-11-20:
+		// Wep_Slide in Wep_Root axes, +x left) moved out to the handle's side (owner's table in #88) by ~3.5 cm, a
+		// receiver's half width; the AR T-handle guns keep the AR point (the owner: M4 style is right for them).
 		for (const measured& gun : table)
+		{
+			if (gun.name == unlock_name)
+			{
+				std::copy(std::begin(gun.point), std::end(gun.point), point);
+				return true;
+			}
+		}
+		static constexpr measured from_model[] = {
+			{ "U_AK5C", { -0.030f, 0.050f, 0.457f } },    // right side, AK style; bolt (0, 0.041, 0.457)
+			{ "U_UMP45", { 0.030f, 0.056f, 0.576f } },    // front left, ahead of the magwell; bolt (0, 0.056, 0.576)
+			{ "U_AEK971", { -0.035f, 0.040f, 0.497f } },  // right side; bolt (-0.009, 0.037, 0.497)
+			{ "U_SG553LB", { -0.035f, 0.025f, 0.482f } }, // right side; bolt (0, 0.021, 0.482)
+			{ "U_SteyrAug", { 0.035f, 0.025f, 0.454f } }, // front left, as the SCAR-H; bolt (0.016, 0.025, 0.454)
+			{ "U_M16A4", { 0.000f, 0.060f, 0.200f } },    // rear T-handle (the AR point; bolt (0, 0.049, 0.373))
+			{ "U_M416", { 0.000f, 0.060f, 0.200f } },
+			{ "U_MK11", { 0.000f, 0.060f, 0.200f } },
+			{ "U_QBZ951", { 0.000f, 0.060f, 0.350f } },   // top, under the carry handle; bolt (0, 0.054, 0.350)
+			{ "U_M240", { -0.045f, 0.005f, 0.447f } },    // right side; bolt (-0.027, 0.001, 0.447)
+			{ "U_M249", { -0.045f, 0.025f, 0.466f } },    // right side; bolt (-0.027, 0.021, 0.466)
+		};
+		for (const measured& gun : from_model)
 		{
 			if (gun.name == unlock_name)
 			{

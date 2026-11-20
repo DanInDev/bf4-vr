@@ -19,6 +19,9 @@ namespace bfvr::weapon
 	// The charging handle's knob of a weapon in its Wep_Root frame (+z along the barrel, +y up, metres),
 	// where it was measured; false for the rest (they use the variant's point).
 	bool handle_point_for(std::string_view unlock_name, float (&point)[3]);
+	// #88: true when that point was placed from the gun's model (its bolt bone at rest, out to the handle's side),
+	// because the game's own reload never pulls the handle; false for one measured from the animation or none.
+	bool handle_point_from_model(std::string_view unlock_name);
 	// Where the game's own left hand takes this gun's magazine out (tools/handle_probe.py): offset from the seated
 	// Wep_Mag in Wep_Root axes (+x left, +y up, +z barrel). False: not measured, the magazine zone's default.
 	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3]);
