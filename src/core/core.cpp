@@ -285,6 +285,7 @@ namespace bfvr::core
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
 			weapon::set_pump_at_rest(store.boolean("pump_at_rest", true));
+			weapon::set_lid_hand_lock(store.boolean("lid_hand_lock", true));
 			weapon::set_shells_by_hand(store.boolean("shells_by_hand", true));
 			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));

@@ -67,6 +67,7 @@ namespace bfvr::settings
 			{ "shells_by_hand", kind::boolean, 0, 0, 0, "1", "", "tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): take a shell from the pouch and push it into the loading port under the gun, one at a time, then pump (or rack) to chamber; 0: the game's own reload (B)" },
 			{ "shell_across", kind::boolean, 0, 0, 0, "1", "", "a shotgun shell in the off hand lies across the closed fingers; 0: as it sits in the gun (it stuck out through the fingers)" },
 			{ "pump_at_rest", kind::boolean, 0, 0, 0, "1", "", "a pump shotgun's fore-end stays forward after a shot (the hand pumps it); 0: the game's own pump animation plays after every shot as well" },
+			{ "lid_hand_lock", kind::boolean, 0, 0, 0, "1", "", "belt-fed guns: the hand that lifts the feed cover is held on it while it swings, so you see you have it; 0: the hand follows the controller" },
 			{ "manual_cycle", kind::boolean, 0, 0, 0, "1", "", "bolt actions (SRS, FY-JS, Scout, SV-98) and the Hawk's pump: after each shot work the bolt or the fore-end by hand (grab it, pull back, let go) before the next; 0: the game cycles them by itself" },
 			{ "gun_points", kind::boolean, 0, 0, 0, "1", "", "each gun's own charging handle, magazine grab point and the way its magazine comes out, measured from the game's own reload animations (0: one point per AR/AK variant, every magazine straight down, as before)" },
 			{ "grips_to_game", kind::boolean, 0, 0, 0, "0", "", "controller grips also reach the game as LB/RB (grenade, fire in some layouts); off: they are the mod's" },

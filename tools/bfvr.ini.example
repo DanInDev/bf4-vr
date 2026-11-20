@@ -162,6 +162,8 @@ manual_cycle = 1
 pump_at_rest = 1
 # A shotgun shell in the off hand lies across the closed fingers (0: as it sits in the gun) (#94).
 shell_across = 1
+# Belt-fed guns: the hand that lifts the feed cover is held on it while it swings (0: it follows the controller) (#95).
+lid_hand_lock = 1
 # Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
 # one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
 shells_by_hand = 1

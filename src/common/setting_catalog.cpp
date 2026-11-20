@@ -94,6 +94,7 @@ namespace bfvr::settings
 			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
 			{ "pump_at_rest", "Weapon", "Reloading", "Pump stays forward", "No game pump animation after a shot", "" },
 			{ "shell_across", "Weapon", "Reloading", "Shell across the fingers", "A held shell lies across the fist", "" },
+			{ "lid_hand_lock", "Weapon", "Reloading", "Hand on the feed cover", "The hand stays on a belt-fed gun's cover", "" },
 			{ "gun_points", "Weapon", "Reloading", "Per-gun handle and magazine", "Off: one point per gun type", "" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },

@@ -79,7 +79,10 @@ namespace bfvr::weapon
 	{
 		const auto gap = [&](v3 p) { return std::sqrt((palm.x - p.x) * (palm.x - p.x) + (palm.y - p.y) * (palm.y - p.y) + (palm.z - p.z) * (palm.z - p.z)); };
 		const float to_grip = gap(grip);
-		if (!(to_grip < regrip_reach))
+		// #95: a held belt or lid, or the hand at them, keeps the grip: with the gun in the off hand the gun hand reloads,
+		// and the take-back opened the grip of a belt carried near the pistol grip (owner's marks 67-68: hand=1, eight
+		// belt_taken belt_dropped pairs).
+		if (!(to_grip < regrip_reach) || last.belt_zone || last.lid_held || last.belt_draw == 2)
 		{
 			return false;
 		}
@@ -531,6 +534,11 @@ namespace bfvr::weapon
 		{
 			result.lid = lid_;
 			result.lid_held = lid_held_;
+			if (lid_held_ && belt_points)
+			{
+				result.handle_in_gun = rotate(to_gun, lid_grab - frame.root); // the drawn hand held on the lid as it turns
+			}
+			result.belt_zone = belt_points && (lid_held_ || gun.state().belt_held || near_lid || near_belt);
 			result.belt_draw = gun.state().belt_laid ? 0 : gun.state().belt_held ? 2 : 1;
 			result.belt_position = reach;
 			result.belt_rotation = frame.off_rotation;

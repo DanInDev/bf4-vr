@@ -170,7 +170,10 @@ namespace bfvr::weapon
 		int belt_draw{};
 		v3 belt_position;
 		q4 belt_rotation;
-		bool lid_held{};
+		bool lid_held{};       // and while held, handle_in_gun is the lid's grab point (gun axes): the drawn hand stays on it (#95)
+		// #95: the hand is at the lid or the belt, or holds one: their grip, not the accessory touch's (the M240's and
+		// M249's optic sits on the lid, so the touch took the grip and the belt dropped the next frame).
+		bool belt_zone{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden

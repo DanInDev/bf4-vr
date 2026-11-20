@@ -203,6 +203,7 @@ namespace bfvr::weapon
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::atomic<bool> pump_at_rest_on{ true }; // setting pump_at_rest (#94)
+		std::atomic<bool> lid_lock_on{ true };     // setting lid_hand_lock (#95)
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
 		std::atomic<bool> revolver_by_hand{ true }; // setting revolver_by_hand
@@ -458,7 +459,7 @@ namespace bfvr::weapon
 			ease_magazine_lock(result, ak, seconds);
 			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
-			const bool racking = result && (result->racking || result->pumping) && has_root;
+			const bool racking = result && (result->racking || result->pumping || (result->lid_held && lid_lock_on.load(std::memory_order_relaxed))) && has_root; // #95: a held lid holds the hand
 			if (racking)
 			{
 				handle_in_gun[0] = result->handle_in_gun.x;
@@ -816,6 +817,11 @@ namespace bfvr::weapon
 		pump_at_rest_on = on;
 	}
 
+	void set_lid_hand_lock(bool on)
+	{
+		lid_lock_on = on;
+	}
+
 	void set_shells_by_hand(bool on)
 	{
 		shells_by_hand = on;
@@ -917,7 +923,7 @@ namespace bfvr::weapon
 			touch.has_rail = points.has_rail;
 			touch.rail = v(points.rail);
 			touch.magwell = v(points.magazine);
-			touch.holding = held != slots.end() && held->second.gun.state().holding;
+			touch.holding = (held != slots.end() && (held->second.gun.state().holding || held->second.gun.state().belt_held)) || last_result.belt_zone; // #95: the lid and belt keep their grip
 			touch.grip = grip;
 			const accessory_result touched = toucher.update(touch);
 			const bool enabled = touch_enabled.load(std::memory_order_relaxed);
@@ -983,6 +989,7 @@ namespace bfvr::weapon
 			hand_engaged = false;
 			claims_free_hand = false;
 			body::set_pump_rest(false, 0);
+			last_result.belt_zone = false; // #95: no lid or belt holds the accessory touch off now
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -1012,6 +1019,7 @@ namespace bfvr::weapon
 		{
 			draw_belt_feed(nullptr, 0.0f);
 			body::set_pump_rest(false, 0);
+			last_result.belt_zone = false;
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
 		}
@@ -1343,7 +1351,7 @@ namespace bfvr::weapon
 		body::set_extra_magazine(extra);
 
 		const body::fingers::task off_task = gun.state().holding || result.draw == magazine_draw::in_hand ? body::fingers::task::magazine
-			: result.racking ? body::fingers::task::handle
+			: result.racking || (result.lid_held && lid_lock_on.load(std::memory_order_relaxed)) ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
 		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
 		draw_belt_feed(gun.profile().belt || gun.profile().revolver ? &result : nullptr, frame.lid_degrees, gun.profile().revolver,

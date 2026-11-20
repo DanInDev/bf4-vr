@@ -1346,6 +1346,29 @@ first so the pump starts on a fresh grip. Even then every second stroke in a row
 1.4 cm, the pull at 1-2 cm), whichever the setting: off first then on, off chambered 3 of 3 and on failed 3 of 3; on
 first then off, the other way round. A failed fake stroke says nothing about the pump; compare settings in separate runs.
 
+## Belt-fed: the hand on the cover, an empty belt, the belt that dropped (2026-11-20 night, monitor, Shanghai, #95)
+
+**The cover.** A held lid now holds the drawn off hand on its grab point (Wep_Scope1 as turned), the fist over it, as
+the charging handle does (`set_handle_hold`, no pull; setting `lid_hand_lock`, on). The lid still follows the
+controller's angle about the hinge (`reload_hands` reads the controller's palm, not the drawn hand). Monitor (M240,
+fake hands, the controller 3 cm beside the grab point): `fingers` handle_hold 0.00 (before) -> 1.00, `fist_over`.
+
+**An empty belt.** With the cover up on an empty box the links were still drawn (the `rounds` flag reached arm_pose
+but only the revolver path used it): `edit_belt_feed` now scales Wep_Belt1-10 to 0.001, and `take_belt` refuses an
+empty box (unit-tested). Pipe `arms`: `belt_feed drawn= rounds= lid= belt_scale=`. The box comes off with B (an AR-type
+latch; `reload grab` leaves it on).
+
+**The belt that dropped at once (marks 66-69: `belt_taken belt_dropped` pairs).** The likely cause (found by the
+review in the owner's marks 67-68): the gun was carried in the off hand (`hand=1`, `off task=support`) and the gun hand
+reloaded. In that state `grip_first` opens the reload's grip whenever the palm is within 12 cm of the pistol grip and
+nearer it than the magazine, handle and pouch zones (`grip_before_reload`), which knew nothing of the lid, the tray or a
+held belt: a belt carried back past the pistol grip dropped. Now a held belt or lid, or the hand at them
+(`hand_result::belt_zone`), keeps the reload's grip (unit-tested). Not reproduced live: driving the off-hand carry with
+fake hands dropped the gun instead (the fake off hand was not on the M240's handguard). Ruled out: the accessory touch
+(off in the marks, `accessory_touch=0`; it now stands down at the lid and belt anyway); with the gun hand on the gun
+(`hand=0`) the monitor holds the belt 15 cm to 1 m away. The grip is also opened by `accessory_busy` and `grip_first`,
+not only by the controller's grip and invalid hands.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
