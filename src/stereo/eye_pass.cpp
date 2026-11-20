@@ -1090,7 +1090,11 @@ namespace bfvr::stereo
 			}
 			D3D11_BLEND_DESC blending{};
 			blend->GetDesc(&blending);
-			return blending.RenderTarget[0].BlendEnable && blending.RenderTarget[0].RenderTargetWriteMask != 0;
+			// #93: only the lens blend, ONE / INV_SRC_ALPHA, which every optic's own reticle quad uses (#137 S1). Every gun
+			// also draws two additive (ONE / ONE) 6-index quads with stencil ref 2, iron sights included: drawn with the
+			// lens shader they showed a red square on the sight while aiming.
+			const D3D11_RENDER_TARGET_BLEND_DESC& target = blending.RenderTarget[0];
+			return target.BlendEnable && target.RenderTargetWriteMask != 0 && target.SrcBlend == D3D11_BLEND_ONE && target.DestBlend == D3D11_BLEND_INV_SRC_ALPHA;
 		}
 
 		// The quad drawn with its own copy of the per-view block (VS and PS slot 2) in which the inverse
