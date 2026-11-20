@@ -6,7 +6,7 @@ the gun, then grip, pull back 8 cm, let go. Prints the reload state at each step
 A gun name with ":0" runs with the setting handle_both_sides off. The mirrored point is the gun's own handle zone (read
 with the hand well away, so mirrored=0) reflected across the magwell's x: the magwell lies on the gun's mid-plane and
 the gun points about straight ahead in the fake hold. Needs fakehead/fakehand; free_hands and use_reach are switched
-off while it runs and every setting is restored at the end. BF4 must be in a level with the mod loaded.
+off while it runs; the three settings it changes are set back to their values from before the run. BF4 must be in a level with the mod loaded.
 """
 import os
 import re
@@ -90,9 +90,16 @@ def run(gun, setting):
     print('  let go: ' + state(), flush=True)
 
 
+def setting_value(name):
+    """The live value, from pipe `setting get` ("name = value  [...]")."""
+    m = re.search(re.escape(name) + r' = (\S+)', command('setting get ' + name))
+    return m.group(1) if m else None
+
+
 def main():
     guns = sys.argv[1:] or ['U_FAMAS', 'U_FAMAS:0', 'U_SCAR-H']
     print('### handle_mirror_probe ' + time.strftime('%H:%M:%S'), flush=True)
+    saved = {name: setting_value(name) for name in ('handle_both_sides', 'free_hands', 'use_reach')}
     command('fakehead 0.064')
     command('setting set free_hands 0')
     command('setting set use_reach 0')
@@ -101,12 +108,12 @@ def main():
             name, _, flag = item.partition(':')
             run(name, 0 if flag == '0' else 1)
     finally:
-        command('setting set handle_both_sides 1')
-        command('setting set free_hands 1')
-        command('setting set use_reach 1')
+        for name, value in saved.items():  # back to what they were before the run
+            if value is not None:
+                command('setting set %s %s' % (name, value))
         command('fakehand off')
         command('fakehead off')
-        print('restored: ' + command('setting get handle_both_sides').strip()[:28], flush=True)
+        print('restored: ' + ', '.join('%s=%s' % (n, setting_value(n)) for n in saved), flush=True)
 
 
 if __name__ == '__main__':
