@@ -216,6 +216,15 @@ int main()
 		expect(!profile_for("U_M416", 31).pull_out && m416.grab_magazine() == reload_event::none, "M416: latched until B, as before");
 		expect(!profile_for("U_AK12", 31).pull_out && profile_for("U_AK12", 31).kind == variant::ak, "AK-12: the AK variant, not pull_out");
 	}
+	// #97: handles worked from either side on the real gun; one-sided and reversible ones not.
+	for (const char* both : { "U_FAMAS", "U_AK12", "U_P90", "U_G36C", "U_QBB95" })
+	{
+		expect(handle_both_sides(both), (std::string(both) + ": its handle from either side").c_str());
+	}
+	for (const char* one : { "U_SCAR-H", "U_SG553LB", "U_CZ805", "U_SteyrAug", "U_M416", "U_AK74M", "U_MagpulPDR" })
+	{
+		expect(!handle_both_sides(one), (std::string(one) + ": one side (or reversible, or centred)").c_str());
+	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{
 		float point[3]{};

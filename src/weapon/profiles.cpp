@@ -22,7 +22,21 @@ namespace bfvr::weapon
 
 	bool handle_both_sides(std::string_view unlock_name)
 	{
-		return unlock_name == "U_FAMAS" || unlock_name == "U_AK12";
+		// Handles a hand works from either side on the real gun, as drawn (owner 2026-11-20: every gun that can): the FAMAS's
+		// lever under the carry handle, the P90's two cocking handles, the G36C's handle that folds out to either side under
+		// its carry handle, the QBB-95's under its carry handle; the AK-12 (2012 prototype: its handle moved to either side;
+		// near the top of the gun) by the owner's word. Not: reversible handles fitted to one side at a time (SCAR-H, SG553,
+		// CZ-805, MX4, CZ-3A1, SAR-21), the AUG (left only), the PDR (not confirmed). The QBZ-95-1's is on the centre line
+		// already (both sides reach it without a mirror).
+		static constexpr std::string_view names[] = { "U_FAMAS", "U_AK12", "U_P90", "U_G36C", "U_QBB95" };
+		for (const std::string_view name : names)
+		{
+			if (name == unlock_name)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	bool handle_point_for(std::string_view unlock_name, float (&point)[3])
