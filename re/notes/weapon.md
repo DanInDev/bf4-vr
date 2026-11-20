@@ -1075,6 +1075,15 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Charging handles from either side: the FAMAS and the AK-12 (2026-11-20 night, #97)
+
+Owner (mark 52): the FAMAS (its handle under the carry handle) and the AK-12 can be racked from both sides. For them
+(`profiles` `handle_both_sides`) `reload_hands` tests a second rack zone at the knob mirrored across the gun's mid-plane
+(gun x flipped) and takes the nearer; the stroke keeps the side it was grabbed on (`rack_mirrored_`), and the drawn fist,
+the rack side and the slide follow that knob. Pipe `reload`: `rack ... mirrored=`. Setting `handle_both_sides` (on).
+Unit-tested (`reload_test` `test_rack_zones`: the mirrored grab racks a loaded AK only with the flag). Not added: the
+SCAR-H (reversible, one side at a time) and the AUG: the owner's call.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

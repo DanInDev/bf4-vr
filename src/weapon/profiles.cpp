@@ -6,6 +6,11 @@
 
 namespace bfvr::weapon
 {
+	bool handle_both_sides(std::string_view unlock_name)
+	{
+		return unlock_name == "U_FAMAS" || unlock_name == "U_AK12";
+	}
+
 	bool handle_point_for(std::string_view unlock_name, float (&point)[3])
 	{
 		struct measured

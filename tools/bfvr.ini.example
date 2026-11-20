@@ -157,6 +157,8 @@ gun_points = 1
 # Bolt actions (SRS, FY-JS, Scout, SV-98) and the Hawk's pump: after each shot grab the bolt knob or the fore-end,
 # pull it back and let go before the next shot (the trigger waits); 0 = the game cycles them by itself.
 manual_cycle = 1
+# The FAMAS's and AK-12's charging handle can be racked from either side of the gun (0: only its own side) (#97).
+handle_both_sides = 1
 # Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
 # one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
 shells_by_hand = 1

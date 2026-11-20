@@ -755,6 +755,32 @@ namespace
 		gun_state locked;
 		locked.bolt_locked = true;
 		expect(needs_rack(locked) && !needs_rack(gun_state{}), "needs_rack: the bolt held open; a chambered gun does not");
+
+		// #97: a handle reachable from both sides (FAMAS, AK-12): the mirrored knob (gun x flipped) racks too, held on that side.
+		const v3 mirrored_world = frame.root + v3{ -0.02f, 0.06f, -0.53f }; // gun (0.02, 0.06, 0.53) through the turned frame
+		const auto mirrored_stroke = [&](bool both_sides, float& side_seen, float& knob_x)
+		{
+			reload loaded(ak);
+			loaded.load(31, 60); // chambered: only the overhand zone (no underhand fallback to reach across)
+			reload_hands hands(flat_hold());
+			hand_frame f0 = palm_at(away, false);
+			f0.handle_both_sides = both_sides;
+			hands.update(loaded, f0);
+			hand_frame f1 = palm_at(mirrored_world + v3{ -0.03f, 0.03f, 0.0f }, true);
+			f1.handle_both_sides = both_sides;
+			hand_result r = hands.update(loaded, f1);
+			side_seen = r.rack_side;
+			knob_x = r.handle_in_gun.x;
+			const bool racking = r.racking;
+			hand_frame f2 = palm_at(mirrored_world + v3{ -0.03f, 0.03f, 0.06f }, false);
+			f2.handle_both_sides = both_sides;
+			r = hands.update(loaded, f2);
+			return racking && has(r, reload_event::round_ejected);
+		};
+		float side_seen = 0.0f, knob_x = 0.0f;
+		expect(!mirrored_stroke(false, side_seen, knob_x), "one-sided handle (M416-like): the gun's other side does not rack");
+		expect(mirrored_stroke(true, side_seen, knob_x) && side_seen == 1.0f && close(knob_x, 0.02f, 1e-5f),
+			"both sides: the mirrored knob racks, held on the gun's left");
 	}
 
 	// #40: the open hand snaps onto the seated magazine by distance; not while holding, gripping or with no

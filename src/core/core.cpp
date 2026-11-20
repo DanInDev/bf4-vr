@@ -284,6 +284,7 @@ namespace bfvr::core
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
+			weapon::set_handle_both_sides(store.boolean("handle_both_sides", true));
 			weapon::set_shells_by_hand(store.boolean("shells_by_hand", true));
 			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));
