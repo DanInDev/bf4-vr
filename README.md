@@ -25,6 +25,9 @@ Menus, loading screens and cutscenes appear on a large virtual screen that you p
 Currently only tested on a Meta Quest 3 through Steam Link and SteamVR. Requries a valid copy of Battlefield 4 on PC.
 
 ## Features
+**Gameplay trailer**
+
+[![BF4-VR gameplay trailer](https://img.youtube.com/vi/q4n2ddnZFJ8/maxresdefault.jpg)](https://www.youtube.com/watch?v=q4n2ddnZFJ8)
 
 **See it in VR**
 - Both eyes rendered from the same game frame, with head tracking, leaning and peeking.
