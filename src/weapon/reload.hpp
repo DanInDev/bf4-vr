@@ -163,4 +163,10 @@ namespace bfvr::weapon
 		reload_options options_;
 		gun_state state_;
 	};
+
+	// #89: the rounds the game's magazine keeps beyond ours, so it never reaches 0 (its own reload) before the trigger
+	// block reaches the game, about three frames after our last round: the shots a gun firing this many rounds per
+	// second fires in three frames of this length, plus one; never fewer than 2 (as before: the game's HUD counter
+	// reads this many high, so a normal frame rate keeps it at 2), at most 8.
+	int spare_rounds_for(float rounds_per_second, float frame_seconds);
 }

@@ -72,8 +72,14 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t server_firing = 0x200;
 		constexpr std::uintptr_t firing_magazine = 0x1a0;  // int32 rounds in the gun, reserve at +4
 		constexpr int max_slots = 16;
-		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload).
+		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload). #89: for a magazine gun from the
+		// frame time and the gun's rate of fire (spare_rounds_for: 2 at headset frame rates; a fast gun at 20 fps fired
+		// both of 2 before the trigger block reached the game); the launcher keeps its 2.
 		constexpr int spare_rounds = 2;
+		int spares_now = 2;              // render thread: this frame's spares for the gun in hand
+		float frame_seconds_smooth = 1.0f / 90.0f;
+		float rounds_per_second = 20.0f; // the gun's rate while firing, at least 15 (1200 rpm until measured)
+		ULONGLONG burst_at{};            // the last frame the gun fired
 		constexpr ULONGLONG points_max_age_ms = 250;
 
 		template <typename T>
@@ -219,6 +225,7 @@ namespace bfvr::weapon
 			reload gun;
 			break_open launcher;   // #64: used instead of gun when the weapon is a break-open launcher
 			int written{ -1 };     // magazine value we last wrote into the game
+			int written_spares{ 2 }; // #89: the spares in it
 			int written_reserve{ -1 };
 		};
 
@@ -381,7 +388,7 @@ namespace bfvr::weapon
 		// spare, and the trigger is blocked).
 		int game_magazine(const reload& gun)
 		{
-			return gun.rounds_in_gun() + spare_rounds;
+			return gun.rounds_in_gun() + spares_now;
 		}
 
 		// The drawn off hand: its finger shape and, while racking, its hold on the charging handle (eased
@@ -1007,10 +1014,24 @@ namespace bfvr::weapon
 		// Shots: the game counted down from what we wrote. Anything else (pickups) moves the reserve.
 		if (memory.written >= 0)
 		{
-			for (int shot = 0; shot < memory.written - weapon.magazine && shot < 100; ++shot)
+			const int fired = std::clamp(memory.written - weapon.magazine, 0, 100);
+			for (int shot = 0; shot < fired; ++shot)
 			{
 				remember(gun.fire());
 				++shots;
+			}
+			// #89: the gun's rate of fire, averaged over the frames of a burst (zero-shot frames too, so one shot in a
+			// short frame is not read as a hundred a second); the spares follow it and the frame time.
+			const ULONGLONG now_tick = GetTickCount64();
+			if (fired > 0)
+			{
+				burst_at = now_tick;
+			}
+			if (seconds > 0.0f && now_tick - burst_at < 150)
+			{
+				const float weight = 1.0f - std::exp(-seconds / 0.3f);
+				rounds_per_second += (std::fmin(fired / seconds, 200.0f) - rounds_per_second) * weight;
+				rounds_per_second = std::clamp(rounds_per_second, 15.0f, 30.0f); // at least 900 rpm: the frames after the block count too
 			}
 			if (memory.written > weapon.magazine)
 			{
@@ -1021,7 +1042,7 @@ namespace bfvr::weapon
 			if (weapon.magazine > memory.written)
 			{
 				log::write("reload: the game raised %s's magazine %d -> %d; taking its rounds", weapon.name, memory.written, weapon.magazine);
-				gun.load(weapon.magazine - spare_rounds, weapon.reserve);
+				gun.load(weapon.magazine - memory.written_spares, weapon.reserve);
 			}
 			else if (memory.written_reserve >= 0 && weapon.reserve != memory.written_reserve)
 			{
@@ -1216,6 +1237,11 @@ namespace bfvr::weapon
 		}
 		sound_if_magazine_left(magazine_was_in, gun);
 
+		if (seconds > 0.0f && seconds < 1.0f)
+		{
+			frame_seconds_smooth += (seconds - frame_seconds_smooth) * 0.02f;
+		}
+		spares_now = spare_rounds_for(rounds_per_second, frame_seconds_smooth);
 		const int wanted = game_magazine(gun);
 		if (wanted != weapon.magazine)
 		{
@@ -1226,6 +1252,7 @@ namespace bfvr::weapon
 			write(weapon.ammo + 4, gun.state().reserve);
 		}
 		memory.written = wanted;
+		memory.written_spares = spares_now;
 		memory.written_reserve = gun.state().reserve;
 
 		if (result.draw == magazine_draw::with_gun || !points.valid)
@@ -1517,11 +1544,12 @@ namespace bfvr::weapon
 		const gun_state& s = gun.state();
 		int length = std::snprintf(text, sizeof(text),
 			"reload=%s active=%d weapon=%s slot=%d variant=%s capacity=%d\n"
-			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu\n"
+			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu spares=%d rate=%.1f frame_ms=%.1f\n"
 			"magwell=(%.3f,%.3f,%.3f) slide=(%.3f,%.3f,%.3f) off_hand=(%.3f,%.3f,%.3f) points_valid=%d\nrecent:",
 			physical ? "physical" : "button", active ? 1 : 0, found->second.name.c_str(), current_slot, gun.profile().kind == variant::ak ? "AK" : "AR",
 			gun.profile().capacity, s.magazine_in ? 1 : 0, s.magazine_rounds, s.chamber ? 1 : 0, s.bolt_locked ? 1 : 0, s.holding ? 1 : 0,
-			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
+			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), spares_now,
+			rounds_per_second, frame_seconds_smooth * 1000.0f, points.magazine[0], points.magazine[1],
 			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[hand][0], points.hand[hand][1], points.hand[hand][2],
 			points.valid ? 1 : 0);
 		for (int i = 0; i < recent_count && length > 0 && length < static_cast<int>(sizeof(text)); ++i)

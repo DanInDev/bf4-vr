@@ -1,9 +1,22 @@
 #include "weapon/reload.hpp"
 
+#include <cmath>
+
 #include <algorithm>
 
 namespace bfvr::weapon
 {
+	int spare_rounds_for(float rounds_per_second, float frame_seconds)
+	{
+		if (!(rounds_per_second > 0.0f) || !(frame_seconds > 0.0f) || !std::isfinite(rounds_per_second) || !std::isfinite(frame_seconds))
+		{
+			return 2;
+		}
+		const float in_flight = rounds_per_second * frame_seconds * 3.0f;
+		const int spares = static_cast<int>(std::ceil(in_flight)) + 1;
+		return spares < 2 ? 2 : spares > 8 ? 8 : spares;
+	}
+
 	bool locks_open(const reload_profile& profile)
 	{
 		return profile.hold == hold_open::by_kind ? profile.kind == variant::ar : profile.hold == hold_open::yes;
