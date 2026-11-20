@@ -103,6 +103,7 @@ namespace bfvr::settings
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
 			{ "hand_collision", "Weapon", "Hands and melee", "Hand stays out of the gun", "Rests on its surface instead", "" },
 			{ "flash_at_gun", "Weapon", "Hands and melee", "Muzzle flash at the gun", "Not where the game's own gun would be", "" },
+			{ "pistol_two_hands", "Weapon", "Hands and melee", "Pistols with both hands", "Off hand round the gun hand", "" },
 			{ "support_lock", "Weapon", "Hands and melee", "Handguard hand stays put", "Where you grab, until you let go", "" },
 			{ "support_slide_back", "Weapon", "Hands and melee", "Handguard reach back", "Metres behind the game's grip spot", "", true },
 			{ "support_slide_forward", "Weapon", "Hands and melee", "Handguard reach forward", "Metres ahead of the game's grip spot", "", true },

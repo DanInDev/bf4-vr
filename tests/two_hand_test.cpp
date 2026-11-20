@@ -76,6 +76,64 @@ namespace
 	const stereo::pose level_gun = gun_at({ 0.2f, -0.3f, -0.3f });
 	const vec3 handguard{ 0.2f, -0.34f, -0.62f }; // 32 cm ahead of the grip, 4 cm below the barrel line
 
+	// #99: a pistol held with both hands: the off hand cupping the gun hand grabs (not a handguard), the aim stays the
+	// gun hand's at the grab (no jump, no barrel line between hands 5 cm apart), and a shake of one hand moves the gun half
+	// as much.
+	quat yaw(float degrees)
+	{
+		const float half = 0.5f * degrees * 0.017453293f;
+		return { 0.0f, std::sin(half), 0.0f, std::cos(half) };
+	}
+
+	two_hand_input pistol_frame(quat gun_turn, quat off_turn, vec3 off, bool grip)
+	{
+		two_hand_input input = frame_with(gun_at({ 0.2f, -0.3f, -0.3f }, gun_turn), off, grip);
+		input.pistol = true;
+		input.off_orientation[0] = off_turn.x;
+		input.off_orientation[1] = off_turn.y;
+		input.off_orientation[2] = off_turn.z;
+		input.off_orientation[3] = off_turn.w;
+		return input;
+	}
+
+	float yaw_of(const two_hand_output& out)
+	{
+		const vec3 b = barrel(out);
+		return std::atan2(-b.x, -b.z) * 57.29578f;
+	}
+
+	void test_pistol_cup()
+	{
+		const vec3 cupped{ 0.17f, -0.34f, -0.31f }; // under and beside the gun hand
+		const quat off_pose = yaw(-20.0f);           // the off hand's own aim is off the gun's: only its turns count
+		two_hand_grip grip;
+		two_hand_output out = grip.update(pistol_frame({}, off_pose, cupped, false));
+		expect(out.claim_grip && !out.held, "pistol: the open off hand at the gun hand: the grip is the cup's");
+		out = grip.update(pistol_frame({}, off_pose, cupped, true));
+		expect(out.held && near(yaw_of(out), 0.0f, 1e-2f), "pistol: cupped, no jump at the grab");
+		out = run(grip, pistol_frame(yaw(4.0f), off_pose, cupped, true), 0.3f);
+		expect(near(yaw_of(out), 2.0f, 0.05f), "pistol: the gun hand turns 4 degrees, the off hand holds: the gun turns 2");
+		out = run(grip, pistol_frame(yaw(4.0f), off_pose * yaw(4.0f), cupped, true), 0.3f);
+		expect(near(yaw_of(out), 4.0f, 0.05f), "pistol: both hands turn 4 degrees: the gun turns 4");
+		out = run(grip, pistol_frame({}, off_pose, cupped, false), 0.3f);
+		expect(!out.held && near(out.weight, 0.0f) && near(yaw_of(out), 0.0f, 1e-3f), "pistol: let go: one-handed again");
+		two_hand_grip far;
+		out = far.update(pistol_frame({}, off_pose, vec3{ 0.2f, -0.34f, -0.62f }, true));
+		expect(!out.held, "pistol: 32 cm ahead is no cup (and a pistol has no handguard)");
+		// A rifle hold that suddenly reads as a pistol (or back) lets go instead of mixing the two aims.
+		two_hand_grip rifle;
+		out = rifle.update(frame_with(level_gun, handguard, true));
+		expect(out.held, "kind change: a rifle hold");
+		two_hand_input flipped = frame_with(level_gun, handguard, true);
+		flipped.pistol = true;
+		out = rifle.update(flipped);
+		expect(!out.held, "kind change: the gun reads as a pistol mid-hold: the hold lets go (no aim jump)");
+		two_hand_grip busy;
+		two_hand_input b = pistol_frame({}, off_pose, cupped, true);
+		b.busy = true;
+		expect(!busy.update(b).held, "pistol: a busy off hand (a magazine) does not grab");
+	}
+
 	void test_handguard_zone()
 	{
 		const two_hand_config config;
@@ -416,6 +474,7 @@ static void test_lens_cone()
 int main()
 {
 	test_handguard_zone();
+	test_pistol_cup();
 	test_grab_and_steer();
 	test_lock();
 	test_blend_and_release();

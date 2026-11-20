@@ -68,6 +68,9 @@ namespace bfvr::weapon
 		// A pump gun cycled by hand (reload_profile manual_cycle with a pump): the handle point is the fore-end, which is
 		// also where the two-handed hold takes it. No rack zone there; the held hand pumps it (hand_result pumping).
 		bool pump{};
+		// #99: a pistol or revolver held two-handed (weapon::pistol_cup): its magazine well is in the grip, where the off hand
+		// cups the gun hand, so an empty hand there is the cup's, not the seated magazine's.
+		bool cup_grip{};
 		// #96: a turn bolt worked in its four steps (reload::turning(), setting bolt_steps). The bolt (Wep_Slide) turns about
 		// its own axis through bolt_pivot (Wep_Root x, y) by bolt_lift_radians (the game's own cycle: 56.4 or 73.7 degrees,
 		// knob up) and travels bolt_travel back. handle_point is the knob lifted (where the game's hand rides it back).

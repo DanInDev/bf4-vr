@@ -51,8 +51,56 @@ namespace bfvr::weapon
 		return body::ik::length(offset - barrel * along) <= config.grab_reach;
 	}
 
+	two_hand_output two_hand_grip::update_pistol(const two_hand_input& input)
+	{
+		const quat one_handed = to_quat(input.gun.orientation);
+		const quat off = to_quat(input.off_orientation);
+		const float separation = body::ik::length(to_vec(input.off_hand) - to_vec(input.gun.position));
+		const bool cup = input.tracked && separation <= config_.cup_reach;
+		const bool pressed = input.grip && !last_grip_;
+		last_grip_ = input.grip;
+		const bool trigger_was_down = trigger_down_;
+		trigger_down_ = trigger_down_ ? input.trigger > config_.trigger_release : input.trigger >= config_.trigger_press;
+		if (!held_ && pressed && cup && !input.busy)
+		{
+			store(body::ik::normalize(body::ik::conjugate(off) * one_handed), off_to_gun_);
+			held_ = true;
+			held_as_pistol_ = true;
+		}
+		untracked_ = held_ && !input.tracked ? untracked_ + std::max(input.seconds, 0.0f) : 0.0f;
+		if (held_ && (!input.grip || input.busy || untracked_ > config_.release_grace))
+		{
+			held_ = false;
+		}
+		if (held_ && input.tracked)
+		{
+			// Each hand says where the gun points (the off hand through its pose at the grab); the two shake
+			// independently, so their blend is steadier than either.
+			const quat from_off = body::ik::normalize(off * to_quat(off_to_gun_));
+			store(blend(one_handed, from_off, std::clamp(config_.pistol_share, 0.0f, 1.0f)), two_handed_);
+		}
+		const float rate = config_.blend_time > 0 ? std::max(input.seconds, 0.0f) / config_.blend_time : 1.0f;
+		weight_ = std::clamp(weight_ + (held_ ? rate : -rate), 0.0f, 1.0f);
+		two_hand_output output;
+		output.held = held_;
+		output.weight = weight_;
+		output.claim_grip = held_ || (cup && !input.busy);
+		output.claim_trigger = held_;
+		output.toggle_accessory = held_ && trigger_down_ && !trigger_was_down;
+		store(weight_ > 0 ? blend(one_handed, to_quat(two_handed_), weight_) : one_handed, output.rotation);
+		return output;
+	}
+
 	two_hand_output two_hand_grip::update(const two_hand_input& input)
 	{
+		if (held_ && input.pistol != held_as_pistol_)
+		{
+			held_ = false; // the gun in hand changed kind under the hold (a weapon switch): let go, take it afresh
+		}
+		if (input.pistol)
+		{
+			return update_pistol(input);
+		}
 		const quat one_handed = to_quat(input.gun.orientation);
 		const vec3 line = to_vec(input.off_hand) - to_vec(input.gun.position);
 		const float separation = body::ik::length(line);
@@ -70,6 +118,7 @@ namespace bfvr::weapon
 			line_in_gun_[1] = local.y;
 			line_in_gun_[2] = local.z;
 			held_ = true;
+			held_as_pistol_ = false;
 		}
 		untracked_ = held_ && !input.tracked ? untracked_ + std::max(input.seconds, 0.0f) : 0.0f;
 		if (held_ && (!input.grip || input.busy || untracked_ > config_.release_grace))

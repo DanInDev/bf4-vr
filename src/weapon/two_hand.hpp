@@ -20,6 +20,11 @@ namespace bfvr::weapon
 		bool lock{ true };
 		float trigger_press{ 0.6f };   // off-hand trigger: a press past this toggles the accessory
 		float trigger_release{ 0.3f }; // and must fall below this before the next
+		// #99, a pistol or revolver (two_hand_input pistol): the off hand closing within cup_reach of the gun hand cups it;
+		// the gun keeps the gun hand's aim, steadied by the off hand's own aim (pistol_share of it; as two hands on a
+		// pistol, not a barrel line between hands a few cm apart).
+		float cup_reach{ 0.15f };
+		float pistol_share{ 0.5f };
 	};
 
 	struct two_hand_input
@@ -34,6 +39,9 @@ namespace bfvr::weapon
 		// Where the gun holds the off hand, off the barrel line through the gun hand: gun-hand aim axes
 		// (x right, y up), metres. The hand slides freely along the barrel. Zero = on the line.
 		float support_offset[2]{};
+		// #99: a one-handed gun (the game holds it with both hands at the grip): the cup grip, see two_hand_config.
+		bool pistol{};
+		float off_orientation[4]{ 0, 0, 0, 1 }; // the off hand's aim rotation
 	};
 
 	struct two_hand_output
@@ -68,6 +76,9 @@ namespace bfvr::weapon
 		float weight_{};
 		float line_in_gun_[3]{};          // hand line at the grab, gun-hand axes
 		float two_handed_[4]{ 0, 0, 0, 1 }; // last two-handed rotation (kept for the release blend)
+		float off_to_gun_[4]{ 0, 0, 0, 1 }; // #99: the gun hand's aim in the off hand's at the cup grab
+		bool held_as_pistol_{};               // the running hold's kind: a change of kind lets go (never mixes the two)
+		two_hand_output update_pistol(const two_hand_input& input);
 	};
 
 	// Whether the off hand is on the handguard: within reach of the barrel line, between grab_near

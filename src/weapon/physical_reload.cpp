@@ -31,6 +31,7 @@
 #include "weapon/profiles.hpp"
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/two_handed.hpp"
 #include "weapon/server_soldier.hpp"
 #include "weapon/game_reload_sounds.hpp"
 #include "weapon/grab_debug.hpp"
@@ -1136,6 +1137,7 @@ namespace bfvr::weapon
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
+			frame.cup_grip = pistol_cup(); // #99
 			// #94: the hand pumps it, so the game's stroke after every shot is not drawn (keyed by the gun's ammo object).
 			{
 				// #96: a turn bolt worked in its four steps; its bolt is drawn from the hand, never the game's own cycle.

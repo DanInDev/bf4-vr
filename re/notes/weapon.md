@@ -1428,6 +1428,35 @@ the hand on the knob as turned (the handle hold). Unit tests: `gun_traits_test` 
 sliding 10.3 cm while the drawn one stays at 0 and at rest (`arms` `animated_turn_deg`, `drawn_turn_deg`); every step;
 a second cycle on a live round: `round_ejected`; `fingers` `handle_hold=1.00 fist_over` on the knob throughout).
 
+## Pistols and the revolver with both hands (2026-11-20, monitor, Shanghai, #99)
+
+BF4's own first-person pose holds every pistol two-handed: the game's left hand sits at the gun hand. That gives a
+data-driven test for "held at the grip": the two game hands' separation along the barrel (geometry hand[0] - hand[1],
+Wep_Root z), **as the game holds it steady** (within 1 cm for half a second, kept per gun: draws, switches and reload
+poses move the hands; `arm_pose` `along_max`, `body::support_along`). Measured (pipe `arms` `support along_now=`):
+P226 0.012, M1911 0.012, Glock 18 0.012, REX 0.007; the shortest two-handed guns P90 0.141, MX4 0.163, FAMAS 0.180,
+AUG 0.193; CZ-805 0.278, Scorpion 0.243, 870 0.369, M240 0.377. **Under 6 cm** (with the setting `pistol_two_hands`
+on: `weapon::pistol_cup`) the gun gets:
+- **The cup grip** (`two_hand_grip::update_pistol`): the off hand closing within 15 cm of the gun hand cups it (no
+  handguard line: two hands a few cm apart give no barrel direction). The aim stays the gun hand's, blended half and
+  half with the off hand's own aim as it was at the grab: one hand's shake moves the gun half as much; both hands
+  turning turn it fully. A hold whose gun changes kind (a switch) lets go instead of mixing the two aims.
+- **Drawn** exactly at the game's own left hand (no slide along a pistol: `arm_pose` `cupping`), the game's fingers.
+- **The reload**: a pistol's magazine well is in its grip, under the cup; with the magazine seated and the hand empty
+  that spot is the cup's (`hand_frame::cup_grip`): no snap or lock onto the seated magazine; a magazine brought there
+  still goes in.
+Monitor (`tools/pistol_probe.py`, the gun given into the slot in hand): P226, M1911, Glock 18, REX: the cupped grip
+`held=1 pistol=1`, the drawn wrist = the game's hand ((0.031, -0.071, -0.031) in gun axes); the gun hand alone turning 4
+degrees turns the barrel 2.0, both hands 4.0; P90, MX4, FAMAS, AUG, CZ-805, 870, M240: `pistol=0`, no cup hold; the P226
+with the setting off: `zone=magazine busy=1`, no hold. The ordinary path, a real switch (`tools/pistol_switch_probe.py`, BF4 in
+front, key 2) right after a level load: the P226 in slot 1 reads 0.008 within a second, the cup takes the hold, and the
+**solved** off wrist (the hand bone after the IK, `arms` `solved_wrist_in_gun`) lands on the game's own hand,
+(0.031, -0.071, -0.031) in gun axes. Tool artefact, not a pistol fault: right after a load the UMP-45 in hand reads
+0.176-0.180 (its load pose) before 0.29, and a `givegun` into the slot in hand at that moment changed the weapon read but
+the rig kept the rifle's pose (the 0.179 once seen on a P226); `givegun` into the other slot sometimes switches, sometimes
+not: test weapon switches with the real key.
+Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`); there is no U_M9.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
