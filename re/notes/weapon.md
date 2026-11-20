@@ -1390,8 +1390,20 @@ mirrored point = the own zone's x reflected across the magwell's, read with the 
 mirrored 0.146: `mirrored=1`, `round_ejected`; off: `zone=none`. AK-12 own 0.114, mirrored 0.014: `mirrored=1`, racks;
 off, the same point still racks on its own zone (`mirrored=0`): its knob is 2 cm off centre and the zones overlap, so
 there the setting mostly decides the fist's side. SCAR-H (one side): `zone=none`. The M416's T-handle is on the centre
-line: its mirror is itself, no comparison. Not added: the SCAR-H (reversible, one side at a time) and the AUG: the
-owner's call.
+line: its mirror is itself, no comparison. **Extended 2026-11-20 (owner: every gun that can):** the P90 (two cocking
+handles), the G36C (its handle under the carry handle folds out to either side) and the QBB-95 (under its carry handle);
+monitor: each `mirrored=1`, `round_ejected` at the mirrored zone, the P90 off `zone=none`. The QBZ-95-1's handle is on
+the centre line already. Not added, with reasons: reversible handles fitted to one side at a time (SCAR-H, SG553,
+CZ-805, MX4, CZ-3A1, SAR-21: the model shows it on one side), the AUG (left only), the Magpul PDR (an ambidextrous
+handle not confirmed). The AK-12 2012 prototype's handle was reversible too (one side at a time, sources differ); it
+stays both-sided by the owner's word (mark 52), its knob near the top. Sources: P90 "ambidextrous cocking knobs" (FN America,
+fnamerica.com/products/rifles/fn-p90); G36 "the charging handle is centrally located under the carrying handle and
+employs a swivelling lever", ambidextrous (gunsopedia.com Heckler & Koch G36); QBZ-95 family: the handle under the
+integral carrying handle at the top of the receiver (modernfirearms.net Type 95; no source calls it ambidextrous: it
+is reached from either side under the handle); AK-12 2012 prototype: a forward, non-reciprocating handle that could be
+moved to either side (weaponsandhistory.com "AK-12 and its prototypes"). The one-side-at-a-time claims for SG553,
+CZ-805, MX4, CZ-3A1 and SAR-21 rest on their published reversible-handle designs and on the BF4 models showing one
+handle; only the SCAR-H was checked on the monitor (`zone=none`). Probe: `tools/handle_mirror_probe.py`.
 
 ## Open
 
