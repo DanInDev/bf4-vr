@@ -1075,6 +1075,18 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## The red square on every sight (2026-11-20 night, monitor, Shanghai, #93)
+
+Every gun draws two additive (ONE / ONE) 6-index quads with stencil ref 2 and no depth write, iron sights included
+(#137 S1). `reticle_draw` took them for a reticle quad, so `sight_lens` drew their art by slope: `reticle grab` on a
+bare CZ-805 saved the art (t3) as a 64x64 texture with alpha 255 everywhere, and its material size (ps cb1 float 8)
+is 1, so the lens used its 0.038 default: a solid red square ~1.6 degrees wide on the sight line (owner's marks 8
+Hawk, 9 M1014, 43 AUG). Fix: `reticle_draw` accepts only ONE / INV_SRC_ALPHA, every optic's own reticle quad's blend.
+Monitor: lens reticle draws per second with iron sights 636 -> 0 (CZ-805, Hawk `U_870`, M1014), the EOTech's ring still
+drawn (316 per second, the same red ring pixels). At the Shanghai night hold the square was not visible even before
+(the only red near the sight is a city lamp, equal with `sight_lens` on and off): the headset check (AIM-21) is the
+daylight one.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
