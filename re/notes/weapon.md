@@ -1083,8 +1083,12 @@ The rack fist's grasp centre is placed at the knob plus `rack_fist_offset` (sett
 knob. New measure in pipe `fingers`: `rack_fist_grip_minus_knob` = the drawn fist's grasp centre after the arm's solve
 minus the knob at the current pull (Wep_Root axes). Before: (0.050, 0.010, 0), 5.1 cm, at every pull (FAMAS). Defaults
 now 5 mm each way: FAMAS 0.7 cm, SV-98 0.7 cm, M416 0.5 cm at pull 0, 0.04 and 0.08 (hand at the reload report's
-`handle_zone` centre, a fresh off-hand grab). The FAMAS fist now sits on the receiver instead of beside the gun; it may
-touch it (the 2026-11-15 reason), the panel sliders move it back out.
+`handle_zone` centre, a fresh off-hand grab). The knob here is the gun's handle point: for the FAMAS and SV-98 the game's
+own animated hand on the knob (`handle_probe`, the FAMAS within 0.4 cm), so this is the fist against the real knob as
+far as the drawn fist reaches it; for the M416 the AR default (#88), a placeholder. The measure is the configured offset
+whenever the arm reaches (it shows the IK reaching, not the mesh contact). The FAMAS fist now sits on the receiver
+instead of beside the gun; it may touch it (the 2026-11-15 reason, SCAR-H; the hand collision is off while the handle
+is held), the panel sliders move it back out.
 
 ## Open
 

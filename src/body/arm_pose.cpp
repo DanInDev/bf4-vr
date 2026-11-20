@@ -1479,6 +1479,12 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_drawn_hand[hand] = ik::model_of(local, rig.parents, bones.hand).rotation;
+					// Cleared on every solve of the hand that racks when no fist holds the knob, so a reading is always current.
+					if (hand != carrier && !(gun_placed && handle_request.weight > 0.0f && fisting && has_fist))
+					{
+						rack_grip_measured = false;
+						rack_grip_error = {};
+					}
 					if (hand != carrier && gun_placed && handle_request.weight > 0.0f && fisting && has_fist)
 					{
 						const ik::bone_transform drawn = ik::model_of(local, rig.parents, bones.hand);
