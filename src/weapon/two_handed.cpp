@@ -33,7 +33,6 @@ namespace bfvr::weapon
 	{
 		std::atomic<bool> enabled{ true };
 		std::atomic<bool> pistol_hold_on{ true }; // setting pistol_two_hands (#99)
-		constexpr float pistol_support_along = 0.06f; // the game's off hand this near the gun hand: a pistol held at the grip (arm_pose: measured 0.007-0.012; P90 0.141)
 		std::atomic<float> convergence{ 25.0f };
 		std::atomic<bool> shot_from_gun{ true }; // live setting shot_line
 		bool sight_line{};                        // the drawn line is the gun's measured sight, not its barrel
@@ -136,7 +135,7 @@ namespace bfvr::weapon
 	bool pistol_cup()
 	{
 		float along = 0.0f;
-		return pistol_hold_on.load(std::memory_order_relaxed) && body::support_along(along) && along < pistol_support_along;
+		return pistol_hold_on.load(std::memory_order_relaxed) && body::support_along(along) && along < body::pistol_hold_metres;
 	}
 
 	void set_two_handed(bool on)

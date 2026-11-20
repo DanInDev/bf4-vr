@@ -1448,8 +1448,13 @@ on: `weapon::pistol_cup`) the gun gets:
 Monitor (`tools/pistol_probe.py`, the gun given into the slot in hand): P226, M1911, Glock 18, REX: the cupped grip
 `held=1 pistol=1`, the drawn wrist = the game's hand ((0.031, -0.071, -0.031) in gun axes); the gun hand alone turning 4
 degrees turns the barrel 2.0, both hands 4.0; P90, MX4, FAMAS, AUG, CZ-805, 870, M240: `pistol=0`, no cup hold; the P226
-with the setting off: `zone=magazine busy=1`, no hold. Once, the first give right after a level load read 0.179 at 3.5 s
-(the new gun's pose not settled yet: no cup then, the rifle rules); a give after a rifle settles at 0.007 as above.
+with the setting off: `zone=magazine busy=1`, no hold. The ordinary path, a real switch (`tools/pistol_switch_probe.py`, BF4 in
+front, key 2) right after a level load: the P226 in slot 1 reads 0.008 within a second, the cup takes the hold, and the
+**solved** off wrist (the hand bone after the IK, `arms` `solved_wrist_in_gun`) lands on the game's own hand,
+(0.031, -0.071, -0.031) in gun axes. Tool artefact, not a pistol fault: right after a load the UMP-45 in hand reads
+0.176-0.180 (its load pose) before 0.29, and a `givegun` into the slot in hand at that moment changed the weapon read but
+the rig kept the rifle's pose (the 0.179 once seen on a P226); `givegun` into the other slot sometimes switches, sometimes
+not: test weapon switches with the real key.
 Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`); there is no U_M9.
 
 ## Open

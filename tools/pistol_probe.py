@@ -45,7 +45,7 @@ def state():
     r = command('reload')
     a = command('arms')
     return ' | '.join([grab(t, r'two_handed=\d held=\d weight=[\d.]+'), grab(t, r'pistol=\d along=[-\d.]+'), grab(t, r'input tracked=\d grip=\d busy=\d'),
-                       grab(a, r'support along_now=[-\d.]+ along_max=[-\d.]+ cupping=\d held=\d drawn_in_gun=\([^)]*\) game_hand_in_gun=\([^)]*\)'),
+                       grab(a, r'support along_now=[-\d.]+ along_hold=[-\d.]+ cupping=\d held=\d solved_wrist_in_gun=\([^)]*\) game_hand_in_gun=\([^)]*\)'),
                        grab(r, r'weapon=\S+'), grab(r, r'zone=\S+ snap=\S+ busy=\d'), grab(r, r'magazine_in=\d magazine=\d+')])
 
 

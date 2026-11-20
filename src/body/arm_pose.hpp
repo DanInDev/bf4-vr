@@ -291,6 +291,9 @@ namespace bfvr::body
 	// #99: how far ahead of the gun hand, along the barrel (metres, Wep_Root +z), the game's own off hand holds this gun:
 	// a rifle's handguard 25-45 cm, a pistol's or revolver's cupping hand a few cm. False without the gun's geometry.
 	bool support_along(float& along);
+	// Below this separation the game holds the gun at the grip: a pistol or revolver (monitor 2026-11-20: pistols and the
+	// REX 0.007-0.013 m; the shortest two-handed gun, the P90, 0.133-0.141).
+	constexpr float pistol_hold_metres = 0.06f;
 	// The drawn wrist for a controller grip pose (0 = left rig arm, 1 = right), OpenXR LOCAL.
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3]);
 
