@@ -53,7 +53,7 @@ namespace bfvr::weapon
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
 		v3 handle_point;
-		// #97: the handle can be worked from the gun's other side too (FAMAS, AK-12: weapon/profiles handle_both_sides):
+		// #97: the handle can be worked from the gun's other side too (weapon/profiles handle_both_sides: FAMAS, AK-12, P90, G36C, QBB-95):
 		// a second rack zone at the knob mirrored across the gun's mid-plane (x flipped); the nearer one is taken.
 		bool handle_both_sides{};
 		// Where this gun's magazine is grabbed, from the seated Wep_Mag in Wep_Root axes (weapon/profiles
