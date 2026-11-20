@@ -290,6 +290,7 @@ namespace bfvr::core
 			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
+			weapon::set_magazine_pull_out(store.boolean("magazine_pull_out", true));
 			weapon::set_palm_reload(true);
 			weapon::set_magazine_snapping(true);
 			weapon::set_magazine_reach(store.real("magazine_reach", 0.13f));

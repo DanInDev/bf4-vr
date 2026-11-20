@@ -148,9 +148,9 @@ namespace bfvr::weapon
 				return reload_event::none;
 			}
 		}
-		if (!state_.magazine_in)
+		if (!state_.magazine_in || pulled_by_hand())
 		{
-			return reload_event::none;
+			return reload_event::none; // #98: no release button to press
 		}
 		const int rounds = state_.magazine_rounds;
 		state_.magazine_in = false;
@@ -172,8 +172,8 @@ namespace bfvr::weapon
 
 	reload_event reload::grab_magazine()
 	{
-		// An AR magazine is latched until the button releases it.
-		if (profile_.kind != variant::ak || profile_.tube || !state_.magazine_in || state_.holding)
+		// An AR magazine is latched until the button releases it (#98: unless the gun has none to press).
+		if ((profile_.kind != variant::ak && !pulled_by_hand()) || profile_.tube || !state_.magazine_in || state_.holding)
 		{
 			return reload_event::none;
 		}

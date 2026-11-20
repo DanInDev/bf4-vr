@@ -271,6 +271,7 @@ namespace bfvr::weapon
 		profile.kind = ak ? variant::ak : variant::ar;
 		profile.capacity = std::max(game_capacity - 1, 1);
 		profile.flick = ak;
+		profile.pull_out = !ak && traits.release == release::none && (traits.feed == feed::box || traits.feed == feed::top);
 		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
 		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits);
 		profile.tube = traits.feed == feed::tube;

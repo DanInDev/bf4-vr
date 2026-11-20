@@ -191,6 +191,31 @@ int main()
 			expect(empty.press_button(true) == reload_event::magazine_out, "M249 empty: lid up, the box comes off");
 		}
 	}
+	// #98: no release button on the P90 and the AK 5C (owner, marks 31 and 1): the hand pulls the magazine out, B does not drop it.
+	for (const char* name : { "U_P90", "U_AK5C" })
+	{
+		const reload_profile profile = profile_for(name, 51);
+		expect(profile.kind == variant::ar && profile.pull_out, (std::string(name) + ": pulled out by hand").c_str());
+		reload gun(profile);
+		gun.load(10, 100);
+		expect(gun.press_button(false) == reload_event::none && gun.state().magazine_in, (std::string(name) + ": B does not drop it").c_str());
+		expect(gun.press_button(true) == reload_event::none && gun.state().magazine_in, (std::string(name) + ": nor with the hand on it").c_str());
+		expect(gun.grab_magazine() == reload_event::magazine_out && gun.state().holding && gun.state().held_rounds == 9, // 10 in the gun: 9 + the chambered one
+			(std::string(name) + ": the hand takes it out").c_str());
+		gun.configure({ true, false }); // setting magazine_pull_out off: B as before
+		gun.let_go(false);
+		gun.take_from_chest();
+		gun.insert();
+		gun.press_button(true); // the first press after a new magazine is the bolt catch where the gun has one
+		gun.press_button(true);
+		expect(!gun.state().magazine_in, (std::string(name) + ": setting off, B releases it again").c_str());
+	}
+	{
+		reload m416(profile_for("U_M416", 31));
+		m416.load(10, 100);
+		expect(!profile_for("U_M416", 31).pull_out && m416.grab_magazine() == reload_event::none, "M416: latched until B, as before");
+		expect(!profile_for("U_AK12", 31).pull_out && profile_for("U_AK12", 31).kind == variant::ak, "AK-12: the AK variant, not pull_out");
+	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{
 		float point[3]{};

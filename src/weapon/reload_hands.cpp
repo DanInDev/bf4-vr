@@ -383,7 +383,9 @@ namespace bfvr::weapon
 		{
 			palm_ = palm_stage::none;
 		}
-		const bool can_palm = frame.palming && !ak && !frame.tube && !frame.revolver && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
+		// #98: no palming where there is no button to catch the old magazine with (the P90, the AK 5C): it would wait for a B
+		// that does nothing, and a loaded well never takes the new one.
+		const bool can_palm = frame.palming && !ak && !gun.pulled_by_hand() && !frame.tube && !frame.revolver && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
 			&& !kept_old_ && gun.state().magazine_in;
 		const float fist_to_magwell = valid ? distance(fist_top, frame.magwell) : 1e9f;
 		if (palm_ == palm_stage::ready && (!can_palm || fist_to_magwell > config_.palm_leave))

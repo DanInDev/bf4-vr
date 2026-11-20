@@ -36,6 +36,8 @@ namespace bfvr::weapon
 	// cylinder, a flick up or a push on the barrel shuts it); off: the game's own reload (B).
 	void set_revolver_by_hand(bool on);
 	void set_drop_discards_ammo(bool discard);
+	// #98: the P90 and the AK 5C have no release button: their magazine is pulled out by hand (setting magazine_pull_out).
+	void set_magazine_pull_out(bool on);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.
 	void set_palm_reload(bool enabled);

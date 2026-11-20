@@ -15,7 +15,7 @@ namespace bfvr::weapon
 			{ "U_Scorpion", feed::box, release::button, true, false, cycle::none, true }, // CZ-3A1: bolt catch
 			{ "U_JS2", feed::box, release::button, true, false, cycle::none, false },
 			{ "U_MX4", feed::box, release::button, true, false, cycle::none, false },     // magazine through the grip
-			{ "U_P90", feed::top, release::button, false, true, cycle::none, true },
+			{ "U_P90", feed::top, release::none, false, true, cycle::none, true }, // #98: pulled out by hand, no B (owner 2026-11-19)
 			{ "U_MagpulPDR", feed::box, release::button, true, true, cycle::none, true },
 			{ "U_PP2000", feed::box, release::button, true, false, cycle::none, false },  // magazine in the grip
 			{ "U_UMP45", feed::box, release::button, false, false, cycle::none, true },   // HK: no hold-open, paddle
@@ -31,7 +31,7 @@ namespace bfvr::weapon
 			// Carbine
 			{ "U_A91", feed::rock, release::none, false, true, cycle::none, true },        // AK magazines, bullpup
 			{ "U_GalilACE52", feed::rock, release::none, false, false, cycle::none, false },
-			{ "U_AK5C", feed::box, release::button, true, false, cycle::none, false },
+			{ "U_AK5C", feed::box, release::none, true, false, cycle::none, false }, // #98: pulled out by hand, no B (owner 2026-11-19)
 			{ "U_G36C", feed::box, release::button, true, false, cycle::none, true },     // paddle release
 			{ "U_M4A1", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_SG553LB", feed::box, release::button, true, false, cycle::none, true },

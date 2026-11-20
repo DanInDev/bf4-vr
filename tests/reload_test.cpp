@@ -1764,6 +1764,42 @@ namespace
 
 	// AR palming by hand: the new magazine at the magwell turns aside, B catches the old one, turning
 	// the hand back seats the new one; the old one stays in the hand for the pouch.
+	// #98: a pull-out gun (P90, AK 5C) has no palming: a fresh magazine at its loaded magwell neither gets ready nor
+	// seats, B does nothing, and it goes back to the pouch; the old one comes out by hand once the hand is free.
+	void test_pull_out_no_palming()
+	{
+		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f };
+		const auto frame_at = [&](v3 hand, bool grip, bool button) {
+			hand_frame f = at(hand, grip, button);
+			f.has_root = true;
+			f.root = { 0.0f, -0.2f, -0.2f };
+			f.root_rotation = gun_frame;
+			f.magazine_rotation = gun_frame;
+			f.palming = true;
+			return f;
+		};
+		reload_profile p90 = ar;
+		p90.hold = hold_open::no;
+		p90.pull_out = true;
+		reload gun(p90);
+		gun.load(31, 60);
+		reload_hands hands(flat_hold());
+		hand_result r = hands.update(gun, frame_at(chest, true, false));
+		expect(has(r, reload_event::magazine_taken), "pull-out: a new magazine from the pouch");
+		bool ever_ready = false;
+		for (int i = 0; i < 30; ++i)
+		{
+			r = hands.update(gun, frame_at(magwell, true, i == 20));
+			ever_ready = ever_ready || r.palm != hand_result::palm_stage::none;
+		}
+		expect(!ever_ready && gun.state().magazine_in && gun.state().holding && gun.state().magazine_rounds == 30,
+			"pull-out: at the loaded magwell no palming, B does nothing, the old one stays");
+		hands.update(gun, frame_at(chest, true, false));
+		r = hands.update(gun, frame_at(chest, false, false));
+		expect(has(r, reload_event::magazine_stowed) && !gun.state().holding, "pull-out: the new one goes back to the pouch");
+		expect(gun.grab_magazine() == reload_event::magazine_out, "pull-out: then the old one comes out by hand");
+	}
+
 	void test_hands_palming()
 	{
 		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f }; // Wep_Root +z = world -z, +x (the gun's left) = world -x
@@ -2514,6 +2550,7 @@ int main()
 	test_grip_before_reload();
 	test_seating();
 	test_hands_palming();
+	test_pull_out_no_palming();
 	test_grip_lock();
 	test_seated_hold();
 	test_palm_lock();

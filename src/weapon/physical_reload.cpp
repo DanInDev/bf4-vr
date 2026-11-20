@@ -193,6 +193,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<ULONGLONG> last_shot_at{}; // #65: the muzzle flash move's clock
 		std::atomic<bool> discard{ true };
+		std::atomic<bool> pull_out_on{ true }; // setting magazine_pull_out (#98)
 		std::atomic<bool> palming{ true };
 		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
 		std::atomic<bool> magazine_flight_on{ true }; // live setting magazine_flight (#47)
@@ -852,6 +853,11 @@ namespace bfvr::weapon
 		discard = value;
 	}
 
+	void set_magazine_pull_out(bool on)
+	{
+		pull_out_on = on;
+	}
+
 	void set_palm_reload(bool enabled)
 	{
 		palming = enabled;
@@ -1025,7 +1031,7 @@ namespace bfvr::weapon
 		}
 		hide_launcher();
 		reload& gun = memory.gun;
-		gun.configure({ discard.load(std::memory_order_relaxed) });
+		gun.configure({ discard.load(std::memory_order_relaxed), pull_out_on.load(std::memory_order_relaxed) });
 		gun.set_manual_cycle(manual_cycle_on.load(std::memory_order_relaxed) && profile_for(weapon.name, weapon.capacity).manual_cycle);
 
 		// Shots: the game counted down from what we wrote. Anything else (pickups) moves the reserve.

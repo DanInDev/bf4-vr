@@ -175,6 +175,9 @@ belts_by_hand = 1
 revolver_by_hand = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
+# The P90 and AK 5C have no magazine release to press: pull the magazine out by hand (0: B drops it as on the
+# other guns) (#98).
+magazine_pull_out = 1
 # Physical reload: the magazine zone runs from the low chest pouch down to the off-side hip (#57); a
 # magazine is grabbed or stowed with the off hand within this many metres of it.
 magazine_reach = 0.13
