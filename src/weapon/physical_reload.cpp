@@ -205,6 +205,7 @@ namespace bfvr::weapon
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::atomic<bool> pump_at_rest_on{ true }; // setting pump_at_rest (#94)
 		std::atomic<bool> lid_lock_on{ true };     // setting lid_hand_lock (#95)
+		std::atomic<bool> both_sides_on{ true };   // setting handle_both_sides (#97)
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
 		std::atomic<bool> revolver_by_hand{ true }; // setting revolver_by_hand
@@ -823,6 +824,11 @@ namespace bfvr::weapon
 		lid_lock_on = on;
 	}
 
+	void set_handle_both_sides(bool on)
+	{
+		both_sides_on = on;
+	}
+
 	void set_shells_by_hand(bool on)
 	{
 		shells_by_hand = on;
@@ -1107,6 +1113,7 @@ namespace bfvr::weapon
 			float point[3]{};
 			const bool per_gun = gun_points.load(std::memory_order_relaxed);
 			frame.has_handle_point = per_gun && handle_point_for(weapon.name, point);
+			frame.handle_both_sides = both_sides_on.load(std::memory_order_relaxed) && handle_both_sides(weapon.name);
 			if (handle_override_on)
 			{
 				std::copy(std::begin(handle_override), std::end(handle_override), point);
@@ -1553,8 +1560,8 @@ namespace bfvr::weapon
 		const bool grab_measured = per_gun && magazine_grab_for(found->second.name, gun_grab);
 		float way_out_degrees = 0.0f;
 		const bool way_out_measured = per_gun && magazine_way_out_for(found->second.name, way_out_degrees);
-		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
-			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d mirrored=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
+			r.rack_underhand ? 1 : 0, r.handle_mirrored ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
 			!handle_measured ? "variant-default" : handle_point_from_model(found->second.name) ? "model" : "measured", gun_handle[0], gun_handle[1], gun_handle[2],
 			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2], way_out_measured ? "measured" : "straight", way_out_degrees);
 		char touch[256];

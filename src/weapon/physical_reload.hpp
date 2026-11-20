@@ -26,6 +26,8 @@ namespace bfvr::weapon
 	void set_pump_at_rest(bool on);
 	// #95: a belt-fed gun's lid, while held, holds the drawn hand on its grab point (setting lid_hand_lock).
 	void set_lid_hand_lock(bool on);
+	// #97: the FAMAS's and AK-12's handle from either side (setting handle_both_sides).
+	void set_handle_both_sides(bool on);
 	// Setting shells_by_hand: tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS) load shell by shell from the pouch into the
 	// loading port; off: the game's own reload (B).
 	void set_shells_by_hand(bool on);

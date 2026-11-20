@@ -22,6 +22,9 @@ namespace bfvr::weapon
 	// #88: true when that point was placed from the gun's model (its bolt bone at rest, out to the handle's side),
 	// because the game's own reload never pulls the handle; false for one measured from the animation or none.
 	bool handle_point_from_model(std::string_view unlock_name);
+	// #97: the charging handle can be worked from either side (owner, mark 52: the FAMAS's under its carry handle, the
+	// AK-12's ambidextrous): a second rack zone at the knob mirrored across the gun.
+	bool handle_both_sides(std::string_view unlock_name);
 	// Where the game's own left hand takes this gun's magazine out (tools/handle_probe.py): offset from the seated
 	// Wep_Mag in Wep_Root axes (+x left, +y up, +z barrel). False: not measured, the magazine zone's default.
 	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3]);

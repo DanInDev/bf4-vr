@@ -164,6 +164,8 @@ pump_at_rest = 1
 shell_across = 1
 # Belt-fed guns: the hand that lifts the feed cover is held on it while it swings (0: it follows the controller) (#95).
 lid_hand_lock = 1
+# The FAMAS's and AK-12's charging handle can be racked from either side of the gun (0: only its own side) (#97).
+handle_both_sides = 1
 # Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
 # one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
 shells_by_hand = 1

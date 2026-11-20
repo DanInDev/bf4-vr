@@ -110,6 +110,12 @@ namespace bfvr::weapon
 		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
 	}
 
+	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging)
+	{
+		const auto usable = [&](const rack_zone_test& t) { return t.zone == rack_zone::over || (t.zone == rack_zone::under && needs_charging); };
+		return usable(across) && (!usable(own) || across.over_distance < own.over_distance);
+	}
+
 	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config)
 	{
 		rack_zone_test test;
@@ -260,7 +266,7 @@ namespace bfvr::weapon
 		// has two zones (rack_zone_of): overhand beside and above the knob, underhand a larger one below.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide * frame.handle_size;
-		const v3 handle_in_gun = (frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar) + frame.handle_shift;
+		v3 handle_in_gun = (frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar) + frame.handle_shift;
 		v3 handle_grab = handle;
 		rack_zone_test rack_test;
 		hand_config zones = config_;
@@ -273,6 +279,27 @@ namespace bfvr::weapon
 		}
 		zones.rack_over_reach *= frame.handle_size;
 		zones.rack_under_radii = zones.rack_under_radii * frame.handle_size;
+		// #97: a handle both sides can work: the stroke keeps the side it was grabbed on; otherwise the nearer knob's zone.
+		bool mirrored = false;
+		if (frame.handle_both_sides && frame.has_root && valid)
+		{
+			const v3 other{ -handle_in_gun.x, handle_in_gun.y, handle_in_gun.z };
+			if (racking_)
+			{
+				mirrored = rack_mirrored_;
+			}
+			else
+			{
+				const rack_zone_test own = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, handle_in_gun), frame.root_rotation, rack_side(handle_in_gun, ak), zones);
+				const rack_zone_test across = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, other), frame.root_rotation, rack_side(other, ak), zones);
+				mirrored = prefer_mirrored(own, across, needs_rack(gun.state()));
+			}
+			if (mirrored)
+			{
+				handle_in_gun = other;
+			}
+		}
+		result.handle_mirrored = mirrored;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
@@ -551,6 +578,7 @@ namespace bfvr::weapon
 			if (near_handle)
 			{
 				racking_ = true;
+				rack_mirrored_ = mirrored;
 				rack_underhand_ = rack_test.zone == rack_zone::under;
 				rack_full_ = false;
 				rack_start_ = frame.off_hand;
