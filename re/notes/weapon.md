@@ -1075,6 +1075,16 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Fast guns and the game's own reload (2026-11-20 night, monitor, Shanghai, #89)
+
+The mod keeps the game's magazine at ours + `spare_rounds` and blocks the trigger once our chamber is empty. With 2
+spares a fast gun fired both and the game reloaded by itself in the same frame (`the game raised ... 2 -> full`).
+Reproduced only at a low frame rate (`user.cfg` `GameTime.MaxVariableFps`, removed afterwards): at 155 and 39 fps the
+game's magazine stayed at 2; at 20 fps the P90 (2 -> 51), Scorpion (2 -> 31, twice) and JS2 (2 -> 31, twice) did what
+the owner's headset run logged. With 6 spares at 20 fps (and the Scorpion at 8 fps) the game's magazine stays at 6, no
+raise. A raise on a gun we reload is now undone (counter `game_reloads_undone` in pipe `reload`); not exercised: the
+game never reached 0 again, and `reload setammo 0` is counted by the mod as shots (57), not as a reload start.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

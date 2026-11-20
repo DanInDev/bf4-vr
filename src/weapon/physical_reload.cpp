@@ -72,8 +72,10 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t server_firing = 0x200;
 		constexpr std::uintptr_t firing_magazine = 0x1a0;  // int32 rounds in the gun, reserve at +4
 		constexpr int max_slots = 16;
-		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload).
-		constexpr int spare_rounds = 2;
+		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload). #89: 2 were not enough: a gun
+		// firing 800-900 rpm spent both between our last round and the trigger block reaching the game (Scorpion, M4A1,
+		// M16A4, P90, JS2, AEK-971 reloaded by themselves). Never shown: the HUD shows ours.
+		constexpr int spare_rounds = 6;
 		constexpr ULONGLONG points_max_age_ms = 250;
 
 		template <typename T>
@@ -193,6 +195,7 @@ namespace bfvr::weapon
 		// For the pad filter on the XInput thread.
 		std::atomic<bool> reload_all{};     // setting physical_reload_all: the AR/AK reload for every gun (the old way)
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
+		std::atomic<std::uint64_t> game_reloads_undone{}; // #89: the game's own reloads on a gun we reload, undone
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
@@ -1020,8 +1023,11 @@ namespace bfvr::weapon
 			}
 			if (weapon.magazine > memory.written)
 			{
-				log::write("reload: the game raised %s's magazine %d -> %d; taking its rounds", weapon.name, memory.written, weapon.magazine);
-				gun.load(weapon.magazine - spare_rounds, weapon.reserve);
+				// #89: on a gun we reload, a raise is the game's own reload (its magazine reached 0 anyway): undone, our
+				// count is written back below. Not the rounds of an empty gun handed over for free.
+				log::write("reload: the game raised %s's magazine %d -> %d; its own reload, undone (ours stays %d)", weapon.name, memory.written, weapon.magazine,
+					gun.rounds_in_gun());
+				++game_reloads_undone;
 			}
 			else if (memory.written_reserve >= 0 && weapon.reserve != memory.written_reserve)
 			{
@@ -1517,11 +1523,12 @@ namespace bfvr::weapon
 		const gun_state& s = gun.state();
 		int length = std::snprintf(text, sizeof(text),
 			"reload=%s active=%d weapon=%s slot=%d variant=%s capacity=%d\n"
-			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu\n"
+			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu game_reloads_undone=%llu\n"
 			"magwell=(%.3f,%.3f,%.3f) slide=(%.3f,%.3f,%.3f) off_hand=(%.3f,%.3f,%.3f) points_valid=%d\nrecent:",
 			physical ? "physical" : "button", active ? 1 : 0, found->second.name.c_str(), current_slot, gun.profile().kind == variant::ak ? "AK" : "AR",
 			gun.profile().capacity, s.magazine_in ? 1 : 0, s.magazine_rounds, s.chamber ? 1 : 0, s.bolt_locked ? 1 : 0, s.holding ? 1 : 0,
-			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
+			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots),
+			static_cast<unsigned long long>(game_reloads_undone.load()), points.magazine[0], points.magazine[1],
 			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[hand][0], points.hand[hand][1], points.hand[hand][2],
 			points.valid ? 1 : 0);
 		for (int i = 0; i < recent_count && length > 0 && length < static_cast<int>(sizeof(text)); ++i)
