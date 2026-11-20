@@ -78,6 +78,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 
 ## Working with the user
 
+- **Claude is the main maintainer** (owner, 2026-11-20): it decides the architecture and how things are set up, and
+  works through the open issues on its own. **Life-like over easy:** never settle for a shortcut that costs VR
+  immersion (as the first scope picture did: a flat image instead of the view inside the optic's own glass). Each gun
+  works as the real one does (where the game's own animation differs, as the game's gun does), and every gun that has a
+  feature in reality gets it, built to the same quality bar (gate, monitor check, verifier, headset row).
 - One branch per task, from `main`. **Claude is the main worker on this repository** (owner, 2026-11-16): it
   decides when to merge into `main` and push, as it sees fit: the gate green, the monitor check done, and what
   only the headset can judge named in `docs/HEADSET-TESTS.md`. After a merge, delete the branch locally and on
