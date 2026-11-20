@@ -22,7 +22,7 @@ namespace bfvr::weapon
 	enum class release
 	{
 		button,   // a button or paddle frees the magazine
-		none,     // the hand rocks it out (AK pattern)
+		none,     // the hand rocks it out (AK pattern), or pulls it out (P90, AK 5C: #98)
 		lever,    // a lid or a latch (belt-fed, revolver)
 	};
 

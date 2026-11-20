@@ -129,6 +129,7 @@ namespace bfvr::settings
 			{ "grenade_throw_aim", kind::boolean, 0, 0, 0, "1", "", "a thrown grenade goes along your hand's motion: the game's aim turns with the throw for that moment and it starts at your hand (#85; off: the old way, which a stick or snap turn and looking up or down sent elsewhere)" },
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "magazine_reach", kind::real, 0.08f, 0.25f, 0.01f, "0.13", "", "physical reload: the off hand grabs or stows a magazine this close to the zone from the low chest to the off-side hip, metres" },
+			{ "magazine_pull_out", kind::boolean, 0, 0, 0, "1", "", "the P90 and AK 5C have no magazine release to press: pull the magazine out by hand (B does not drop it); 0: B drops it as on the other guns" },
 			{ "drop_discards_ammo", kind::boolean, 0, 0, 0, "1", "", "physical reload: a dropped magazine loses its rounds (off: they go back to the reserve)" },
 			{ "pose_edit", kind::choice, 0, 0, 0, "off", "off|relaxed|reach|fist|cup|palm|magazine_ak|magazine_ar|hook|pinch|underhand|rack_over|rack_under", "pose editor (development): the grip whose finger tweaks the sliders below set, live wherever a hand shows it; choosing one loads its saved tweaks (bfvr_poses.ini)" },
 			{ "pose_show", kind::choice, 0, 0, 0, "off", "off|left|right", "pose editor: hold that hand in the edited grip whatever it is doing, to shape it with the other hand on the panel (cup and palm show their open shape)" },

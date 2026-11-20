@@ -92,6 +92,7 @@ namespace bfvr::settings
 			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
 			{ "gun_points", "Weapon", "Reloading", "Per-gun handle and magazine", "Off: one point per gun type", "" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
+			{ "magazine_pull_out", "Weapon", "Reloading", "Pull out (P90, AK 5C)", "No B release where the gun has none", "" },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },
 			{ "hand_collision", "Weapon", "Hands and melee", "Hand stays out of the gun", "Rests on its surface instead", "" },
 			{ "flash_at_gun", "Weapon", "Hands and melee", "Muzzle flash at the gun", "Not where the game's own gun would be", "" },

@@ -1075,6 +1075,15 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Magazines pulled out by hand: the P90 and the AK 5C (2026-11-20 night, #98)
+
+Owner (marks 31, 1): the P90's magazine should be taken out by hand, not thrown out with B; the AK 5C like an AK. Their
+`gun_traits` release is now `none` (box or top feed, not rocked: the AR variant stays) and `profile_for` sets
+`reload_profile::pull_out`: `press_button` never frees the magazine (the bolt catch after a new magazine still works),
+`grab_magazine` takes it as an AK's. Setting `magazine_pull_out` (on; off: B as before, through `reload_options`).
+Unit-tested in `gun_traits_test` (P90, AK 5C, M416, AK-12). The real P90's latches are squeezed by the hand that pulls
+it; the AK 5C (an FNC pattern) has a button in reality: the owner's call to treat it as an AK.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
