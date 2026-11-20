@@ -1099,12 +1099,15 @@ every shot is pumped); unchanged, for the owner to confirm.
 barrel axis = the fist's +z, out through the curled fingers): it ran diagonally through the fingers (screenshot,
 M1014). Now (setting `shell_across`, on) it is turned -90 degrees about the fist's x and lies across the knuckles
 (+y), between thumb and index, its hull out at the index side. The tube's insert uses the hand's position only, not
-the shell's rotation.
+the shell's rotation. One turn for every gun, on top of each gun's own seated shell rotation (the issue asked for a pose
+per gun; nothing measured per gun yet). Monitor (M1014, off hand raised, screenshots): off, the shell crosses the
+fingers diagonally; on, it is inside the closed fingers, the hull seen between thumb and index from the side.
 
-**Tool pitfall: fake pump strokes are flaky.** With fakehand, the off hand must be on the gun's handle zone (the CZ
-hold is 17 cm off the 870's fore-end: no stroke started); converge it against `reload` `handle_zone`/`palm` and let go of the grip
-first so the pump starts on a fresh grip. Even then, strokes failed now and then (pull stalled at 1-2 cm; 5 of 11
-right after real shots, the gun still moving); a failed stroke says nothing about the pump.
+**Tool pitfall: fake pump strokes.** With fakehand, the off hand must be on the gun's handle zone (the CZ hold is 17 cm
+off the 870's fore-end: no stroke started); converge it against `reload` `handle_zone`/`palm` and let go of the grip
+first so the pump starts on a fresh grip. Even then every second stroke in a row failed (the placement stalled at
+1.4 cm, the pull at 1-2 cm), whichever the setting: off first then on, off chambered 3 of 3 and on failed 3 of 3; on
+first then off, the other way round. A failed fake stroke says nothing about the pump; compare settings in separate runs.
 
 ## Open
 
