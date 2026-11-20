@@ -1214,14 +1214,20 @@ glass widens its scissor from 30 % to 45 % of the height).
 
 ## The reticle at each optic's own zoom (2026-11-20 night, monitor, Shanghai, #140)
 
-`sight_lens` sizes the reticle art from the selected zoom level's own vertical FOV (aiming simulation `+0x238` levels,
-#138) instead of the 40 degree constant; `sight_lens_fov` above 0 overrides (`lens_math::reticle_fov`). Inside the
-glass the art is magnified with the world (`glass_reticle_span` = span x power), so it covers the same share of the
-world as in the game's own aim picture: every magnified optic's reticle comes out at the hip's 45 degrees, 1.14x the
-1x span (ACOG 17.2 x 2.74, magnifier 27 x 1.73). Monitor (CZ-805 at the right eye; extent of the red pixels inside the
-glass, against an override that reproduces the size before): EOTech and PK-AS unchanged (span 0.0277 / 0.0291, width
-within a pixel); flipped magnifier ring 1.125x wider (expected 1.139); ACOG width 16 -> 19 px (1.19x, expected 1.14,
-one pixel = 6 % at this size).
+`sight_lens` sizes the reticle art from the view of the zoom level the reticle belongs to (aiming simulation `+0x238`
+levels, #138; `lens_math::reticle_level_fov`) instead of the 40 degree constant; `sight_lens_fov` of 10 or more
+overrides. A scope's art (ACOG 17.2, SRS 8.7) at its own level; a flipped magnifier keeps the red dot's or holo's level
+(40, not its own 27): inside the glass the art is magnified with the world (`glass_reticle_span` = span x power), so
+the magnifier's ring grows with its power as through a real magnifier (owner's rule in #140; the game's own aim would
+give 1.14x). Monitor (CZ-805 at the right eye; the red pixels' fitted extent inside the glass, 5 shots): flipped /
+folded magnifier ring width 1.727, height 1.779 (expected 1.73); EOTech and PK-AS with data against a 40 override
+1.02 / 1.00; the ACOG's art is larger than its glass at both settings (clipped), so only its report spans compare:
+0.0408 against 0.0983 (0.415 = tan 8.6 / tan 20).
+
+**The game's aim picture never reaches the VR eye image.** With the glass and the forced aim off, the game aimed by
+LT (`game_fov` 45 -> 17.2, `aiming=1`), the eye image above the gun changed by 0.71 (mean absolute, 0-255) against
+0.61 between two hip shots: the eye renders keep the headset's view. A reticle cannot be compared against the game's
+own aim picture in VR; its art spans `size` of the screen at the level's FOV by the game's own definition.
 
 ## Open
 

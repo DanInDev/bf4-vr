@@ -114,8 +114,7 @@ namespace bfvr::stereo
 			: sight.valid && sight.selected > 0 ? learned.lookup(sight.weapon, sight.selected, unlearned) : 1.0f;
 		const bool at_hip = !aiming && hip_zoom >= min_magnification;
 		optic_power = sight.valid && sight.selected > 0 ? hip_zoom : 0.0f;
-		optic_level_fov = sight.valid && sight.selected > 0 && sight.selected < sight.levels && sight.selected < static_cast<int>(std::size(sight.level_fov))
-			? sight.level_fov[sight.selected] : 0.0f;
+		optic_level_fov = sight.valid ? reticle_level_fov(sight.level_fov, sight.levels, static_cast<int>(std::size(sight.level_fov)), sight.selected, magnifier) : 0.0f;
 		if (at_hip)
 		{
 			zoom = hip_zoom;

@@ -61,7 +61,8 @@ namespace bfvr::stereo
 	// sight_lens (#39, BF3-style lens): camera hook, each view: the gun's sight line and up in the rendered
 	// eye's view space (x right, y up, -z ahead), valid whenever the gun's points are fresh.
 	void set_lens_axes(bool valid, const float (&along)[3], const float (&up)[3]);
-	// Settings sight_lens, sight_lens_fov (the game's ADS view the reticle art is sized for, degrees) and
+	// Settings sight_lens, sight_lens_fov (an override of the view the reticle art is sized for, degrees; below 10 = each
+	// zoom level's own) and
 	// sight_lens_brightness.
 	void set_sight_lens(bool on, float ads_fov_degrees, float brightness);
 	// #139: a magnifying optic shows the world magnified on its own glass (setting scope_glass).

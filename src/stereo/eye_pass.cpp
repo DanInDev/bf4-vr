@@ -1750,7 +1750,8 @@ float4 ps_glass(v2p i) : SV_Target
 		// the game's reticle art (the material's t3 alpha) looked up by that slope. So the reticle keeps its true
 		// angular size at any distance from the eye, turns with the gun (not the head), and stays on what the sight
 		// points at from anywhere behind the glass. Its size: the material's own size (ps cb1 float 8: 0.038 of the
-		// screen height for the EOTech) at the game's ADS view (sight_lens_fov, 40 degrees): 1.13 degrees of ring.
+		// screen height for the EOTech) at its zoom level's view (#140, lens_math::reticle_level_fov; red dots and holos
+		// 40 degrees: 1.13 degrees of ring; sight_lens_fov of 10 or more overrides).
 		std::atomic<bool> sight_lens_on{ true };
 		std::atomic<float> sight_lens_fov{ 0.0f }; // #140: 0 = the zoom level's own view (lens_math::reticle_fov)
 		std::atomic<float> sight_lens_brightness{ 4.0f };
@@ -2123,7 +2124,10 @@ float4 probe(float4 position : SV_Position) : SV_Target
 			}
 			// #140: the art sized for the selected zoom level's own view (the setting overrides).
 			const float span = reticle_span(size, reticle_fov(sight_lens_fov.load(std::memory_order_relaxed), optic_level_fov_now()));
-			lens_span_seen = span;
+			if (art)
+			{
+				lens_span_seen = span;
+			}
 			float constants[16][4]{
 				{ viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height },
 				{ projection_sx, projection_sy, span, sight_lens_brightness.load(std::memory_order_relaxed) },

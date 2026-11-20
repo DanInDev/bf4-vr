@@ -11,7 +11,7 @@ namespace bfvr::stereo
 
 	float reticle_fov(float override_degrees, float level_fov_degrees)
 	{
-		if (override_degrees > 0.0f && std::isfinite(override_degrees))
+		if (override_degrees >= 10.0f && override_degrees < 170.0f)
 		{
 			return override_degrees;
 		}
@@ -20,6 +20,17 @@ namespace bfvr::stereo
 			return level_fov_degrees;
 		}
 		return 40.0f;
+	}
+
+	float reticle_level_fov(const float* level_fov, int levels, int capacity, int selected, bool magnifier)
+	{
+		const int level = magnifier ? selected - 1 : selected;
+		if (!level_fov || level < 1 || selected >= levels || selected >= capacity)
+		{
+			return 0.0f;
+		}
+		const float fov = level_fov[level];
+		return fov > 0.5f && fov < 170.0f ? fov : 0.0f;
 	}
 
 	float glass_reticle_span(float span, float power)

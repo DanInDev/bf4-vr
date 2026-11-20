@@ -34,7 +34,8 @@ namespace bfvr::stereo
 	// name table): 1 for a red dot or holo, the magnification for a scope or a flipped magnifier; 0 when unknown.
 	// Any thread (the eye pass's lens glass reads it).
 	float optic_power_now();
-	// #140: the held optic's selected zoom level's vertical FOV, degrees, from the game's data (0 when unknown).
+	// #140: the vertical FOV, degrees, of the zoom level the held optic's reticle belongs to (lens_math::reticle_level_fov:
+	// a flipped magnifier keeps its red dot's level), from the game's data; 0 when unknown.
 	float optic_level_fov_now();
 
 	// Pipe "scope": the game FOVs, magnification, request and the eye pass's scope renders.

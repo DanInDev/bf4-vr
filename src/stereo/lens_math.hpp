@@ -10,12 +10,15 @@ namespace bfvr::stereo
 	// 0.0277, its ring (70 % of the art) 1.1 degrees across, as the real sight's 65 MOA.
 	float reticle_span(float size_fraction, float ads_fov_degrees);
 
-	// #140: the aiming view the reticle art is sized for: the setting sight_lens_fov when above 0 (an override), else the
-	// selected zoom level's own vertical FOV from the game's data (red dot / holo 40, ACOG 17.2, flipped magnifier 27,
-	// SRS 8.7), else 40 (the EOTech's measured view, as before).
+	// #140: the aiming view the reticle art is sized for: the setting sight_lens_fov when 10 degrees or more (an
+	// override), else the reticle's own zoom level FOV (reticle_level_fov), else 40 (the EOTech's measured view).
 	float reticle_fov(float override_degrees, float level_fov_degrees);
-	// Seen through a glass of this power the art's world span is magnified too: as in the game's own aim picture, the
-	// reticle covers the same share of the world (0 for a power below 1).
+	// The zoom level whose view the reticle art belongs to, degrees (0 when unknown). A scope's or red dot's own selected
+	// level (ACOG 17.2, SRS 8.7, red dot / holo 40). A flipped magnifier only magnifies the red dot or holo behind it: its
+	// reticle keeps that sight's own level, the one below (27 -> 40), so in the glass it grows with the power, as
+	// through a real magnifier (owner, #140), not by the game's 1.14x.
+	float reticle_level_fov(const float* level_fov, int levels, int capacity, int selected, bool magnifier);
+	// Seen through a glass of this power the art's world span is magnified with the world (0 below 1x).
 	float glass_reticle_span(float span, float power);
 
 	// The gun's right and up square to its sight line (all in one view space: x right, y up, -z ahead). False
