@@ -1086,7 +1086,8 @@ and JS2 (2 -> 31, twice) did what the owner's headset run logged.
 
 The spares now follow the frame time and the gun's rate (`spare_rounds_for` = the shots of three frames + 1, 2 to 8;
 the rate averaged over a burst's frames and never below 15 a second, since the frames after the block count too):
-2 at 72-155 fps, as before (the game's HUD counter reads 2 high, as always), 4 at 20 fps, where the P90, Scorpion and
+2 at 90-155 fps, as before (the game's HUD counter reads 2 high, as always), 3 at 30-40 fps (and at 72 fps for a gun
+measured above 24 rounds a second), 4 at 20 fps; at most 6 live (the frame time is capped at 0.1 s), where the P90, Scorpion and
 JS2 then run dry with the game's magazine at 4 and no raise. A fixed 6 was tried first and dropped: the HUD read 6 high
 (verifier, `pipe shot`: 6/153 with our gun empty). A raise is still taken as the game's rounds: an empty picked-up gun
 gets its first load that way (above).
