@@ -87,8 +87,9 @@ itself** (the owner's report "after a respawn it automatically reloads itself").
 
 - Write only the server weapon; read shots back from it (the game counts down from what we wrote).
 - Never let the game's magazine reach 0: it would start its own reload. The mod writes the rounds
-  in the gun plus 2 spare rounds and holds the trigger back while the chamber is empty, so the HUD
-  ammo counter reads 2 high in physical mode (`hud_show_ammo = 0`, or a wrist counter later).
+  in the gun plus spare rounds and holds the trigger back while the chamber is empty, so the HUD
+  ammo counter reads that many high in physical mode (`hud_show_ammo = 0`, or a wrist counter later):
+  2 at headset frame rates, more only when frames are slow (#89, `spare_rounds_for`, below).
 - The game's reload button (pad X) is taken: AR magazine release / bolt catch.
 - `Wep_Mag` is drawn by the mod while the magazine is out (in the hand, falling, or 50 m below).
 
@@ -1077,13 +1078,18 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 
 ## Fast guns and the game's own reload (2026-11-20 night, monitor, Shanghai, #89)
 
-The mod keeps the game's magazine at ours + `spare_rounds` and blocks the trigger once our chamber is empty. With 2
-spares a fast gun fired both and the game reloaded by itself in the same frame (`the game raised ... 2 -> full`).
-Reproduced only at a low frame rate (`user.cfg` `GameTime.MaxVariableFps`, removed afterwards): at 155 and 39 fps the
-game's magazine stayed at 2; at 20 fps the P90 (2 -> 51), Scorpion (2 -> 31, twice) and JS2 (2 -> 31, twice) did what
-the owner's headset run logged. With 6 spares at 20 fps (and the Scorpion at 8 fps) the game's magazine stays at 6, no
-raise. A raise on a gun we reload is now undone (counter `game_reloads_undone` in pipe `reload`); not exercised: the
-game never reached 0 again, and `reload setammo 0` is counted by the mod as shots (57), not as a reload start.
+The mod keeps the game's magazine at ours + spare rounds and blocks the trigger once our chamber is empty; the block
+reaches the game a few frames later. With 2 spares a fast gun fired both and the game reloaded by itself
+(`the game raised ... 2 -> full`). Reproduced only at a low frame rate (`user.cfg` `GameTime.MaxVariableFps`, removed
+afterwards): at 155 and 39 fps the game's magazine stayed at 2; at 20 fps the P90 (2 -> 51), Scorpion (2 -> 31, twice)
+and JS2 (2 -> 31, twice) did what the owner's headset run logged.
+
+The spares now follow the frame time and the gun's rate (`spare_rounds_for` = the shots of three frames + 1, 2 to 8;
+the rate averaged over a burst's frames and never below 15 a second, since the frames after the block count too):
+2 at 72-155 fps, as before (the game's HUD counter reads 2 high, as always), 4 at 20 fps, where the P90, Scorpion and
+JS2 then run dry with the game's magazine at 4 and no raise. A fixed 6 was tried first and dropped: the HUD read 6 high
+(verifier, `pipe shot`: 6/153 with our gun empty). A raise is still taken as the game's rounds: an empty picked-up gun
+gets its first load that way (above).
 
 ## Open
 

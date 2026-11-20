@@ -2447,8 +2447,19 @@ static void test_reload_sound_cues()
 		expect(!hide_quick_throw_switch(true, 6, -1), "no previous weapon known");
 	}
 
+static void test_spare_rounds()
+{
+	// #89: a 900-1200 rpm gun (15-20 rounds a second) at the headset's 90 fps: 2, as before (the HUD reads 2 high).
+	expect(spare_rounds_for(20.0f, 1.0f / 90.0f) == 2 && spare_rounds_for(15.0f, 1.0f / 72.0f) == 2, "spares: headset frame rate, 2");
+	// At 20 fps two spares were fired before the block reached the game (monitor): now 4.
+	expect(spare_rounds_for(15.0f, 1.0f / 20.0f) == 4, "spares: 900 rpm at 20 fps, 4");
+	expect(spare_rounds_for(20.0f, 1.0f / 8.0f) == 8, "spares: very slow frames, at most 8");
+	expect(spare_rounds_for(0.0f, 1.0f / 20.0f) == 2 && spare_rounds_for(20.0f, 0.0f) == 2, "spares: nothing known, 2");
+}
+
 int main()
 {
+	test_spare_rounds();
 	test_reload_sound_cues();
 	test_load();
 	test_ar_empty_reload();
