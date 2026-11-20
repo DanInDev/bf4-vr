@@ -355,6 +355,9 @@ rack_grip = fist
 # with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
 # muzzle) metres of the game's own handguard spot.
 support_lock = 1
+# Pistols and the revolver: close the off hand round the gun hand to hold them with both hands, aim steadied by both
+# (0: one-handed only) (#99).
+pistol_two_hands = 1
 # #62: the free hand is drawn on the gun's surface, never inside its receiver or handguard (the boxes come from the
 # gun's own bones); a fast slap through the gun ends on the side it came from. Pipe `fingers` shows the contact.
 hand_collision = 1

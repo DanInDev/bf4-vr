@@ -598,6 +598,40 @@ namespace
 	// Owner 2026-11-15: the charging handle has an overhand zone at its level, out on its side and a little
 	// above, and a larger underhand zone below it, short along the barrel (the handguard ahead stays the
 	// two-handed grab's). Gun frame as the identity here: +x left, +y up, +z along the barrel.
+	// #99: a pistol held two-handed: the off hand cupping the gun hand sits on the magazine well in the grip; with the
+	// magazine seated and nothing in that hand, the reload does not take it (the cup does), and a magazine brought there
+	// still goes in.
+	void test_pistol_cup_zone()
+	{
+		reload pistol(ar);
+		pistol.load(16, 45);
+		reload_hands hands(flat_hold());
+		hand_frame f = at(magwell, false);
+		f.cup_grip = true;
+		hand_result r = hands.update(pistol, f);
+		expect(!r.off_hand_busy && r.in_zone != hand_result::zone::magazine, "pistol cup: the open hand at the grip is not the magazine's");
+		f.grip = true;
+		r = hands.update(pistol, f);
+		expect(!pistol.state().holding && pistol.state().magazine_in && !r.off_hand_busy, "pistol cup: closing it there takes nothing");
+		hand_frame plain = at(magwell, false);
+		reload rifle(ar);
+		rifle.load(16, 45);
+		reload_hands rifle_hands(flat_hold());
+		expect(rifle_hands.update(rifle, plain).off_hand_busy, "a rifle: the open hand at the magazine is the reload's");
+		pistol.press_button(false); // B drops the old one
+		hand_frame open_hand = at(chest, false);
+		open_hand.cup_grip = true;
+		hands.update(pistol, open_hand); // let go first: a new grip press at the pouch
+		hand_frame g = at(chest, true);
+		g.cup_grip = true;
+		hands.update(pistol, g);
+		expect(pistol.state().holding, "pistol cup: a new magazine from the pouch");
+		g = at(magwell, true);
+		g.cup_grip = true;
+		r = hands.update(pistol, g);
+		expect(pistol.state().magazine_in && !pistol.state().holding, "pistol cup: brought to the well it goes in");
+	}
+
 	void test_rack_zones()
 	{
 		const hand_config config;
@@ -2566,6 +2600,7 @@ int main()
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
 	test_rack_zones();
+	test_pistol_cup_zone();
 	test_slot_model_point();
 	test_hands_ar_drop_and_fall();
 	test_eject_flight();

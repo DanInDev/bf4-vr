@@ -332,6 +332,7 @@ namespace bfvr::core
 			body::set_gun_hand_neutral(store.text("gun_hand_pose", "neutral") == "neutral");
 			body::set_magazine_grip(store.text("magazine_grip", "auto"));
 			body::set_rack_grip(store.text("rack_grip", "fist"));
+			weapon::set_pistol_two_hands(store.boolean("pistol_two_hands", true));
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));

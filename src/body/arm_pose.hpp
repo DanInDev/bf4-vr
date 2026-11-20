@@ -288,6 +288,9 @@ namespace bfvr::body
 	// Where the gun's animation holds the off hand relative to the gun hand, across the barrel, in
 	// gun-hand aim axes (x right, y up), metres; false without a gun in the rig.
 	bool support_offset(float (&offset)[2]);
+	// #99: how far ahead of the gun hand, along the barrel (metres, Wep_Root +z), the game's own off hand holds this gun:
+	// a rifle's handguard 25-45 cm, a pistol's or revolver's cupping hand a few cm. False without the gun's geometry.
+	bool support_along(float& along);
 	// The drawn wrist for a controller grip pose (0 = left rig arm, 1 = right), OpenXR LOCAL.
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3]);
 

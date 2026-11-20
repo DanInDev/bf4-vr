@@ -3983,6 +3983,17 @@ namespace bfvr::body
 		return true;
 	}
 
+	bool support_along(float& along)
+	{
+		const std::lock_guard guard(rig_lock);
+		if (!geometry.valid)
+		{
+			return false;
+		}
+		along = geometry.hand[0].position.z - geometry.hand[1].position.z;
+		return std::isfinite(along);
+	}
+
 	void wrist_of(int hand, const stereo::pose& grip, float (&wrist)[3])
 	{
 		ik::vec3 offset;

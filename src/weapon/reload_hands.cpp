@@ -328,6 +328,7 @@ namespace bfvr::weapon
 		// Zones overlap: the magazine beats the underhand zone (the large fallback below the handle);
 		// against the overhand zone the nearer one wins.
 		const bool near_magwell = !frame.handle_only && to_magwell < magazine_reach && !((frame.tube || frame.revolver) && !gun.state().holding)
+			&& !(frame.cup_grip && !gun.state().holding && gun.state().magazine_in)
 			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
 		const bool near_handle = in_rack_zone && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;

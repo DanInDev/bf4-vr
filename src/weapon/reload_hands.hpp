@@ -68,6 +68,9 @@ namespace bfvr::weapon
 		// A pump gun cycled by hand (reload_profile manual_cycle with a pump): the handle point is the fore-end, which is
 		// also where the two-handed hold takes it. No rack zone there; the held hand pumps it (hand_result pumping).
 		bool pump{};
+		// #99: a pistol or revolver held two-handed (weapon::pistol_cup): its magazine well is in the grip, where the off hand
+		// cups the gun hand, so an empty hand there is the cup's, not the seated magazine's.
+		bool cup_grip{};
 		// A tube gun (reload_profile tube): magwell is the loading port; nothing to grab there with an empty hand, a held
 		// shell goes in when brought to it (no rail lock, no palming).
 		bool tube{};
