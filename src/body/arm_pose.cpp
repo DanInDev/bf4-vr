@@ -1686,6 +1686,7 @@ namespace bfvr::body
 			}
 			points.has_belt_feed = false;
 			belt_feed_drawn = false;
+			belt_link_scale = 1.0f;
 			if (!belt_feed_request.active || belt_feed_request.revolver || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
 				|| rig.parents[rig.rail] != rig.weapon || rig.parents[rig.optic] != rig.weapon || rig.parents[rig.belt[0]] != rig.weapon)
 			{

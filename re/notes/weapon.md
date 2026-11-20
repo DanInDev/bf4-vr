@@ -1087,12 +1087,16 @@ but only the revolver path used it): `edit_belt_feed` now scales Wep_Belt1-10 to
 empty box (unit-tested). Pipe `arms`: `belt_feed drawn= rounds= lid= belt_scale=`. The box comes off with B (an AR-type
 latch; `reload grab` leaves it on).
 
-**The belt that dropped at once (marks 66-69: `belt_taken belt_dropped` pairs).** Not reproduced: on the monitor
-(old and new code) a belt taken at the tray stays held 15 cm, and up to (0.5, -0.8, 0.45) m, away and drops only when
-the grip opens. It drops when the grip opens or the hands are invalid for a frame (`reload_hands`). First guess, wrong:
-the accessory touch (the M240's optic sits on the lid) taking the grip; the marks show the touch was off
-(`accessory_touch=0`). The touch now stands down at the lid and belt anyway (`hand_result::belt_zone`), for players who
-have it on. Cause open: the owner's next marks with the belt line will tell.
+**The belt that dropped at once (marks 66-69: `belt_taken belt_dropped` pairs).** The likely cause (found by the
+review in the owner's marks 67-68): the gun was carried in the off hand (`hand=1`, `off task=support`) and the gun hand
+reloaded. In that state `grip_first` opens the reload's grip whenever the palm is within 12 cm of the pistol grip and
+nearer it than the magazine, handle and pouch zones (`grip_before_reload`), which knew nothing of the lid, the tray or a
+held belt: a belt carried back past the pistol grip dropped. Now a held belt or lid, or the hand at them
+(`hand_result::belt_zone`), keeps the reload's grip (unit-tested). Not reproduced live: driving the off-hand carry with
+fake hands dropped the gun instead (the fake off hand was not on the M240's handguard). Ruled out: the accessory touch
+(off in the marks, `accessory_touch=0`; it now stands down at the lid and belt anyway); with the gun hand on the gun
+(`hand=0`) the monitor holds the belt 15 cm to 1 m away. The grip is also opened by `accessory_busy` and `grip_first`,
+not only by the controller's grip and invalid hands.
 
 ## Open
 

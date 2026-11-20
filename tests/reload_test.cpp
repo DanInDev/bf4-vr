@@ -1749,6 +1749,17 @@ namespace
 		last.has_handle = true;
 		expect(!grip_before_reload({ 0.0f, 0.03f, 0.05f }, { 0.0f, 0.0f, 0.12f }, 0.12f, last), "nearer the handle than the grip: rack");
 		expect(grip_before_reload({ 0.0f, -0.07f, 0.10f }, grip, 0.12f, hand_result{}), "no zones placed yet: the grip");
+		// #95: a belt carried by the gun hand (the gun in the off hand) past the pistol grip stays in the hand.
+		hand_result belt = last;
+		belt.belt_draw = 2;
+		belt.belt_zone = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, belt), "a held belt at the pistol grip: still the belt's grip");
+		hand_result lid = last;
+		lid.lid_held = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, lid), "a held lid: still the lid's grip");
+		hand_result near = last;
+		near.belt_zone = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, near), "at the lid or tray: the reload's grip");
 	}
 
 	// AR palming by hand: the new magazine at the magwell turns aside, B catches the old one, turning

@@ -974,6 +974,7 @@ namespace bfvr::weapon
 			block_grip = false;
 			hand_engaged = false;
 			claims_free_hand = false;
+			last_result.belt_zone = false; // #95: no lid or belt holds the accessory touch off now
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -1002,6 +1003,7 @@ namespace bfvr::weapon
 		if (weapon.launcher)
 		{
 			draw_belt_feed(nullptr, 0.0f);
+			last_result.belt_zone = false;
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
 		}
