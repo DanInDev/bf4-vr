@@ -22,6 +22,8 @@ namespace bfvr::weapon
 	// Setting manual_cycle: bolt actions and the Hawk's pump are worked by hand after each shot (rack at the bolt knob or
 	// the fore-end; the trigger waits); off: the game cycles them by itself.
 	void set_manual_cycle(bool on);
+	// #96: a turn bolt (SRS, FY-JS, Scout, SV-98) in its four steps by hand: up, back, forward, down (setting bolt_steps).
+	void set_bolt_steps(bool on);
 	// #94: a pump gun's fore-end drawn at rest after a shot (the hand pumps it; setting pump_at_rest).
 	void set_pump_at_rest(bool on);
 	// #95: a belt-fed gun's lid, while held, holds the drawn hand on its grab point (setting lid_hand_lock).

@@ -71,6 +71,13 @@ namespace bfvr::weapon
 		// #99: a pistol or revolver held two-handed (weapon::pistol_cup): its magazine well is in the grip, where the off hand
 		// cups the gun hand, so an empty hand there is the cup's, not the seated magazine's.
 		bool cup_grip{};
+		// #96: a turn bolt worked in its four steps (reload::turning(), setting bolt_steps). The bolt (Wep_Slide) turns about
+		// its own axis through bolt_pivot (Wep_Root x, y) by bolt_lift_radians (the game's own cycle: 56.4 or 73.7 degrees,
+		// knob up) and travels bolt_travel back. handle_point is the knob lifted (where the game's hand rides it back).
+		bool bolt_turn{};
+		v3 bolt_pivot;
+		float bolt_lift_radians{};
+		float bolt_travel{ 0.103f };
 		// A tube gun (reload_profile tube): magwell is the loading port; nothing to grab there with an empty hand, a held
 		// shell goes in when brought to it (no rail lock, no palming).
 		bool tube{};
@@ -171,6 +178,17 @@ namespace bfvr::weapon
 		// A pump gun (hand_frame pump): the off hand holding the fore-end slides it back (rack_pull, handle_in_gun as for
 		// racking) without leaving the two-handed hold; drawn like racking, but the hand stays the hold's.
 		bool pumping{};
+		// #96, a turn bolt: drawn every frame while bolt_drawn (it stays where the hand left it): turned bolt_turn radians up
+		// and bolt_pull metres back. bolt_held: the hand is on the knob (handle_in_gun is the knob as turned, rack_pull its
+		// pull). knob_* in the reload frame: the knob now, at rest (down, forward) and lifted, for the pipe and the probes.
+		bool bolt_drawn{};
+		bool bolt_held{};
+		float bolt_turn{};
+		float bolt_pull{};
+		float bolt_lift{}; // 0 down .. 1 fully up
+		v3 knob_now;
+		v3 knob_rest;
+		v3 knob_up;
 		// Belt-fed: the lid's opening to draw (0 shut .. 1 fully up), the belt (0 laid, 1 hanging from the box, 2 its end in
 		// the off hand at belt_position / off-hand rotation), and whether the hand holds the lid.
 		float lid{};
@@ -333,6 +351,11 @@ namespace bfvr::weapon
 	float rack_side(v3 handle_in_gun, bool ak);
 	// #97: with a handle both sides can work, whether the mirrored knob's zone takes the grab: only a zone that can rack
 	// (an underhand zone only while the gun needs charging, as for the own knob), and the nearer one when both can.
+	// #96: a turn bolt's lift from the hand: 0 at the knob's rest angle about the pivot, 1 turned up by lift_radians
+	// (a turn about -z of the gun frame, as the game turns Wep_Slide), clamped. Points in gun axes (only x, y count).
+	float bolt_lift_of(v3 hand, v3 pivot, v3 knob_rest, float lift_radians);
+	// The knob at rest (down) from the knob lifted, and turned up by lift (0..1) of lift_radians about the pivot.
+	v3 bolt_knob_turned(v3 knob_rest, v3 pivot, float angle_up);
 	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging);
 	// Angle between two rotations, degrees.
 	float angle_between(q4 a, q4 b);
@@ -363,6 +386,10 @@ namespace bfvr::weapon
 		bool belt_armed_{};        // the held belt end has been away from the tray (a belt lifted off it is not laid back at once)
 		float last_pitch_{};       // the revolver: the barrel's up component last frame (flick shut)
 		bool has_last_pitch_{};
+		bool bolt_hold_{};   // #96: the hand holds the turn bolt's knob
+		v3 bolt_offset_;      // the hand from the knob when it took it (gun axes)
+		float bolt_lift_{};   // 0..1, where the bolt is turned (stays when let go)
+		float bolt_pull_{};   // metres back (stays when let go)
 		bool pumping_{};    // pump gun: the held hand is on the fore-end, tracked from pump_start_
 		bool pump_back_{};  // this stroke reached rack_pull
 		v3 pump_start_;

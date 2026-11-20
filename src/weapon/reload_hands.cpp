@@ -110,6 +110,27 @@ namespace bfvr::weapon
 		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
 	}
 
+	v3 bolt_knob_turned(v3 knob_rest, v3 pivot, float angle_up)
+	{
+		// Up is a turn about -z (the game's Wep_Slide turn): about +z by -angle_up.
+		const float c = std::cos(-angle_up), s = std::sin(-angle_up);
+		const float dx = knob_rest.x - pivot.x, dy = knob_rest.y - pivot.y;
+		return { pivot.x + dx * c - dy * s, pivot.y + dx * s + dy * c, knob_rest.z };
+	}
+
+	float bolt_lift_of(v3 hand, v3 pivot, v3 knob_rest, float lift_radians)
+	{
+		if (!(lift_radians > 1e-3f))
+		{
+			return 0.0f;
+		}
+		const float rest = std::atan2(knob_rest.y - pivot.y, knob_rest.x - pivot.x);
+		const float now = std::atan2(hand.y - pivot.y, hand.x - pivot.x);
+		float turned = rest - now; // up = clockwise seen from behind the gun (+z towards the muzzle)
+		turned = std::atan2(std::sin(turned), std::cos(turned));
+		return std::fmax(0.0f, std::fmin(1.0f, turned / lift_radians));
+	}
+
 	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging)
 	{
 		const auto usable = [&](const rack_zone_test& t) { return t.zone == rack_zone::over || (t.zone == rack_zone::under && needs_charging); };
@@ -322,6 +343,25 @@ namespace bfvr::weapon
 		{
 			rack_test.zone = rack_zone::none; // a pump's fore-end is the two-handed hold's; the held hand pumps it (below)
 		}
+		// #96: a turn bolt's knob: its own zone where the knob is now (down, lifted or back), worked below; no plain rack zone.
+		const bool bolt = frame.bolt_turn && frame.has_root && gun.turning();
+		v3 bolt_rest_in_gun{}, bolt_now_in_gun{};
+		bool near_knob = false;
+		if (bolt)
+		{
+			rack_test.zone = rack_zone::none;
+			bolt_rest_in_gun = bolt_knob_turned(handle_in_gun, frame.bolt_pivot, -frame.bolt_lift_radians); // the measured point is lifted
+			if (!gun.state().bolt_up && !bolt_hold_)
+			{
+				bolt_lift_ = bolt_pull_ = 0.0f; // a full rack (pipe) or a reset leaves it down and forward
+			}
+			bolt_now_in_gun = bolt_knob_turned(bolt_rest_in_gun, frame.bolt_pivot, bolt_lift_ * frame.bolt_lift_radians) - v3{ 0.0f, 0.0f, bolt_pull_ };
+			const v3 knob_world = frame.root + rotate(frame.root_rotation, bolt_now_in_gun);
+			near_knob = valid && distance(reach, knob_world) < zones.rack_over_reach;
+			handle = knob_world;
+			handle_grab = knob_world;
+			handle_reach = zones.rack_over_reach;
+		}
 		// Back along the barrel: -z of the gun frame, else +z of the aim rotation.
 		const v3 back = frame.has_root ? rotate(frame.root_rotation, { 0, 0, -1 }) : rotate(frame.gun_rotation, { 0, 0, 1 });
 		const bool in_rack_zone = rack_test.zone != rack_zone::none;
@@ -330,7 +370,7 @@ namespace bfvr::weapon
 		const bool near_magwell = !frame.handle_only && to_magwell < magazine_reach && !((frame.tube || frame.revolver) && !gun.state().holding)
 			&& !(frame.cup_grip && !gun.state().holding && gun.state().magazine_in)
 			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
-		const bool near_handle = in_rack_zone && !near_magwell;
+		const bool near_handle = (in_rack_zone || near_knob) && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
 		const float stow_reach = chest_reach * config_.stow_reach_scale;
 		const bool near_stow = !frame.handle_only && to_chest < stow_reach;
@@ -576,7 +616,7 @@ namespace bfvr::weapon
 
 		if (grip_pressed && valid && !gun.state().holding && !belt_feed_grab)
 		{
-			if (near_handle)
+			if (near_handle && !bolt)
 			{
 				racking_ = true;
 				rack_mirrored_ = mirrored;
@@ -777,8 +817,83 @@ namespace bfvr::weapon
 			result.rack_underhand = true; // the fist round the fore-end from below
 		}
 
+		// #96: the turn bolt by the hand on its knob: turn it up (unlocks at 85 % of the gun's own lift), draw it back (ejects
+		// at 85 % of its travel), push it forward (feeds within 10 %), turn it down (locks within 15 %). It stays where it is
+		// let go, as a real bolt does; the trigger works only locked (reload::fire).
+		if (bolt)
+		{
+			const v3 hand_in_gun = rotate(to_gun, reach - frame.root);
+			if (!bolt_hold_ && grip_pressed && near_knob && !gun.state().holding && !racking_ && !lid_held_)
+			{
+				bolt_hold_ = true;
+				bolt_offset_ = hand_in_gun - bolt_now_in_gun;
+			}
+			if (bolt_hold_ && (!frame.grip || !valid))
+			{
+				bolt_hold_ = false;
+			}
+			if (bolt_hold_)
+			{
+				const v3 at = hand_in_gun - bolt_offset_;
+				const float lifted_z = bolt_rest_in_gun.z;
+				if (!gun.state().bolt_back && bolt_pull_ <= 0.01f)
+				{
+					bolt_lift_ = bolt_lift_of(at, frame.bolt_pivot, bolt_rest_in_gun, frame.bolt_lift_radians);
+					if (!gun.state().bolt_up && bolt_lift_ >= 0.85f)
+					{
+						emit(result, gun.bolt_lift());
+					}
+					else if (gun.state().bolt_up && bolt_lift_ <= 0.15f)
+					{
+						emit(result, gun.bolt_down());
+					}
+				}
+				if (gun.state().bolt_up && bolt_lift_ >= 0.85f)
+				{
+					bolt_pull_ = std::fmax(0.0f, std::fmin(frame.bolt_travel, lifted_z - at.z));
+					if (!gun.state().bolt_back && bolt_pull_ >= 0.85f * frame.bolt_travel)
+					{
+						emit(result, gun.bolt_back());
+						result.rack_at_rear = true;
+					}
+					else if (gun.state().bolt_back && bolt_pull_ <= 0.1f * frame.bolt_travel)
+					{
+						emit(result, gun.bolt_forward());
+					}
+				}
+				else
+				{
+					bolt_pull_ = 0.0f; // locked in its lugs: it does not come back
+				}
+				if (gun.state().bolt_back)
+				{
+					bolt_lift_ = 1.0f; // back, it cannot turn
+				}
+			}
+			const v3 knob_in_gun = bolt_knob_turned(bolt_rest_in_gun, frame.bolt_pivot, bolt_lift_ * frame.bolt_lift_radians);
+			result.bolt_drawn = true;
+			result.bolt_held = bolt_hold_;
+			result.bolt_lift = bolt_lift_;
+			result.bolt_turn = bolt_lift_ * frame.bolt_lift_radians;
+			result.bolt_pull = bolt_pull_;
+			result.knob_now = frame.root + rotate(frame.root_rotation, knob_in_gun - v3{ 0.0f, 0.0f, bolt_pull_ });
+			result.knob_rest = frame.root + rotate(frame.root_rotation, bolt_rest_in_gun);
+			result.knob_up = frame.root + rotate(frame.root_rotation, bolt_knob_turned(bolt_rest_in_gun, frame.bolt_pivot, frame.bolt_lift_radians));
+			if (bolt_hold_)
+			{
+				result.handle_in_gun = knob_in_gun - v3{ 0.0f, 0.0f, bolt_pull_ }; // the hand on the knob as drawn (no pull below)
+				result.rack_pull = 0.0f;
+				result.rack_side = rack_side(bolt_rest_in_gun, ak);
+				result.rack_underhand = false;
+			}
+		}
+		else
+		{
+			bolt_hold_ = false;
+		}
+
 		// Also before the grip closes: the game must never see the press that starts a gesture.
-		result.off_hand_busy = gun.state().holding || racking_ || near_magwell || near_chest || in_rack_zone
+		result.off_hand_busy = gun.state().holding || racking_ || bolt_hold_ || near_knob || near_magwell || near_chest || in_rack_zone
 			|| lid_held_ || gun.state().belt_held || near_lid || near_belt;
 		result.zone_centre[0] = magazine_body;
 		result.zone_reach[0] = magazine_reach;

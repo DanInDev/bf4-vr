@@ -573,7 +573,12 @@ namespace bfvr::body
 		contact::slide_rest pump_rest;
 		bool pump_rest_held{};
 		float pump_animated_z{}, pump_drawn_z{}, pump_hidden_mm{};
+		float pump_animated_turn{}, pump_drawn_turn{}; // #96: degrees from the rest pose (the game's, as drawn)
+		ik::quat pump_animated_rotation{};
 		unsigned pump_hidden_frames{}, last_pump_key{};
+		std::atomic<bool> bolt_pose_on{ false };
+		std::atomic<float> bolt_pose_turn{ 0.0f };
+		std::atomic<float> bolt_pose_pull{ 0.0f };
 		ULONGLONG pump_last_ms{};
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
@@ -1911,6 +1916,7 @@ namespace bfvr::body
 				}
 				slide_memory.has_written = false;
 				pump_animated_z = slide.position.z;
+				pump_animated_rotation = slide.rotation;
 				const unsigned key = pump_rest_key.load(std::memory_order_relaxed);
 				if (pump_rest_on.load(std::memory_order_relaxed) && key != 0)
 				{
@@ -1937,7 +1943,26 @@ namespace bfvr::body
 					pump_rest.reset();
 					pump_rest_held = false;
 				}
+				if (bolt_pose_on.load(std::memory_order_relaxed))
+				{
+					const float turn = bolt_pose_turn.load(std::memory_order_relaxed);
+					const ik::quat up{ 0.0f, 0.0f, -std::sin(0.5f * turn), std::cos(0.5f * turn) }; // about -z through the bone's origin
+					slide.rotation = ik::normalize(up * slide.rotation);
+					slide.position.z -= bolt_pose_pull.load(std::memory_order_relaxed);
+					slide_memory.written = slide; // the game's pose comes back next frame, the turn is never applied twice
+					slide_memory.has_written = true;
+				}
 				pump_drawn_z = slide.position.z;
+				if (pump_rest.valid())
+				{
+					const auto turned = [&](const ik::quat& q)
+					{
+						const ik::quat& r = pump_rest.rest().rotation;
+						return 2.0f * std::acos(std::fmin(1.0f, std::fabs(q.x * r.x + q.y * r.y + q.z * r.z + q.w * r.w))) * 57.29578f;
+					};
+					pump_animated_turn = turned(pump_animated_rotation);
+					pump_drawn_turn = turned(slide.rotation);
+				}
 			}
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
@@ -3823,6 +3848,13 @@ namespace bfvr::body
 		shell_across.store(on, std::memory_order_relaxed);
 	}
 
+	void set_bolt_pose(bool on, float turn, float pull)
+	{
+		bolt_pose_turn.store(std::isfinite(turn) ? turn : 0.0f, std::memory_order_relaxed);
+		bolt_pose_pull.store(std::isfinite(pull) ? std::fmax(0.0f, std::fmin(0.2f, pull)) : 0.0f, std::memory_order_relaxed);
+		bolt_pose_on.store(on, std::memory_order_relaxed);
+	}
+
 	void set_pump_rest(bool on, unsigned gun_key)
 	{
 		pump_rest_key.store(gun_key, std::memory_order_relaxed);
@@ -4098,9 +4130,9 @@ namespace bfvr::body
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			length += std::snprintf(text + length, sizeof(text) - length,
-				"pump_rest=%d held=%d slide_animated_z=%.3f drawn_z=%.3f rest_z=%.3f hidden_frames=%u hidden_max_mm=%.0f\n",
+				"pump_rest=%d held=%d slide_animated_z=%.3f drawn_z=%.3f rest_z=%.3f hidden_frames=%u hidden_max_mm=%.0f animated_turn_deg=%.1f drawn_turn_deg=%.1f\n",
 				pump_rest_on.load() ? 1 : 0, pump_rest_held ? 1 : 0, pump_animated_z, pump_drawn_z, pump_rest.valid() ? pump_rest.rest_z() : 0.0f,
-				pump_hidden_frames, pump_hidden_mm);
+				pump_hidden_frames, pump_hidden_mm, pump_animated_turn, pump_drawn_turn);
 			length += std::snprintf(text + length, sizeof(text) - length, "belt_feed drawn=%d rounds=%d lid=%.2f belt_scale=%.3f\n",
 				belt_feed_drawn ? 1 : 0, belt_feed_request.rounds ? 1 : 0, belt_feed_request.lid, belt_link_scale);
 		}

@@ -204,6 +204,7 @@ namespace bfvr::weapon
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
+		std::atomic<bool> bolt_steps_on{ true };   // setting bolt_steps (#96)
 		std::atomic<bool> pump_at_rest_on{ true }; // setting pump_at_rest (#94)
 		std::atomic<bool> lid_lock_on{ true };     // setting lid_hand_lock (#95)
 		std::atomic<bool> both_sides_on{ true };   // setting handle_both_sides (#97)
@@ -280,6 +281,8 @@ namespace bfvr::weapon
 			case reload_event::belt_taken: return "belt_taken";
 			case reload_event::belt_laid: return "belt_laid";
 			case reload_event::belt_dropped: return "belt_dropped";
+			case reload_event::bolt_opened: return "bolt_opened";
+			case reload_event::bolt_closed: return "bolt_closed";
 			}
 			return "?";
 		}
@@ -462,7 +465,7 @@ namespace bfvr::weapon
 			ease_magazine_lock(result, ak, seconds);
 			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
-			const bool racking = result && (result->racking || result->pumping || (result->lid_held && lid_lock_on.load(std::memory_order_relaxed))) && has_root; // #95: a held lid holds the hand
+			const bool racking = result && (result->racking || result->pumping || result->bolt_held || (result->lid_held && lid_lock_on.load(std::memory_order_relaxed))) && has_root; // #95: a held lid holds the hand; #96: the hand on the bolt
 			if (racking)
 			{
 				handle_in_gun[0] = result->handle_in_gun.x;
@@ -815,6 +818,11 @@ namespace bfvr::weapon
 		manual_cycle_on = on;
 	}
 
+	void set_bolt_steps(bool on)
+	{
+		bolt_steps_on = on;
+	}
+
 	void set_pump_at_rest(bool on)
 	{
 		pump_at_rest_on = on;
@@ -1002,6 +1010,7 @@ namespace bfvr::weapon
 			hand_engaged = false;
 			claims_free_hand = false;
 			body::set_pump_rest(false, 0);
+			body::set_bolt_pose(false, 0.0f, 0.0f);
 			last_result.belt_zone = false; // #95: no lid or belt holds the accessory touch off now
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
@@ -1032,6 +1041,7 @@ namespace bfvr::weapon
 		{
 			draw_belt_feed(nullptr, 0.0f);
 			body::set_pump_rest(false, 0);
+			body::set_bolt_pose(false, 0.0f, 0.0f);
 			last_result.belt_zone = false;
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
@@ -1129,7 +1139,15 @@ namespace bfvr::weapon
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
 			frame.cup_grip = pistol_cup(); // #99
 			// #94: the hand pumps it, so the game's stroke after every shot is not drawn (keyed by the gun's ammo object).
-			body::set_pump_rest(frame.pump && pump_at_rest_on.load(std::memory_order_relaxed),
+			{
+				// #96: a turn bolt worked in its four steps; its bolt is drawn from the hand, never the game's own cycle.
+				float pivot[2]{}, lift_degrees = 0.0f, travel = 0.0f;
+				frame.bolt_turn = bolt_steps_on.load(std::memory_order_relaxed) && gun.turning() && bolt_geometry_for(weapon.name, pivot, lift_degrees, travel);
+				frame.bolt_pivot = { pivot[0], pivot[1], 0.0f };
+				frame.bolt_lift_radians = lift_degrees * 0.017453293f;
+				frame.bolt_travel = travel > 0.0f ? travel : 0.103f;
+			}
+			body::set_pump_rest((frame.pump && pump_at_rest_on.load(std::memory_order_relaxed)) || frame.bolt_turn,
 				static_cast<unsigned>(weapon.ammo ^ (weapon.ammo >> 32)) | 1u);
 			frame.tube = gun.profile().tube;
 			frame.belt = gun.profile().belt;
@@ -1366,14 +1384,15 @@ namespace bfvr::weapon
 		body::set_extra_magazine(extra);
 
 		const body::fingers::task off_task = gun.state().holding || result.draw == magazine_draw::in_hand ? body::fingers::task::magazine
-			: result.racking || (result.lid_held && lid_lock_on.load(std::memory_order_relaxed)) ? body::fingers::task::handle
+			: result.racking || result.bolt_held || (result.lid_held && lid_lock_on.load(std::memory_order_relaxed)) ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
 		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
 		draw_belt_feed(gun.profile().belt || gun.profile().revolver ? &result : nullptr, frame.lid_degrees, gun.profile().revolver,
 			!(gun.state().lid_open && gun.state().magazine_rounds == 0));
 
 		active = true;
-		block_trigger = !gun.state().chamber;
+		block_trigger = !gun.state().chamber || gun.state().bolt_up; // #96: an unlocked bolt does not fire
+		body::set_bolt_pose(result.bolt_drawn, result.bolt_turn, result.bolt_pull);
 		block_grip = result.off_hand_busy;
 		hand_engaged = gun.state().holding || result.racking;
 		claims_free_hand = swapped && (gun.state().holding || result.racking || (result.off_hand_busy && !grip_first));
@@ -1600,6 +1619,14 @@ namespace bfvr::weapon
 				points.lid_grab[0], points.lid_grab[1], points.lid_grab[2], points.feed_tray[0], points.feed_tray[1], points.feed_tray[2],
 				points.belt_end[0], points.belt_end[1], points.belt_end[2]);
 		}
-		return text + std::string(zones) + rack + touch + belt;
+		char bolt[400] = "";
+		if (gun.turning())
+		{
+			const hand_result& b = last_result;
+			std::snprintf(bolt, sizeof(bolt), "\nbolt steps=%d up=%d back=%d held=%d lift=%.2f turn_deg=%.1f pull=%.3f knob=(%.3f,%.3f,%.3f) knob_rest=(%.3f,%.3f,%.3f) knob_up=(%.3f,%.3f,%.3f)",
+				b.bolt_drawn ? 1 : 0, s.bolt_up ? 1 : 0, s.bolt_back ? 1 : 0, b.bolt_held ? 1 : 0, b.bolt_lift, b.bolt_turn * 57.29578f, b.bolt_pull,
+				b.knob_now.x, b.knob_now.y, b.knob_now.z, b.knob_rest.x, b.knob_rest.y, b.knob_rest.z, b.knob_up.x, b.knob_up.y, b.knob_up.z);
+		}
+		return text + std::string(zones) + rack + touch + belt + bolt;
 	}
 }
