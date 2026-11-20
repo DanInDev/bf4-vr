@@ -2265,10 +2265,16 @@ namespace
 				return r;
 			};
 			step(away, false);
-			hand_result r = step(lid_grab_at(0.0f), true);
-			expect(r.lid_held && r.off_hand_busy, "belt: the lid taken at its grab point");
+			hand_result r = step(lid_grab_at(0.0f) + v3{ 0.0f, 0.03f, 0.0f }, false);
+			expect(r.belt_zone && !r.lid_held, "belt: near the lid the hand is the lid's (the accessory touch stands down, #95)");
+			r = step(lid_grab_at(0.0f), true);
+			expect(r.lid_held && r.off_hand_busy && r.belt_zone, "belt: the lid taken at its grab point");
 			r = step(lid_grab_at(0.6f), true);
 			expect(close(r.lid, 0.6f, 0.02f) && has(r, reload_event::lid_opened) && !gun.state().chamber, "belt: swung 60 % up it follows the hand, open");
+			// #95: the drawn hand is held on the lid's grab point (gun axes), wherever the controller is.
+			r = step(lid_grab_at(0.6f) + v3{ 0.03f, 0.0f, 0.0f }, true);
+			expect(r.lid_held && close(r.handle_in_gun.x, lid_grab_at(drawn).x, 1e-4f) && close(r.handle_in_gun.y, lid_grab_at(drawn).y, 1e-4f)
+				&& close(r.handle_in_gun.z, lid_grab_at(drawn).z, 1e-4f), "belt: the held lid holds the hand at its grab point");
 			r = step(lid_grab_at(0.6f), false);
 			for (int i = 0; i < 10; ++i)
 			{

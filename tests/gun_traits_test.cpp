@@ -182,6 +182,14 @@ int main()
 		saw.open_lid();
 		saw.take_belt();
 		expect(saw.drop_belt() == reload_event::belt_dropped && !saw.state().belt_laid, "M249: the belt let go off the tray hangs again");
+		{
+			// #95: an empty box has no belt to take; its box comes straight off with the lid up.
+			reload empty(profile_for("U_M249", 200));
+			empty.load(0, 200);
+			empty.open_lid();
+			expect(empty.state().magazine_rounds == 0 && empty.take_belt() == reload_event::none && !empty.state().belt_held, "M249 empty: no belt to take");
+			expect(empty.press_button(true) == reload_event::magazine_out, "M249 empty: lid up, the box comes off");
+		}
 	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{

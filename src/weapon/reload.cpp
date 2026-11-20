@@ -304,7 +304,8 @@ namespace bfvr::weapon
 
 	reload_event reload::take_belt()
 	{
-		if (!profile_.belt || !state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding)
+		// #95: an empty box has no belt left to take (its box comes off with the lid up).
+		if (!profile_.belt || !state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding || state_.magazine_rounds == 0)
 		{
 			return reload_event::none;
 		}

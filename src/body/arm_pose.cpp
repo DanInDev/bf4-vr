@@ -336,6 +336,8 @@ namespace bfvr::body
 		bone_memory launcher_memory[4];
 		belt_feed_pose belt_feed_request;
 		bone_memory belt_feed_memory[12]; // Wep_Extra1, Wep_Scope1, Wep_Belt1..10
+		bool belt_feed_drawn{};          // #95, for the arms report: the belt-fed edit ran, and the links' drawn scale
+		float belt_link_scale{ 1.0f };
 		bone_memory revolver_memory[8];   // Wep_Slide, Wep_Physic1, Wep_Belt1..6
 		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
 		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
@@ -1683,6 +1685,7 @@ namespace bfvr::body
 				belt_feed_memory[i].has_written = false;
 			}
 			points.has_belt_feed = false;
+			belt_feed_drawn = false;
 			if (!belt_feed_request.active || belt_feed_request.revolver || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
 				|| rig.parents[rig.rail] != rig.weapon || rig.parents[rig.optic] != rig.weapon || rig.parents[rig.belt[0]] != rig.weapon)
 			{
@@ -1721,6 +1724,18 @@ namespace bfvr::body
 				ik::set_model_transform(local, rig.parents, rig.belt[0], placed);
 			}
 
+			if (!belt_feed_request.rounds) // #95: an empty belt (the lid up on an empty box): no rounds at the tray or out of the box
+			{
+				for (const int link : rig.belt)
+				{
+					if (link >= 0)
+					{
+						local[link].scale = 0.001f;
+					}
+				}
+			}
+			belt_feed_drawn = true;
+			belt_link_scale = local[rig.belt[0]].scale;
 			const ik::vec3 hinge_model = ik::model_of(local, rig.parents, rig.rail).position;
 			const ik::vec3 grab_model = ik::model_of(local, rig.parents, rig.optic).position;
 			const ik::vec3 values[4] = { to_local(hinge_model), to_local(grab_model), to_local(tray), to_local(belt_end) };
@@ -3981,6 +3996,11 @@ namespace bfvr::body
 			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f,
 			r.palette_camera.x, r.palette_camera.y, r.palette_camera.z, r.palette_weapon.x, r.palette_weapon.y, r.palette_weapon.z,
 			r.reference.x, r.reference.y, r.reference.z);
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += std::snprintf(text + length, sizeof(text) - length, "belt_feed drawn=%d rounds=%d lid=%.2f belt_scale=%.3f\n",
+				belt_feed_drawn ? 1 : 0, belt_feed_request.rounds ? 1 : 0, belt_feed_request.lid, belt_link_scale);
+		}
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];

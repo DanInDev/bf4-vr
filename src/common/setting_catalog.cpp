@@ -90,6 +90,7 @@ namespace bfvr::settings
 			{ "belts_by_hand", "Weapon", "Reloading", "Machine-gun belts by hand", "Off: belt-fed guns reload the game's way (B)", "" },
 			{ "shells_by_hand", "Weapon", "Reloading", "Shotgun shells by hand", "Off: shotguns reload the game's way (B)", "" },
 			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
+			{ "lid_hand_lock", "Weapon", "Reloading", "Hand on the feed cover", "The hand stays on a belt-fed gun's cover", "" },
 			{ "gun_points", "Weapon", "Reloading", "Per-gun handle and magazine", "Off: one point per gun type", "" },
 			{ "magazine_reach", "Weapon", "Reloading", "Magazine pouch reach", "Metres around the belly and the off-side hip", "", true },
 			{ "drop_discards_ammo", "Weapon", "Reloading", "Dropped magazines lose rounds", "Off: they go back to the reserve", "" },

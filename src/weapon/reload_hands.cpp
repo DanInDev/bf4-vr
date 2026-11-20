@@ -531,6 +531,11 @@ namespace bfvr::weapon
 		{
 			result.lid = lid_;
 			result.lid_held = lid_held_;
+			if (lid_held_ && belt_points)
+			{
+				result.handle_in_gun = rotate(to_gun, lid_grab - frame.root); // the drawn hand held on the lid as it turns
+			}
+			result.belt_zone = belt_points && (lid_held_ || gun.state().belt_held || near_lid || near_belt);
 			result.belt_draw = gun.state().belt_laid ? 0 : gun.state().belt_held ? 2 : 1;
 			result.belt_position = reach;
 			result.belt_rotation = frame.off_rotation;

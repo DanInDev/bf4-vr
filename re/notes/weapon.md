@@ -1075,6 +1075,25 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Belt-fed: the hand on the cover, an empty belt, the belt that dropped (2026-11-20 night, monitor, Shanghai, #95)
+
+**The cover.** A held lid now holds the drawn off hand on its grab point (Wep_Scope1 as turned), the fist over it, as
+the charging handle does (`set_handle_hold`, no pull; setting `lid_hand_lock`, on). The lid still follows the
+controller's angle about the hinge (`reload_hands` reads the controller's palm, not the drawn hand). Monitor (M240,
+fake hands, the controller 3 cm beside the grab point): `fingers` handle_hold 0.00 (before) -> 1.00, `fist_over`.
+
+**An empty belt.** With the cover up on an empty box the links were still drawn (the `rounds` flag reached arm_pose
+but only the revolver path used it): `edit_belt_feed` now scales Wep_Belt1-10 to 0.001, and `take_belt` refuses an
+empty box (unit-tested). Pipe `arms`: `belt_feed drawn= rounds= lid= belt_scale=`. The box comes off with B (an AR-type
+latch; `reload grab` leaves it on).
+
+**The belt that dropped at once (marks 66-69: `belt_taken belt_dropped` pairs).** Not reproduced: on the monitor
+(old and new code) a belt taken at the tray stays held 15 cm, and up to (0.5, -0.8, 0.45) m, away and drops only when
+the grip opens. It drops when the grip opens or the hands are invalid for a frame (`reload_hands`). First guess, wrong:
+the accessory touch (the M240's optic sits on the lid) taking the grip; the marks show the touch was off
+(`accessory_touch=0`). The touch now stands down at the lid and belt anyway (`hand_result::belt_zone`), for players who
+have it on. Cause open: the owner's next marks with the belt line will tell.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
