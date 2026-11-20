@@ -1428,6 +1428,25 @@ the hand on the knob as turned (the handle hold). Unit tests: `gun_traits_test` 
 sliding 10.3 cm while the drawn one stays at 0 and at rest (`arms` `animated_turn_deg`, `drawn_turn_deg`); every step;
 a second cycle on a live round: `round_ejected`; `fingers` `handle_hold=1.00 fist_over` on the knob throughout).
 
+## Pistols and the revolver with both hands (2026-11-20, monitor, Shanghai, #99)
+
+BF4's own first-person pose holds every pistol two-handed: the game's left hand sits at the gun hand. That gives a
+data-driven test for "one-handed gun": the two game hands' separation along the barrel (`body::support_along`,
+geometry hand[0] - hand[1], Wep_Root z): rifles 25-45 cm (the handguard), pistols and the REX a few cm
+(`weapon::pistol_cup`: under 15 cm, with the setting `pistol_two_hands` on). For them:
+- **The hold** (`two_hand_grip::update_pistol`): the off hand closing within 15 cm of the gun hand cups it (no handguard
+  line: two hands a few cm apart give no barrel direction). The aim stays the gun hand's, blended half and half with
+  the off hand's own aim as it was at the grab: each hand's shake moves the gun half as much; both hands turning turn it
+  fully. Drawn: the off hand where the game's own left hand wraps (the support hand, as for rifles).
+- **The reload**: a pistol's magazine well is in its grip, under the cup; with the magazine seated and the hand empty
+  that spot is the cup's (`hand_frame::cup_grip`), so the reload does not snap or lock the hand onto the seated
+  magazine; a magazine brought there still goes in.
+Monitor (`tools/pistol_probe.py`): P226, M1911, Glock 18 and the REX: the cupped grip `held=1 pistol=1`, the reload's
+zone none; the gun hand alone turning 4 degrees turns the barrel 2.0, both hands 4.0; the CZ-805 (a rifle) takes no cup
+hold; the P226 with the setting off: `zone=magazine busy=1`, no hold (the old behaviour). Unlock names: U_P226,
+U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`); there is no U_M9 (a `givegun U_M9` answered "ok" and left
+the old gun in hand: check `reload` `weapon=` after a give).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

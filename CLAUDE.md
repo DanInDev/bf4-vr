@@ -194,6 +194,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   ACOG) does not zoom the VR eye image: compare optics against data, not against "the game's aim picture" (#140).
   `pad ... 0300 1 0` (grips held) does not aim; LT alone (`0000 1 0`) does. Measure a reticle in the glass with pipe
   `glassdebug 2` (the reticle alone, pure green): red pixels in an eye shot catch the scene's red lamps as the gun sways.
+- 2026-11-20: `givegun <name>` answers "ok" even for a name the level does not have (`U_M9`: the old gun stayed in hand);
+  check `reload` `weapon=` after a give. Pistols: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`).
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

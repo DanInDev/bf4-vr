@@ -631,6 +631,8 @@ namespace
 		g.cup_grip = true;
 		r = hands.update(pistol, g);
 		expect(pistol.state().magazine_in && !pistol.state().holding, "pistol cup: brought to the well it goes in");
+	}
+
 	// #96: the SRS's turn bolt by the hand (its game cycle: Wep_Slide turned 56.4 degrees about its -z through (0, 0.006),
 	// then 10.3 cm back). Gun frame = the reload frame here. The hand takes the knob down, turns it up, draws it back,
 	// pushes it forward and turns it down; each step's event in order, and the trigger only works at the end.
