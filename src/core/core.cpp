@@ -284,6 +284,7 @@ namespace bfvr::core
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
+			weapon::set_pump_at_rest(store.boolean("pump_at_rest", true));
 			weapon::set_shells_by_hand(store.boolean("shells_by_hand", true));
 			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));
@@ -331,6 +332,7 @@ namespace bfvr::core
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
+			body::set_shell_across(store.boolean("shell_across", true));
 			body::set_rack_fist_offsets(store.real("rack_over_out", 0.005f), store.real("rack_over_up", 0.005f), store.real("rack_under_out", 0.005f),
 				store.real("rack_under_down", 0.005f));
 			body::set_gun_recoil(store.real("recoil", 1.0f));

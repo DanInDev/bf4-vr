@@ -234,8 +234,55 @@ static void test_support_slide()
 	expect(free.update(true, NAN, rest, 0.06f, 0.08f, false) == rest, "support: a broken reading gives the rest spot");
 }
 
+static void test_slide_rest()
+{
+	// #94: the 870 on the monitor: its fore-end at rest at z 0.669 in Wep_Root; a shot's animation kicks it 8 mm
+	// forward (0.677) and strokes it 7.4 cm back (0.595) within ~0.6 s, at 90 fps.
+	const float dt = 1.0f / 90.0f;
+	contact::slide_rest rest;
+	ik::bone_transform slide{};
+	const auto at = [&](unsigned key, float z)
+	{
+		slide.position = { 0.0f, 0.03f, z };
+		rest.hold(key, dt, slide);
+		return slide.position.z;
+	};
+	expect(at(1, 0.669f) == 0.669f && rest.valid(), "slide rest: the first pose is taken as the rest");
+	bool stroke_hidden = true;
+	for (int frame = 0; frame < 54; ++frame) // 0.6 s: forward kick, back, forward again
+	{
+		const float t = frame / 53.0f;
+		const float z = t < 0.1f ? 0.669f + 0.08f * t : t < 0.5f ? 0.677f - 0.205f * (t - 0.1f) : 0.595f + 0.148f * (t - 0.5f);
+		stroke_hidden = stroke_hidden && at(1, z) == 0.669f;
+	}
+	expect(stroke_hidden, "slide rest: the shot's kick and stroke are not drawn (and the kick is not taken for the rest)");
+	bool steady_kept = true;
+	for (int frame = 0; frame < 20; ++frame)
+	{
+		steady_kept = steady_kept && at(1, 0.669f) == 0.669f;
+	}
+	expect(steady_kept, "slide rest: back at rest it stays");
+	for (int frame = 0; frame < 9; ++frame) // a brief pause at the rear (0.1 s) is no rest
+	{
+		at(1, 0.595f);
+	}
+	expect(at(1, 0.595f) == 0.669f, "slide rest: a short pause at the rear is not the rest");
+	for (int frame = 0; frame < 40; ++frame) // the animation holds a new pose still for 0.44 s: that is the rest
+	{
+		at(1, 0.660f);
+	}
+	expect(at(1, 0.660f) == 0.660f, "slide rest: a pose held still for steady_seconds becomes the rest");
+	expect(at(2, 0.10f) == 0.10f && rest.rest_z() == 0.10f, "slide rest: another gun starts over");
+	slide.position = { NAN, 0.0f, 0.0f };
+	rest.hold(2, dt, slide);
+	expect(slide.position.z == 0.10f, "slide rest: a broken pose draws the rest");
+	rest.reset();
+	expect(at(2, 0.05f) == 0.05f, "slide rest: after a reset the next pose is the rest");
+}
+
 int main()
 {
+	test_slide_rest();
 	test_support_slide();
 	test_rack_fist_offset();
 	test_magazine_depth();

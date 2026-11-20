@@ -148,4 +148,28 @@ namespace bfvr::body::contact
 	// #40, palming: the caught magazine held beside the new one, parallel to it, one width plus gap towards
 	// the gun frame's -x (the inside, away from where the new one leans), so the two bodies never cross.
 	void beside_magazine(ik::vec3& top, ik::quat rotation, ik::quat seated, const magazine_size& size, float gap);
+
+	// #94: a pump gun's fore-end (Wep_Slide, hanging from Wep_Root) held at rest while the game's fire animation
+	// strokes it back and forward after every shot: in the mod the hand pumps it. The rest is the pose the animation
+	// keeps still for steady_seconds (the stroke never pauses that long; its kick also moves the fore-end 8 mm
+	// forward, so "the most forward pose" is not the rest: 870 monitor 2026-11-20). key: which gun; a new key starts over.
+	class slide_rest
+	{
+	public:
+		static constexpr float steady_seconds = 0.3f;
+		static constexpr float steady_metres = 0.001f;
+		// The animated local pose in, the pose to draw out (the rest, or the animated one until a first is known).
+		void hold(unsigned key, float seconds, ik::bone_transform& slide);
+		void reset() { valid_ = false; has_last_ = false; }
+		bool valid() const { return valid_; }
+		float rest_z() const { return rest_.position.z; }
+
+	private:
+		bool valid_{};
+		bool has_last_{};
+		unsigned key_{};
+		float still_{};
+		ik::bone_transform rest_{};
+		ik::bone_transform last_{};
+	};
 }

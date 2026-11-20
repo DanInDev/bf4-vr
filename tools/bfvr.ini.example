@@ -157,6 +157,11 @@ gun_points = 1
 # Bolt actions (SRS, FY-JS, Scout, SV-98) and the Hawk's pump: after each shot grab the bolt knob or the fore-end,
 # pull it back and let go before the next shot (the trigger waits); 0 = the game cycles them by itself.
 manual_cycle = 1
+# A pump shotgun's fore-end stays forward after a shot: the hand pumps it, the game's own pump animation is not drawn
+# (0: it plays after every shot as well) (#94).
+pump_at_rest = 1
+# A shotgun shell in the off hand lies across the closed fingers (0: as it sits in the gun) (#94).
+shell_across = 1
 # Tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS): a shell from the pouch pushed into the loading port under the gun,
 # one at a time, then pump (or rack) to chamber; 0 = the game's own reload (B).
 shells_by_hand = 1

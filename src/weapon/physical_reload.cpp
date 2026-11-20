@@ -202,6 +202,7 @@ namespace bfvr::weapon
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
+		std::atomic<bool> pump_at_rest_on{ true }; // setting pump_at_rest (#94)
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
 		std::atomic<bool> revolver_by_hand{ true }; // setting revolver_by_hand
@@ -810,6 +811,11 @@ namespace bfvr::weapon
 		manual_cycle_on = on;
 	}
 
+	void set_pump_at_rest(bool on)
+	{
+		pump_at_rest_on = on;
+	}
+
 	void set_shells_by_hand(bool on)
 	{
 		shells_by_hand = on;
@@ -976,6 +982,7 @@ namespace bfvr::weapon
 			block_grip = false;
 			hand_engaged = false;
 			claims_free_hand = false;
+			body::set_pump_rest(false, 0);
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -1004,6 +1011,7 @@ namespace bfvr::weapon
 		if (weapon.launcher)
 		{
 			draw_belt_feed(nullptr, 0.0f);
+			body::set_pump_rest(false, 0);
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
 		}
@@ -1097,6 +1105,9 @@ namespace bfvr::weapon
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
+			// #94: the hand pumps it, so the game's stroke after every shot is not drawn (keyed by the gun's ammo object).
+			body::set_pump_rest(frame.pump && pump_at_rest_on.load(std::memory_order_relaxed),
+				static_cast<unsigned>(weapon.ammo ^ (weapon.ammo >> 32)) | 1u);
 			frame.tube = gun.profile().tube;
 			frame.belt = gun.profile().belt;
 			frame.revolver = gun.profile().revolver;
