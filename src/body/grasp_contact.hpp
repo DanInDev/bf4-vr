@@ -106,6 +106,16 @@ namespace bfvr::body::contact
 	};
 	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets);
 
+	// #90: a held magazine's depth in the hand. The authored grips were taken on the SCAR-H (AR, the game's hand 5.3 cm
+	// below the top) and the AK-12 (AK, 4.3 cm); a gun whose game hand takes its magazine hold_drop deep (0: unknown)
+	// is moved by the difference (authored_grip_shift), and the plain fist's 7 cm (held_fist_drop) by the same, so both
+	// paths agree (the hold_drop is the game's pinch, ~3 cm off the fist's grasp centre).
+	constexpr float authored_ar_drop = 0.053f;
+	constexpr float authored_ak_drop = 0.043f;
+	constexpr float plain_fist_drop = 0.07f;
+	float authored_grip_shift(float hold_drop, bool ak);
+	float held_fist_drop(float hold_drop, bool ak);
+
 	// The off hand on the handguard (two-handed hold): where along the barrel it is drawn, in the gun's frame
 	// (+z towards the muzzle). The game's own support spot (rest) is the middle; the hand may sit up to back
 	// metres behind it and forward ahead of it. Locked, the place is taken as the hold starts and kept until

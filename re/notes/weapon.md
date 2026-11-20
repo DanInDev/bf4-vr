@@ -1077,17 +1077,19 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 
 ## Magazines held by their body (2026-11-20 night, monitor, Shanghai, #90)
 
-The drawn held magazine's place in the fist comes from the authored grip (the SCAR-H's AR grip, the AK-12's AK grip;
-`arm_pose` `magazine_grip_ar/ak`) whatever the gun, or a fixed 7 cm in a plain fist. Now each gun's magazine sits as
-deep in the hand as the game's own hand takes it (`magazine_grab_for`, `magazine_hold_drop`): the authored grip is
-shifted along the magazine's own up by this gun's grab depth minus the grip's own gun's (SCAR-H 5.3 cm, AK-12 4.3 cm);
-the plain fist uses the depth directly; unmeasured guns (MX4, PP-2000, the P90 whose hand is above the top) keep the
-grip's own. Pipe `fingers`: `held_top_above_fist` (the drawn top in the fist's axes), `hold_drop`. Monitor (`reload
-take`, a fresh magazine in the off hand): top above the fist (y) FAMAS 0.086 -> 0.073, M416 0.082 -> 0.112, QBZ-95-1
-0.082 -> 0.077, SCAR-H 0.082, AK-12 0.076, Galil 0.079 unchanged (their grips' depth), MX4 0.066, P90 0.098 unchanged.
-`reload grab` takes only AK-pattern magazines (an AR one is latched until B): for a held-magazine test use `reload
-take`. The Galil's magazine zone was found (`zone=magazine` at its zone centre): the owner's "cannot grab" did not
-reproduce here.
+The drawn held magazine's place in the fist comes from the authored grip (`arm_pose` `magazine_grip_ar`, captured on the
+SCAR-H, the game's hand 5.3 cm below the top; `magazine_grip_ak`, on the AK-12, 4.3 cm) whatever the gun, or a plain
+fist's fixed 7 cm (the gun hand reloading, #38). Now (setting `magazine_by_gun`, on) each gun's magazine is moved by its
+own game-hand depth (`magazine_grab_for`, `magazine_hold_drop`) minus the grip's gun's, along the magazine's own up, in
+both paths (`contact::authored_grip_shift`, `held_fist_drop`, tested: the depth is the game's pinch, ~3 cm off the fist's
+grasp centre, so only the difference applies). Unmeasured guns (MX4, PP-2000, CZ-805; the P90's hand is above its
+top) keep the grip's own. Pipe `fingers`: `held_top_above_fist` (the drawn top after the palming turn, fist axes),
+`hold_drop`, `held`. Monitor (`reload take`, the setting off -> on on the same build): FAMAS 0.086 -> 0.073, M416 0.082
+-> 0.112, QBZ-95-1 0.086 -> 0.077; AK-12 0.076, Galil 0.079, MX4 0.066, CZ-805 0.082 unchanged. `reload grab` takes
+only AK-pattern magazines (an AR one is latched until B): a held-magazine test needs `reload take`. Not done here
+(#141): magazine lengths (the issue's bottom-within-3-cm check), cupped short magazines, the missing grab points, the
+Galil's "cannot grab" (its zone and a held magazine worked on the monitor). Seen once: a NaN magazine zone right after a
+gun switch (SCAR-H), not reproduced in 15 reads.
 
 ## Open
 

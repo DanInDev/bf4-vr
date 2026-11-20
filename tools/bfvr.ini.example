@@ -463,6 +463,9 @@ scope_in_frame = 1
 # the optic's glass is clear while you look into it (the game's aiming mesh, within sight_lens_cone below).
 # sight_lens_fov: the aiming view the art is sized for (40: the EOTech's ring as the real one; more = larger).
 sight_lens = 1
+# A held magazine sits as deep in the hand as the game's own hand takes that gun's magazine (a short one nearer its
+# top, a long one deeper); 0 = every magazine as the SCAR-H's or AK-12's (#90).
+magazine_by_gun = 1
 # The game's aiming model of the optic (clear lens and reticle, but open at the top) shows only while an eye looks
 # into the lens from behind within this many degrees of the sight line; elsewhere the full optic (0 = always).
 sight_lens_cone = 8
