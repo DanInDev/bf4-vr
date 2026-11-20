@@ -22,6 +22,8 @@ namespace bfvr::stereo
 		pose quad;                  // where the lens was when this image was planned
 		float quad_size{};
 		int eye{};                  // the eye behind the sight
+		float lens_tan{};           // #139: the world angle (tangent) from the picture's centre to its disc edge
+		float magnification{};      // #139: the power it was rendered at (the disc spans lens_tan * magnification of view)
 		std::uint64_t at{};         // GetTickCount64 of the image
 	};
 	scope_image latest_scope_image();

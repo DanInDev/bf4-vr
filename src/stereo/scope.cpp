@@ -1,5 +1,7 @@
 #include "stereo/scope.hpp"
 
+#include <atomic>
+
 #include <windows.h>
 
 #include <cmath>
@@ -9,6 +11,8 @@
 #include "body/arm_pose.hpp"
 #include "common/settings_store.hpp"
 #include "input/vr_controls.hpp"
+#include "stereo/eye_pass.hpp"
+#include "stereo/lens_math.hpp"
 #include "stereo/scope_compose.hpp"
 #include "stereo/scope_math.hpp"
 #include "weapon/sight_state.hpp"
@@ -26,6 +30,10 @@ namespace bfvr::stereo
 		// its housing 522 px apart between the eyes (64 mm) = 14.9 cm ahead of the sight's eye point, the
 		// rear lens opening 1.45 cm in radius.
 		constexpr scope_math::lens magnifier_lens{ 0.148f, 0.0145f, 0.3f };
+		// #139 scope_glass: the picture is read by angle inside the optic's own glass; its render FOV is set from the
+		// reach the glass needs (lens_math::glass_picture_reach), the disc over 45 % of the render's height (the scissor
+		// keeps the rest out: sharper than 30 % for ~2x the scope render's pixels).
+		constexpr scope_math::lens glass_lens{ 0.148f, 0.11f, 0.45f };
 		// #39, sights live without the game's aim: with the magnifier flipped in (sight_state), or a sight
 		// the game has zoomed through before, the lens picture also runs at the hip, at the zoom learned
 		// while the game last aimed through it (the AK-12 magnifier's measured 1.73x until then), for an
@@ -41,6 +49,7 @@ namespace bfvr::stereo
 		bool was_aiming{};
 		scope_math::magnification_memory learned;
 		weapon::sight_state last_sight;
+		std::atomic<float> optic_power{};
 		bool last_at_hip{};
 
 		float perpendicular(const pose& eye, const float (&point)[3], const float (&direction)[3])
@@ -103,6 +112,7 @@ namespace bfvr::stereo
 		const float hip_zoom = data_zoom > 0.0f ? data_zoom
 			: sight.valid && sight.selected > 0 ? learned.lookup(sight.weapon, sight.selected, unlearned) : 1.0f;
 		const bool at_hip = !aiming && hip_zoom >= min_magnification;
+		optic_power = sight.valid && sight.selected > 0 ? hip_zoom : 0.0f;
 		if (at_hip)
 		{
 			zoom = hip_zoom;
@@ -123,19 +133,42 @@ namespace bfvr::stereo
 			const int sighting = off[0] <= off[1] ? 0 : 1;
 			const pose& eye = head.eyes[sighting];
 			next.eye = sighting;
-			const scope_math::plan plan = scope_math::plan_scope(eye, points.sight_eye, points.root_rotation, points.sight_direction, next.magnification, magnifier_lens);
+			// With the glass on, the picture is read by angle (the optic's glass or a virtual eyepiece): the wide render.
+			const scope_math::lens& optic = store.boolean("scope_glass", true) ? glass_lens : magnifier_lens;
+			const scope_math::plan plan = scope_math::plan_scope(eye, points.sight_eye, points.root_rotation, points.sight_direction, next.magnification, optic);
 			if (plan.valid && (!at_hip || off[sighting] <= hip_scope_reach))
 			{
 				next.active = true;
 				next.relative = scope_math::relative_pose(rendered_eye, plan.camera);
 				next.render_fov_y = plan.render_fov_y;
-				next.crop = magnifier_lens.crop;
+				// #139: the scope render keeps the eye's orientation (the gun's turn does not reach it, measured): for the
+				// glass it is widened to reach the sight line plus the field stop around it (lens_math).
+				if (&optic == &glass_lens)
+				{
+					const float* q = rendered_eye.orientation;
+					const float conj[4]{ -q[0], -q[1], -q[2], q[3] };
+					const float t[3]{ 2 * (conj[1] * direction[2] - conj[2] * direction[1]), 2 * (conj[2] * direction[0] - conj[0] * direction[2]),
+						2 * (conj[0] * direction[1] - conj[1] * direction[0]) };
+					const float in_view[3]{ direction[0] + conj[3] * t[0] + (conj[1] * t[2] - conj[2] * t[1]),
+						direction[1] + conj[3] * t[1] + (conj[2] * t[0] - conj[0] * t[2]), direction[2] + conj[3] * t[2] + (conj[0] * t[1] - conj[1] * t[0]) };
+					const float reach = glass_picture_reach(in_view, next.magnification);
+					if (reach > 0.0f && reach / optic.crop < 11.0f)
+					{
+						next.render_fov_y = 2.0f * std::atan(reach / optic.crop);
+					}
+				}
+				next.crop = optic.crop;
 				next.quad = plan.quad;
 				next.quad_size = plan.quad_size;
 			}
 		}
 		game_fov = game_fov_y;
 		request = next;
+	}
+
+	float optic_power_now()
+	{
+		return optic_power.load(std::memory_order_relaxed);
 	}
 
 	scope_request latest_scope_request()

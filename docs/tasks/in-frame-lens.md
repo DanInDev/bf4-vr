@@ -101,6 +101,12 @@ magnified flipped in, switching live). One glass shader for all: power 1 and no 
    ray from the draw's centre of projection, slope / power, field stop, edge darkening. Source (b) when the scope
    render drew this frame, else source (a), a copy of the eye's HDR scene at that draw. So a scope is never black.
    Engine-free maths (slope, field stop, source uv) in `stereo/lens_math` with unit tests.
+   **Built (#139, 2026-11-20)**, changed by what the monitor showed: source (a) is a dead end (the HDR scene always
+   holds the first-person gun, lit with the world), so the picture is always the scope render (b), which turned out
+   to keep the eye's orientation (the gun's turn does not reach it: open); the glass maps by that. The lens draws only
+   mark the glass (the ones on the sight line); an optic with a closed eyepiece (SRS hip model) gets a virtual one;
+   scopes and magnifiers no longer start the game's aim (its flat sniper overlay). `re/notes/weapon.md` "The picture
+   in the optic's own glass".
 2. **Power from data**, for every optic: read `RenderFov` / `ZoomRenderFov` for the selected zoom level and drop the
    learning and the name table to a fallback. The scope render and the glass then run for any optic above 1.25x.
 3. **The reticle at the optic's own FOV**: `sight_lens` spans by that zoom level's FOV instead of the 40 degree constant.
