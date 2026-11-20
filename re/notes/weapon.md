@@ -1225,7 +1225,10 @@ folded magnifier ring width 1.727, height 1.779 (expected 1.73); EOTech and PK-A
 red in the scene counts): ACOG override 10 / data 17.2 width 0.579 (expected 0.579; its height is clipped by the
 glass), flipped magnifier override 20 / data 40 width 0.500, height 0.490 (expected 0.485). The AUG with only its
 magnifier (no red dot or holo loaded in Shanghai; a hold searched to put the eye on its line, 0.00 cm) shows the
-magnified world in its glass and no reticle, as a magnifier alone has none. Red-pixel counts are no size measure: the
+magnified world in its glass. It has no reticle quad: its only 6-index stencil-2 blended draws (`reticle dump`) are
+the two additive (ONE / ONE) quads every gun draws, which `reticle_draw` still takes for one (its `reticle_span`
+0.0292 = 0.038 at 42 degrees comes from them; #93 restricts it to the lens blend). The red pixels near its optic are
+the same with `sight_lens` on and off (92 / 107 with the magnifier in, 51 / 56 out): the scene's lamps, no reticle. Red-pixel counts are no size measure: the
 folded ring is drawn in the HDR pass (tonemapped), the flipped one composed after it at full colour, so the same ring
 has a different thresholded area (139 against 24 px for 1.73x); the extents agree.
 
