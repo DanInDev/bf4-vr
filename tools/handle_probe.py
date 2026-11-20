@@ -120,7 +120,7 @@ def record_one(gun, event, seconds, out, all_bones=False):
     ids = {'root': names.index('Wep_Root'), 'slide': names.index('Wep_Slide'), 'mag': names.index('Wep_Mag'),
            'lthumb': names.index('LeftHandThumb4'), 'lindex': names.index('LeftHandIndex2'),
            'rthumb': names.index('RightHandThumb4'), 'rindex': names.index('RightHandIndex2')}
-    extra = {n: i for i, n in enumerate(names) if n.startswith('Wep_') and n not in ('Wep_Root', 'Wep_Slide', 'Wep_Mag')} if all_bones else None
+    extra = {n: i for i, n in enumerate(names) if n.startswith('Wep_') and n not in ('Wep_Root', 'Wep_Mag')} if all_bones else None  # Wep_Slide too: a turn bolt's lift is its rotation (#96)
     count = len(names)
     address = local_pose_address()
     rest = None

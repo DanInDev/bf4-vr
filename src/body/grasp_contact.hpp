@@ -158,11 +158,14 @@ namespace bfvr::body::contact
 	public:
 		static constexpr float steady_seconds = 0.3f;
 		static constexpr float steady_metres = 0.001f;
+		// #96: and its turn: a bolt action's cycle turns Wep_Slide in place for ~0.5 s before it moves (review 2026-11-20).
+		static constexpr float steady_radians = 0.0175f;
 		// The animated local pose in, the pose to draw out (the rest, or the animated one until a first is known).
 		void hold(unsigned key, float seconds, ik::bone_transform& slide);
 		void reset() { valid_ = false; has_last_ = false; }
 		bool valid() const { return valid_; }
 		float rest_z() const { return rest_.position.z; }
+		const ik::bone_transform& rest() const { return rest_; }
 
 	private:
 		bool valid_{};

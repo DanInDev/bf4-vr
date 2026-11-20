@@ -327,6 +327,9 @@ namespace bfvr::body
 	// #94: a pump gun in hand (gun_key: which gun, 0 = none): its fore-end (Wep_Slide) is drawn at rest, not stroked by
 	// the game's fire animation; the hand's pump (set_handle_hold pull) still moves it. Pipe `arms`: the pump_rest line.
 	void set_pump_rest(bool on, unsigned gun_key);
+	// #96: a turn bolt drawn where the hand put it: Wep_Slide (at its rest, set_pump_rest) turned turn radians about its
+	// own -z (knob up, as the game turns it) and pulled pull metres back. Off: the game's pose.
+	void set_bolt_pose(bool on, float turn, float pull);
 	// #94 (live setting shell_across): a held shotgun shell lies across the fist (as a fist holds a cylinder), not
 	// along it as it sits in the gun (which put it out through the curled fingers).
 	void set_shell_across(bool on);

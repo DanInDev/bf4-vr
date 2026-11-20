@@ -216,6 +216,36 @@ int main()
 		expect(!profile_for("U_M416", 31).pull_out && m416.grab_magazine() == reload_event::none, "M416: latched until B, as before");
 		expect(!profile_for("U_AK12", 31).pull_out && profile_for("U_AK12", 31).kind == variant::ak, "AK-12: the AK variant, not pull_out");
 	}
+	// #96: a turn bolt in its four steps (SRS, FY-JS, Scout, SV-98): lift, back, forward, down; fires only locked.
+	for (const char* name : { "U_SRS", "U_FY-JS", "U_Scout", "U_SV98" })
+	{
+		const std::string n(name);
+		const reload_profile profile = profile_for(name, 6);
+		expect(profile.bolt_turn && profile.manual_cycle, (n + ": a turn bolt worked by hand").c_str());
+		reload gun(profile);
+		gun.load(6, 20); // 5 in the magazine, one chambered
+		expect(gun.fire() == reload_event::shot && gun.fire() == reload_event::dry_fire, (n + ": one shot, then the bolt must be worked").c_str());
+		expect(gun.bolt_back() == reload_event::none && gun.bolt_forward() == reload_event::none && gun.bolt_down() == reload_event::none,
+			(n + ": locked, the bolt does not come back").c_str());
+		expect(gun.bolt_lift() == reload_event::bolt_opened && gun.state().bolt_up, (n + ": lifted").c_str());
+		expect(gun.bolt_back() == reload_event::none && gun.state().bolt_back, (n + ": back, the spent case out").c_str());
+		expect(gun.bolt_down() == reload_event::none, (n + ": back, it cannot turn down").c_str());
+		expect(gun.bolt_forward() == reload_event::chambered && gun.state().magazine_rounds == 4, (n + ": forward feeds the next round").c_str());
+		expect(gun.fire() == reload_event::dry_fire && gun.state().chamber, (n + ": not turned down: the trigger does nothing").c_str());
+		expect(gun.bolt_down() == reload_event::bolt_closed && !gun.state().bolt_up, (n + ": down: locked").c_str());
+		expect(gun.fire() == reload_event::shot, (n + ": locked, it fires").c_str());
+		gun.rack(); // a full cycle at once (pipe): chambered and locked
+		gun.bolt_lift();
+		expect(gun.bolt_back() == reload_event::round_ejected && !gun.state().chamber, (n + ": back on a live round ejects it").c_str());
+		gun.bolt_forward();
+		gun.bolt_down();
+		gun.set_manual_cycle(false);
+		expect(gun.bolt_lift() == reload_event::none, (n + ": manual_cycle off: the game cycles it, no steps").c_str());
+	}
+	{
+		reload m416(profile_for("U_M416", 31));
+		expect(!m416.turning() && m416.bolt_lift() == reload_event::none, "M416: no turn bolt");
+	}
 	// #97: handles worked from either side on the real gun; one-sided and reversible ones not.
 	for (const char* both : { "U_FAMAS", "U_AK12", "U_P90", "U_G36C", "U_QBB95" })
 	{

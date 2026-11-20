@@ -20,6 +20,30 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	bool bolt_geometry_for(std::string_view unlock_name, float (&pivot)[2], float& lift_degrees, float& travel)
+	{
+		struct bolt { std::string_view name; float pivot_y; float lift; };
+		// Monitor 2026-11-20 (game's own cycle after a shot, Wep_Slide local): the turn about its -z, then 10.3 cm back.
+		static constexpr bolt bolts[] = {
+			{ "U_SRS", 0.006f, 56.4f },
+			{ "U_FY-JS", 0.035f, 56.4f },
+			{ "U_SV98", 0.050f, 56.4f },
+			{ "U_Scout", 0.034f, 73.7f },
+		};
+		for (const bolt& b : bolts)
+		{
+			if (b.name == unlock_name)
+			{
+				pivot[0] = 0.0f;
+				pivot[1] = b.pivot_y;
+				lift_degrees = b.lift;
+				travel = 0.103f;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool handle_both_sides(std::string_view unlock_name)
 	{
 		// Handles a hand works from either side on the real gun, as drawn (owner 2026-11-20: every gun that can): the FAMAS's
@@ -98,7 +122,7 @@ namespace bfvr::weapon
 			{ "U_Scout", { -0.085f, 0.116f, 0.439f } },
 			// Read off its shot timeline (handle_probe timeline): the right hand on the lifted knob as the bolt starts
 			// back (4.2 cm), moved forward by that travel.
-			{ "U_SV98", { -0.082f, 0.081f, 0.407f } },
+			{ "U_SV98", { -0.049f, 0.108f, 0.408f } }, // #96: the game's hand at full lift before the bolt comes back (was mid-stroke)
 		};
 		// #88, from the model (handle_point_from_model): guns whose empty reload never pulls the handle (the bolt
 		// release, or no hand on it). The bolt bone at rest (tools/handle_probe.py record --all-bones, 2026-11-20:
@@ -293,6 +317,7 @@ namespace bfvr::weapon
 		profile.pull_out = !ak && traits.release == release::none && (traits.feed == feed::box || traits.feed == feed::top);
 		profile.hold = traits.hold_open ? hold_open::yes : hold_open::no;
 		profile.manual_cycle = cycles_by_hand(traits) && physical_reload_covers(traits);
+		profile.bolt_turn = profile.manual_cycle && traits.cycle == cycle::bolt;
 		profile.tube = traits.feed == feed::tube;
 		profile.belt = traits.feed == feed::belt;
 		profile.revolver = traits.feed == feed::cylinder;

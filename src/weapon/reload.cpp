@@ -80,7 +80,7 @@ namespace bfvr::weapon
 
 	reload_event reload::fire()
 	{
-		if (!state_.chamber)
+		if (!state_.chamber || (turning() && state_.bolt_up)) // #96: an unlocked bolt does not fire
 		{
 			return reload_event::dry_fire;
 		}
@@ -348,8 +348,53 @@ namespace bfvr::weapon
 		return reload_event::belt_dropped;
 	}
 
+	reload_event reload::bolt_lift()
+	{
+		if (!turning() || state_.bolt_up)
+		{
+			return reload_event::none;
+		}
+		state_.bolt_up = true;
+		return reload_event::bolt_opened;
+	}
+
+	reload_event reload::bolt_back()
+	{
+		if (!turning() || !state_.bolt_up || state_.bolt_back)
+		{
+			return reload_event::none;
+		}
+		state_.bolt_back = true;
+		const bool live = state_.chamber; // a spent case goes without a word; a live round is lost
+		state_.chamber = false;
+		return live ? reload_event::round_ejected : reload_event::none;
+	}
+
+	reload_event reload::bolt_forward()
+	{
+		if (!turning() || !state_.bolt_back)
+		{
+			return reload_event::none;
+		}
+		state_.bolt_back = false;
+		state_.bolt_locked = false;
+		const reload_event fed = feed();
+		return fed == reload_event::bolt_locked ? reload_event::racked_empty : fed; // a bolt gun has no hold-open
+	}
+
+	reload_event reload::bolt_down()
+	{
+		if (!turning() || !state_.bolt_up || state_.bolt_back)
+		{
+			return reload_event::none;
+		}
+		state_.bolt_up = false;
+		return reload_event::bolt_closed;
+	}
+
 	reload_event reload::rack()
 	{
+		state_.bolt_up = state_.bolt_back = false; // #96: a full rack ends with the bolt locked
 		const bool ejected = state_.chamber;
 		state_.chamber = false;
 		state_.bolt_locked = false;

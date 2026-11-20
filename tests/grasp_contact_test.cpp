@@ -272,6 +272,32 @@ static void test_slide_rest()
 		at(1, 0.660f);
 	}
 	expect(at(1, 0.660f) == 0.660f, "slide rest: a pose held still for steady_seconds becomes the rest");
+		// #96 review: a bolt action's cycle turns the bolt 56.4 degrees in place for ~0.5 s before it moves: the turn must
+		// not become the rest (the SRS's recorded timeline at 90 fps: turn in 0.1 s, held 0.1 s, back, forward, down).
+		{
+			contact::slide_rest bolt;
+			ik::bone_transform b{};
+			b.position = { 0.0f, 0.006f, 0.227f };
+			bolt.hold(9, dt, b);
+			float worst = 0.0f;
+			const auto turn_at = [&](float degrees, float z)
+			{
+				const float half = 0.5f * degrees * 0.017453293f;
+				b.position = { 0.0f, 0.006f, z };
+				b.rotation = { 0.0f, 0.0f, -std::sin(half), std::cos(half) };
+				bolt.hold(9, dt, b);
+				worst = std::fmax(worst, 2.0f * std::acos(std::fmin(1.0f, std::fabs(b.rotation.w))) * 57.29578f);
+			};
+			for (int f = 0; f < 50; ++f) turn_at(0.0f, 0.227f);            // 0.55 s at rest after the shot
+			for (int f = 1; f <= 9; ++f) turn_at(56.4f * f / 9.0f, 0.227f); // lifted
+			for (int f = 0; f < 9; ++f) turn_at(56.4f, 0.227f);             // held up
+			for (int f = 1; f <= 14; ++f) turn_at(56.4f, 0.227f - 0.103f * f / 14.0f);
+			for (int f = 0; f < 9; ++f) turn_at(56.4f, 0.124f);
+			for (int f = 1; f <= 14; ++f) turn_at(56.4f, 0.124f + 0.103f * f / 14.0f);
+			for (int f = 1; f <= 9; ++f) turn_at(56.4f * (9 - f) / 9.0f, 0.227f);
+			for (int f = 0; f < 60; ++f) turn_at(0.0f, 0.227f);
+			expect(worst < 0.5f && b.position.z == 0.227f, "slide rest: a bolt's in-place turn and its stroke are not drawn (rest stays unturned)");
+		}
 	expect(at(2, 0.10f) == 0.10f && rest.rest_z() == 0.10f, "slide rest: another gun starts over");
 	slide.position = { NAN, 0.0f, 0.0f };
 	rest.hold(2, dt, slide);
