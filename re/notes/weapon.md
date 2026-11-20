@@ -1075,6 +1075,17 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## The rack fist on the knob (2026-11-20 night, monitor, Shanghai, #87)
+
+The rack fist's grasp centre is placed at the knob plus `rack_fist_offset` (settings `rack_over_out` / `rack_over_up`,
+`rack_under_out` / `rack_under_down`); since 2026-11-15 5 cm out and 1 cm up (overhand), 3 cm out and 4 cm down
+(underhand), to keep the hand out of the receiver. The owner's marks (2026-11-19) show it floating beside and above the
+knob. New measure in pipe `fingers`: `rack_fist_grip_minus_knob` = the drawn fist's grasp centre after the arm's solve
+minus the knob at the current pull (Wep_Root axes). Before: (0.050, 0.010, 0), 5.1 cm, at every pull (FAMAS). Defaults
+now 5 mm each way: FAMAS 0.7 cm, SV-98 0.7 cm, M416 0.5 cm at pull 0, 0.04 and 0.08 (hand at the reload report's
+`handle_zone` centre, a fresh off-hand grab). The FAMAS fist now sits on the receiver instead of beside the gun; it may
+touch it (the 2026-11-15 reason), the panel sliders move it back out.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

@@ -352,10 +352,10 @@ support_slide_back = 0.06
 support_slide_forward = 0.08
 # rack_grip fist: where the fist sits against the charging handle's knob (metres, the gun's frame): overhand out on
 # the handle's side and up, underhand out and down, so it holds the knob from outside the gun. Panel page Skeleton.
-rack_over_out = 0.05
-rack_over_up = 0.01
-rack_under_out = 0.03
-rack_under_down = 0.04
+rack_over_out = 0.005
+rack_over_up = 0.005
+rack_under_out = 0.005
+rack_under_down = 0.005
 # Left X opens the game's menu; the right B reloads (physical: magazine release / bolt catch).
 x_menu = 1
 # Sounds for magazines, chambering, grenade pouch and pin; a WAV in bfvr_sounds replaces one

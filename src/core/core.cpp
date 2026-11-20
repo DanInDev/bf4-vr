@@ -331,8 +331,8 @@ namespace bfvr::core
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
-			body::set_rack_fist_offsets(store.real("rack_over_out", 0.05f), store.real("rack_over_up", 0.01f), store.real("rack_under_out", 0.03f),
-				store.real("rack_under_down", 0.04f));
+			body::set_rack_fist_offsets(store.real("rack_over_out", 0.005f), store.real("rack_over_up", 0.005f), store.real("rack_under_out", 0.005f),
+				store.real("rack_under_down", 0.005f));
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			body::set_one_hand_recoil(store.real("one_hand_recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
