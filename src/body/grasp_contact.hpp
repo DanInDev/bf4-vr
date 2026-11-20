@@ -99,10 +99,12 @@ namespace bfvr::body::contact
 	// SCAR-H's knob is 3.5 cm off the centre line and the centred fist went into the gun).
 	struct rack_fist_offsets
 	{
-		float over_out{ 0.05f };
-		float over_up{ 0.01f };
-		float under_out{ 0.03f };
-		float under_down{ 0.04f };
+		// #87 (owner, headset 2026-11-19: the fist floated beside and above the knob): its grasp centre 5 mm out and
+		// 5 mm above (below, underhand) the knob, on it and over the action through the whole stroke.
+		float over_out{ 0.005f };
+		float over_up{ 0.005f };
+		float under_out{ 0.005f };
+		float under_down{ 0.005f };
 	};
 	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets);
 

@@ -483,6 +483,9 @@ namespace bfvr::body
 		// was grabbed in (weapon/reload_hands), the hand locked on it.
 		std::atomic<int> rack_grip{ 3 };
 		bool fisting{};           // this frame: the racking hand holds the knob in its fist
+		// #87: the drawn fist's grasp centre against the knob (Wep_Root axes, metres), after the arm's solve.
+		ik::vec3 rack_grip_error;
+		bool rack_grip_measured{};
 		ik::vec3 fist_in_hand;    // the fist's grasp centre, hand-bone axes, from the last shaping
 		bool has_fist{};
 		bool pinching{};
@@ -1476,6 +1479,21 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_drawn_hand[hand] = ik::model_of(local, rig.parents, bones.hand).rotation;
+					// Cleared on every solve of the hand that racks when no fist holds the knob, so a reading is always current.
+					if (hand != carrier && !(gun_placed && handle_request.weight > 0.0f && fisting && has_fist))
+					{
+						rack_grip_measured = false;
+						rack_grip_error = {};
+					}
+					if (hand != carrier && gun_placed && handle_request.weight > 0.0f && fisting && has_fist)
+					{
+						const ik::bone_transform drawn = ik::model_of(local, rig.parents, bones.hand);
+						const ik::bone_transform gun_at = ik::model_of(local, rig.parents, rig.weapon);
+						const ik::vec3 grip = drawn.position + ik::rotate(drawn.rotation, fist_in_hand);
+						const ik::vec3 knob = handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull };
+						rack_grip_error = ik::rotate(ik::conjugate(gun_at.rotation), grip - gun_at.position) - knob;
+						rack_grip_measured = true;
+					}
 					hand_collision_drawn[hand] = hand_collision_checked[hand] ? drawn_hand_depth(local, hand) : 0.0f;
 					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
@@ -3838,12 +3856,14 @@ namespace bfvr::body
 			std::snprintf(text + length, sizeof(text) - length,
 				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
-				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d", grips[magazine_grip.load() % 3],
+				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d rack_fist_grip_minus_knob=(%.3f,%.3f,%.3f) %.3f measured=%d", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
 				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : rack_grip.load() == 2 ? "auto" : fisting ? (handle_request.underhand ? "fist(under)" : "fist(over)") : "fist", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
-				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
+				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0, rack_grip_error.x, rack_grip_error.y, rack_grip_error.z,
+				std::sqrt(rack_grip_error.x * rack_grip_error.x + rack_grip_error.y * rack_grip_error.y + rack_grip_error.z * rack_grip_error.z),
+				rack_grip_measured ? 1 : 0);
 		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{

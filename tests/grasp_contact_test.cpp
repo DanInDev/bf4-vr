@@ -191,14 +191,18 @@ static void test_rack_fist_offset()
 {
 	const contact::rack_fist_offsets offsets;
 	const ik::vec3 left_over = contact::rack_fist_offset(false, 1.0f, offsets);
-	expect(left_over.x == 0.05f && left_over.y == 0.01f && left_over.z == 0.0f, "rack fist: overhand out on a left-side handle (SCAR-H) and a little up");
+	expect(left_over.x == 0.005f && left_over.y == 0.005f && left_over.z == 0.0f, "rack fist: overhand just out on a left-side handle (SCAR-H) and just up");
 	const ik::vec3 right_over = contact::rack_fist_offset(false, -1.0f, offsets);
-	expect(right_over.x == -0.05f && right_over.y == 0.01f, "rack fist: out to the right for a right-side handle (AK)");
+	expect(right_over.x == -0.005f && right_over.y == 0.005f, "rack fist: just out to the right for a right-side handle (AK)");
 	const ik::vec3 under = contact::rack_fist_offset(true, -1.0f, offsets);
-	expect(under.x == -0.03f && under.y == -0.04f, "rack fist: underhand out and below the knob");
+	expect(under.x == -0.005f && under.y == -0.005f, "rack fist: underhand just out and below the knob");
 	const ik::vec3 centred = contact::rack_fist_offset(false, 0.0f, offsets);
-	expect(centred.x == 0.0f && centred.y == 0.01f, "rack fist: a centred handle moves the fist only up");
-	expect(contact::rack_fist_offset(false, 0.4f, offsets).x == 0.05f, "rack fist: any positive side is the left");
+	expect(centred.x == 0.0f && centred.y == 0.005f, "rack fist: a centred handle moves the fist only up");
+	expect(contact::rack_fist_offset(false, 0.4f, offsets).x == 0.005f, "rack fist: any positive side is the left");
+	// #87: the grasp centre within 1 cm of the knob (the owner's marks: 5 cm out and above).
+	const float reach = std::sqrt(left_over.x * left_over.x + left_over.y * left_over.y);
+	const float under_reach = std::sqrt(under.x * under.x + under.y * under.y);
+	expect(reach < 0.01f && under_reach < 0.01f, "rack fist: the grasp centre within 1 cm of the knob, over and under");
 }
 
 static void test_support_slide()
