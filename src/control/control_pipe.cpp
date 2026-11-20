@@ -724,7 +724,7 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
 				return stereo::set_eye_pass(mode, shift); // no argument = report only
 			}
-			if (command == "glassdebug") return stereo::set_glass_debug(argument == "1");
+			if (command == "glassdebug") return stereo::set_glass_debug(argument == "2" ? 2 : argument == "1" ? 1 : 0);
 			if (command == "scopescissor")
 			{
 				int on = -1;

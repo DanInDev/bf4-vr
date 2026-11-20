@@ -69,8 +69,9 @@ namespace bfvr::stereo
 	void set_scope_glass(bool on);
 	// #139: the optic's own glass showed the picture in the last 300 ms (the scope plan then renders a wide picture).
 	bool scope_glass_shown();
-	// Research (pipe "glassdebug 0|1"): the glass mask's lens quads painted in colour, the sight line's point white.
-	std::string set_glass_debug(bool on);
+	// Research (pipe "glassdebug 0|1|2"): 1 the glass mask's lens quads in colour and the sight line's point magenta; 2 the
+	// glass black with its reticle art pure green (the drawn reticle's size).
+	std::string set_glass_debug(int mode);
 	void set_scope_in_frame(bool on);
 	// The picture went into the frame within the last 200 ms (the theater then leaves its quad out).
 	bool scope_drawn_in_frame();

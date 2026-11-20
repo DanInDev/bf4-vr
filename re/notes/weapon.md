@@ -1221,8 +1221,13 @@ overrides. A scope's art (ACOG 17.2, SRS 8.7) at its own level; a flipped magnif
 the magnifier's ring grows with its power as through a real magnifier (owner's rule in #140; the game's own aim would
 give 1.14x). Monitor (CZ-805 at the right eye; the red pixels' fitted extent inside the glass, 5 shots): flipped /
 folded magnifier ring width 1.727, height 1.779 (expected 1.73); EOTech and PK-AS with data against a 40 override
-1.02 / 1.00; the ACOG's art is larger than its glass at both settings (clipped), so only its report spans compare:
-0.0408 against 0.0983 (0.415 = tan 8.6 / tan 20).
+1.02 / 1.00. In the glass, measured as drawn (pipe `glassdebug 2`: the glass black, its reticle art pure green, so no
+red in the scene counts): ACOG override 10 / data 17.2 width 0.579 (expected 0.579; its height is clipped by the
+glass), flipped magnifier override 20 / data 40 width 0.500, height 0.490 (expected 0.485). The AUG with only its
+magnifier (no red dot or holo loaded in Shanghai; a hold searched to put the eye on its line, 0.00 cm) shows the
+magnified world in its glass and no reticle, as a magnifier alone has none. Red-pixel counts are no size measure: the
+folded ring is drawn in the HDR pass (tonemapped), the flipped one composed after it at full colour, so the same ring
+has a different thresholded area (139 against 24 px for 1.73x); the extents agree.
 
 **The game's aim picture never reaches the VR eye image.** With the glass and the forced aim off, the game aimed by
 LT (`game_fov` 45 -> 17.2, `aiming=1`), the eye image above the gun changed by 0.71 (mean absolute, 0-255) against

@@ -1195,7 +1195,7 @@ namespace bfvr::stereo
 		std::atomic<float> glass_power_seen{};
 		std::atomic<float> glass_scale_seen{};
 		std::atomic<float> glass_line_uv[2]{}; // where the sight line falls in the scope picture (0.5, 0.5: its centre)
-		std::atomic<bool> glass_debug{}; // research (pipe glassdebug 1): the mask's quads in colour
+		std::atomic<int> glass_debug{}; // research (pipe glassdebug 1): the mask's quads in colour; 2: the reticle alone
 		std::atomic<int> glass_quads_seen{};
 		int glass_quads{};    // render thread: lens quads drawn into the mask in this eye render
 		// Which lens draws are the glass (lens_math::choose_glass): every lens draw shows only where no first-person
@@ -1281,6 +1281,13 @@ float4 ps_glass(v2p i) : SV_Target
 	float4 m = mask.Load(int3(i.position.xy * proj.zw, 0));
 	uint quads = (uint)round(m.r * 255.0);
 	float2 ndc = float2((i.position.x - view.x) / view.z * 2.0 - 1.0, 1.0 - (i.position.y - view.y) / view.w * 2.0);
+	if (glass.w > 1.5) // research (pipe glassdebug 2): the glass black, the reticle art in it pure green (its drawn size)
+	{
+		uint glass_bits = glass.y < -0.5 ? 0xffu : (uint)glass.y;
+		if ((quads & glass_bits) == 0)
+			discard;
+		return float4(0.0, m.a, 0.0, 1.0);
+	}
 	if (glass.w > 0.5) // research (pipe glassdebug): quad 0 red, 1 green, 2 blue; the sight line's point magenta
 	{
 		float2 line_at = float2(along.x / -along.z * proj.x, along.y / -along.z * proj.y);
@@ -1429,7 +1436,7 @@ float4 ps_glass(v2p i) : SV_Target
 			const unsigned bits = choose_glass(glass_kept[ring], area, glass_on_line[ring], quads);
 			const int pick = bits ? glass_kept[ring].smallest : -1;
 			glass_pick_seen = pick;
-			const bool masked = quads > 0 && (bits != 0 || glass_debug.load(std::memory_order_relaxed)); // debug: every lens draw
+			const bool masked = quads > 0 && (bits != 0 || glass_debug.load(std::memory_order_relaxed) == 1); // debug: every lens draw
 			struct clear_mask
 			{
 				ID3D11DeviceContext* c;
@@ -1457,7 +1464,7 @@ float4 ps_glass(v2p i) : SV_Target
 			// the sight (a real scope shows nothing to the eye beside it). Never the flat picture then.
 			const bool glass_mode = scope_glass_on.load(std::memory_order_relaxed) && lens_image.magnification >= glass_min_power;
 			const bool virtual_eyepiece = glass_mode && !masked && lens_image.eye == which;
-			const bool glass = (glass_mode && masked) || virtual_eyepiece || (masked && glass_debug.load(std::memory_order_relaxed));
+			const bool glass = (glass_mode && masked) || virtual_eyepiece || (masked && glass_debug.load(std::memory_order_relaxed) == 1);
 			if (virtual_eyepiece)
 			{
 				++glass_fallbacks;
@@ -1605,7 +1612,7 @@ float4 ps_glass(v2p i) : SV_Target
 					{ r[0], r[1], r[2], lens_image.magnification },
 					{ u[0], u[1], u[2], 0.0f },
 					{ along[0], along[1], along[2], field },
-					{ scale, virtual_eyepiece ? -1.0f : static_cast<float>(bits), lens_image.eye == which ? 0.0f : 1.0f, glass_debug.load(std::memory_order_relaxed) ? 1.0f : 0.0f },
+					{ scale, virtual_eyepiece ? -1.0f : static_cast<float>(bits), lens_image.eye == which ? 0.0f : 1.0f, static_cast<float>(glass_debug.load(std::memory_order_relaxed)) },
 					{ 1.0f, 0.12f, 0.06f, virtual_eyepiece ? virtual_eyepiece_radius / (std::max)(0.05f, centre_distance) : 1.0f },
 				};
 				std::memcpy(&clip[4][0], glass_constants, sizeof(glass_constants));
@@ -3498,10 +3505,11 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		return scope_glass_on.load(std::memory_order_relaxed) && GetTickCount64() - glass_shown_at.load(std::memory_order_relaxed) < 300;
 	}
 
-	std::string set_glass_debug(bool on)
+	std::string set_glass_debug(int debug_mode)
 	{
-		glass_debug = on;
-		return on ? "glassdebug: lens quads in colour (0 red, 1 green, 2 blue), sight line white" : "glassdebug: off";
+		glass_debug = debug_mode;
+		return debug_mode == 1 ? "glassdebug: lens quads in colour (0 red, 1 green, 2 blue), sight line magenta"
+			: debug_mode == 2 ? "glassdebug: the glass black, its reticle pure green" : "glassdebug: off";
 	}
 
 	void set_sight_lens(bool on, float ads_fov_degrees, float brightness)

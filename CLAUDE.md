@@ -187,7 +187,8 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   Matching a picture against an eye shot (`s3where`-style correlation) works on lit buildings; water and window
   rain give weak matches (correlation < 0.4). The game's own aim (LT with `ads_trigger 1`: `game_fov` 17.2 for an
   ACOG) does not zoom the VR eye image: compare optics against data, not against "the game's aim picture" (#140).
-  `pad ... 0300 1 0` (grips held) does not aim; LT alone (`0000 1 0`) does.
+  `pad ... 0300 1 0` (grips held) does not aim; LT alone (`0000 1 0`) does. Measure a reticle in the glass with pipe
+  `glassdebug 2` (the reticle alone, pure green): red pixels in an eye shot catch the scene's red lamps as the gun sways.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
