@@ -36,6 +36,19 @@ int main()
 	expect(ring_degrees > 1.0f && ring_degrees < 1.25f, "the EOTech ring about 1.1 degrees, as the real sight");
 	expect(reticle_span(0.040f, 40.0f) > span, "the PK-AS's larger art is wider");
 
+	// #140: the art's view from the selected zoom level; the setting overrides; 40 when unknown.
+	expect(reticle_fov(0.0f, 40.0f) == 40.0f && near(reticle_span(0.038f, reticle_fov(0.0f, 40.0f)), span, 1e-6f), "a red dot or holo: 40, unchanged");
+	expect(reticle_fov(0.0f, 17.2f) == 17.2f, "the ACOG's level: 17.2");
+	expect(reticle_fov(35.0f, 17.2f) == 35.0f, "the setting overrides the data");
+	expect(reticle_fov(0.0f, 0.0f) == 40.0f && reticle_fov(0.0f, 300.0f) == 40.0f, "no or nonsense level: 40 as before");
+	// Through the glass the reticle covers the same share of the world as in the game's aim: the ACOG's art (17.2
+	// degrees, 2.74x) and the flipped magnifier's (27 degrees, 1.73x) both come out at the hip's 45 degrees, 1.14x the
+	// red dot's 40-degree span.
+	const float acog = glass_reticle_span(reticle_span(0.038f, 17.2f), 2.74f);
+	const float magnifier = glass_reticle_span(reticle_span(0.038f, 27.0f), 1.73f);
+	expect(near(acog / span, 1.138f, 0.01f) && near(magnifier / span, 1.139f, 0.01f), "ACOG and magnifier reticles 1.14x the 1x span through the glass");
+	expect(glass_reticle_span(span, 0.5f) == 0.0f, "below 1x: none");
+
 	float right[3]{}, up[3]{};
 	{
 		// Straight ahead, upright: right is +x, up is +y.

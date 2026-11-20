@@ -10,6 +10,14 @@ namespace bfvr::stereo
 	// 0.0277, its ring (70 % of the art) 1.1 degrees across, as the real sight's 65 MOA.
 	float reticle_span(float size_fraction, float ads_fov_degrees);
 
+	// #140: the aiming view the reticle art is sized for: the setting sight_lens_fov when above 0 (an override), else the
+	// selected zoom level's own vertical FOV from the game's data (red dot / holo 40, ACOG 17.2, flipped magnifier 27,
+	// SRS 8.7), else 40 (the EOTech's measured view, as before).
+	float reticle_fov(float override_degrees, float level_fov_degrees);
+	// Seen through a glass of this power the art's world span is magnified too: as in the game's own aim picture, the
+	// reticle covers the same share of the world (0 for a power below 1).
+	float glass_reticle_span(float span, float power);
+
 	// The gun's right and up square to its sight line (all in one view space: x right, y up, -z ahead). False
 	// when up runs along the line.
 	bool lens_axes(const float (&along)[3], const float (&up)[3], float (&right_out)[3], float (&up_out)[3]);

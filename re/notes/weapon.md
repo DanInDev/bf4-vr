@@ -1212,6 +1212,17 @@ Monitor (fake head 0.064, CZ-805 hold, right eye 0.3-0.4 cm off the line; `scope
 fps: bare gun at the hip 159 with the glass on and off; with the ACOG ~75-81 on, 76 off (the scope render's cost; the
 glass widens its scissor from 30 % to 45 % of the height).
 
+## The reticle at each optic's own zoom (2026-11-20 night, monitor, Shanghai, #140)
+
+`sight_lens` sizes the reticle art from the selected zoom level's own vertical FOV (aiming simulation `+0x238` levels,
+#138) instead of the 40 degree constant; `sight_lens_fov` above 0 overrides (`lens_math::reticle_fov`). Inside the
+glass the art is magnified with the world (`glass_reticle_span` = span x power), so it covers the same share of the
+world as in the game's own aim picture: every magnified optic's reticle comes out at the hip's 45 degrees, 1.14x the
+1x span (ACOG 17.2 x 2.74, magnifier 27 x 1.73). Monitor (CZ-805 at the right eye; extent of the red pixels inside the
+glass, against an override that reproduces the size before): EOTech and PK-AS unchanged (span 0.0277 / 0.0291, width
+within a pixel); flipped magnifier ring 1.125x wider (expected 1.139); ACOG width 16 -> 19 px (1.19x, expected 1.14,
+one pixel = 6 % at this size).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

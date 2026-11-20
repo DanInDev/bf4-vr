@@ -1752,10 +1752,11 @@ float4 ps_glass(v2p i) : SV_Target
 		// points at from anywhere behind the glass. Its size: the material's own size (ps cb1 float 8: 0.038 of the
 		// screen height for the EOTech) at the game's ADS view (sight_lens_fov, 40 degrees): 1.13 degrees of ring.
 		std::atomic<bool> sight_lens_on{ true };
-		std::atomic<float> sight_lens_fov{ 40.0f };
+		std::atomic<float> sight_lens_fov{ 0.0f }; // #140: 0 = the zoom level's own view (lens_math::reticle_fov)
 		std::atomic<float> sight_lens_brightness{ 4.0f };
 		std::atomic<std::uint64_t> lens_reticles{};
 		std::atomic<float> lens_size_seen{};
+		std::atomic<float> lens_span_seen{}; // #140: the art's span (slope) last used
 		// #139 scope_glass: an optic whose selected level magnifies (a scope, a flipped magnifier; the power from the
 		// game's zoom data, #138) shows the scope picture in its own glass. The game's lens quad of that optic draws
 		// only a mask here (its own geometry, depth and stencil: so the rim and the hands cover it as they cover the
@@ -2120,9 +2121,12 @@ float4 probe(float4 position : SV_Position) : SV_Target
 			{
 				original_draw_indexed(c, count, start, base); // the game's own glass, as it draws it
 			}
-			const float constants[16][4]{
+			// #140: the art sized for the selected zoom level's own view (the setting overrides).
+			const float span = reticle_span(size, reticle_fov(sight_lens_fov.load(std::memory_order_relaxed), optic_level_fov_now()));
+			lens_span_seen = span;
+			float constants[16][4]{
 				{ viewport.TopLeftX, viewport.TopLeftY, viewport.Width, viewport.Height },
-				{ projection_sx, projection_sy, reticle_span(size, sight_lens_fov.load(std::memory_order_relaxed)), sight_lens_brightness.load(std::memory_order_relaxed) },
+				{ projection_sx, projection_sy, span, sight_lens_brightness.load(std::memory_order_relaxed) },
 				{ r[0], r[1], r[2], 0.0f },
 				{ u[0], u[1], u[2], art ? 0.0f : 1.0f }, // w: 1 = no reticle art in this draw
 				{ along[0], along[1], along[2], 0.0f },
@@ -2151,6 +2155,9 @@ float4 probe(float4 position : SV_Position) : SV_Target
 			}
 			if (glass)
 			{
+				// Through the glass the art is magnified with the world (glass_reticle_span).
+				constants[1][2] = glass_reticle_span(span, power);
+				c->UpdateSubresource(lens_reticle.constants.Get(), 0, nullptr, constants, 0, 0);
 				draw_glass_mask(c, count, start, base, glass_quads);
 				++glass_quads;
 				++glass_masks;
@@ -3531,9 +3538,9 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		char text[1400];
 		const std::lock_guard guard(lens_debug_lock);
 		std::snprintf(text, sizeof(text),
-			"scope_glass=%d glass_masks=%llu glass_composed=%llu glass_no_picture=%llu power=%.2f uv_per_tangent=%.3f line_uv=(%.3f %.3f) quads=%d glass_quad=%d areas=%llu/%llu/%llu on_line=%llu/%llu/%llu field=%.3f virtual=%llu projection_offset=(%.4f %.4f) | sight_lens=%d reticles=%llu art_size=%.4f fov=%.1f | scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
+			"reticle_span=%.4f level_fov=%.1f | scope_glass=%d glass_masks=%llu glass_composed=%llu glass_no_picture=%llu power=%.2f uv_per_tangent=%.3f line_uv=(%.3f %.3f) quads=%d glass_quad=%d areas=%llu/%llu/%llu on_line=%llu/%llu/%llu field=%.3f virtual=%llu projection_offset=(%.4f %.4f) | sight_lens=%d reticles=%llu art_size=%.4f fov=%.1f | scope_in_frame=%d lens_draws=%llu lens_skipped=%llu shift=%.4f extra=(%.4f %.4f) quad=(%.3f %.3f %.3f)\n"
 			"  eye1 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f\n  eye2 at (%.3f %.3f %.3f) lens in view (%.3f %.3f %.3f) ndc_x=%.3f",
-			scope_glass_on.load() ? 1 : 0, static_cast<unsigned long long>(glass_masks.load()), static_cast<unsigned long long>(glass_composed.load()),
+			lens_span_seen.load(), optic_level_fov_now(), scope_glass_on.load() ? 1 : 0, static_cast<unsigned long long>(glass_masks.load()), static_cast<unsigned long long>(glass_composed.load()),
 			static_cast<unsigned long long>(glass_no_picture.load()), glass_power_seen.load(), glass_scale_seen.load(), glass_line_uv[0].load(), glass_line_uv[1].load(), glass_quads_seen.load(), glass_pick_seen.load(),
 			static_cast<unsigned long long>(glass_area_seen[0].load()), static_cast<unsigned long long>(glass_area_seen[1].load()), static_cast<unsigned long long>(glass_area_seen[2].load()),
 			static_cast<unsigned long long>(glass_on_line[0][0] + glass_on_line[1][0]), static_cast<unsigned long long>(glass_on_line[0][1] + glass_on_line[1][1]),

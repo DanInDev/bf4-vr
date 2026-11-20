@@ -461,12 +461,13 @@ scope_in_frame = 1
 # Red dots and holos as a real sight (the BF3 single-player mod's lens): the game's reticle art placed by the
 # angle through the glass, so it keeps its true size at any distance, turns with the gun, not your head, and
 # the optic's glass is clear while you look into it (the game's aiming mesh, within sight_lens_cone below).
-# sight_lens_fov: the aiming view the art is sized for (40: the EOTech's ring as the real one; more = larger).
+# sight_lens_fov: the aiming view the art is sized for, degrees; 0 = each zoom level's own view from the game's data
+# (red dots and holos 40: the EOTech's ring as the real one; scopes and magnifiers their zoomed view); above 0 overrides.
 sight_lens = 1
 # The game's aiming model of the optic (clear lens and reticle, but open at the top) shows only while an eye looks
 # into the lens from behind within this many degrees of the sight line; elsewhere the full optic (0 = always).
 sight_lens_cone = 8
-sight_lens_fov = 40
+sight_lens_fov = 0
 sight_lens_brightness = 4
 # Scopes and flipped magnifiers: the world magnified on the optic's own glass, by the optic's power from the game's
 # zoom data, dark past the field stop as through a real scope (the BF3 mod Great Destroyer's lens). 0 = the

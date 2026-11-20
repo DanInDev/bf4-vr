@@ -9,6 +9,24 @@ namespace bfvr::stereo
 		return size_fraction * 2.0f * std::tan(0.5f * ads_fov_degrees * 3.14159265f / 180.0f);
 	}
 
+	float reticle_fov(float override_degrees, float level_fov_degrees)
+	{
+		if (override_degrees > 0.0f && std::isfinite(override_degrees))
+		{
+			return override_degrees;
+		}
+		if (level_fov_degrees > 0.5f && level_fov_degrees < 170.0f)
+		{
+			return level_fov_degrees;
+		}
+		return 40.0f;
+	}
+
+	float glass_reticle_span(float span, float power)
+	{
+		return power >= 1.0f && std::isfinite(power) ? span * power : 0.0f;
+	}
+
 	bool lens_axes(const float (&along)[3], const float (&up)[3], float (&right_out)[3], float (&up_out)[3])
 	{
 		const float right[3]{ along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0] };
