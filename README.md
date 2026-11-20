@@ -76,7 +76,7 @@ VR, or something that does not work there yet.
 
 | Mission | In VR |
 | --- | --- |
-| Baku (prologue) | Played in parts (the opening rooms, the gadget stash); not finished |
+| Baku | Mostly playable. Using C4 is wonky and the helicopter at the end uses the right stick for aiming instead |
 | Shanghai | Played in parts (the tower checkpoint with the weapon crate); not finished |
 | South China Sea | Not tested |
 | Singapore | Not tested |
