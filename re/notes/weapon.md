@@ -1081,9 +1081,11 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 "bolt moved, no hand riding it" or "no pull") had no measured point. Their bolt bone at rest (`handle_probe record
 --all-bones`, Wep_Slide in Wep_Root axes, +x left) fits the owner's side table: AUG (0.016, 0.025, 0.454) front left,
 UMP-45 (0, 0.056, 0.576) front top ahead of the magwell, M240 / M249 (-0.027, ...) right, AEK-971 (-0.009, ...); the
-M16A4, M416 and MK11 share the AR receiver's bolt (0, 0.049, 0.373). Each handle is that bone moved out to the
-table's side by ~3.5 cm (4.5 for the belt-feds); the AR T-handle guns keep the AR point (0, 0.06, 0.20), which the
-owner called right. `handle_point_from_model` marks them; pipe `reload` says `handle_in_gun=model(...)`. Monitor: all
+M16A4, M416 and MK11 share the AR rig's bolt (0, 0.049, 0.373). Each side handle sits at a receiver's half width from
+the centreline (x 0.030-0.035, belt-feds 0.045: 1.8-3.5 cm out from the bone) at the bone's height (+ up to 1 cm). The
+AR T-handle sits at the rear end of the bolt carrier, 17.3 cm behind the bolt and 1.1 cm above it: (0, 0.06, 0.20),
+the AR point; the owner's table calls its place right for these guns ("the hand placement is not": #87's fist). The
+MK11's magazine sits 4.7 cm further forward and 4.2 cm lower than the M16A4's, but its bolt bone is the same. `handle_point_from_model` marks them; pipe `reload` says `handle_in_gun=model(...)`. Monitor: all
 11 report `model`, and the off hand at the handle zone's centre gives `zone=handle`. Not checked against the drawn
 mesh: the headset (GUN-45) and the grab-zone tuner (GUN-42) correct them.
 

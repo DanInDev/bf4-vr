@@ -83,8 +83,12 @@ namespace bfvr::weapon
 		};
 		// #88, from the model (handle_point_from_model): guns whose empty reload never pulls the handle (the bolt
 		// release, or no hand on it). The bolt bone at rest (tools/handle_probe.py record --all-bones, 2026-11-20:
-		// Wep_Slide in Wep_Root axes, +x left) moved out to the handle's side (owner's table in #88) by ~3.5 cm, a
-		// receiver's half width; the AR T-handle guns keep the AR point (the owner: M4 style is right for them).
+		// Wep_Slide in Wep_Root axes, +x left) put out on the handle's side (owner's table in #88) at a receiver's
+		// half width from the centreline (x 0.030 / 0.035, the belt-feds 0.045; 1.8-3.5 cm out from the bone), at the
+		// bone's height plus up to 1 cm. AR T-handle (M16A4, M416, MK11, whose rigs share the bolt bone
+		// (0, 0.049, 0.373)): the handle sits at the rear end of the bolt carrier, 17.3 cm behind the bolt and 1.1 cm
+		// above it, on top: (0, 0.060, 0.200), the AR point, which the owner's table calls right for them ("M4 style is
+		// right; the hand placement is not": the fist, #87).
 		for (const measured& gun : table)
 		{
 			if (gun.name == unlock_name)
