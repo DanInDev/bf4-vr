@@ -64,23 +64,62 @@ int main()
 
 	// #139 scope_glass: the scope picture's uv per unit of slope through the glass.
 	{
-		// A 4x scope; the picture's disc edge 0.1 off the line in the world (0.4 through the glass).
-		const float scale = glass_picture_scale(4.0f, 0.1f);
-		expect(near(scale, 1.25f), "4x, disc 0.1: 1.25 uv per slope");
-		expect(near(0.5f + 0.4f * scale, 1.0f), "the glass's 0.4 off the line reaches the disc edge");
-		// The same line through a 1.73x magnifier: what is 0.1 off in the world is 0.173 off through the glass.
-		expect(near(0.5f + 0.173f * glass_picture_scale(1.73f, 0.1f), 1.0f, 2e-3f), "magnifier: 0.173 through the glass is the disc edge");
-		// A stronger optic shows less of the world per slope.
-		expect(glass_picture_scale(6.0f, 0.1f) < scale, "more power, less world per slope");
-		expect(glass_picture_scale(0.9f, 0.1f) == 0.0f, "below 1x: unusable");
-		expect(glass_picture_scale(4.0f, 0.0f) == 0.0f, "no disc: unusable");
+		// The picture is rendered along the eye's view axis; the gun's line may point elsewhere (live hold: 6.7 degrees
+		// below the view's centre).
+		float uv[2]{};
+		const float ahead[3]{ 0.0f, 0.0f, -1.0f }, gun_right[3]{ 1.0f, 0.0f, 0.0f }, gun_up[3]{ 0.0f, 1.0f, 0.0f };
+		const float zero[2]{ 0.0f, 0.0f };
+		expect(glass_picture_uv(ahead, gun_right, gun_up, zero, 4.0f, 0.2f, uv) && near(uv[0], 0.5f) && near(uv[1], 0.5f), "line on the view axis: the picture's centre");
+		// 0.4 off the line through a 4x glass is 0.1 in the world: a quarter of a 0.2 disc's width right of the centre.
+		const float aside[2]{ 0.4f, 0.0f };
+		expect(glass_picture_uv(ahead, gun_right, gun_up, aside, 4.0f, 0.2f, uv) && near(uv[0], 0.75f) && near(uv[1], 0.5f), "4x: 0.4 through the glass is 0.1 in the world");
+		const float s = std::sin(0.1169f), c = std::cos(0.1169f);
+		const float low[3]{ 0.0f, -s, -c }, low_up[3]{ 0.0f, c, -s };
+		expect(glass_picture_uv(low, gun_right, low_up, zero, 2.74f, 0.25f, uv) && near(uv[0], 0.5f) && near(uv[1], 0.5f + 0.5f * (s / c) / 0.25f, 1e-3f),
+			"a line 6.7 degrees low: its point lies that far below the picture's centre");
+		expect(!glass_picture_uv(ahead, gun_right, gun_up, aside, 1.0f, 0.2f, uv), "1x: 0.4 off is outside a 0.2 disc");
+		expect(!glass_picture_uv(ahead, gun_right, gun_up, zero, 0.9f, 0.2f, uv) && !glass_picture_uv(ahead, gun_right, gun_up, zero, 2.0f, 0.0f, uv), "unusable power or disc");
+		// The reach the picture needs: the line's tangent off the axis plus 0.38 / power, 15 % room.
+		expect(near(glass_picture_reach(ahead, 2.0f), 1.15f * 0.19f), "line on the axis: the field stop's world width");
+		expect(near(glass_picture_reach(low, 2.74f), 1.15f * (s / c + 0.38f / 2.74f), 1e-3f), "a low line: its offset added");
+		const float back[3]{ 0.0f, 0.0f, 1.0f };
+		expect(glass_picture_reach(back, 2.0f) == 0.0f, "a line pointing back: none");
 	}
 	{
 		// The field stop: Great Destroyer's 0.38 on the line, closing as the eye leaves it, shut at the eye box.
 		expect(near(glass_field_stop(0.0f), 0.38f), "on the line: 0.38");
-		expect(glass_field_stop(0.015f) < 0.2f && glass_field_stop(0.015f) > 0.1f, "1.5 cm off: darkened from the edge, not shut");
-		expect(glass_field_stop(0.03f) == 0.0f, "past the eye box: dark");
+		expect(glass_field_stop(0.015f) < 0.15f && glass_field_stop(0.015f) > 0.05f, "1.5 cm off: darkened from the edge, not shut");
+		expect(glass_field_stop(0.02f) == 0.0f && glass_field_stop(0.03f) == 0.0f, "at and past the eye box: dark");
 		expect(near(glass_field_stop(-0.01f), glass_field_stop(0.01f)), "either side alike");
+	}
+	{
+		// Which lens draws are the glass (live counts: ACOG two draws 5.8k / 5.7k pixels, 29 at the line's point).
+		glass_choice kept;
+		const std::uint64_t acog_area[2]{ 5800, 5700 }, acog_line[2]{ 29, 29 };
+		expect(choose_glass(kept, acog_area, acog_line, 2) == 3u && kept.smallest == 1, "ACOG: both draws on the line are the glass");
+		// The eye moves 1.7 cm off the line: no draw at its point any more, same optic (the draw partly hidden): kept.
+		const std::uint64_t off_area[2]{ 5260, 4900 }, off_line[2]{ 0, 0 };
+		expect(choose_glass(kept, off_area, off_line, 2) == 3u, "off the line: the glass is kept");
+		// One of the kept draws shrinks a lot (live: the ACOG's 30-index glass, partly hidden off the line) while the
+		// two together stay within half to double: still kept.
+		const std::uint64_t shrunk_area[2]{ 5600, 900 };
+		expect(choose_glass(kept, shrunk_area, off_line, 2) == 3u, "one glass draw shrinks: kept by the total");
+		// The third glass draw of a three-draw optic is not drawn off the line: the other two still hold it.
+		glass_choice three;
+		const std::uint64_t on3[3]{ 6100, 5800, 900 }, line3[3]{ 26, 26, 26 };
+		expect(choose_glass(three, on3, line3, 3) == 7u, "three glass draws on the line");
+		const std::uint64_t off2[2]{ 5700, 5250 }, none2[2]{ 0, 0 };
+		expect(choose_glass(three, off2, none2, 2) == 7u, "one of them not drawn off the line: kept");
+		// Another optic (SRS: two large draws beside its line): not kept, no glass.
+		const std::uint64_t srs_area[2]{ 116000, 106000 };
+		expect(choose_glass(kept, srs_area, off_line, 2) == 0u && kept.smallest == -1, "another optic off its line: no glass");
+		// Nothing on the line from the start: no glass; then the line meets a draw: that one.
+		glass_choice fresh;
+		expect(choose_glass(fresh, srs_area, off_line, 2) == 0u, "no draw on the line: no glass");
+		const std::uint64_t mixed_area[3]{ 116000, 4000, 900 }, mixed_line[3]{ 0, 25, 0 };
+		expect(choose_glass(fresh, mixed_area, mixed_line, 3) == 2u, "only the draw on the line, not the smaller one beside it");
+		// No lens draw this time (the optic is put away): forgotten.
+		expect(choose_glass(fresh, mixed_area, mixed_line, 0) == 0u && fresh.smallest == -1, "no lens draws: forgotten");
 	}
 
 	if (failures == 0)

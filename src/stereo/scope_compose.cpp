@@ -21,7 +21,8 @@ namespace bfvr::stereo
 {
 	namespace
 	{
-		constexpr UINT output_size = 512;
+		// #139: 1024, the glass reads it at up to its power (512 left the glass 3.6x upscaled in an ACOG).
+		constexpr UINT output_size = 1024;
 
 		// Full-screen triangle; the pixel shader maps the quad to the lens disc.
 		constexpr const char shader_source[] = R"(

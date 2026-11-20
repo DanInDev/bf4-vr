@@ -361,7 +361,9 @@ namespace bfvr::weapon
 			// A clear holo alone needs no game aim once the hip is as accurate as ADS (hip_accuracy 1): the
 			// game then draws no reticle of its own over ours and walks at full speed.
 			const sight_state sight = read_sight_state();
-			const bool glass = settings::global().boolean("scope_glass", true);
+			// #139: the glass shows the zoom only with the scope picture on (setting scope); else the game's aim zooms.
+			const settings::registry& store = settings::global();
+			const bool glass = store.boolean("scope_glass", true) && store.boolean("scope", true);
 			const bool game_aim = !sight.attachments_known || needs_game_aim(sight.optics, glass) || hip_accuracy_strength() < 0.99f;
 			if (sight_ads.load(std::memory_order_relaxed) && game_aim)
 			{

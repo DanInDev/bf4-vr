@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // sight_lens (#39): the CPU side of the BF3-style lens (stereo/eye_pass). Engine-free; tests/lens_math_test.cpp.
 namespace bfvr::stereo
 {
@@ -13,14 +15,35 @@ namespace bfvr::stereo
 	bool lens_axes(const float (&along)[3], const float (&up)[3], float (&right_out)[3], float (&up_out)[3]);
 
 	// #139 scope_glass (Great Destroyer's lens: what is seen at a slope off the sight line through an optic of this power
-	// is the world at slope / power): the scope picture's uv per unit of slope through the glass, for a picture whose
-	// disc edge is `lens_tan` (world tangent) from its centre, the sight line; the shader takes
-	// uv = 0.5 + (slope.x, -slope.y) * scale. 0 when unusable (power below 1, no disc).
-	float glass_picture_scale(float power, float lens_tan);
+	// is the world at slope / power). The scope picture is rendered with the eye's own orientation (measured: the gun's
+	// rotation does not reach the scope render, re/notes/weapon.md) as a disc `lens_tan` (world tangent) around the
+	// view's axis. glass_picture_uv: where the glass's view at `slope` (in the gun's right / up, all in the eye's view
+	// space, -z ahead) is in that picture (uv, v down); false outside the disc or behind. The shader (ps_glass) does the
+	// same per pixel.
+	bool glass_picture_uv(const float (&along)[3], const float (&right)[3], const float (&up)[3], const float (&slope)[2], float power, float lens_tan,
+		float (&uv)[2]);
+	// The picture's reach (world tangent from the view's axis) the glass needs: the sight line's own tangent off the axis
+	// plus the field stop over the power, with 15 % room. 0 when the line does not point ahead.
+	float glass_picture_reach(const float (&along)[3], float power);
 
 	// #139: Great Destroyer's field stop (0.38 off the line, scopezoom.cpp) for an eye on the sight line, closing as the
-	// eye moves off it (metres), shut at 2.5 cm: a scope's eye box, so the picture darkens from the edge.
+	// eye moves off it (metres), shut at 2 cm: a scope's eye box, so the picture darkens from the edge (a real ACOG's
+	// exit pupil is ~8 mm; 2 cm leaves room for the headset's own motion).
 	constexpr float glass_field_stop_on_line = 0.38f;
-	constexpr float glass_eye_box = 0.025f;
+	constexpr float glass_eye_box = 0.02f;
 	float glass_field_stop(float eye_off_line_metres);
+
+	// #139: which of this eye render's lens draws are the optic's glass. A lens draw is the glass when the sight line
+	// passes through it (`on_line` pixels at the line's point > 0); all such draws together (the ACOG's lie at two
+	// depths). The choice is kept while the eye leaves the line (no draw on it any more), as long as the optic is the
+	// same: the kept draws together within half to double their size then. Returns the draws' bits (bit k = draw k), 0
+	// for no glass.
+	constexpr int glass_max_draws = 8;
+	struct glass_choice
+	{
+		int smallest{ -1 };               // the smallest glass draw when the line last passed through one
+		std::uint64_t area{};             // the glass draws' pixels together then
+		unsigned bits{};
+	};
+	unsigned choose_glass(glass_choice& kept, const std::uint64_t* area, const std::uint64_t* on_line, int draws);
 }

@@ -181,8 +181,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-20 (#139): with the game aiming through a high-power scope (SRS) the dark shape with a round hole in the eye
   is BF4's **flat sniper overlay**, not the 3D scope; judge optics with the game's aim off. A copy of the eye's HDR
   image always holds the first-person gun (lit with the world); a lens quad's own shape is not the glass (it draws
-  only where no first-person stencil bit is). Pipe `glassdebug 1` paints the glass mask's lens quads, `scopeshot`
-  saves the scope render (`re/notes/weapon.md` "The picture in the optic's own glass").
+  only where no first-person stencil bit is). The scope render keeps the eye's orientation, not the gun's: judge the
+  scope picture against the view's centre. Pipe `glassdebug 1` paints the lens draws and the sight line's point
+  (magenta), `scopeshot` saves the scope render (`re/notes/weapon.md` "The picture in the optic's own glass").
+  Matching a picture against an eye shot (`s3where`-style correlation) works on lit buildings; water and window
+  rain give weak matches (correlation < 0.4).
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
