@@ -574,6 +574,9 @@ namespace bfvr::body
 		bool pump_rest_held{};
 		float pump_animated_z{}, pump_drawn_z{}, pump_hidden_mm{};
 		unsigned pump_hidden_frames{}, last_pump_key{};
+		std::atomic<bool> bolt_pose_on{ false };
+		std::atomic<float> bolt_pose_turn{ 0.0f };
+		std::atomic<float> bolt_pose_pull{ 0.0f };
 		ULONGLONG pump_last_ms{};
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
@@ -1936,6 +1939,15 @@ namespace bfvr::body
 				{
 					pump_rest.reset();
 					pump_rest_held = false;
+				}
+				if (bolt_pose_on.load(std::memory_order_relaxed))
+				{
+					const float turn = bolt_pose_turn.load(std::memory_order_relaxed);
+					const ik::quat up{ 0.0f, 0.0f, -std::sin(0.5f * turn), std::cos(0.5f * turn) }; // about -z through the bone's origin
+					slide.rotation = ik::normalize(up * slide.rotation);
+					slide.position.z -= bolt_pose_pull.load(std::memory_order_relaxed);
+					slide_memory.written = slide; // the game's pose comes back next frame, the turn is never applied twice
+					slide_memory.has_written = true;
 				}
 				pump_drawn_z = slide.position.z;
 			}
@@ -3821,6 +3833,13 @@ namespace bfvr::body
 	void set_shell_across(bool on)
 	{
 		shell_across.store(on, std::memory_order_relaxed);
+	}
+
+	void set_bolt_pose(bool on, float turn, float pull)
+	{
+		bolt_pose_turn.store(std::isfinite(turn) ? turn : 0.0f, std::memory_order_relaxed);
+		bolt_pose_pull.store(std::isfinite(pull) ? std::fmax(0.0f, std::fmin(0.2f, pull)) : 0.0f, std::memory_order_relaxed);
+		bolt_pose_on.store(on, std::memory_order_relaxed);
 	}
 
 	void set_pump_rest(bool on, unsigned gun_key)

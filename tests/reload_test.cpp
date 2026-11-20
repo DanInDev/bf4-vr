@@ -7,6 +7,7 @@
 #include <cmath>
 #include <utility>
 #include <cstdio>
+#include <vector>
 #include <initializer_list>
 
 #include "weapon/accessory_touch.hpp"
@@ -598,6 +599,98 @@ namespace
 	// Owner 2026-11-15: the charging handle has an overhand zone at its level, out on its side and a little
 	// above, and a larger underhand zone below it, short along the barrel (the handguard ahead stays the
 	// two-handed grab's). Gun frame as the identity here: +x left, +y up, +z along the barrel.
+	// #96: the SRS's turn bolt by the hand (its game cycle: Wep_Slide turned 56.4 degrees about its -z through (0, 0.006),
+	// then 10.3 cm back). Gun frame = the reload frame here. The hand takes the knob down, turns it up, draws it back,
+	// pushes it forward and turns it down; each step's event in order, and the trigger only works at the end.
+	void test_turn_bolt_hands()
+	{
+		const float lift = 56.4f * 0.017453293f;
+		const v3 pivot{ 0.0f, 0.006f, 0.0f };
+		const v3 knob_up{ -0.084f, 0.116f, 0.243f }; // where the game's hand rides it back (profiles)
+		const v3 knob_rest = bolt_knob_turned(knob_up, pivot, -lift);
+		expect(close(bolt_lift_of(knob_rest, pivot, knob_rest, lift), 0.0f, 1e-4f) && close(bolt_lift_of(knob_up, pivot, knob_rest, lift), 1.0f, 1e-3f),
+			"bolt: the hand's turn about the bore: 0 at the knob's rest, 1 at the game's lifted knob");
+		expect(knob_rest.y < knob_up.y && knob_rest.x < knob_up.x, "bolt: down is lower and further out on the right (-x) than up");
+		reload_profile srs = ar;
+		srs.manual_cycle = true;
+		srs.bolt_turn = true;
+		srs.hold = hold_open::no;
+		reload gun(srs);
+		gun.load(6, 20);
+		expect(gun.fire() == reload_event::shot && !gun.state().chamber, "bolt: one shot, nothing fed");
+		reload_hands hands(flat_hold());
+		const auto bolt_frame = [&](v3 hand, bool grip)
+		{
+			hand_frame f = at(hand, grip);
+			f.has_root = true;
+			f.root = {};
+			f.has_handle_point = true;
+			f.handle_point = knob_up;
+			f.bolt_turn = true;
+			f.bolt_pivot = pivot;
+			f.bolt_lift_radians = lift;
+			f.bolt_travel = 0.103f;
+			return f;
+		};
+		std::vector<reload_event> seen;
+		hand_result r;
+		const auto step = [&](v3 hand, bool grip)
+		{
+			r = hands.update(gun, bolt_frame(hand, grip));
+			for (int i = 0; i < r.count; ++i)
+			{
+				seen.push_back(r.events[i]);
+			}
+			return r;
+		};
+		step(away, false);
+		step(knob_rest, false);
+		expect(r.in_zone == hand_result::zone::handle && r.bolt_drawn, "bolt: the open hand at the knob is in its zone");
+		step(knob_rest, true);
+		expect(r.bolt_held && !gun.state().bolt_up, "bolt: taken, still locked");
+		step(knob_rest + v3{ 0.0f, 0.0f, -(0.06f) }, true);
+		expect(r.bolt_pull == 0.0f && !gun.state().bolt_back, "bolt: locked, pulling does not draw it back");
+		for (int k = 1; k <= 10; ++k)
+		{
+			step(bolt_knob_turned(knob_rest, pivot, lift * k / 10.0f), true);
+		}
+		expect(gun.state().bolt_up && close(r.bolt_turn, lift, 1e-3f), "bolt: turned up the game's 56.4 degrees: unlocked");
+		for (int k = 1; k <= 10; ++k)
+		{
+			step(knob_up + v3{ 0.0f, 0.0f, -(0.0103f * k) }, true);
+		}
+		expect(gun.state().bolt_back && r.rack_at_rear == false && close(r.bolt_pull, 0.103f, 1e-4f), "bolt: drawn fully back");
+		expect(gun.fire() == reload_event::dry_fire, "bolt: back, the trigger does nothing");
+		step(knob_up + v3{ 0.0f, 0.0f, -(0.103f) }, false);
+		step(knob_up + v3{ 0.0f, 0.0f, -(0.103f) } + v3{ 0.2f, 0.0f, 0.0f }, false);
+		expect(gun.state().bolt_back && close(r.bolt_pull, 0.103f, 1e-4f), "bolt: let go at the rear, it stays there");
+		step(r.knob_now, false);
+		step(r.knob_now, true);
+		for (int k = 9; k >= 0; --k)
+		{
+			step(knob_up + v3{ 0.0f, 0.0f, -(0.0103f * k) }, true);
+		}
+		expect(!gun.state().bolt_back && gun.state().chamber && gun.state().bolt_up, "bolt: pushed forward, a round chambered, still up");
+		expect(gun.fire() == reload_event::dry_fire && gun.state().chamber, "bolt: not turned down: no shot");
+		for (int k = 9; k >= 0; --k)
+		{
+			step(bolt_knob_turned(knob_rest, pivot, lift * k / 10.0f), true);
+		}
+		expect(!gun.state().bolt_up && r.bolt_turn < 0.2f * lift, "bolt: turned down: locked");
+		step(knob_rest, false);
+		const std::vector<reload_event> order{ reload_event::bolt_opened, reload_event::chambered, reload_event::bolt_closed };
+		std::vector<reload_event> filtered;
+		for (const reload_event e : seen)
+		{
+			if (e != reload_event::none)
+			{
+				filtered.push_back(e);
+			}
+		}
+		expect(filtered == order, "bolt: events in order: opened, (spent case out), chambered, closed");
+		expect(gun.fire() == reload_event::shot, "bolt: locked again, it fires");
+	}
+
 	void test_rack_zones()
 	{
 		const hand_config config;
@@ -2566,6 +2659,7 @@ int main()
 	test_magazine_snap();
 	test_hands_reach_and_overlap();
 	test_rack_zones();
+	test_turn_bolt_hands();
 	test_slot_model_point();
 	test_hands_ar_drop_and_fall();
 	test_eject_flight();

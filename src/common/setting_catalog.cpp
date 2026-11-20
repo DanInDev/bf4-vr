@@ -92,6 +92,7 @@ namespace bfvr::settings
 			{ "belts_by_hand", "Weapon", "Reloading", "Machine-gun belts by hand", "Off: belt-fed guns reload the game's way (B)", "" },
 			{ "shells_by_hand", "Weapon", "Reloading", "Shotgun shells by hand", "Off: shotguns reload the game's way (B)", "" },
 			{ "manual_cycle", "Weapon", "Reloading", "Bolt and pump by hand", "Work the bolt or pump after each shot", "" },
+			{ "bolt_steps", "Weapon", "Reloading", "Bolt in four steps", "Up, back, forward, down", "" },
 			{ "pump_at_rest", "Weapon", "Reloading", "Pump stays forward", "No game pump animation after a shot", "" },
 			{ "shell_across", "Weapon", "Reloading", "Shell across the fingers", "A held shell lies across the fist", "" },
 			{ "lid_hand_lock", "Weapon", "Reloading", "Hand on the feed cover", "The hand stays on a belt-fed gun's cover", "" },

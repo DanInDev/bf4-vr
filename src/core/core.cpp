@@ -284,6 +284,7 @@ namespace bfvr::core
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
+			weapon::set_bolt_steps(store.boolean("bolt_steps", true));
 			weapon::set_pump_at_rest(store.boolean("pump_at_rest", true));
 			weapon::set_lid_hand_lock(store.boolean("lid_hand_lock", true));
 			weapon::set_handle_both_sides(store.boolean("handle_both_sides", true));

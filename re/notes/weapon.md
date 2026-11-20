@@ -1393,6 +1393,23 @@ there the setting mostly decides the fist's side. SCAR-H (one side): `zone=none`
 line: its mirror is itself, no comparison. Not added: the SCAR-H (reversible, one side at a time) and the AUG: the
 owner's call.
 
+## Bolt actions in four steps (2026-11-20, monitor, Shanghai, #96)
+
+**The game's own cycle, measured** (`handle_probe record --event shot --all-bones`, Wep_Slide's local transform now
+recorded too; re/dumps/bolt_cycle2): after a shot the game turns **Wep_Slide about its own -z** (through its origin,
+Wep_Root (0, y)) by **56.4 degrees** (SRS, FY-JS, SV-98) or **73.7** (Scout), knob up, at ~0.6 s; slides it **10.3 cm**
+back (~0.9 s, the case Wep_Physic1 thrown ~0.6 m), forward, and turns it down (~1.25 s). Pivots (Wep_Slide origin y):
+SRS 0.006, FY-JS 0.035, Scout 0.034, SV-98 0.050 (`profiles` `bolt_geometry_for`). The knob points in `handle_point_for`
+are the knob **lifted** (taken from the riding frames); the rest knob is that point turned back down.
+
+**Built** (setting `bolt_steps`, on): `reload` holds the bolt's state (`bolt_lift`, `bolt_back`, `bolt_forward`,
+`bolt_down`; `fire` does nothing while it is up; events `bolt_opened`, `bolt_closed`); `reload_hands` tracks the hand on
+the knob: its turn about the pivot (`bolt_lift_of`: unlocks at 85 % of the gun's lift, locks again under 15 %), the pull
+only once lifted (ejects at 85 % of the travel, feeds within 10 %); the bolt stays where it is let go. The drawn bolt is
+Wep_Slide at its rest (the game's own cycle hidden through `set_pump_rest`) turned and pulled (`body::set_bolt_pose`),
+the hand on the knob as turned (the handle hold). Unit tests: `gun_traits_test` (the four steps, the trigger),
+`reload_test` `test_turn_bolt_hands`. Live: `tools/bolt_probe.py` (all four rifles: every step as above).
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

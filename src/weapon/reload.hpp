@@ -60,6 +60,9 @@ namespace bfvr::weapon
 		// #98: no release button (gun_traits release none on a box or top feed: the P90, the AK 5C; owner 2026-11-19): the
 		// button never frees the magazine, the hand pulls it out (grab_magazine), as an AK's; the bolt catch still works.
 		bool pull_out{};
+		// #96: a turn bolt (gun_traits cycle bolt: the SRS, FY-JS, Scout, SV-98), worked in its four real steps by hand:
+		// lifted out of its locking lugs, back (extracts and ejects), forward (feeds), down (locks). Fires only locked.
+		bool bolt_turn{};
 	};
 
 	bool locks_open(const reload_profile& profile);
@@ -94,6 +97,8 @@ namespace bfvr::weapon
 		belt_taken,       // belt: the hand took the belt end hanging out of the box
 		belt_laid,        // belt: laid on the feed tray
 		belt_dropped,     // belt: let go off the tray, it hangs from the box again
+		bolt_opened,      // turn bolt: lifted out of its lugs, free to come back (#96)
+		bolt_closed,      // turn bolt: turned down into its lugs, locked: the gun can fire
 	};
 
 	// #78: the seated magazine left the gun (was_in, now out) and no magazine-out cue played for it this frame (a pull
@@ -116,6 +121,8 @@ namespace bfvr::weapon
 		bool lid_open{};   // belt: the feed cover is up
 		bool belt_laid{ true }; // belt: the box's belt lies on the feed tray
 		bool belt_held{};  // belt: the off hand holds the belt end
+		bool bolt_up{};    // turn bolt: lifted (unlocked); the trigger does nothing (#96)
+		bool bolt_back{};  // turn bolt: drawn back (chamber open)
 	};
 
 	class reload
@@ -151,8 +158,14 @@ namespace bfvr::weapon
 		reload_event let_go(bool at_chest);
 		// The held magazine reaches the magwell. Palmed: the new one goes in, the old one stays held.
 		reload_event insert();
-		// Charging handle pulled back and released.
+		// Charging handle pulled back and released (a turn bolt: all four steps at once).
 		reload_event rack();
+		// #96, a turn bolt by hand (turning()): lift, back, forward, down. Each does nothing out of order.
+		bool turning() const { return profile_.bolt_turn && profile_.manual_cycle; }
+		reload_event bolt_lift();
+		reload_event bolt_back();
+		reload_event bolt_forward();
+		reload_event bolt_down();
 		// Belt-fed: the lid swung up or shut; the belt end taken from the box, laid on the tray, or let go elsewhere.
 		reload_event open_lid();
 		reload_event close_lid();
