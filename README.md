@@ -22,9 +22,12 @@ BF4-VR is a fan-made mod that turns the Battlefield 4 campaign into a VR game. Y
 aim with the controller in your hand, reload by grabbing a magazine and draw weapons from your hips and back.
 Menus, loading screens and cutscenes appear on a large virtual screen that you point at with a laser.
 
-It runs on a Meta Quest 3 through Steam Link and SteamVR, with your own copy of Battlefield 4 on PC.
+Currently only tested on a Meta Quest 3 through Steam Link and SteamVR. Requries a valid copy of Battlefield 4 on PC.
 
 ## Features
+**Gameplay trailer**
+
+[![BF4-VR gameplay trailer](https://img.youtube.com/vi/q4n2ddnZFJ8/maxresdefault.jpg)](https://www.youtube.com/watch?v=q4n2ddnZFJ8)
 
 **See it in VR**
 - Both eyes rendered from the same game frame, with head tracking, leaning and peeking.
@@ -70,13 +73,13 @@ It runs on a Meta Quest 3 through Steam Link and SteamVR, with your own copy of 
 
 ## Status
 
-**Work in progress: no campaign mission can be played through in VR yet.** The parts tested so far play in the
+**Very much work in progress: Most items are subject to change** The parts tested so far play in the
 headset with free hands and physical gun handling, but every mission still has stretches nobody has played in
 VR, or something that does not work there yet.
 
 | Mission | In VR |
 | --- | --- |
-| Baku (prologue) | Played in parts (the opening rooms, the gadget stash); not finished |
+| Baku | Mostly playable. Using C4 is wonky and the helicopter at the end uses the right stick for aiming instead |
 | Shanghai | Played in parts (the tower checkpoint with the weapon crate); not finished |
 | South China Sea | Not tested |
 | Singapore | Not tested |
@@ -96,9 +99,8 @@ results are in [docs/HEADSET-TESTS.md](docs/HEADSET-TESTS.md).
 
 ## Requirements
 
-- Windows 10 or 11 and a VR-capable PC.
+- Tested to work on a Windows 10 or 11 and a VR-capable PC.
 - Battlefield 4 on PC through the EA app (the campaign, game build 179547).
-- A Meta Quest 3 connected through **Steam Link** (SteamVR). Meta Horizon Link works as a fallback.
 
 ## Getting started
 
@@ -114,7 +116,7 @@ The full walk-through, with what each button changes, picture-quality tips, upda
 2. **Open the launcher** (`bfvr_launcher.exe`). On **Setup**, press **Set up for VR**: it installs the mod, writes
    its VR settings and sets BF4's own video settings (your normal ones are kept). **Settings** has every option,
    the same as the panel inside VR.
-3. **Start SteamVR and connect the Quest** through Steam Link.
+3. **Start SteamVR for OpenXR** I used through Steam Link.
 4. Press **Start Battlefield 4** and continue your campaign. The **VR mode** switch on the Play tab goes back to
    normal play on the monitor and back again; each mode keeps its own BF4 settings.
 
@@ -143,9 +145,6 @@ the [technical notes](docs/architecture/README.md#controller-mapping-in-menus-th
 The technical side lives in **[docs/architecture/](docs/architecture/README.md)**: how the mod is built, how it
 works with the Frostbite engine, the reverse-engineering notes, the tools and the development loop. Read
 [docs/SAFETY.md](docs/SAFETY.md) before running anything.
-
-Battlefield 3 and multiplayer through Venice Unleashed are researched in a separate repository.
-
 ## Credits
 
 - **[BF3 VR: The Great Destroyer](https://github.com/criminalvictory/Battlefield-3-VR-The-Great-Destroyer)**, a
