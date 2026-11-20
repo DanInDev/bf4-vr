@@ -321,6 +321,12 @@ namespace bfvr::body
 	// underhand: the stroke was grabbed in the handle's underhand zone (rack_grip fist: palm up from below).
 	// side: the handle's side of the gun (+1 left, -1 right, 0 on top): the fist sits out on that side.
 	void set_handle_hold(float weight, const float (&handle_in_gun)[3], float pull, bool underhand = false, float side = 0.0f);
+	// #94: a pump gun in hand (gun_key: which gun, 0 = none): its fore-end (Wep_Slide) is drawn at rest, not stroked by
+	// the game's fire animation; the hand's pump (set_handle_hold pull) still moves it. Pipe `arms`: the pump_rest line.
+	void set_pump_rest(bool on, unsigned gun_key);
+	// #94 (live setting shell_across): a held shotgun shell lies across the fist (as a fist holds a cylinder), not
+	// along it as it sits in the gun (which put it out through the curled fingers).
+	void set_shell_across(bool on);
 	// Live settings rack_over_out / rack_over_up / rack_under_out / rack_under_down (metres): where the rack fist
 	// sits against the knob (body/grasp_contact rack_fist_offset).
 	void set_rack_fist_offsets(float over_out, float over_up, float under_out, float under_down);

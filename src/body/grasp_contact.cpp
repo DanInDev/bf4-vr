@@ -147,4 +147,36 @@ namespace bfvr::body::contact
 		const ik::quat gun = ik::normalize(rotation * ik::conjugate(seated));
 		top = top + ik::rotate(gun, ik::vec3{ -(size.width + gap), 0.0f, 0.0f });
 	}
+
+	void slide_rest::hold(unsigned key, float seconds, ik::bone_transform& slide)
+	{
+		const bool finite = std::isfinite(slide.position.x) && std::isfinite(slide.position.y) && std::isfinite(slide.position.z);
+		if (key != key_)
+		{
+			reset();
+			key_ = key;
+		}
+		if (!finite)
+		{
+			if (valid_)
+			{
+				slide = rest_;
+			}
+			return;
+		}
+		const float dx = slide.position.x - last_.position.x, dy = slide.position.y - last_.position.y, dz = slide.position.z - last_.position.z;
+		const bool still = has_last_ && std::sqrt(dx * dx + dy * dy + dz * dz) <= steady_metres;
+		still_ = still ? still_ + (std::isfinite(seconds) && seconds > 0.0f ? seconds : 0.0f) : 0.0f;
+		if (!still)
+		{
+			last_ = slide; // still: the reference stays, so a slow creep is not taken for stillness
+		}
+		has_last_ = true;
+		if (!valid_ || still_ >= steady_seconds)
+		{
+			rest_ = slide; // the first pose (a gun is drawn at rest), then whatever the animation holds still
+			valid_ = true;
+		}
+		slide = rest_;
+	}
 }

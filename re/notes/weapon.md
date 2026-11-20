@@ -1075,6 +1075,37 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Pump shotguns: the fore-end at rest, the first shell, the shell in the hand (2026-11-20 night, monitor, Shanghai, #94)
+
+**The game's pump stroke after a shot.** The game's fire animation strokes the fore-end (Wep_Slide, a child of Wep_Root)
+back 7.4 cm and forward again after every shot (870 at rest z 0.669, to 0.595; UTAS to 0.579), and first kicks it
+~8 mm forward (0.677), so "the most forward pose seen" is no rest (tried first: the drawn fore-end settled 8 mm
+ahead). Now (setting `pump_at_rest`, on, pump guns with `manual_cycle`) the rest is the pose the animation holds still
+for 0.3 s (`contact::slide_rest`, tested) and the fore-end is drawn there; the hand's pump still moves it
+(`set_handle_hold` pull on top). Pipe `arms`: `pump_rest= held= slide_animated_z= drawn_z= rest_z= hidden_frames=
+hidden_max_mm=`. Monitor, a real shot (pad RT) with the off hand on the fore-end: animated 0.595..0.672, drawn
+0.668..0.669 for the 870, SPAS-12, UTAS and Hawk; setting off: drawn follows the animation.
+
+**The first shell (mark 20).** The state machine already chambers from the tube: one shell into an emptied 870 or UTAS
+and pipe `reload rack`, or a hand stroke on the fore-end (fake hands), gives `chamber=1` (tube 1 -> 0, `chambered`);
+the owner's own marks 18 -> 19 (SPAS-12, one shell in the tube) show the same on the headset. Mark 20's "via the
+chambering mechanism" most likely means a shell dropped into the open ejection port (the game's own 870 empty reload
+does that), which the mod does not have: an owner decision.
+
+**The UTAS (mark 24).** The mod wants one pump per shot, as the real UTS-15 (a pump gun, its two tubes alternate but
+every shot is pumped); unchanged, for the owner to confirm.
+
+**The shell in the hand (mark 10).** A held shell was drawn as it sits in the gun relative to the fist frame (the gun's
+barrel axis = the fist's +z, out through the curled fingers): it ran diagonally through the fingers (screenshot,
+M1014). Now (setting `shell_across`, on) it is turned -90 degrees about the fist's x and lies across the knuckles
+(+y), between thumb and index, its hull out at the index side. The tube's insert uses the hand's position only, not
+the shell's rotation.
+
+**Tool pitfall: fake pump strokes are flaky.** With fakehand, the off hand must be on the gun's handle zone (the CZ
+hold is 17 cm off the 870's fore-end: no stroke started); converge it against `reload` `handle_zone`/`palm` and let go of the grip
+first so the pump starts on a fresh grip. Even then, strokes failed now and then (pull stalled at 1-2 cm; 5 of 11
+right after real shots, the gun still moving); a failed stroke says nothing about the pump.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

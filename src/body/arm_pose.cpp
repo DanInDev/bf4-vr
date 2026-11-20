@@ -552,7 +552,20 @@ namespace bfvr::body
 		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
 		constexpr float held_magazine_drop = 0.07f;
 		constexpr float held_shell_drop = 0.01f; // a shell in the fingers
+		// #94 (mark 10): a shell lies along the gun's barrel when seated, so drawn "as seated" in the fist it stuck out
+		// through the curled fingers (the fist frame's +z). Turned -90 degrees about the fist's x it lies across the
+		// knuckles (+y, little finger to index), as a fist holds a cylinder; its nose out at the index side.
+		const ik::quat shell_across_fist{ -0.70710678f, 0.0f, 0.0f, 0.70710678f };
+		std::atomic<bool> shell_across{ true }; // live setting shell_across; 0 = as seated, the old pose
 		bone_memory slide_memory;
+		// #94: a pump gun's fore-end at rest (set_pump_rest); the rest and the report under rig_lock.
+		std::atomic<bool> pump_rest_on{ false };
+		std::atomic<unsigned> pump_rest_key{ 0 };
+		contact::slide_rest pump_rest;
+		bool pump_rest_held{};
+		float pump_animated_z{}, pump_drawn_z{}, pump_hidden_mm{};
+		unsigned pump_hidden_frames{}, last_pump_key{};
+		ULONGLONG pump_last_ms{};
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
 		// Pose editor: a hand held in one grip (-1 off), and each hand's shown grip and eased tweak.
@@ -1859,6 +1872,34 @@ namespace bfvr::body
 					slide_memory.animated = slide;
 				}
 				slide_memory.has_written = false;
+				pump_animated_z = slide.position.z;
+				const unsigned key = pump_rest_key.load(std::memory_order_relaxed);
+				if (pump_rest_on.load(std::memory_order_relaxed) && key != 0)
+				{
+					if (!pump_rest_held || key != last_pump_key)
+					{
+						pump_hidden_frames = 0;
+						pump_hidden_mm = 0.0f;
+					}
+					const ULONGLONG now = GetTickCount64();
+					const float seconds = pump_rest_held && now >= pump_last_ms ? static_cast<float>(now - pump_last_ms) * 0.001f : 0.0f;
+					pump_last_ms = now;
+					pump_rest.hold(key, std::fmin(seconds, 0.1f), slide);
+					last_pump_key = key;
+					const float hidden_mm = (slide.position.z - pump_animated_z) * 1000.0f;
+					if (hidden_mm > 5.0f)
+					{
+						++pump_hidden_frames;
+						pump_hidden_mm = std::fmax(pump_hidden_mm, hidden_mm);
+					}
+					pump_rest_held = true;
+				}
+				else
+				{
+					pump_rest.reset();
+					pump_rest_held = false;
+				}
+				pump_drawn_z = slide.position.z;
 			}
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
@@ -1996,6 +2037,7 @@ namespace bfvr::body
 				local[rig.slide].position.z -= handle_request.pull * handle_request.weight;
 				slide_memory.written = local[rig.slide];
 				slide_memory.has_written = true;
+				pump_drawn_z = local[rig.slide].position.z;
 			}
 
 			if (magazine_request.detached && !magazine_request.in_hand)
@@ -2666,7 +2708,7 @@ namespace bfvr::body
 			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
-			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
+			ik::quat fist_rotation = ik::normalize(magazine_request.shell && shell_across.load() ? fist_frame * shell_across_fist * seated : fist_frame * seated);
 			const float drop = magazine_request.shell ? held_shell_drop : held_magazine_drop;
 			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, drop, 0.0f }) : cup.top;
 			// Palming (#40): the fingers close by contact (close_on_palmed) on the magazine where the game's grip
@@ -2741,7 +2783,8 @@ namespace bfvr::body
 			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 			const ik::bone_transform seated = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
 			out = seated;
-			out.rotation = ik::normalize(fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
+			out.rotation = ik::normalize(magazine_request.shell && shell_across.load() ? fist.frame * shell_across_fist * ik::conjugate(gun.rotation) * seated.rotation
+				: fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
 			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop : held_magazine_drop, 0.0f });
 			return true;
 		}
@@ -3730,6 +3773,17 @@ namespace bfvr::body
 		handle_request.pull = std::fmax(0.0f, pull);
 	}
 
+	void set_shell_across(bool on)
+	{
+		shell_across.store(on, std::memory_order_relaxed);
+	}
+
+	void set_pump_rest(bool on, unsigned gun_key)
+	{
+		pump_rest_key.store(gun_key, std::memory_order_relaxed);
+		pump_rest_on.store(on && gun_key != 0, std::memory_order_relaxed);
+	}
+
 	void set_pose_preview(int hand, poses::grip which)
 	{
 		preview_grip = static_cast<int>(which);
@@ -3981,6 +4035,13 @@ namespace bfvr::body
 			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f,
 			r.palette_camera.x, r.palette_camera.y, r.palette_camera.z, r.palette_weapon.x, r.palette_weapon.y, r.palette_weapon.z,
 			r.reference.x, r.reference.y, r.reference.z);
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += std::snprintf(text + length, sizeof(text) - length,
+				"pump_rest=%d held=%d slide_animated_z=%.3f drawn_z=%.3f rest_z=%.3f hidden_frames=%u hidden_max_mm=%.0f\n",
+				pump_rest_on.load() ? 1 : 0, pump_rest_held ? 1 : 0, pump_animated_z, pump_drawn_z, pump_rest.valid() ? pump_rest.rest_z() : 0.0f,
+				pump_hidden_frames, pump_hidden_mm);
+		}
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];
