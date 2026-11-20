@@ -777,6 +777,15 @@ namespace
 			r = hands.update(loaded, f2);
 			return racking && has(r, reload_event::round_ejected);
 		};
+		// #97 review: the side is chosen from zones that can rack: a chambered gun's underhand zone cannot.
+		rack_zone_test own_over, across_under, across_over, own_none;
+		own_over.zone = rack_zone::over; own_over.over_distance = 0.08f;
+		across_under.zone = rack_zone::under; across_under.over_distance = 0.05f;
+		across_over.zone = rack_zone::over; across_over.over_distance = 0.05f;
+		expect(!prefer_mirrored(own_over, across_under, false), "mirror: a loaded gun keeps the own overhand zone over the far underhand one");
+		expect(prefer_mirrored(own_over, across_under, true), "mirror: an empty gun may take the nearer underhand zone across");
+		expect(prefer_mirrored(own_over, across_over, false) && !prefer_mirrored(across_over, own_over, false), "mirror: the nearer overhand zone wins");
+		expect(prefer_mirrored(own_none, across_over, false) && !prefer_mirrored(own_over, own_none, false), "mirror: only a zone that is there");
 		float side_seen = 0.0f, knob_x = 0.0f;
 		expect(!mirrored_stroke(false, side_seen, knob_x), "one-sided handle (M416-like): the gun's other side does not rack");
 		expect(mirrored_stroke(true, side_seen, knob_x) && side_seen == 1.0f && close(knob_x, 0.02f, 1e-5f),

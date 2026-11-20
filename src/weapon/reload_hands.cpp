@@ -107,6 +107,12 @@ namespace bfvr::weapon
 		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
 	}
 
+	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging)
+	{
+		const auto usable = [&](const rack_zone_test& t) { return t.zone == rack_zone::over || (t.zone == rack_zone::under && needs_charging); };
+		return usable(across) && (!usable(own) || across.over_distance < own.over_distance);
+	}
+
 	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config)
 	{
 		rack_zone_test test;
@@ -283,7 +289,7 @@ namespace bfvr::weapon
 			{
 				const rack_zone_test own = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, handle_in_gun), frame.root_rotation, rack_side(handle_in_gun, ak), zones);
 				const rack_zone_test across = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, other), frame.root_rotation, rack_side(other, ak), zones);
-				mirrored = across.zone != rack_zone::none && (own.zone == rack_zone::none || across.over_distance < own.over_distance);
+				mirrored = prefer_mirrored(own, across, needs_rack(gun.state()));
 			}
 			if (mirrored)
 			{

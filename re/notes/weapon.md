@@ -1081,8 +1081,14 @@ Owner (mark 52): the FAMAS (its handle under the carry handle) and the AK-12 can
 (`profiles` `handle_both_sides`) `reload_hands` tests a second rack zone at the knob mirrored across the gun's mid-plane
 (gun x flipped) and takes the nearer; the stroke keeps the side it was grabbed on (`rack_mirrored_`), and the drawn fist,
 the rack side and the slide follow that knob. Pipe `reload`: `rack ... mirrored=`. Setting `handle_both_sides` (on).
-Unit-tested (`reload_test` `test_rack_zones`: the mirrored grab racks a loaded AK only with the flag). Not added: the
-SCAR-H (reversible, one side at a time) and the AUG: the owner's call.
+Unit-tested (`reload_test` `test_rack_zones`: the mirrored grab racks a loaded AK only with the flag; `prefer_mirrored`:
+only a zone that can rack is chosen, an underhand one only while the gun needs charging). Monitor (fake hands, the
+mirrored point = the own zone's x reflected across the magwell's, read with the hand away first): FAMAS own x -0.006,
+mirrored 0.146: `mirrored=1`, `round_ejected`; off: `zone=none`. AK-12 own 0.114, mirrored 0.014: `mirrored=1`, racks;
+off, the same point still racks on its own zone (`mirrored=0`): its knob is 2 cm off centre and the zones overlap, so
+there the setting mostly decides the fist's side. SCAR-H (one side): `zone=none`. The M416's T-handle is on the centre
+line: its mirror is itself, no comparison. Not added: the SCAR-H (reversible, one side at a time) and the AUG: the
+owner's call.
 
 ## Open
 
