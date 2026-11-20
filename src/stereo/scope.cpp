@@ -50,6 +50,7 @@ namespace bfvr::stereo
 		scope_math::magnification_memory learned;
 		weapon::sight_state last_sight;
 		std::atomic<float> optic_power{};
+		std::atomic<float> optic_level_fov{};
 		bool last_at_hip{};
 
 		float perpendicular(const pose& eye, const float (&point)[3], const float (&direction)[3])
@@ -113,6 +114,7 @@ namespace bfvr::stereo
 			: sight.valid && sight.selected > 0 ? learned.lookup(sight.weapon, sight.selected, unlearned) : 1.0f;
 		const bool at_hip = !aiming && hip_zoom >= min_magnification;
 		optic_power = sight.valid && sight.selected > 0 ? hip_zoom : 0.0f;
+		optic_level_fov = sight.valid ? reticle_level_fov(sight.level_fov, sight.levels, static_cast<int>(std::size(sight.level_fov)), sight.selected, magnifier) : 0.0f;
 		if (at_hip)
 		{
 			zoom = hip_zoom;
@@ -169,6 +171,11 @@ namespace bfvr::stereo
 	float optic_power_now()
 	{
 		return optic_power.load(std::memory_order_relaxed);
+	}
+
+	float optic_level_fov_now()
+	{
+		return optic_level_fov.load(std::memory_order_relaxed);
 	}
 
 	scope_request latest_scope_request()

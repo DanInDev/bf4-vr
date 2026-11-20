@@ -1212,6 +1212,32 @@ Monitor (fake head 0.064, CZ-805 hold, right eye 0.3-0.4 cm off the line; `scope
 fps: bare gun at the hip 159 with the glass on and off; with the ACOG ~75-81 on, 76 off (the scope render's cost; the
 glass widens its scissor from 30 % to 45 % of the height).
 
+## The reticle at each optic's own zoom (2026-11-20 night, monitor, Shanghai, #140)
+
+`sight_lens` sizes the reticle art from the view of the zoom level the reticle belongs to (aiming simulation `+0x238`
+levels, #138; `lens_math::reticle_level_fov`) instead of the 40 degree constant; `sight_lens_fov` of 10 or more
+overrides. A scope's art (ACOG 17.2, SRS 8.7) at its own level; a flipped magnifier keeps the red dot's or holo's level
+(40, not its own 27): inside the glass the art is magnified with the world (`glass_reticle_span` = span x power), so
+the magnifier's ring grows with its power as through a real magnifier (owner's rule in #140; the game's own aim would
+give 1.14x). Monitor (CZ-805 at the right eye; the red pixels' fitted extent inside the glass, 5 shots): flipped /
+folded magnifier ring width 1.727, height 1.779 (expected 1.73); EOTech and PK-AS with data against a 40 override
+1.02 / 1.00. In the glass, measured as drawn (pipe `glassdebug 2`: the glass black, its reticle art pure green, so no
+red in the scene counts): ACOG override 10 / data 17.2 width 0.579 (expected 0.579; its height is clipped by the
+glass), flipped magnifier override 20 / data 40 width 0.500, height 0.490 (expected 0.485). The AUG with only its
+magnifier (no red dot or holo loaded in Shanghai; a hold searched to put the eye on its line, 0.00 cm) shows the
+magnified world in its glass. It has no reticle quad: its only 6-index stencil-2 blended draws (`reticle dump`) are
+the two additive (ONE / ONE) quads every gun draws, which `reticle_draw` still takes for one (its `reticle_span`
+0.0292 = 0.038 at 42 degrees comes from them). That is the open lead of #93 (the red square on every sight):
+`reticle_draw` on this branch still accepts any blend; restricting it to the lens blend is #93's own work. The red pixels near its optic are
+the same with `sight_lens` on and off (92 / 107 with the magnifier in, 51 / 56 out): the scene's lamps, no reticle. Red-pixel counts are no size measure: the
+folded ring is drawn in the HDR pass (tonemapped), the flipped one composed after it at full colour, so the same ring
+has a different thresholded area (139 against 24 px for 1.73x); the extents agree.
+
+**The game's aim picture never reaches the VR eye image.** With the glass and the forced aim off, the game aimed by
+LT (`game_fov` 45 -> 17.2, `aiming=1`), the eye image above the gun changed by 0.71 (mean absolute, 0-255) against
+0.61 between two hip shots: the eye renders keep the headset's view. A reticle cannot be compared against the game's
+own aim picture in VR; its art spans `size` of the screen at the level's FOV by the game's own definition.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture

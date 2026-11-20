@@ -81,7 +81,7 @@ namespace bfvr::settings
 			{ "sight_lens", "Weapon", "Aiming", "Real sight lens", "Reticle by angle, any distance", "" },
 			{ "scope_glass", "Weapon", "Aiming", "Scope glass", "Magnified view in the optic's glass", "" },
 			{ "sight_lens_cone", "Weapon", "Aiming", "Clear lens angle", "Degrees off the sight line the lens stays clear", "", true },
-			{ "sight_lens_fov", "Weapon", "Aiming", "Reticle size", "The aiming view it is sized for, degrees", "" },
+			{ "sight_lens_fov", "Weapon", "Aiming", "Reticle size", "Aiming view it is sized for (0 = the optic's own)", "" },
 			{ "sight_lens_brightness", "Weapon", "Aiming", "Reticle brightness", "", "" },
 			{ "scope_in_frame", "Weapon", "Aiming", "Scope picture in the glass", "Drawn into the game's image, not a layer", "" },
 			{ "scope_zoom", "Weapon", "Aiming", "Scope zoom", "Times the game's own magnification", "", true },

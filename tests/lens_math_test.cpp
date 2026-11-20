@@ -36,6 +36,27 @@ int main()
 	expect(ring_degrees > 1.0f && ring_degrees < 1.25f, "the EOTech ring about 1.1 degrees, as the real sight");
 	expect(reticle_span(0.040f, 40.0f) > span, "the PK-AS's larger art is wider");
 
+	// #140: the art's view from the reticle's own zoom level; the setting (10 degrees or more) overrides; 40 unknown.
+	expect(reticle_fov(0.0f, 40.0f) == 40.0f && near(reticle_span(0.038f, reticle_fov(0.0f, 40.0f)), span, 1e-6f), "a red dot or holo: 40, unchanged");
+	expect(reticle_fov(0.0f, 17.2f) == 17.2f, "the ACOG's level: 17.2");
+	expect(reticle_fov(35.0f, 17.2f) == 35.0f, "the setting overrides the data");
+	expect(reticle_fov(5.0f, 17.2f) == 17.2f, "a setting below 10 degrees is no override");
+	expect(reticle_fov(0.0f, 0.0f) == 40.0f && reticle_fov(0.0f, 300.0f) == 40.0f, "no or nonsense level: 40 as before");
+	// Live levels (#138): CZ-805 EOTech + magnifier 45/40/27, ACOG 45/17.2.
+	const float magnifier_levels[3]{ 45.0f, 40.0f, 27.0f }, acog_levels[2]{ 45.0f, 17.2f };
+	expect(reticle_level_fov(magnifier_levels, 3, 8, 1, false) == 40.0f, "magnifier folded: the holo's own 40");
+	expect(reticle_level_fov(magnifier_levels, 3, 8, 2, true) == 40.0f, "magnifier flipped: still the holo's 40, magnified by the glass");
+	expect(reticle_level_fov(acog_levels, 2, 8, 1, false) == 17.2f, "ACOG: its own 17.2");
+	expect(reticle_level_fov(acog_levels, 2, 8, 0, false) == 0.0f && reticle_level_fov(acog_levels, 2, 8, 2, false) == 0.0f, "hip or past the levels: unknown");
+	expect(reticle_level_fov(magnifier_levels, 3, 2, 2, true) == 0.0f && reticle_level_fov(nullptr, 3, 8, 1, false) == 0.0f, "past the array: unknown");
+	// Through the glass: a flipped magnifier's ring grows with its power (a real magnifier); the ACOG's art at its own
+	// level, magnified.
+	const float flipped = glass_reticle_span(reticle_span(0.038f, reticle_fov(0.0f, reticle_level_fov(magnifier_levels, 3, 8, 2, true))), 1.73f);
+	expect(near(flipped / span, 1.73f, 0.001f), "flipped magnifier: the ring 1.73x, with the power");
+	const float acog = glass_reticle_span(reticle_span(0.038f, 17.2f), 2.74f);
+	expect(near(acog / span, 1.138f, 0.01f), "ACOG through its 2.74x glass: 1.14x the 1x span (its art is drawn for 17.2 degrees)");
+	expect(glass_reticle_span(span, 0.5f) == 0.0f, "below 1x: none");
+
 	float right[3]{}, up[3]{};
 	{
 		// Straight ahead, upright: right is +x, up is +y.
