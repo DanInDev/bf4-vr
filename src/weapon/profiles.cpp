@@ -122,7 +122,7 @@ namespace bfvr::weapon
 			{ "U_Scout", { -0.085f, 0.116f, 0.439f } },
 			// Read off its shot timeline (handle_probe timeline): the right hand on the lifted knob as the bolt starts
 			// back (4.2 cm), moved forward by that travel.
-			{ "U_SV98", { -0.082f, 0.081f, 0.407f } },
+			{ "U_SV98", { -0.049f, 0.108f, 0.408f } }, // #96: the game's hand at full lift before the bolt comes back (was mid-stroke)
 		};
 		// #88, from the model (handle_point_from_model): guns whose empty reload never pulls the handle (the bolt
 		// release, or no hand on it). The bolt bone at rest (tools/handle_probe.py record --all-bones, 2026-11-20:

@@ -175,7 +175,11 @@ namespace bfvr::body::contact
 			return;
 		}
 		const float dx = slide.position.x - last_.position.x, dy = slide.position.y - last_.position.y, dz = slide.position.z - last_.position.z;
-		const bool still = has_last_ && std::sqrt(dx * dx + dy * dy + dz * dz) <= steady_metres;
+		const ik::quat& q = slide.rotation;
+		const ik::quat& p = last_.rotation;
+		const float alignment = std::fabs(q.x * p.x + q.y * p.y + q.z * p.z + q.w * p.w);
+		const float turned = 2.0f * std::acos(std::fmin(1.0f, alignment));
+		const bool still = has_last_ && std::sqrt(dx * dx + dy * dy + dz * dz) <= steady_metres && turned <= steady_radians;
 		still_ = still ? still_ + (std::isfinite(seconds) && seconds > 0.0f ? seconds : 0.0f) : 0.0f;
 		if (!still)
 		{

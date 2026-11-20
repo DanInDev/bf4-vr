@@ -38,8 +38,10 @@ def setting_value(name):
 def state():
     r = command('reload')
     a = command('arms')
+    f = command('fingers')
     return ' | '.join([grab(r, r'magazine=\d+ chamber=\d+'), grab(r, r'bolt steps=\d+ up=\d+ back=\d+ held=\d+ lift=[\d.]+ turn_deg=[-\d.]+ pull=[\d.]+'),
-                       grab(a, r'pump_rest=\d+ held=\d+ slide_animated_z=[-\d.]+ drawn_z=[-\d.]+'), grab(r, r'recent:.*')[-60:]])
+                       grab(a, r'drawn_z=[-\d.]+') + ' ' + grab(a, r'drawn_turn_deg=[-\d.]+'),
+                       grab(f, r'handle_hold=[\d.]+') + ' ' + grab(f, r'off task=\S+'), grab(r, r'recent:.*')[-60:]])
 
 
 def hands(left):
@@ -83,12 +85,14 @@ def shot(label):
     while time.time() - t0 < 1.8:
         a = command('arms')
         m = re.search(r'slide_animated_z=([-\d.]+) drawn_z=([-\d.]+)', a)
-        if m:
-            animated.append(float(m.group(1)))
-            drawn.append(float(m.group(2)))
+        t = re.search(r'animated_turn_deg=([-\d.]+) drawn_turn_deg=([-\d.]+)', a)
+        if m and t:
+            animated.append((float(m.group(1)), float(t.group(1))))
+            drawn.append((float(m.group(2)), float(t.group(2))))
         time.sleep(0.06)
-    span = ('animated z %.3f..%.3f, drawn z %.3f..%.3f (%d reads)' % (min(animated), max(animated), min(drawn), max(drawn), len(animated))
-            if animated else 'no arms reads')
+    span = ('game: z %.3f..%.3f turn up to %.1f deg; drawn: z %.3f..%.3f turn up to %.1f deg (%d reads)' % (
+        min(a[0] for a in animated), max(a[0] for a in animated), max(a[1] for a in animated),
+        min(d[0] for d in drawn), max(d[0] for d in drawn), max(d[1] for d in drawn), len(animated)) if animated else 'no arms reads')
     print('  %s: %s || %s' % (label, span, state()), flush=True)
 
 
@@ -99,6 +103,9 @@ def run(gun):
     time.sleep(3)
     command('pad 0 0 0 0 9500 0300')
     time.sleep(0.5)
+    if ' chamber=0' in state():
+        command('reload rack')  # a round in, the bolt locked, so the first shot fires
+        time.sleep(0.3)
     print('  start: ' + state(), flush=True)
     shot('a real shot (the game\'s own bolt cycle must stay hidden)')
     command('pad 0 0 0 0 300 0000')
@@ -121,6 +128,11 @@ def run(gun):
     command('pad 0 0 0 0 9500 0300')
     time.sleep(0.3)
     move(left, [rest[i] - up[i] for i in range(3)], 10, 'turned down')
+    # a second cycle on the live round: back ejects it (round_ejected), forward feeds the next
+    move(left, [up[i] - rest[i] for i in range(3)], 10, 'live round: turned up')
+    move(left, [0.0, 0.0, 0.11], 10, 'live round: drawn back')
+    move(left, [0.0, 0.0, -0.11], 10, 'live round: pushed forward')
+    move(left, [rest[i] - up[i] for i in range(3)], 10, 'live round: turned down')
     command('pad 0 0 0 0 300 0000')
     time.sleep(0.4)
     shot('trigger, locked')
