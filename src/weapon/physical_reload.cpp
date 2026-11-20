@@ -1242,6 +1242,7 @@ namespace bfvr::weapon
 			pose.tilt_pivot = hand_config{}.palm_pivot_drop;
 			pose.ak = gun.profile().kind == variant::ak;
 			pose.shell = gun.profile().tube;
+			pose.hold_drop = magazine_hold_drop(weapon.name);
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
 			pose.position[2] = result.magazine_position.z;

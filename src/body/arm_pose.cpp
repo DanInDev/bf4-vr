@@ -518,6 +518,10 @@ namespace bfvr::body
 			{ { -0.1903f, -0.0947f, 0.6089f, 0.7642f }, { 0.0f, 0.0f, 0.3603f, 0.9329f }, { 0.0f, 0.0f, 0.4423f, 0.8969f } },
 			{ { -0.1934f, -0.0117f, 0.4644f, 0.8641f }, { 0.0f, 0.0f, 0.4077f, 0.9131f }, { 0.0f, 0.0f, 0.3861f, 0.9225f } },
 		}, { 0.1146f, 0.0441f, -0.1175f }, { 0.2538f, -0.2256f, 0.6042f, -0.7208f } };
+		// #90: how deep the game's own hand took the magazine of the gun each grip was captured on (weapon/profiles
+		// magazine_grab_for): the SCAR-H 5.3 cm, the AK-12 4.3 cm below its top.
+		constexpr float authored_ar_drop = 0.053f;
+		constexpr float authored_ak_drop = 0.043f;
 		// The SCAR-H's new magazine (AR pattern).
 		constexpr authored_grip magazine_grip_ar{ {
 			{ { 0.5623f, 0.3768f, 0.0936f, 0.7301f }, { 0.1298f, -0.1785f, -0.1483f, 0.9640f }, { 0.0f, 0.0f, -0.3126f, 0.9499f } },
@@ -549,8 +553,12 @@ namespace bfvr::body
 		ik::vec3 hook_in_hand;
 		bool has_hook{};
 		int hook_hand{}; // the hand the hook points were measured on (the racking hand, #38)
-		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
+		// A held magazine's top sits magazine_request.hold_drop (else held_magazine_drop) above the fist's grasp centre
+		// (it is held by its body, #90).
 		constexpr float held_magazine_drop = 0.07f;
+		// #90: the drawn top against the fist's grasp centre (fist axes), for pipe fingers.
+		ik::vec3 held_top_in_fist;
+		bool held_top_measured{};
 		constexpr float held_shell_drop = 0.01f; // a shell in the fingers
 		bone_memory slide_memory;
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
@@ -2633,6 +2641,8 @@ namespace bfvr::body
 		void attach_held_magazine(ik::bone_transform* local)
 		{
 			points.has_held = false;
+			held_top_measured = false;
+			held_top_in_fist = {};
 			has_fist_untilted = false;
 			has_fist_caught = false;
 			if (!magazine_request.detached || !magazine_request.in_hand || rig.magazine < 0 || rig.weapon < 0)
@@ -2667,7 +2677,7 @@ namespace bfvr::body
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
 			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
-			const float drop = magazine_request.shell ? held_shell_drop : held_magazine_drop;
+			const float drop = magazine_request.shell ? held_shell_drop : magazine_request.hold_drop > 0.0f ? magazine_request.hold_drop : held_magazine_drop;
 			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, drop, 0.0f }) : cup.top;
 			// Palming (#40): the fingers close by contact (close_on_palmed) on the magazine where the game's grip
 			// holds it, so it stays there.
@@ -2681,11 +2691,20 @@ namespace bfvr::body
 				const ik::vec3 held = hand.position + ik::rotate(hand.rotation, by_grip->magazine);
 				fist_rotation = nlerp(fist_rotation, hand.rotation * by_grip->magazine_rotation, grip_weight);
 				fist_top = fist_top + (held - fist_top) * grip_weight;
+				// #90: the grip was taken from one gun (AR: the SCAR-H, grab depth 5.3 cm; AK: the AK-12, 4.3 cm); this gun's
+				// magazine sits as deep in the hand as the game's own hand takes it (hold_drop): along the magazine's own up.
+				const float reference = by_grip == &magazine_grip_ak ? authored_ak_drop : authored_ar_drop;
+				if (magazine_request.hold_drop > 0.0f)
+				{
+					fist_top = fist_top + ik::rotate(fist_rotation, ik::vec3{ 0.0f, (magazine_request.hold_drop - reference) * grip_weight, 0.0f });
+				}
 			}
 			const ik::quat palm_rotation = palm_valid ? ik::normalize(cup.frame * seated) : fist_rotation;
 			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
 			placed.rotation = nlerp(fist_rotation, palm_rotation, on_palm);
 			placed.position = fist_top + (palm_top - fist_top) * on_palm;
+			held_top_measured = fist.valid;
+			held_top_in_fist = fist.valid ? ik::rotate(ik::conjugate(fist.frame), placed.position - fist.centre) : ik::vec3{};
 			fist_untilted = placed;
 			has_fist_untilted = true;
 			// Palming: turned aside in the hand, leaving the magwell to the old magazine.
@@ -2742,7 +2761,8 @@ namespace bfvr::body
 			const ik::bone_transform seated = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
 			out = seated;
 			out.rotation = ik::normalize(fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
-			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop : held_magazine_drop, 0.0f });
+			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop
+				: magazine_request.hold_drop > 0.0f ? magazine_request.hold_drop : held_magazine_drop, 0.0f });
 			return true;
 		}
 
@@ -3838,12 +3858,13 @@ namespace bfvr::body
 			std::snprintf(text + length, sizeof(text) - length,
 				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
-				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d", grips[magazine_grip.load() % 3],
+				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d held_top_above_fist=(%.3f,%.3f,%.3f) hold_drop=%.3f held=%d", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
 				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : rack_grip.load() == 2 ? "auto" : fisting ? (handle_request.underhand ? "fist(under)" : "fist(over)") : "fist", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
-				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
+				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0, held_top_in_fist.x, held_top_in_fist.y, held_top_in_fist.z,
+				magazine_request.hold_drop, held_top_measured ? 1 : 0);
 		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{

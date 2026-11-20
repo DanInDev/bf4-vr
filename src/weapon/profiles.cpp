@@ -78,6 +78,16 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	float magazine_hold_drop(std::string_view unlock_name)
+	{
+		float grab[3]{};
+		if (!magazine_grab_for(unlock_name, grab) || !(grab[1] < 0.0f))
+		{
+			return 0.0f;
+		}
+		return std::clamp(-grab[1], 0.02f, 0.12f);
+	}
+
 	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3])
 	{
 		struct measured

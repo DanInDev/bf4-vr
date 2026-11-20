@@ -1075,6 +1075,20 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
 
+## Magazines held by their body (2026-11-20 night, monitor, Shanghai, #90)
+
+The drawn held magazine's place in the fist comes from the authored grip (the SCAR-H's AR grip, the AK-12's AK grip;
+`arm_pose` `magazine_grip_ar/ak`) whatever the gun, or a fixed 7 cm in a plain fist. Now each gun's magazine sits as
+deep in the hand as the game's own hand takes it (`magazine_grab_for`, `magazine_hold_drop`): the authored grip is
+shifted along the magazine's own up by this gun's grab depth minus the grip's own gun's (SCAR-H 5.3 cm, AK-12 4.3 cm);
+the plain fist uses the depth directly; unmeasured guns (MX4, PP-2000, the P90 whose hand is above the top) keep the
+grip's own. Pipe `fingers`: `held_top_above_fist` (the drawn top in the fist's axes), `hold_drop`. Monitor (`reload
+take`, a fresh magazine in the off hand): top above the fist (y) FAMAS 0.086 -> 0.073, M416 0.082 -> 0.112, QBZ-95-1
+0.082 -> 0.077, SCAR-H 0.082, AK-12 0.076, Galil 0.079 unchanged (their grips' depth), MX4 0.066, P90 0.098 unchanged.
+`reload grab` takes only AK-pattern magazines (an AR one is latched until B): for a held-magazine test use `reload
+take`. The Galil's magazine zone was found (`zone=magazine` at its zone centre): the owner's "cannot grab" did not
+reproduce here.
+
 ## Open
 
 - Other magnified optics (4x ACOG, sniper scopes) carry SightType None: at the hip their lens picture
