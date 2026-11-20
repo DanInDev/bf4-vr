@@ -1081,7 +1081,7 @@ Owner (marks 31, 1): the P90's magazine should be taken out by hand, not thrown 
 `gun_traits` release is now `none` (box or top feed, not rocked: the AR variant stays) and `profile_for` sets
 `reload_profile::pull_out`: `press_button` never frees the magazine (the bolt catch after a new magazine still works),
 `grab_magazine` takes it as an AK's. Setting `magazine_pull_out` (on; off: B as before, through `reload_options`).
-Unit-tested in `gun_traits_test` (P90, AK 5C, M416, AK-12). The real P90's latches are squeezed by the hand that pulls
+Unit-tested in `gun_traits_test` (P90, AK 5C, M416, AK-12). No palming on them (`reload_hands` `can_palm`, `reload_test` `test_pull_out_no_palming`): it waited for a B that does nothing and a loaded well never takes the new one (review). A tactical reload there: the fresh magazine back to the pouch, the old one out by hand; an AK-style knock-out (`flick`) is the owner's call. The real P90's latches are squeezed by the hand that pulls
 it; the AK 5C (an FNC pattern) has a button in reality: the owner's call to treat it as an AK.
 
 ## Open
