@@ -99,12 +99,24 @@ namespace bfvr::body::contact
 	// SCAR-H's knob is 3.5 cm off the centre line and the centred fist went into the gun).
 	struct rack_fist_offsets
 	{
-		float over_out{ 0.05f };
-		float over_up{ 0.01f };
-		float under_out{ 0.03f };
-		float under_down{ 0.04f };
+		// #87 (owner, headset 2026-11-19: the fist floated beside and above the knob): its grasp centre 5 mm out and
+		// 5 mm above (below, underhand) the knob, on it and over the action through the whole stroke.
+		float over_out{ 0.005f };
+		float over_up{ 0.005f };
+		float under_out{ 0.005f };
+		float under_down{ 0.005f };
 	};
 	ik::vec3 rack_fist_offset(bool underhand, float side, const rack_fist_offsets& offsets);
+
+	// #90: a held magazine's depth in the hand. The authored grips were taken on the SCAR-H (AR, the game's hand 5.3 cm
+	// below the top) and the AK-12 (AK, 4.3 cm); a gun whose game hand takes its magazine hold_drop deep (0: unknown)
+	// is moved by the difference (authored_grip_shift), and the plain fist's 7 cm (held_fist_drop) by the same, so both
+	// paths agree (the hold_drop is the game's pinch, ~3 cm off the fist's grasp centre).
+	constexpr float authored_ar_drop = 0.053f;
+	constexpr float authored_ak_drop = 0.043f;
+	constexpr float plain_fist_drop = 0.07f;
+	float authored_grip_shift(float hold_drop, bool ak);
+	float held_fist_drop(float hold_drop, bool ak);
 
 	// The off hand on the handguard (two-handed hold): where along the barrel it is drawn, in the gun's frame
 	// (+z towards the muzzle). The game's own support spot (rest) is the middle; the hand may sit up to back
@@ -136,4 +148,28 @@ namespace bfvr::body::contact
 	// #40, palming: the caught magazine held beside the new one, parallel to it, one width plus gap towards
 	// the gun frame's -x (the inside, away from where the new one leans), so the two bodies never cross.
 	void beside_magazine(ik::vec3& top, ik::quat rotation, ik::quat seated, const magazine_size& size, float gap);
+
+	// #94: a pump gun's fore-end (Wep_Slide, hanging from Wep_Root) held at rest while the game's fire animation
+	// strokes it back and forward after every shot: in the mod the hand pumps it. The rest is the pose the animation
+	// keeps still for steady_seconds (the stroke never pauses that long; its kick also moves the fore-end 8 mm
+	// forward, so "the most forward pose" is not the rest: 870 monitor 2026-11-20). key: which gun; a new key starts over.
+	class slide_rest
+	{
+	public:
+		static constexpr float steady_seconds = 0.3f;
+		static constexpr float steady_metres = 0.001f;
+		// The animated local pose in, the pose to draw out (the rest, or the animated one until a first is known).
+		void hold(unsigned key, float seconds, ik::bone_transform& slide);
+		void reset() { valid_ = false; has_last_ = false; }
+		bool valid() const { return valid_; }
+		float rest_z() const { return rest_.position.z; }
+
+	private:
+		bool valid_{};
+		bool has_last_{};
+		unsigned key_{};
+		float still_{};
+		ik::bone_transform rest_{};
+		ik::bone_transform last_{};
+	};
 }

@@ -336,6 +336,8 @@ namespace bfvr::body
 		bone_memory launcher_memory[4];
 		belt_feed_pose belt_feed_request;
 		bone_memory belt_feed_memory[12]; // Wep_Extra1, Wep_Scope1, Wep_Belt1..10
+		bool belt_feed_drawn{};          // #95, for the arms report: the belt-fed edit ran, and the links' drawn scale
+		float belt_link_scale{ 1.0f };
 		bone_memory revolver_memory[8];   // Wep_Slide, Wep_Physic1, Wep_Belt1..6
 		constexpr float launcher_open_radians = 15.0f * 3.14159265f / 180.0f;
 		// #65: Wep_Aim in the game's world as the animation has it (before the mod's edit: where the game places the
@@ -483,6 +485,9 @@ namespace bfvr::body
 		// was grabbed in (weapon/reload_hands), the hand locked on it.
 		std::atomic<int> rack_grip{ 3 };
 		bool fisting{};           // this frame: the racking hand holds the knob in its fist
+		// #87: the drawn fist's grasp centre against the knob (Wep_Root axes, metres), after the arm's solve.
+		ik::vec3 rack_grip_error;
+		bool rack_grip_measured{};
 		ik::vec3 fist_in_hand;    // the fist's grasp centre, hand-bone axes, from the last shaping
 		bool has_fist{};
 		bool pinching{};
@@ -549,10 +554,27 @@ namespace bfvr::body
 		ik::vec3 hook_in_hand;
 		bool has_hook{};
 		int hook_hand{}; // the hand the hook points were measured on (the racking hand, #38)
-		// A held magazine's top sits this far above the fist's grasp centre (it is held by its body).
+		// A held magazine's top sits magazine_request.hold_drop (else held_magazine_drop) above the fist's grasp centre
+		// (it is held by its body, #90).
 		constexpr float held_magazine_drop = 0.07f;
+		// #90: the drawn top against the fist's grasp centre (fist axes), for pipe fingers.
+		ik::vec3 held_top_in_fist;
+		bool held_top_measured{};
 		constexpr float held_shell_drop = 0.01f; // a shell in the fingers
+		// #94 (mark 10): a shell lies along the gun's barrel when seated, so drawn "as seated" in the fist it stuck out
+		// through the curled fingers (the fist frame's +z). Turned -90 degrees about the fist's x it lies across the
+		// knuckles (+y, little finger to index), as a fist holds a cylinder; its nose out at the index side.
+		const ik::quat shell_across_fist{ -0.70710678f, 0.0f, 0.0f, 0.70710678f };
+		std::atomic<bool> shell_across{ true }; // live setting shell_across; 0 = as seated, the old pose
 		bone_memory slide_memory;
+		// #94: a pump gun's fore-end at rest (set_pump_rest); the rest and the report under rig_lock.
+		std::atomic<bool> pump_rest_on{ false };
+		std::atomic<unsigned> pump_rest_key{ 0 };
+		contact::slide_rest pump_rest;
+		bool pump_rest_held{};
+		float pump_animated_z{}, pump_drawn_z{}, pump_hidden_mm{};
+		unsigned pump_hidden_frames{}, last_pump_key{};
+		ULONGLONG pump_last_ms{};
 		// Fingers: what each hand is doing and its eased shape (body/finger_pose).
 		std::atomic<bool> finger_poses{ true };     // live setting finger_poses
 		// Pose editor: a hand held in one grip (-1 off), and each hand's shown grip and eased tweak.
@@ -1476,6 +1498,21 @@ namespace bfvr::body
 					any = true;
 					last_arms[hand].solved = true;
 					last_drawn_hand[hand] = ik::model_of(local, rig.parents, bones.hand).rotation;
+					// Cleared on every solve of the hand that racks when no fist holds the knob, so a reading is always current.
+					if (hand != carrier && !(gun_placed && handle_request.weight > 0.0f && fisting && has_fist))
+					{
+						rack_grip_measured = false;
+						rack_grip_error = {};
+					}
+					if (hand != carrier && gun_placed && handle_request.weight > 0.0f && fisting && has_fist)
+					{
+						const ik::bone_transform drawn = ik::model_of(local, rig.parents, bones.hand);
+						const ik::bone_transform gun_at = ik::model_of(local, rig.parents, rig.weapon);
+						const ik::vec3 grip = drawn.position + ik::rotate(drawn.rotation, fist_in_hand);
+						const ik::vec3 knob = handle_request.handle - ik::vec3{ 0.0f, 0.0f, handle_request.pull };
+						rack_grip_error = ik::rotate(ik::conjugate(gun_at.rotation), grip - gun_at.position) - knob;
+						rack_grip_measured = true;
+					}
 					hand_collision_drawn[hand] = hand_collision_checked[hand] ? drawn_hand_depth(local, hand) : 0.0f;
 					last_arms[hand].reach = reach;
 					last_arms[hand].goal = goal.wrist;
@@ -1683,6 +1720,8 @@ namespace bfvr::body
 				belt_feed_memory[i].has_written = false;
 			}
 			points.has_belt_feed = false;
+			belt_feed_drawn = false;
+			belt_link_scale = 1.0f;
 			if (!belt_feed_request.active || belt_feed_request.revolver || rig.weapon < 0 || rig.rail < 0 || rig.optic < 0 || rig.belt[0] < 0 || rig.belt[4] < 0
 				|| rig.parents[rig.rail] != rig.weapon || rig.parents[rig.optic] != rig.weapon || rig.parents[rig.belt[0]] != rig.weapon)
 			{
@@ -1721,6 +1760,18 @@ namespace bfvr::body
 				ik::set_model_transform(local, rig.parents, rig.belt[0], placed);
 			}
 
+			if (!belt_feed_request.rounds) // #95: an empty belt (the lid up on an empty box): no rounds at the tray or out of the box
+			{
+				for (const int link : rig.belt)
+				{
+					if (link >= 0)
+					{
+						local[link].scale = 0.001f;
+					}
+				}
+			}
+			belt_feed_drawn = true;
+			belt_link_scale = local[rig.belt[0]].scale;
 			const ik::vec3 hinge_model = ik::model_of(local, rig.parents, rig.rail).position;
 			const ik::vec3 grab_model = ik::model_of(local, rig.parents, rig.optic).position;
 			const ik::vec3 values[4] = { to_local(hinge_model), to_local(grab_model), to_local(tray), to_local(belt_end) };
@@ -1859,6 +1910,34 @@ namespace bfvr::body
 					slide_memory.animated = slide;
 				}
 				slide_memory.has_written = false;
+				pump_animated_z = slide.position.z;
+				const unsigned key = pump_rest_key.load(std::memory_order_relaxed);
+				if (pump_rest_on.load(std::memory_order_relaxed) && key != 0)
+				{
+					if (!pump_rest_held || key != last_pump_key)
+					{
+						pump_hidden_frames = 0;
+						pump_hidden_mm = 0.0f;
+					}
+					const ULONGLONG now = GetTickCount64();
+					const float seconds = pump_rest_held && now >= pump_last_ms ? static_cast<float>(now - pump_last_ms) * 0.001f : 0.0f;
+					pump_last_ms = now;
+					pump_rest.hold(key, std::fmin(seconds, 0.1f), slide);
+					last_pump_key = key;
+					const float hidden_mm = (slide.position.z - pump_animated_z) * 1000.0f;
+					if (hidden_mm > 5.0f)
+					{
+						++pump_hidden_frames;
+						pump_hidden_mm = std::fmax(pump_hidden_mm, hidden_mm);
+					}
+					pump_rest_held = true;
+				}
+				else
+				{
+					pump_rest.reset();
+					pump_rest_held = false;
+				}
+				pump_drawn_z = slide.position.z;
 			}
 
 			const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
@@ -1996,6 +2075,7 @@ namespace bfvr::body
 				local[rig.slide].position.z -= handle_request.pull * handle_request.weight;
 				slide_memory.written = local[rig.slide];
 				slide_memory.has_written = true;
+				pump_drawn_z = local[rig.slide].position.z;
 			}
 
 			if (magazine_request.detached && !magazine_request.in_hand)
@@ -2633,6 +2713,8 @@ namespace bfvr::body
 		void attach_held_magazine(ik::bone_transform* local)
 		{
 			points.has_held = false;
+			held_top_measured = false;
+			held_top_in_fist = {};
 			has_fist_untilted = false;
 			has_fist_caught = false;
 			if (!magazine_request.detached || !magazine_request.in_hand || rig.magazine < 0 || rig.weapon < 0)
@@ -2666,8 +2748,8 @@ namespace bfvr::body
 			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
-			ik::quat fist_rotation = ik::normalize(fist_frame * seated);
-			const float drop = magazine_request.shell ? held_shell_drop : held_magazine_drop;
+			ik::quat fist_rotation = ik::normalize(magazine_request.shell && shell_across.load() ? fist_frame * shell_across_fist * seated : fist_frame * seated);
+			const float drop = magazine_request.shell ? held_shell_drop : contact::held_fist_drop(magazine_request.hold_drop, magazine_request.ak);
 			ik::vec3 fist_top = fist.valid ? fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, drop, 0.0f }) : cup.top;
 			// Palming (#40): the fingers close by contact (close_on_palmed) on the magazine where the game's grip
 			// holds it, so it stays there.
@@ -2681,6 +2763,9 @@ namespace bfvr::body
 				const ik::vec3 held = hand.position + ik::rotate(hand.rotation, by_grip->magazine);
 				fist_rotation = nlerp(fist_rotation, hand.rotation * by_grip->magazine_rotation, grip_weight);
 				fist_top = fist_top + (held - fist_top) * grip_weight;
+				// #90: the grip was taken from one gun (AR: the SCAR-H, grab depth 5.3 cm; AK: the AK-12, 4.3 cm); this gun's
+				// magazine sits as deep in the hand as the game's own hand takes it (hold_drop): along the magazine's own up.
+				fist_top = fist_top + ik::rotate(fist_rotation, ik::vec3{ 0.0f, contact::authored_grip_shift(magazine_request.hold_drop, by_grip == &magazine_grip_ak) * grip_weight, 0.0f });
 			}
 			const ik::quat palm_rotation = palm_valid ? ik::normalize(cup.frame * seated) : fist_rotation;
 			const ik::vec3 palm_top = palm_valid ? cup.top : fist_top;
@@ -2690,6 +2775,8 @@ namespace bfvr::body
 			has_fist_untilted = true;
 			// Palming: turned aside in the hand, leaving the magwell to the old magazine.
 			contact::tilt_magazine(placed.position, placed.rotation, seated, magazine_request.tilt, magazine_request.tilt_pivot);
+			held_top_measured = fist.valid; // #90: the drawn top (after the palming turn) against the fist's grasp centre
+			held_top_in_fist = fist.valid ? ik::rotate(ik::conjugate(fist.frame), placed.position - fist.centre) : ik::vec3{};
 			// The caught one (extra meshes) beside it, parallel, not crossing it (#40; untilted at the fist it did).
 			fist_caught = placed;
 			contact::beside_magazine(fist_caught.position, fist_caught.rotation, seated, magazine_body, caught_gap);
@@ -2741,8 +2828,9 @@ namespace bfvr::body
 			const ik::bone_transform gun = ik::model_of(local, rig.parents, rig.weapon);
 			const ik::bone_transform seated = ik::compose(ik::model_of(local, rig.parents, rig.parents[rig.magazine]), magazine_memory.animated);
 			out = seated;
-			out.rotation = ik::normalize(fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
-			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop : held_magazine_drop, 0.0f });
+			out.rotation = ik::normalize(magazine_request.shell && shell_across.load() ? fist.frame * shell_across_fist * ik::conjugate(gun.rotation) * seated.rotation
+				: fist.frame * ik::conjugate(gun.rotation) * seated.rotation);
+			out.position = fist.centre + ik::rotate(fist.frame, ik::vec3{ 0.0f, magazine_request.shell ? held_shell_drop : contact::held_fist_drop(magazine_request.hold_drop, magazine_request.ak), 0.0f });
 			return true;
 		}
 
@@ -3730,6 +3818,17 @@ namespace bfvr::body
 		handle_request.pull = std::fmax(0.0f, pull);
 	}
 
+	void set_shell_across(bool on)
+	{
+		shell_across.store(on, std::memory_order_relaxed);
+	}
+
+	void set_pump_rest(bool on, unsigned gun_key)
+	{
+		pump_rest_key.store(gun_key, std::memory_order_relaxed);
+		pump_rest_on.store(on && gun_key != 0, std::memory_order_relaxed);
+	}
+
 	void set_pose_preview(int hand, poses::grip which)
 	{
 		preview_grip = static_cast<int>(which);
@@ -3838,12 +3937,16 @@ namespace bfvr::body
 			std::snprintf(text + length, sizeof(text) - length,
 				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
-				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d", grips[magazine_grip.load() % 3],
+				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d rack_fist_grip_minus_knob=(%.3f,%.3f,%.3f) %.3f measured=%d"
+				" held_top_above_fist=(%.3f,%.3f,%.3f) hold_drop=%.3f held=%d", grips[magazine_grip.load() % 3],
 				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
 				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : rack_grip.load() == 2 ? "auto" : fisting ? (handle_request.underhand ? "fist(under)" : "fist(over)") : "fist", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",
-				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0);
+				authored_weight, palm_contact ? 1 : 0, has_fist_caught ? 1 : 0, rack_grip_error.x, rack_grip_error.y, rack_grip_error.z,
+				std::sqrt(rack_grip_error.x * rack_grip_error.x + rack_grip_error.y * rack_grip_error.y + rack_grip_error.z * rack_grip_error.z),
+				rack_grip_measured ? 1 : 0, held_top_in_fist.x, held_top_in_fist.y, held_top_in_fist.z,
+				magazine_request.hold_drop, held_top_measured ? 1 : 0);
 		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
@@ -3981,6 +4084,15 @@ namespace bfvr::body
 			r.weapon_in_camera.z, r.weapon_in_camera.w, torso_follow.load() ? 1 : 0, torso_report.load() * 57.29578f,
 			r.palette_camera.x, r.palette_camera.y, r.palette_camera.z, r.palette_weapon.x, r.palette_weapon.y, r.palette_weapon.z,
 			r.reference.x, r.reference.y, r.reference.z);
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += std::snprintf(text + length, sizeof(text) - length,
+				"pump_rest=%d held=%d slide_animated_z=%.3f drawn_z=%.3f rest_z=%.3f hidden_frames=%u hidden_max_mm=%.0f\n",
+				pump_rest_on.load() ? 1 : 0, pump_rest_held ? 1 : 0, pump_animated_z, pump_drawn_z, pump_rest.valid() ? pump_rest.rest_z() : 0.0f,
+				pump_hidden_frames, pump_hidden_mm);
+			length += std::snprintf(text + length, sizeof(text) - length, "belt_feed drawn=%d rounds=%d lid=%.2f belt_scale=%.3f\n",
+				belt_feed_drawn ? 1 : 0, belt_feed_request.rounds ? 1 : 0, belt_feed_request.lid, belt_link_scale);
+		}
 		for (int hand = 0; hand < 2 && length > 0 && length < static_cast<int>(sizeof(text)); ++hand)
 		{
 			const arm_report& arm = r.arms[hand];

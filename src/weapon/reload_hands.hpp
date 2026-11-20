@@ -53,6 +53,9 @@ namespace bfvr::weapon
 		// (weapon/profiles); otherwise hand_config's per-variant point.
 		bool has_handle_point{};
 		v3 handle_point;
+		// #97: the handle can be worked from the gun's other side too (FAMAS, AK-12: weapon/profiles handle_both_sides):
+		// a second rack zone at the knob mirrored across the gun's mid-plane (x flipped); the nearer one is taken.
+		bool handle_both_sides{};
 		// Where this gun's magazine is grabbed, from the seated Wep_Mag in Wep_Root axes (weapon/profiles
 		// magazine_grab_for); otherwise magazine_grab_drop straight below it.
 		bool has_magazine_grab{};
@@ -158,6 +161,7 @@ namespace bfvr::weapon
 		float rack_side{};     // the handle's side of the gun (rack_side): +1 left, -1 right, 0 on top
 		v3 handle_in_gun;
 		float rack_pull{};
+		bool handle_mirrored{}; // #97: the handle zone in use is the mirrored knob (the gun's other side)
 		// This update the pull reached rack_pull (once per stroke): the rack will count on release.
 		// The rear-stop cue (sound and tick); the release plays the bolt going home.
 		bool rack_at_rear{};
@@ -170,7 +174,10 @@ namespace bfvr::weapon
 		int belt_draw{};
 		v3 belt_position;
 		q4 belt_rotation;
-		bool lid_held{};
+		bool lid_held{};       // and while held, handle_in_gun is the lid's grab point (gun axes): the drawn hand stays on it (#95)
+		// #95: the hand is at the lid or the belt, or holds one: their grip, not the accessory touch's (the M240's and
+		// M249's optic sits on the lid, so the touch took the grip and the belt dropped the next frame).
+		bool belt_zone{};
 		magazine_draw draw{ magazine_draw::with_gun };
 		bool in_fist{};       // in_hand and held: the drawn fist holds it (else at magazine_position, e.g. sliding home)
 		v3 magazine_position; // for in_hand, falling and hidden
@@ -321,6 +328,9 @@ namespace bfvr::weapon
 	bool needs_rack(const gun_state& state);
 	// The handle's side from its knob in the gun frame (+x left); AK-pattern guns default to the right.
 	float rack_side(v3 handle_in_gun, bool ak);
+	// #97: with a handle both sides can work, whether the mirrored knob's zone takes the grab: only a zone that can rack
+	// (an underhand zone only while the gun needs charging, as for the own knob), and the nearer one when both can.
+	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging);
 	// Angle between two rotations, degrees.
 	float angle_between(q4 a, q4 b);
 	// Palming: how far a magazine held at in_gun (rotation relative to Wep_Root) still leans about the
@@ -341,6 +351,7 @@ namespace bfvr::weapon
 		hand_config config_;
 		bool last_grip_{};
 		bool last_button_{};
+		bool rack_mirrored_{}; // #97: the running stroke holds the mirrored knob
 		bool racking_{};
 		float lid_{};         // belt-fed: the lid's opening, 0..1
 		bool lid_held_{};

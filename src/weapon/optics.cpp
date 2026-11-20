@@ -1,6 +1,7 @@
 #include "weapon/optics.hpp"
 
 #include <cctype>
+#include <cmath>
 #include <cstring>
 
 namespace bfvr::weapon
@@ -94,8 +95,33 @@ namespace bfvr::weapon
 		}
 	}
 
-	bool needs_game_aim(const gun_optics& gun)
+	bool needs_game_aim(const gun_optics& gun, bool glass)
 	{
-		return !(gun.reflex && gun.reflex_clear && !gun.magnifier && !gun.magnified);
+		if (!glass)
+		{
+			return !(gun.reflex && gun.reflex_clear && !gun.magnifier && !gun.magnified);
+		}
+		const bool irons = !gun.reflex && !gun.magnified && !gun.magnifier;
+		return irons || (gun.reflex && !gun.reflex_clear);
+	}
+
+	float optic_power(float hip_fov_degrees, float level_fov_degrees)
+	{
+		constexpr float half_degree = 3.14159265f / 360.0f;
+		if (!(hip_fov_degrees > 1.0f && hip_fov_degrees < 170.0f && level_fov_degrees > 0.5f && level_fov_degrees < 170.0f))
+		{
+			return 0.0f;
+		}
+		return std::tan(hip_fov_degrees * half_degree) / std::tan(level_fov_degrees * half_degree);
+	}
+
+	float level_power(const float* level_fov, int levels, int capacity, int selected)
+	{
+		if (!level_fov || selected <= 0 || selected >= levels || selected >= capacity)
+		{
+			return 0.0f;
+		}
+		const float power = optic_power(level_fov[0], level_fov[selected]);
+		return power > 0.0f && power < min_optic_power ? 1.0f : power;
 	}
 }

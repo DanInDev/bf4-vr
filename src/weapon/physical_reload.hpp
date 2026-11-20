@@ -22,6 +22,12 @@ namespace bfvr::weapon
 	// Setting manual_cycle: bolt actions and the Hawk's pump are worked by hand after each shot (rack at the bolt knob or
 	// the fore-end; the trigger waits); off: the game cycles them by itself.
 	void set_manual_cycle(bool on);
+	// #94: a pump gun's fore-end drawn at rest after a shot (the hand pumps it; setting pump_at_rest).
+	void set_pump_at_rest(bool on);
+	// #95: a belt-fed gun's lid, while held, holds the drawn hand on its grab point (setting lid_hand_lock).
+	void set_lid_hand_lock(bool on);
+	// #97: the FAMAS's and AK-12's handle from either side (setting handle_both_sides).
+	void set_handle_both_sides(bool on);
 	// Setting shells_by_hand: tube shotguns (870, M1014, SPAS-12, QBS-09, UTAS) load shell by shell from the pouch into the
 	// loading port; off: the game's own reload (B).
 	void set_shells_by_hand(bool on);
@@ -32,6 +38,8 @@ namespace bfvr::weapon
 	// cylinder, a flick up or a push on the barrel shuts it); off: the game's own reload (B).
 	void set_revolver_by_hand(bool on);
 	void set_drop_discards_ammo(bool discard);
+	// #98: the P90 and the AK 5C have no release button: their magazine is pulled out by hand (setting magazine_pull_out).
+	void set_magazine_pull_out(bool on);
 	// AR palming (weapon/reload_hands): a new magazine at the magwell of a loaded gun turns aside in
 	// the hand, B drops the old one into the same hand, turning the hand back seats the new one.
 	void set_palm_reload(bool enabled);

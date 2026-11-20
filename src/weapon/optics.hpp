@@ -36,7 +36,21 @@ namespace bfvr::weapon
 		bool reflex_clear{};          // the red dot or holo is see-through at the hip
 	};
 	// sight_ads: does this gun need the game's aim to see through its sight? Not for a clear holo alone
-	// (the game then draws no reticle of its own and walks at full speed); yes for everything else.
-	bool needs_game_aim(const gun_optics& gun);
+	// (the game then draws no reticle of its own and walks at full speed); yes for everything else. #139: with the
+	// scope glass on (`glass`) a scope or magnifier shows its zoom in its own glass, so it needs no game aim either
+	// (the game's aim with a high-power scope hides the gun and draws its flat sniper overlay); a red dot or holo that
+	// is black at the hip and iron sights still do.
+	bool needs_game_aim(const gun_optics& gun, bool glass = false);
 	void add_optic(gun_optics& gun, const char* unlock_name);
+
+	// #138: an optic's magnification from the game's own zoom data (no name table): the hip's vertical FOV
+	// against the zoom level's, tan(hip / 2) / tan(level / 2), degrees. 0 when either is not a usable FOV.
+	// Live: magnifier 27 -> 1.73, ACOG 17.2 -> 2.74, SRS rifle scope 8.7 -> 5.44, red dot 40 -> 1.13 (hip 45).
+	float optic_power(float hip_fov_degrees, float level_fov_degrees);
+	// Below this the zoom is the game's ADS nudge of a red dot or holo (45 -> 40 degrees): a 1x sight.
+	constexpr float min_optic_power = 1.25f;
+	// The selected zoom level's power from the levels' FOVs (degrees, level 0 = the hip): optic_power of that level,
+	// 1 for a 1x sight (below min_optic_power), 0 when the level is out of range (0, past the levels or the array)
+	// or a FOV is unusable (the caller falls back to the learned zoom or the name table).
+	float level_power(const float* level_fov, int levels, int capacity, int selected);
 }

@@ -78,6 +78,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 
 ## Working with the user
 
+- **Claude is the main maintainer** (owner, 2026-11-20): it decides the architecture and how things are set up, and
+  works through the open issues on its own. **Life-like over easy:** never settle for a shortcut that costs VR
+  immersion (as the first scope picture did: a flat image instead of the view inside the optic's own glass). Each gun
+  works as the real one does (where the game's own animation differs, as the game's gun does), and every gun that has a
+  feature in reality gets it, built to the same quality bar (gate, monitor check, verifier, headset row).
 - One branch per task, from `main`. **Claude is the main worker on this repository** (owner, 2026-11-16): it
   decides when to merge into `main` and push, as it sees fit: the gate green, the monitor check done, and what
   only the headset can judge named in `docs/HEADSET-TESTS.md`. After a merge, delete the branch locally and on
@@ -172,6 +177,23 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   soldier through `common/controlled` `game::local_soldier()`, never the raw global. Pad X is Start under `x_menu`
   (a test pressing X pauses); the pause menu ignores `pipe pointer` clicks, pad A on the highlighted RESUME closes it.
   The campaign menu's objective text can lag (it showed "Help Dunn" but resumed in the car). `re/notes/vehicle.md`.
+- 2026-11-19 (sights probe, #137): `givegun` gives a gun **without attachments** unless you name them
+  (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; `unlockfind <text>` lists them, not every optic is loaded in
+  every level). For fake-hand sight tests set `free_hands 0` and `use_reach 0` live: else the gun drops to the sling
+  when a grip hold ends (a re-give does not bring it back, `holster` says `dropped=1`) and the off hand ahead and low
+  presses "use". `pad` holds at most 10 s. `zoommesh 1` forces the **hip** model, `0` the zoom model. Pipe `scan` is a
+  full heap walk: 91 s, and the pipe answers nothing meanwhile; never put it in a polling loop.
+- 2026-11-20 (#139): with the game aiming through a high-power scope (SRS) the dark shape with a round hole in the eye
+  is BF4's **flat sniper overlay**, not the 3D scope; judge optics with the game's aim off. A copy of the eye's HDR
+  image always holds the first-person gun (lit with the world); a lens quad's own shape is not the glass (it draws
+  only where no first-person stencil bit is). The scope render keeps the eye's orientation, not the gun's: judge the
+  scope picture against the view's centre. Pipe `glassdebug 1` paints the lens draws and the sight line's point
+  (magenta), `scopeshot` saves the scope render (`re/notes/weapon.md` "The picture in the optic's own glass").
+  Matching a picture against an eye shot (`s3where`-style correlation) works on lit buildings; water and window
+  rain give weak matches (correlation < 0.4). The game's own aim (LT with `ads_trigger 1`: `game_fov` 17.2 for an
+  ACOG) does not zoom the VR eye image: compare optics against data, not against "the game's aim picture" (#140).
+  `pad ... 0300 1 0` (grips held) does not aim; LT alone (`0000 1 0`) does. Measure a reticle in the glass with pipe
+  `glassdebug 2` (the reticle alone, pure green): red pixels in an eye shot catch the scene's red lamps as the gun sways.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

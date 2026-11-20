@@ -61,9 +61,17 @@ namespace bfvr::stereo
 	// sight_lens (#39, BF3-style lens): camera hook, each view: the gun's sight line and up in the rendered
 	// eye's view space (x right, y up, -z ahead), valid whenever the gun's points are fresh.
 	void set_lens_axes(bool valid, const float (&along)[3], const float (&up)[3]);
-	// Settings sight_lens, sight_lens_fov (the game's ADS view the reticle art is sized for, degrees) and
+	// Settings sight_lens, sight_lens_fov (an override of the view the reticle art is sized for, degrees; below 10 = each
+	// zoom level's own) and
 	// sight_lens_brightness.
 	void set_sight_lens(bool on, float ads_fov_degrees, float brightness);
+	// #139: a magnifying optic shows the world magnified on its own glass (setting scope_glass).
+	void set_scope_glass(bool on);
+	// #139: the optic's own glass showed the picture in the last 300 ms (the scope plan then renders a wide picture).
+	bool scope_glass_shown();
+	// Research (pipe "glassdebug 0|1|2"): 1 the glass mask's lens quads in colour and the sight line's point magenta; 2 the
+	// glass black with its reticle art pure green (the drawn reticle's size).
+	std::string set_glass_debug(int mode);
 	void set_scope_in_frame(bool on);
 	// The picture went into the frame within the last 200 ms (the theater then leaves its quad out).
 	bool scope_drawn_in_frame();

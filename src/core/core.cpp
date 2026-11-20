@@ -284,10 +284,14 @@ namespace bfvr::core
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));
 			weapon::set_gun_points(store.boolean("gun_points", true));
 			weapon::set_manual_cycle(store.boolean("manual_cycle", true));
+			weapon::set_pump_at_rest(store.boolean("pump_at_rest", true));
+			weapon::set_lid_hand_lock(store.boolean("lid_hand_lock", true));
+			weapon::set_handle_both_sides(store.boolean("handle_both_sides", true));
 			weapon::set_shells_by_hand(store.boolean("shells_by_hand", true));
 			weapon::set_belts_by_hand(store.boolean("belts_by_hand", true));
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
+			weapon::set_magazine_pull_out(store.boolean("magazine_pull_out", true));
 			weapon::set_palm_reload(true);
 			weapon::set_magazine_snapping(true);
 			weapon::set_magazine_reach(store.real("magazine_reach", 0.13f));
@@ -331,8 +335,9 @@ namespace bfvr::core
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
-			body::set_rack_fist_offsets(store.real("rack_over_out", 0.05f), store.real("rack_over_up", 0.01f), store.real("rack_under_out", 0.03f),
-				store.real("rack_under_down", 0.04f));
+			body::set_shell_across(store.boolean("shell_across", true));
+			body::set_rack_fist_offsets(store.real("rack_over_out", 0.005f), store.real("rack_over_up", 0.005f), store.real("rack_under_out", 0.005f),
+				store.real("rack_under_down", 0.005f));
 			body::set_gun_recoil(store.real("recoil", 1.0f));
 			body::set_one_hand_recoil(store.real("one_hand_recoil", 1.0f));
 			weapon::set_squad_signal(store.boolean("squad_signal", true));
@@ -372,7 +377,8 @@ namespace bfvr::core
 			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
 			weapon::set_sight_reticle(store.boolean("sight_reticle", true));
 			stereo::set_scope_in_frame(store.boolean("scope_in_frame", true));
-			stereo::set_sight_lens(store.boolean("sight_lens", true), store.real("sight_lens_fov", 40.0f), store.real("sight_lens_brightness", 4.0f));
+			stereo::set_sight_lens(store.boolean("sight_lens", true), store.real("sight_lens_fov", 0.0f), store.real("sight_lens_brightness", 4.0f));
+			stereo::set_scope_glass(store.boolean("scope_glass", true));
 			weapon::set_zoom_mesh_always(store.boolean("sight_lens", true));
 			weapon::set_sight_lens_cone(store.real("sight_lens_cone", 8.0f));
 			stereo::set_foveation(store.text("foveation", "light"));

@@ -79,7 +79,10 @@ namespace bfvr::weapon
 	{
 		const auto gap = [&](v3 p) { return std::sqrt((palm.x - p.x) * (palm.x - p.x) + (palm.y - p.y) * (palm.y - p.y) + (palm.z - p.z) * (palm.z - p.z)); };
 		const float to_grip = gap(grip);
-		if (!(to_grip < regrip_reach))
+		// #95: a held belt or lid, or the hand at them, keeps the grip: with the gun in the off hand the gun hand reloads,
+		// and the take-back opened the grip of a belt carried near the pistol grip (owner's marks 67-68: hand=1, eight
+		// belt_taken belt_dropped pairs).
+		if (!(to_grip < regrip_reach) || last.belt_zone || last.lid_held || last.belt_draw == 2)
 		{
 			return false;
 		}
@@ -105,6 +108,12 @@ namespace bfvr::weapon
 	float rack_side(v3 handle_in_gun, bool ak)
 	{
 		return handle_in_gun.x > 0.005f ? 1.0f : handle_in_gun.x < -0.005f ? -1.0f : ak ? -1.0f : 0.0f;
+	}
+
+	bool prefer_mirrored(const rack_zone_test& own, const rack_zone_test& across, bool needs_charging)
+	{
+		const auto usable = [&](const rack_zone_test& t) { return t.zone == rack_zone::over || (t.zone == rack_zone::under && needs_charging); };
+		return usable(across) && (!usable(own) || across.over_distance < own.over_distance);
 	}
 
 	rack_zone_test rack_zone_of(v3 palm, v3 knob, q4 root_rotation, float side, const hand_config& config)
@@ -257,7 +266,7 @@ namespace bfvr::weapon
 		// has two zones (rack_zone_of): overhand beside and above the knob, underhand a larger one below.
 		v3 handle = frame.slide;
 		float handle_reach = config_.reach_slide * frame.handle_size;
-		const v3 handle_in_gun = (frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar) + frame.handle_shift;
+		v3 handle_in_gun = (frame.has_handle_point ? frame.handle_point : ak ? config_.handle_ak : config_.handle_ar) + frame.handle_shift;
 		v3 handle_grab = handle;
 		rack_zone_test rack_test;
 		hand_config zones = config_;
@@ -270,6 +279,27 @@ namespace bfvr::weapon
 		}
 		zones.rack_over_reach *= frame.handle_size;
 		zones.rack_under_radii = zones.rack_under_radii * frame.handle_size;
+		// #97: a handle both sides can work: the stroke keeps the side it was grabbed on; otherwise the nearer knob's zone.
+		bool mirrored = false;
+		if (frame.handle_both_sides && frame.has_root && valid)
+		{
+			const v3 other{ -handle_in_gun.x, handle_in_gun.y, handle_in_gun.z };
+			if (racking_)
+			{
+				mirrored = rack_mirrored_;
+			}
+			else
+			{
+				const rack_zone_test own = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, handle_in_gun), frame.root_rotation, rack_side(handle_in_gun, ak), zones);
+				const rack_zone_test across = rack_zone_of(reach, frame.root + rotate(frame.root_rotation, other), frame.root_rotation, rack_side(other, ak), zones);
+				mirrored = prefer_mirrored(own, across, needs_rack(gun.state()));
+			}
+			if (mirrored)
+			{
+				handle_in_gun = other;
+			}
+		}
+		result.handle_mirrored = mirrored;
 		if (frame.has_root)
 		{
 			handle = frame.root + rotate(frame.root_rotation, handle_in_gun);
@@ -380,7 +410,9 @@ namespace bfvr::weapon
 		{
 			palm_ = palm_stage::none;
 		}
-		const bool can_palm = frame.palming && !ak && !frame.tube && !frame.revolver && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
+		// #98: no palming where there is no button to catch the old magazine with (the P90, the AK 5C): it would wait for a B
+		// that does nothing, and a loaded well never takes the new one.
+		const bool can_palm = frame.palming && !ak && !gun.pulled_by_hand() && !frame.tube && !frame.revolver && frame.has_root && valid && frame.grip && gun.state().holding && !gun.state().palmed
 			&& !kept_old_ && gun.state().magazine_in;
 		const float fist_to_magwell = valid ? distance(fist_top, frame.magwell) : 1e9f;
 		if (palm_ == palm_stage::ready && (!can_palm || fist_to_magwell > config_.palm_leave))
@@ -531,6 +563,11 @@ namespace bfvr::weapon
 		{
 			result.lid = lid_;
 			result.lid_held = lid_held_;
+			if (lid_held_ && belt_points)
+			{
+				result.handle_in_gun = rotate(to_gun, lid_grab - frame.root); // the drawn hand held on the lid as it turns
+			}
+			result.belt_zone = belt_points && (lid_held_ || gun.state().belt_held || near_lid || near_belt);
 			result.belt_draw = gun.state().belt_laid ? 0 : gun.state().belt_held ? 2 : 1;
 			result.belt_position = reach;
 			result.belt_rotation = frame.off_rotation;
@@ -541,6 +578,7 @@ namespace bfvr::weapon
 			if (near_handle)
 			{
 				racking_ = true;
+				rack_mirrored_ = mirrored;
 				rack_underhand_ = rack_test.zone == rack_zone::under;
 				rack_full_ = false;
 				rack_start_ = frame.off_hand;

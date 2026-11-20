@@ -187,18 +187,33 @@ namespace
 	}
 }
 
+static void test_magazine_depth()
+{
+	// #90: the grips' own guns keep their hold; a short magazine (FAMAS, 3.7 cm) sits 1.6 cm nearer its top, a STANAG
+	// (M416, 8.9 cm) 3.6 cm deeper; the plain fist by the same difference; unknown: unchanged.
+	expect(contact::authored_grip_shift(0.053f, false) == 0.0f && contact::authored_grip_shift(0.043f, true) == 0.0f, "magazine depth: SCAR-H and AK-12 unchanged");
+	expect(std::fabs(contact::authored_grip_shift(0.037f, false) + 0.016f) < 1e-5f, "magazine depth: FAMAS 1.6 cm nearer its top");
+	expect(std::fabs(contact::authored_grip_shift(0.089f, false) - 0.036f) < 1e-5f, "magazine depth: M416 3.6 cm deeper");
+	expect(std::fabs(contact::held_fist_drop(0.037f, false) - 0.054f) < 1e-5f, "magazine depth: the plain fist's FAMAS at 5.4 cm, not the pinch's 3.7");
+	expect(contact::held_fist_drop(0.0f, false) == 0.07f && contact::authored_grip_shift(0.0f, true) == 0.0f, "magazine depth: unknown keeps 7 cm / the grip");
+}
+
 static void test_rack_fist_offset()
 {
 	const contact::rack_fist_offsets offsets;
 	const ik::vec3 left_over = contact::rack_fist_offset(false, 1.0f, offsets);
-	expect(left_over.x == 0.05f && left_over.y == 0.01f && left_over.z == 0.0f, "rack fist: overhand out on a left-side handle (SCAR-H) and a little up");
+	expect(left_over.x == 0.005f && left_over.y == 0.005f && left_over.z == 0.0f, "rack fist: overhand just out on a left-side handle (SCAR-H) and just up");
 	const ik::vec3 right_over = contact::rack_fist_offset(false, -1.0f, offsets);
-	expect(right_over.x == -0.05f && right_over.y == 0.01f, "rack fist: out to the right for a right-side handle (AK)");
+	expect(right_over.x == -0.005f && right_over.y == 0.005f, "rack fist: just out to the right for a right-side handle (AK)");
 	const ik::vec3 under = contact::rack_fist_offset(true, -1.0f, offsets);
-	expect(under.x == -0.03f && under.y == -0.04f, "rack fist: underhand out and below the knob");
+	expect(under.x == -0.005f && under.y == -0.005f, "rack fist: underhand just out and below the knob");
 	const ik::vec3 centred = contact::rack_fist_offset(false, 0.0f, offsets);
-	expect(centred.x == 0.0f && centred.y == 0.01f, "rack fist: a centred handle moves the fist only up");
-	expect(contact::rack_fist_offset(false, 0.4f, offsets).x == 0.05f, "rack fist: any positive side is the left");
+	expect(centred.x == 0.0f && centred.y == 0.005f, "rack fist: a centred handle moves the fist only up");
+	expect(contact::rack_fist_offset(false, 0.4f, offsets).x == 0.005f, "rack fist: any positive side is the left");
+	// #87: the grasp centre within 1 cm of the knob (the owner's marks: 5 cm out and above).
+	const float reach = std::sqrt(left_over.x * left_over.x + left_over.y * left_over.y);
+	const float under_reach = std::sqrt(under.x * under.x + under.y * under.y);
+	expect(reach < 0.01f && under_reach < 0.01f, "rack fist: the grasp centre within 1 cm of the knob, over and under");
 }
 
 static void test_support_slide()
@@ -219,10 +234,58 @@ static void test_support_slide()
 	expect(free.update(true, NAN, rest, 0.06f, 0.08f, false) == rest, "support: a broken reading gives the rest spot");
 }
 
+static void test_slide_rest()
+{
+	// #94: the 870 on the monitor: its fore-end at rest at z 0.669 in Wep_Root; a shot's animation kicks it 8 mm
+	// forward (0.677) and strokes it 7.4 cm back (0.595) within ~0.6 s, at 90 fps.
+	const float dt = 1.0f / 90.0f;
+	contact::slide_rest rest;
+	ik::bone_transform slide{};
+	const auto at = [&](unsigned key, float z)
+	{
+		slide.position = { 0.0f, 0.03f, z };
+		rest.hold(key, dt, slide);
+		return slide.position.z;
+	};
+	expect(at(1, 0.669f) == 0.669f && rest.valid(), "slide rest: the first pose is taken as the rest");
+	bool stroke_hidden = true;
+	for (int frame = 0; frame < 54; ++frame) // 0.6 s: forward kick, back, forward again
+	{
+		const float t = frame / 53.0f;
+		const float z = t < 0.1f ? 0.669f + 0.08f * t : t < 0.5f ? 0.677f - 0.205f * (t - 0.1f) : 0.595f + 0.148f * (t - 0.5f);
+		stroke_hidden = stroke_hidden && at(1, z) == 0.669f;
+	}
+	expect(stroke_hidden, "slide rest: the shot's kick and stroke are not drawn (and the kick is not taken for the rest)");
+	bool steady_kept = true;
+	for (int frame = 0; frame < 20; ++frame)
+	{
+		steady_kept = steady_kept && at(1, 0.669f) == 0.669f;
+	}
+	expect(steady_kept, "slide rest: back at rest it stays");
+	for (int frame = 0; frame < 9; ++frame) // a brief pause at the rear (0.1 s) is no rest
+	{
+		at(1, 0.595f);
+	}
+	expect(at(1, 0.595f) == 0.669f, "slide rest: a short pause at the rear is not the rest");
+	for (int frame = 0; frame < 40; ++frame) // the animation holds a new pose still for 0.44 s: that is the rest
+	{
+		at(1, 0.660f);
+	}
+	expect(at(1, 0.660f) == 0.660f, "slide rest: a pose held still for steady_seconds becomes the rest");
+	expect(at(2, 0.10f) == 0.10f && rest.rest_z() == 0.10f, "slide rest: another gun starts over");
+	slide.position = { NAN, 0.0f, 0.0f };
+	rest.hold(2, dt, slide);
+	expect(slide.position.z == 0.10f, "slide rest: a broken pose draws the rest");
+	rest.reset();
+	expect(at(2, 0.05f) == 0.05f, "slide rest: after a reset the next pose is the rest");
+}
+
 int main()
 {
+	test_slide_rest();
 	test_support_slide();
 	test_rack_fist_offset();
+	test_magazine_depth();
 	test_pinch();
 	test_coupling();
 	test_distance();

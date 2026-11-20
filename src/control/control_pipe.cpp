@@ -585,7 +585,7 @@ namespace bfvr::control
 			if (safety::mod_disabled()) return "error: mod disabled (not a campaign level)";
 			// Memory research and test overrides: off in release builds unless research = 1.
 			static constexpr const char* research_commands[] = { "dump", "scan", "entityevent", "poke", "watch", "pad", "tshift", "pin", "fakeyaw",
-				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe", "givegun", "fakefocus" };
+				"aspect", "bone", "eye", "eyealt", "fov", "view", "hand", "armaxes", "frametrace", "worldpass", "viewcount", "threads", "eyepass", "eyeshot", "eyeprobe", "fakehead", "stereorender", "eyepoison", "eyeskip", "eyehide", "eyeprobe2", "eyeshot2", "fakehand", "key", "eyezoom", "meshprobe", "meshcopy", "depthprobe", "givegun", "fakefocus", "glassdebug" };
 			for (const char* research : research_commands)
 			{
 				if (command == research && !config::research_enabled())
@@ -724,6 +724,7 @@ namespace bfvr::control
 				sscanf_s(argument.c_str(), "%d %f", &mode, &shift);
 				return stereo::set_eye_pass(mode, shift); // no argument = report only
 			}
+			if (command == "glassdebug") return stereo::set_glass_debug(argument == "2" ? 2 : argument == "1" ? 1 : 0);
 			if (command == "scopescissor")
 			{
 				int on = -1;
@@ -895,6 +896,7 @@ namespace bfvr::control
 			if (command == "rightstick") return input::set_right_stick_mode(argument);
 			if (command == "drive") return input::drive_report();
 			if (command == "givegun") return weapon::give_gun_pipe_command(argument);
+			if (command == "unlockfind") return weapon::unlock_find_pipe_command(argument);
 			if (command == "fakefocus") return input::fake_focus(argument);
 			if (command == "reload") return weapon::reload_pipe_command(argument) + "\n" + weapon::game_reload_sounds_report();
 			if (command == "extramesh")

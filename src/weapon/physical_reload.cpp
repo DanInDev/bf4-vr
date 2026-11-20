@@ -1,6 +1,7 @@
 #include "weapon/physical_reload.hpp"
 
 #include "common/controlled.hpp"
+#include "common/settings_store.hpp"
 
 #include <windows.h>
 #include <Xinput.h>
@@ -72,8 +73,14 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t server_firing = 0x200;
 		constexpr std::uintptr_t firing_magazine = 0x1a0;  // int32 rounds in the gun, reserve at +4
 		constexpr int max_slots = 16;
-		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload).
+		// Rounds the game keeps beyond ours, so its magazine never hits 0 (its own reload). #89: for a magazine gun from the
+		// frame time and the gun's rate of fire (spare_rounds_for: 2 at headset frame rates; a fast gun at 20 fps fired
+		// both of 2 before the trigger block reached the game); the launcher keeps its 2.
 		constexpr int spare_rounds = 2;
+		int spares_now = 2;              // render thread: this frame's spares for the gun in hand
+		float frame_seconds_smooth = 1.0f / 90.0f;
+		float rounds_per_second = 20.0f; // the gun's rate while firing, at least 15 (1200 rpm until measured)
+		ULONGLONG burst_at{};            // the last frame the gun fired
 		constexpr ULONGLONG points_max_age_ms = 250;
 
 		template <typename T>
@@ -186,6 +193,7 @@ namespace bfvr::weapon
 		std::atomic<bool> physical{};
 		std::atomic<ULONGLONG> last_shot_at{}; // #65: the muzzle flash move's clock
 		std::atomic<bool> discard{ true };
+		std::atomic<bool> pull_out_on{ true }; // setting magazine_pull_out (#98)
 		std::atomic<bool> palming{ true };
 		std::atomic<bool> free_hand_reload{ true }; // #38; always on since #48 (was free_hand_reload)
 		std::atomic<bool> magazine_flight_on{ true }; // live setting magazine_flight (#47)
@@ -195,6 +203,9 @@ namespace bfvr::weapon
 		std::atomic<bool> game_reload_gun{}; // the gun in hand is one the game reloads
 		std::atomic<bool> gun_points{ true }; // setting gun_points
 		std::atomic<bool> manual_cycle_on{ true }; // setting manual_cycle
+		std::atomic<bool> pump_at_rest_on{ true }; // setting pump_at_rest (#94)
+		std::atomic<bool> lid_lock_on{ true };     // setting lid_hand_lock (#95)
+		std::atomic<bool> both_sides_on{ true };   // setting handle_both_sides (#97)
 		std::atomic<bool> shells_by_hand{ true };  // setting shells_by_hand
 		std::atomic<bool> belts_by_hand{ true };   // setting belts_by_hand
 		std::atomic<bool> revolver_by_hand{ true }; // setting revolver_by_hand
@@ -219,6 +230,7 @@ namespace bfvr::weapon
 			reload gun;
 			break_open launcher;   // #64: used instead of gun when the weapon is a break-open launcher
 			int written{ -1 };     // magazine value we last wrote into the game
+			int written_spares{ 2 }; // #89: the spares in it
 			int written_reserve{ -1 };
 		};
 
@@ -381,7 +393,7 @@ namespace bfvr::weapon
 		// spare, and the trigger is blocked).
 		int game_magazine(const reload& gun)
 		{
-			return gun.rounds_in_gun() + spare_rounds;
+			return gun.rounds_in_gun() + spares_now;
 		}
 
 		// The drawn off hand: its finger shape and, while racking, its hold on the charging handle (eased
@@ -449,7 +461,7 @@ namespace bfvr::weapon
 			ease_magazine_lock(result, ak, seconds);
 			body::set_off_hand_task(grenade_in_hand() && grenade_hand() == 0 ? body::fingers::task::magazine
 				: task == body::fingers::task::free && off_hand_at_belt() ? body::fingers::task::reach : task);
-			const bool racking = result && (result->racking || result->pumping) && has_root;
+			const bool racking = result && (result->racking || result->pumping || (result->lid_held && lid_lock_on.load(std::memory_order_relaxed))) && has_root; // #95: a held lid holds the hand
 			if (racking)
 			{
 				handle_in_gun[0] = result->handle_in_gun.x;
@@ -802,6 +814,21 @@ namespace bfvr::weapon
 		manual_cycle_on = on;
 	}
 
+	void set_pump_at_rest(bool on)
+	{
+		pump_at_rest_on = on;
+	}
+
+	void set_lid_hand_lock(bool on)
+	{
+		lid_lock_on = on;
+	}
+
+	void set_handle_both_sides(bool on)
+	{
+		both_sides_on = on;
+	}
+
 	void set_shells_by_hand(bool on)
 	{
 		shells_by_hand = on;
@@ -830,6 +857,11 @@ namespace bfvr::weapon
 	void set_drop_discards_ammo(bool value)
 	{
 		discard = value;
+	}
+
+	void set_magazine_pull_out(bool on)
+	{
+		pull_out_on = on;
 	}
 
 	void set_palm_reload(bool enabled)
@@ -903,7 +935,7 @@ namespace bfvr::weapon
 			touch.has_rail = points.has_rail;
 			touch.rail = v(points.rail);
 			touch.magwell = v(points.magazine);
-			touch.holding = held != slots.end() && held->second.gun.state().holding;
+			touch.holding = (held != slots.end() && (held->second.gun.state().holding || held->second.gun.state().belt_held)) || last_result.belt_zone; // #95: the lid and belt keep their grip
 			touch.grip = grip;
 			const accessory_result touched = toucher.update(touch);
 			const bool enabled = touch_enabled.load(std::memory_order_relaxed);
@@ -968,6 +1000,8 @@ namespace bfvr::weapon
 			block_grip = false;
 			hand_engaged = false;
 			claims_free_hand = false;
+			body::set_pump_rest(false, 0);
+			last_result.belt_zone = false; // #95: no lid or belt holds the accessory touch off now
 			draw_off_hand(body::fingers::task::free, nullptr, false, seconds);
 			return;
 		}
@@ -996,21 +1030,37 @@ namespace bfvr::weapon
 		if (weapon.launcher)
 		{
 			draw_belt_feed(nullptr, 0.0f);
+			body::set_pump_rest(false, 0);
+			last_result.belt_zone = false;
 			update_launcher(weapon, memory, points, pad, grip, hands_valid && !gun_dropped(), seconds);
 			return;
 		}
 		hide_launcher();
 		reload& gun = memory.gun;
-		gun.configure({ discard.load(std::memory_order_relaxed) });
+		gun.configure({ discard.load(std::memory_order_relaxed), pull_out_on.load(std::memory_order_relaxed) });
 		gun.set_manual_cycle(manual_cycle_on.load(std::memory_order_relaxed) && profile_for(weapon.name, weapon.capacity).manual_cycle);
 
 		// Shots: the game counted down from what we wrote. Anything else (pickups) moves the reserve.
 		if (memory.written >= 0)
 		{
-			for (int shot = 0; shot < memory.written - weapon.magazine && shot < 100; ++shot)
+			const int fired = std::clamp(memory.written - weapon.magazine, 0, 100);
+			for (int shot = 0; shot < fired; ++shot)
 			{
 				remember(gun.fire());
 				++shots;
+			}
+			// #89: the gun's rate of fire, averaged over the frames of a burst (zero-shot frames too, so one shot in a
+			// short frame is not read as a hundred a second); the spares follow it and the frame time.
+			const ULONGLONG now_tick = GetTickCount64();
+			if (fired > 0)
+			{
+				burst_at = now_tick;
+			}
+			if (seconds > 0.0f && now_tick - burst_at < 150)
+			{
+				const float weight = 1.0f - std::exp(-seconds / 0.3f);
+				rounds_per_second += (std::fmin(fired / seconds, 200.0f) - rounds_per_second) * weight;
+				rounds_per_second = std::clamp(rounds_per_second, 15.0f, 30.0f); // at least 900 rpm: the frames after the block count too
 			}
 			if (memory.written > weapon.magazine)
 			{
@@ -1021,7 +1071,7 @@ namespace bfvr::weapon
 			if (weapon.magazine > memory.written)
 			{
 				log::write("reload: the game raised %s's magazine %d -> %d; taking its rounds", weapon.name, memory.written, weapon.magazine);
-				gun.load(weapon.magazine - spare_rounds, weapon.reserve);
+				gun.load(weapon.magazine - memory.written_spares, weapon.reserve);
 			}
 			else if (memory.written_reserve >= 0 && weapon.reserve != memory.written_reserve)
 			{
@@ -1063,6 +1113,7 @@ namespace bfvr::weapon
 			float point[3]{};
 			const bool per_gun = gun_points.load(std::memory_order_relaxed);
 			frame.has_handle_point = per_gun && handle_point_for(weapon.name, point);
+			frame.handle_both_sides = both_sides_on.load(std::memory_order_relaxed) && handle_both_sides(weapon.name);
 			if (handle_override_on)
 			{
 				std::copy(std::begin(handle_override), std::end(handle_override), point);
@@ -1075,6 +1126,9 @@ namespace bfvr::weapon
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
+			// #94: the hand pumps it, so the game's stroke after every shot is not drawn (keyed by the gun's ammo object).
+			body::set_pump_rest(frame.pump && pump_at_rest_on.load(std::memory_order_relaxed),
+				static_cast<unsigned>(weapon.ammo ^ (weapon.ammo >> 32)) | 1u);
 			frame.tube = gun.profile().tube;
 			frame.belt = gun.profile().belt;
 			frame.revolver = gun.profile().revolver;
@@ -1216,6 +1270,11 @@ namespace bfvr::weapon
 		}
 		sound_if_magazine_left(magazine_was_in, gun);
 
+		if (seconds > 0.0f && seconds < 1.0f)
+		{
+			frame_seconds_smooth += (seconds - frame_seconds_smooth) * 0.02f;
+		}
+		spares_now = spare_rounds_for(rounds_per_second, frame_seconds_smooth);
 		const int wanted = game_magazine(gun);
 		if (wanted != weapon.magazine)
 		{
@@ -1226,6 +1285,7 @@ namespace bfvr::weapon
 			write(weapon.ammo + 4, gun.state().reserve);
 		}
 		memory.written = wanted;
+		memory.written_spares = spares_now;
 		memory.written_reserve = gun.state().reserve;
 
 		if (result.draw == magazine_draw::with_gun || !points.valid)
@@ -1242,6 +1302,7 @@ namespace bfvr::weapon
 			pose.tilt_pivot = hand_config{}.palm_pivot_drop;
 			pose.ak = gun.profile().kind == variant::ak;
 			pose.shell = gun.profile().tube;
+			pose.hold_drop = settings::global().boolean("magazine_by_gun", true) ? magazine_hold_drop(weapon.name) : 0.0f;
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
 			pose.position[2] = result.magazine_position.z;
@@ -1303,7 +1364,7 @@ namespace bfvr::weapon
 		body::set_extra_magazine(extra);
 
 		const body::fingers::task off_task = gun.state().holding || result.draw == magazine_draw::in_hand ? body::fingers::task::magazine
-			: result.racking ? body::fingers::task::handle
+			: result.racking || (result.lid_held && lid_lock_on.load(std::memory_order_relaxed)) ? body::fingers::task::handle
 			: result.in_zone != hand_result::zone::none ? body::fingers::task::reach : body::fingers::task::free;
 		draw_off_hand(off_task, &result, frame.has_root, seconds, gun.profile().kind == variant::ak);
 		draw_belt_feed(gun.profile().belt || gun.profile().revolver ? &result : nullptr, frame.lid_degrees, gun.profile().revolver,
@@ -1499,9 +1560,9 @@ namespace bfvr::weapon
 		const bool grab_measured = per_gun && magazine_grab_for(found->second.name, gun_grab);
 		float way_out_degrees = 0.0f;
 		const bool way_out_measured = per_gun && magazine_way_out_for(found->second.name, way_out_degrees);
-		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
-			r.rack_underhand ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
-			handle_measured ? "measured" : "variant-default", gun_handle[0], gun_handle[1], gun_handle[2],
+		std::snprintf(rack, sizeof(rack), "\nrack underhand=%d mirrored=%d under_zone=(%.3f,%.3f,%.3f) radii=(%.2f,%.2f,%.2f) handle_in_gun=%s(%.3f,%.3f,%.3f) magazine_grab=%s(%.3f,%.3f,%.3f) way_out=%s(%.0f deg)",
+			r.rack_underhand ? 1 : 0, r.handle_mirrored ? 1 : 0, r.under_centre.x, r.under_centre.y, r.under_centre.z, r.under_radii.x, r.under_radii.y, r.under_radii.z,
+			!handle_measured ? "variant-default" : handle_point_from_model(found->second.name) ? "model" : "measured", gun_handle[0], gun_handle[1], gun_handle[2],
 			grab_measured ? "measured" : "default", gun_grab[0], gun_grab[1], gun_grab[2], way_out_measured ? "measured" : "straight", way_out_degrees);
 		char touch[256];
 		std::snprintf(touch, sizeof(touch), "\naccessory_touch=%d busy=%d toggles=%llu optic=(%.3f,%.3f,%.3f)%s rail=(%.3f,%.3f,%.3f)%s",
@@ -1517,11 +1578,12 @@ namespace bfvr::weapon
 		const gun_state& s = gun.state();
 		int length = std::snprintf(text, sizeof(text),
 			"reload=%s active=%d weapon=%s slot=%d variant=%s capacity=%d\n"
-			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu\n"
+			"magazine_in=%d magazine=%d chamber=%d bolt_locked=%d holding=%d held=%d palmed=%d reserve=%d game_written=%d shots=%llu spares=%d rate=%.1f frame_ms=%.1f\n"
 			"magwell=(%.3f,%.3f,%.3f) slide=(%.3f,%.3f,%.3f) off_hand=(%.3f,%.3f,%.3f) points_valid=%d\nrecent:",
 			physical ? "physical" : "button", active ? 1 : 0, found->second.name.c_str(), current_slot, gun.profile().kind == variant::ak ? "AK" : "AR",
 			gun.profile().capacity, s.magazine_in ? 1 : 0, s.magazine_rounds, s.chamber ? 1 : 0, s.bolt_locked ? 1 : 0, s.holding ? 1 : 0,
-			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), points.magazine[0], points.magazine[1],
+			s.held_rounds, s.palmed ? s.palmed_rounds : -1, s.reserve, found->second.written, static_cast<unsigned long long>(shots), spares_now,
+			rounds_per_second, frame_seconds_smooth * 1000.0f, points.magazine[0], points.magazine[1],
 			points.magazine[2], points.slide[0], points.slide[1], points.slide[2], points.hand[hand][0], points.hand[hand][1], points.hand[hand][2],
 			points.valid ? 1 : 0);
 		for (int i = 0; i < recent_count && length > 0 && length < static_cast<int>(sizeof(text)); ++i)

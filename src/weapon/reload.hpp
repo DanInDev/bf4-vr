@@ -57,6 +57,9 @@ namespace bfvr::weapon
 		// open (lid_open; the extractor throws the cases), a speedloader from the pouch fills the empty chambers at the open
 		// cylinder, the frame shut (a flick up or a push) brings the next chamber under the hammer: double action.
 		bool revolver{};
+		// #98: no release button (gun_traits release none on a box or top feed: the P90, the AK 5C; owner 2026-11-19): the
+		// button never frees the magazine, the hand pulls it out (grab_magazine), as an AK's; the bolt catch still works.
+		bool pull_out{};
 	};
 
 	bool locks_open(const reload_profile& profile);
@@ -64,6 +67,7 @@ namespace bfvr::weapon
 	struct reload_options
 	{
 		bool drop_discards_ammo{ true };
+		bool pull_out{ true }; // setting magazine_pull_out: off, a pull_out gun's button frees the magazine as before
 	};
 
 	// What an event did, for haptics, sounds and the Mag bone.
@@ -119,6 +123,7 @@ namespace bfvr::weapon
 	public:
 		explicit reload(const reload_profile& profile = {}, const reload_options& options = {});
 		void configure(const reload_options& options) { options_ = options; }
+		bool pulled_by_hand() const { return profile_.pull_out && options_.pull_out; } // #98
 		const reload_profile& profile() const { return profile_; }
 		// Setting manual_cycle, live: a gun that cycles by hand can be switched to the game's automatic cycle.
 		void set_manual_cycle(bool on) { profile_.manual_cycle = on; }
@@ -163,4 +168,10 @@ namespace bfvr::weapon
 		reload_options options_;
 		gun_state state_;
 	};
+
+	// #89: the rounds the game's magazine keeps beyond ours, so it never reaches 0 (its own reload) before the trigger
+	// block reaches the game, about three frames after our last round: the shots a gun firing this many rounds per
+	// second fires in three frames of this length, plus one; never fewer than 2 (as before: the game's HUD counter
+	// reads this many high, so a normal frame rate keeps it at 2), at most 8.
+	int spare_rounds_for(float rounds_per_second, float frame_seconds);
 }

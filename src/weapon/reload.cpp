@@ -1,9 +1,22 @@
 #include "weapon/reload.hpp"
 
+#include <cmath>
+
 #include <algorithm>
 
 namespace bfvr::weapon
 {
+	int spare_rounds_for(float rounds_per_second, float frame_seconds)
+	{
+		if (!(rounds_per_second > 0.0f) || !(frame_seconds > 0.0f) || !std::isfinite(rounds_per_second) || !std::isfinite(frame_seconds))
+		{
+			return 2;
+		}
+		const float in_flight = rounds_per_second * frame_seconds * 3.0f;
+		const int spares = static_cast<int>(std::ceil(in_flight)) + 1;
+		return spares < 2 ? 2 : spares > 8 ? 8 : spares;
+	}
+
 	bool locks_open(const reload_profile& profile)
 	{
 		return profile.hold == hold_open::by_kind ? profile.kind == variant::ar : profile.hold == hold_open::yes;
@@ -135,9 +148,9 @@ namespace bfvr::weapon
 				return reload_event::none;
 			}
 		}
-		if (!state_.magazine_in)
+		if (!state_.magazine_in || pulled_by_hand())
 		{
-			return reload_event::none;
+			return reload_event::none; // #98: no release button to press
 		}
 		const int rounds = state_.magazine_rounds;
 		state_.magazine_in = false;
@@ -159,8 +172,8 @@ namespace bfvr::weapon
 
 	reload_event reload::grab_magazine()
 	{
-		// An AR magazine is latched until the button releases it.
-		if (profile_.kind != variant::ak || profile_.tube || !state_.magazine_in || state_.holding)
+		// An AR magazine is latched until the button releases it (#98: unless the gun has none to press).
+		if ((profile_.kind != variant::ak && !pulled_by_hand()) || profile_.tube || !state_.magazine_in || state_.holding)
 		{
 			return reload_event::none;
 		}
@@ -304,7 +317,8 @@ namespace bfvr::weapon
 
 	reload_event reload::take_belt()
 	{
-		if (!profile_.belt || !state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding)
+		// #95: an empty box has no belt left to take (its box comes off with the lid up).
+		if (!profile_.belt || !state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding || state_.magazine_rounds == 0)
 		{
 			return reload_event::none;
 		}

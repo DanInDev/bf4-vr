@@ -182,6 +182,39 @@ int main()
 		saw.open_lid();
 		saw.take_belt();
 		expect(saw.drop_belt() == reload_event::belt_dropped && !saw.state().belt_laid, "M249: the belt let go off the tray hangs again");
+		{
+			// #95: an empty box has no belt to take; its box comes straight off with the lid up.
+			reload empty(profile_for("U_M249", 200));
+			empty.load(0, 200);
+			empty.open_lid();
+			expect(empty.state().magazine_rounds == 0 && empty.take_belt() == reload_event::none && !empty.state().belt_held, "M249 empty: no belt to take");
+			expect(empty.press_button(true) == reload_event::magazine_out, "M249 empty: lid up, the box comes off");
+		}
+	}
+	// #98: no release button on the P90 and the AK 5C (owner, marks 31 and 1): the hand pulls the magazine out, B does not drop it.
+	for (const char* name : { "U_P90", "U_AK5C" })
+	{
+		const reload_profile profile = profile_for(name, 51);
+		expect(profile.kind == variant::ar && profile.pull_out, (std::string(name) + ": pulled out by hand").c_str());
+		reload gun(profile);
+		gun.load(10, 100);
+		expect(gun.press_button(false) == reload_event::none && gun.state().magazine_in, (std::string(name) + ": B does not drop it").c_str());
+		expect(gun.press_button(true) == reload_event::none && gun.state().magazine_in, (std::string(name) + ": nor with the hand on it").c_str());
+		expect(gun.grab_magazine() == reload_event::magazine_out && gun.state().holding && gun.state().held_rounds == 9, // 10 in the gun: 9 + the chambered one
+			(std::string(name) + ": the hand takes it out").c_str());
+		gun.configure({ true, false }); // setting magazine_pull_out off: B as before
+		gun.let_go(false);
+		gun.take_from_chest();
+		gun.insert();
+		gun.press_button(true); // the first press after a new magazine is the bolt catch where the gun has one
+		gun.press_button(true);
+		expect(!gun.state().magazine_in, (std::string(name) + ": setting off, B releases it again").c_str());
+	}
+	{
+		reload m416(profile_for("U_M416", 31));
+		m416.load(10, 100);
+		expect(!profile_for("U_M416", 31).pull_out && m416.grab_magazine() == reload_event::none, "M416: latched until B, as before");
+		expect(!profile_for("U_AK12", 31).pull_out && profile_for("U_AK12", 31).kind == variant::ak, "AK-12: the AK variant, not pull_out");
 	}
 	// Charging handles (tools/handle_probe.py): measured guns have their own point and side, the rest the variant's.
 	{
@@ -191,7 +224,28 @@ int main()
 		expect(handle_point_for("U_SAIGA_20K", point) && point[0] < 0.0f, "Saiga: on the right, as an AK");
 		expect(handle_point_for("U_AK12", point) && point[0] < 0.0f, "AK-12: the 11-03 point kept");
 		expect(handle_point_for("U_SCAR-HSV", point) && point[0] > 0.0f, "SCAR-H SV: the SCAR-H's");
-		expect(!handle_point_for("U_M416", point), "M416: its empty reload uses the bolt release: the variant's point");
+		// #88: the 11 guns whose reload never pulls the handle, placed from the model, on the owner's side.
+		for (const char* right : { "U_AK5C", "U_AEK971", "U_SG553LB", "U_M240", "U_M249" })
+		{
+			expect(handle_point_for(right, point) && point[0] < 0.0f && handle_point_from_model(right), "model: on the right (-x)");
+		}
+		for (const char* left : { "U_UMP45", "U_SteyrAug" })
+		{
+			expect(handle_point_for(left, point) && point[0] > 0.0f && handle_point_from_model(left), "model: front left (+x)");
+		}
+		for (const char* top : { "U_M16A4", "U_M416", "U_MK11", "U_QBZ951" })
+		{
+			expect(handle_point_for(top, point) && point[0] == 0.0f && point[1] > 0.05f && handle_point_from_model(top), "model: on top");
+		}
+		expect(handle_point_for("U_M416", point) && point[2] < 0.25f, "M416: the rear T-handle");
+		expect(!handle_point_from_model("U_FAMAS") && !handle_point_from_model("U_AK12"), "measured guns are not from the model");
+		expect(handle_point_for("U_M416", point) && handle_point_from_model("U_M416"), "M416: its empty reload uses the bolt release: placed from the model (#88)");
+		// #90: a held magazine by its body, where the game's own hand takes it.
+		expect(std::fabs(magazine_hold_drop("U_FAMAS") - 0.037f) < 1e-4f, "FAMAS: held 3.7 cm below its top (its short box)");
+		expect(std::fabs(magazine_hold_drop("U_M416") - 0.089f) < 1e-4f, "M416: 8.9 cm (a STANAG)");
+		expect(magazine_hold_drop("U_SAR21") == 0.12f, "SAR-21: its 13.5 cm clamped to 12");
+		expect(magazine_hold_drop("U_P90") == 0.0f && magazine_hold_drop("U_MX4") == 0.0f, "P90 (grab above the top), MX4 (not measured): none, the grip's own");
+		expect(magazine_hold_drop("U_RFB_SP") == 0.02f, "RFB: 1.4 cm clamped to 2");
 		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
 		{
 			// The P90: its handle well away from where its top magazine is taken (they were 2 cm apart with the AR default).

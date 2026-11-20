@@ -87,8 +87,9 @@ itself** (the owner's report "after a respawn it automatically reloads itself").
 
 - Write only the server weapon; read shots back from it (the game counts down from what we wrote).
 - Never let the game's magazine reach 0: it would start its own reload. The mod writes the rounds
-  in the gun plus 2 spare rounds and holds the trigger back while the chamber is empty, so the HUD
-  ammo counter reads 2 high in physical mode (`hud_show_ammo = 0`, or a wrist counter later).
+  in the gun plus spare rounds and holds the trigger back while the chamber is empty, so the HUD
+  ammo counter reads that many high in physical mode (`hud_show_ammo = 0`, or a wrist counter later):
+  2 at headset frame rates, more only when frames are slow (#89, `spare_rounds_for`, below).
 - The game's reload button (pad X) is taken: AR magazine release / bolt catch.
 - `Wep_Mag` is drawn by the mod while the magazine is out (in the hand, falling, or 50 m below).
 
@@ -1074,6 +1075,323 @@ gun from above (eye 12.7 cm off the line, 19 cm behind the game's eye point): de
 | Head pitched 35 deg down at the gun at the hip | `in_view=0`, nothing patched | full optic (hip model) |
 | Sight at the right eye (1.5 cm off the line) | `at_eye=1 in_view=1` | clear lens, the reticle's arc in it |
 | Gun held out, eye 7.8 cm beside the line, 28 cm back | `in_view=1` | (zoom model) |
+
+## Every optic kind at the eye: what BF4 draws (2026-11-19 night, monitor, Shanghai, #137)
+
+Build of the captures: the #138 code (zoom power from data) on top of this S1 work, built as 710e93f, now
+`sights/s2-zoom-power` 7e8c07d with the same sources. The draws do not depend on it; the mod's lens picture does (its
+power came from the data, ACOG 2.74). Setup: own crate with attachments (`givegun U_CZ805 0 U_CZ805_EOTech U_CZ805_Magnifier`; attachments are
+`BFUnlockAsset`s, vtable `0x141C46540`, found as `SoldierWeaponUnlockAsset`'s was: the getType `0x141A36B70` is
+`lea rax,[0x142BE3090]; ret`, the typeinfo `BFUnlockAsset`, and slot 0 of `0x141C46540` points at it; put in the
+weapon's `UnlockWeaponAndSlot.UnlockAssets` +0x18; pipe `unlockfind <text>` lists them). Release, `fakehead 0.064`,
+`free_hands 0` and `use_reach 0` for the probe (else the gun drops to the sling after each grip hold and the off hand
+reach presses "use" at the cache). Holds with the right eye on the line: CZ-805 `fakehand 0 0 0.007 -0.214 -0.600 0.085
+-0.222 -0.300` (0.4-1.0 cm off), SRS `fakehand 0 0 -0.025 -0.090 -0.400 0.053 -0.098 -0.100` (0.8 cm); both grips by
+`pad 0 0 0 0 9500 0300` (the pad holds at most 10 s). Per configuration: `sightstate`, then for `zoommesh 1` (hip model)
+and `zoommesh 0` (zoom model) two `reticle dump`s (every stencil-tested draw of one first-eye render) and `eyeshot2`.
+A draw counts as the optic's when it is in both dumps of the configuration and in none of the four dumps of the bare
+gun (key: index count, start, pixel shader, target, stencil reference). Script and raw files: the run's scratchpad
+(`s1probe2.py`, `s1analyse.py`, `s1b/analysis.txt`, not committed); the analysis is on #137.
+
+Optic-specific draws (targets: `BF20` = the lit first-person pass, `DBE0` = a later blended pass, `D760` = additive):
+
+| Configuration | Body (lit pass, stencil 32, opaque) | Blended (ONE / INV_SRC_ALPHA, stencil 2, no depth write) | Additive |
+| --- | --- | --- | --- |
+| CZ-805 PK-AS (red dot) | 5106 @780, 5106 @5916 | 6 @0, 30 @5886, 780 @0 | - |
+| CZ-805 EOTech (holo) | 330 @6141, 5991 @0, 6321 @6489 | 150 @5991, 18 @6471 (zoom model: also 6 @0) | - |
+| EOTech + magnifier, folded and flipped (identical) | the EOTech's + 6273 @48, 6273 @6351 | the EOTech's + 48 @0, 30 @6321, 6 @0 | - |
+| CZ-805 ACOG (4x) | 6921 @0, 6951 @7071, **30 @6993** | 72 @6921, 24 @7023, 24 @7047, 6 @0 | **30 @6993** |
+| CZ-805 IRNV (night vision) | 360 @0, 192 @360, 552 @582: **the only lit-pass draws left, the gun and arms are gone** (see below) | 24 @552, 6 @576 | **6 @0** |
+| SRS Rifle_Scope | the same 3 draws, **the gun gone** | 24 @552, 6 @0, 6 @576 | - |
+
+Answers to the issue's question, per kind:
+- **Scope optics (IRNV, SRS rifle scope) hide the whole first-person gun while the game aims:** of the bare gun's
+  draws present in every bare capture, the IRNV removes 34 (the lit pass drops from 10 stencil-32 draws to 3: gun body
+  and arms gone), the SRS scope all 10 of its lit-pass gun draws; both leave the same three scope-model draws (360 @0,
+  192 @360, 552 @582, same shaders on two guns). The red dot, holo, magnifier and ACOG remove nothing. **It is the
+  game's aim with such a scope:** the bare SRS aiming keeps its gun; the scoped SRS at the eye with `sight_ads 0`
+  (`current=0`) has 13 stencil-32 draws and the gun and hand in `eyeshot2`, with `sight_ads 1` (`current=1`) 3 and no
+  gun, both ways twice (0, 1, 0). So the mod's forced aim hides these guns; that matches the headset's "long sniper
+  rifles not supported" (mark 75, not re-checked in the headset) and may be the "pure black" scope (mark 21, unproven).
+  Such optics need the game's aim left off (their picture from the mod) or the gun kept drawn.
+- **The EOTech alone was not aiming** (`current=0`): by design, a clear holo skips the game's aim
+  (`weapon/optics::needs_game_aim`); with the magnifier fitted it aims (`current` 1, flipped 2).
+- **Stencil reference 32 is not a glass marker:** every first-person draw of the lit pass carries it (the bare gun's
+  too). Great Destroyer's BF3 key does not carry over as is.
+- **Magnified scopes have a glass mesh of their own:** the ACOG's 30-index disc (`@6993`) is drawn in the lit pass and
+  again additively: that is the glass to draw on. The IRNV has a 6-index additive quad (`@0`). The SRS scope shows no
+  additive glass draw in these dumps; its 6-index blended quads (`@0`, `@576`) are the candidates.
+- **Reflex sights** (PK-AS, EOTech) have no additive glass: their lens is blended draws (the PK-AS a 6-index quad among
+  them). The 6-index blended no-depth-write quads the mod's `reticle_draw` catches exist in every optic's frame
+  (1-3 per frame), so "6 indices, stencil 2" alone does not name the lens.
+- **The magnifier flip and the zoom mesh change no draw:** folded and flipped, `zoommesh` 1 and 0 give identical draw
+  sets. They change which parts are shown (bones), not which draws run; the glass shader has to work from the draws
+  above, whatever is shown.
+- **Not answered here:** the USAS-12 (its optics are not loaded in Shanghai, `unlockfind USAS` finds none); the
+  AUG A3 (`U_SteyrAug` lists a magnifier but no red dot or holo here); the AK-12's PK-AS (not loaded here).
+
+What the right eye shows (`eyeshot2` on the capture build above, pictures not committed):
+- EOTech: clear window, ring centred; the folded magnifier on its hinge. Flipped in: the mod's magnified picture in the
+  round lens with a red dot.
+- ACOG: the mod's picture (power 2.74 from the data on this build) with the mod's dot; the ACOG's own chevron is not seen.
+- IRNV: **the whole picture turns green night vision**, the lens brighter: the game's full-screen effect comes on with
+  the forced aim. A candidate for the owner's "pure black" scope (mark 21), not proven.
+- SRS scope: the eyepiece a few cm from the eye fills the top of the view and its hole shows the world at 1x; the
+  mod's magnified disc floats lower down, 10+ cm from it: `scope_in_frame` places the picture with the magnifier's
+  constants for every optic.
+- Every optic: a rounded square to the right of the optic in the right eye, the known second-eye stray (In-frame lens,
+  step 0), not a sight draw.
+
+## Every optic's zoom from the game's data (2026-11-19 night, monitor, Shanghai, #138)
+
+The aiming simulation (ClientSoldierWeapon `+0x4988`) keeps the zoom levels as the optic makes them: a
+`ZoomLevelData*` per level from `+0x238` (level 0 the hip), `FieldOfView` `+0x10`, `FieldOfViewSP` `+0x14` (the
+campaign's when > 0). Found by `find_typed.py ZoomLevelData --root <aiming>`. `WeaponZoomLevelData.RenderFov` (the
+weapon's level list) is 55/83.3 whatever the optic: the gun model's render FOV, not the zoom.
+
+`weapon::zoom_power` = tan(hip / 2) / tan(level / 2) of the selected level, 1 below 1.25x. Monitor, at the hip with no
+game aim before (`sightstate`), then the game's own ADS FOV (`ads_trigger 1` + LT, `scope` game_fov):
+
+| Gun / optic | zoom_fov (hip/levels) | power | game ADS FOV |
+| --- | --- | --- | --- |
+| CZ-805, iron | 45/42 | 1.00 | 42 |
+| CZ-805 PK-AS | 45/40 | 1.00 | 40 |
+| CZ-805 EOTech + magnifier, folded / flipped (D-pad up) | 45/40/27 | 1.00 / 1.73 | 27 (flipped) |
+| CZ-805 ACOG, AUG ACOG | 45/17.2 | 2.74 | 17.2 |
+| CZ-805 IRNV | 45/40 | 1.00 | 40 |
+| AUG magnifier (no red dot here), flipped | 45/42/27 | 1.73 | 27 |
+| SRS Rifle_Scope | 45/8.7 | 5.45 | 8.7 |
+| SRS CL6X (not in the name table) | 45/11.6 | 4.08 | 11.6 |
+
+`stereo/scope` takes this power first (the learned zoom and the name table stay as fallbacks): at the hip the PK-AS
+gets no picture (`at_hip=0`), the CL6X (4.08) and the ACOG (2.74, was the name table's 4.0) get one. The magnifier's
+1.73 equals the 1.725 learned before from the game's ADS.
+
+## The picture in the optic's own glass (2026-11-20 night, monitor, Shanghai, #139)
+
+`scope_glass` (on, needs `scope`): a magnified optic shows the scope picture (the separate gun-free scope render,
+`scope_compose`) composed into the eye's image only inside the optic's own glass, read by angle as Great Destroyer's
+lens does (`scopezoom.cpp`: what is seen at a slope off the sight line through an optic of power P is the world at
+slope / P). Scopes and magnifiers then go without the game's aim. What was learned on the way:
+
+- **The eye's own HDR image cannot be the source.** A copy taken at the lens quad already holds the optic's housing:
+  the first-person gun is drawn into the G-buffer (target `..BF20`, stencil 32) and lit together with the world, so
+  there is no lit image without it (S1 dumps: the ref-32 draws all go to `..BF20` before the HDR pass `..DBE0`).
+  Magnified, the housing filled the SRS glass black. Dead end; the picture is the scope render.
+- **The scope render keeps the eye's orientation.** Matched against an eye shot of the same direction (`s3where`,
+  correlation 0.5): its picture is centred on the view's axis whatever the gun's pitch (hold level: centre at
+  (1108, 1079) with the sight line's point at (1108, 1215); hold pitched 6 degrees up: both at the centre within
+  15 px), at the FOV it is given (scale within ~13 % of the prediction). `scope_math::compose_rows` matches
+  `eye_math::compose_pose`; where the gun's turn is lost (the constant patch, `view_update`) is open. So the glass maps
+  the world direction (line + slope / P along the gun's axes) into the picture by the picture's own axes, the eye's
+  (`lens_math::glass_picture_uv`), and the render's FOV is widened to reach the line plus the field stop
+  (`glass_picture_reach`). The old flat picture showed the view along the head, not the gun: likely why it "barely
+  worked".
+- **Lens draws show only where no first-person geometry is**: depth-stencil `func 7` (GREATER_EQUAL) with read mask
+  `0xF0` against ref 2, so a pixel with the first-person bit `0x20` fails, and a draw's shape is not the glass. The
+  candidates are every small (<= 64 index) stencil-ref-2, no-depth-write, ONE / INV_SRC_ALPHA draw of the eye render:
+  the 6-index reticle quads and the scopes' glass (S1: the ACOG's 30-index, the SRS's 24-index). The glass is the ones
+  the sight line passes through, per eye, by an occlusion query of a 3-pixel probe at the line's point
+  (`lens_math::choose_glass`), kept while the eye leaves the line until the kept draws' total size halves or doubles.
+- **The game's aim with a high-power scope is not the 3D optic**: the dark shape with a round hole seen with the SRS
+  while the game aims is BF4's flat sniper overlay (the "gun hidden" of #137). With the glass on it no longer starts.
+- **The SRS's hip model has a closed eyepiece**: `glassdebug` puts the sight line's point on the scope's solid rear,
+  its three lens draws in front of it (43-52k pixels), none on the line. Such an optic gets a **virtual eyepiece**: the
+  same angle mapping in a 2 cm disc on the line (where the flat picture's lens was), with an aim dot.
+- The other eye gets no picture (a real scope shows nothing beside it); the flat picture never draws with the glass on.
+
+Monitor (fake head 0.064, CZ-805 hold, right eye 0.3-0.4 cm off the line; `scope`, `eyeshot2`, `eyeshot`):
+
+| Optic | power | shown as | notes |
+| --- | --- | --- | --- |
+| bare, PK-AS, EOTech, magnifier folded, IRNV | 1.00 | reticle lens as before | glass on vs off within shot-to-shot noise, at 0 and 1.7 cm off the line |
+| magnifier flipped | 1.73 | its glass (3 draws on the line) | flip in 0.1-0.2 s, out 0.5-1.0 s |
+| ACOG | 2.74 | its glass (2-3 draws) | the world along the line, magnified; the rim covers the edge; left eye: the plain optic |
+| ACOG, eye 1.7 cm off | 2.74 | kept glass | field stop 0.064 (0.38 on the line, shut at 2 cm): darkens from the edge |
+| SRS Rifle_Scope (hip model) | 5.45 | virtual eyepiece | its picture's line point at uv (0.39, 0.70), inside the disc |
+
+fps: bare gun at the hip 159 with the glass on and off; with the ACOG ~75-81 on, 76 off (the scope render's cost; the
+glass widens its scissor from 30 % to 45 % of the height).
+
+## The reticle at each optic's own zoom (2026-11-20 night, monitor, Shanghai, #140)
+
+`sight_lens` sizes the reticle art from the view of the zoom level the reticle belongs to (aiming simulation `+0x238`
+levels, #138; `lens_math::reticle_level_fov`) instead of the 40 degree constant; `sight_lens_fov` of 10 or more
+overrides. A scope's art (ACOG 17.2, SRS 8.7) at its own level; a flipped magnifier keeps the red dot's or holo's level
+(40, not its own 27): inside the glass the art is magnified with the world (`glass_reticle_span` = span x power), so
+the magnifier's ring grows with its power as through a real magnifier (owner's rule in #140; the game's own aim would
+give 1.14x). Monitor (CZ-805 at the right eye; the red pixels' fitted extent inside the glass, 5 shots): flipped /
+folded magnifier ring width 1.727, height 1.779 (expected 1.73); EOTech and PK-AS with data against a 40 override
+1.02 / 1.00. In the glass, measured as drawn (pipe `glassdebug 2`: the glass black, its reticle art pure green, so no
+red in the scene counts): ACOG override 10 / data 17.2 width 0.579 (expected 0.579; its height is clipped by the
+glass), flipped magnifier override 20 / data 40 width 0.500, height 0.490 (expected 0.485). The AUG with only its
+magnifier (no red dot or holo loaded in Shanghai; a hold searched to put the eye on its line, 0.00 cm) shows the
+magnified world in its glass. It has no reticle quad: its only 6-index stencil-2 blended draws (`reticle dump`) are
+the two additive (ONE / ONE) quads every gun draws, which `reticle_draw` still takes for one (its `reticle_span`
+0.0292 = 0.038 at 42 degrees comes from them). That is the open lead of #93 (the red square on every sight):
+`reticle_draw` on this branch still accepts any blend; restricting it to the lens blend is #93's own work. The red pixels near its optic are
+the same with `sight_lens` on and off (92 / 107 with the magnifier in, 51 / 56 out): the scene's lamps, no reticle. Red-pixel counts are no size measure: the
+folded ring is drawn in the HDR pass (tonemapped), the flipped one composed after it at full colour, so the same ring
+has a different thresholded area (139 against 24 px for 1.73x); the extents agree.
+
+**The game's aim picture never reaches the VR eye image.** With the glass and the forced aim off, the game aimed by
+LT (`game_fov` 45 -> 17.2, `aiming=1`), the eye image above the gun changed by 0.71 (mean absolute, 0-255) against
+0.61 between two hip shots: the eye renders keep the headset's view. A reticle cannot be compared against the game's
+own aim picture in VR; its art spans `size` of the screen at the level's FOV by the game's own definition.
+
+## The red square on every sight (2026-11-20 night, monitor, Shanghai, #93)
+
+Every gun draws two additive (ONE / ONE) 6-index quads with stencil ref 2 and no depth write, iron sights included
+(#137 S1). `reticle_draw` took them for a reticle quad, so `sight_lens` drew their art by slope: `reticle grab` on a
+bare CZ-805 saved the art (t3) as a 64x64 texture with alpha 255 everywhere, and its material size (ps cb1 float 8)
+is 1, so the lens used its 0.038 default: a solid red square ~1.6 degrees wide on the sight line (owner's marks 8
+Hawk, 9 M1014, 43 AUG). Fix: `reticle_draw` accepts only ONE / INV_SRC_ALPHA, every optic's own reticle quad's blend.
+Monitor: lens reticle draws per second with iron sights 636 -> 0 (CZ-805, Hawk `U_870`, M1014), the EOTech's ring still
+drawn (316 per second, the same red ring pixels). At the Shanghai night hold the square was not visible even before
+(the only red near the sight is a city lamp, equal with `sight_lens` on and off): the headset check (AIM-21) is the
+daylight one.
+
+## Fast guns and the game's own reload (2026-11-20 night, monitor, Shanghai, #89)
+
+The mod keeps the game's magazine at ours + spare rounds and blocks the trigger once our chamber is empty; the block
+reaches the game a few frames later. With 2 spares a fast gun fired both and the game reloaded by itself
+(`the game raised ... 2 -> full`). Reproduced only at a low frame rate (`user.cfg` `GameTime.MaxVariableFps`, removed
+afterwards): at 155 and 39 fps the game's magazine stayed at 2; at 20 fps the P90 (2 -> 51), Scorpion (2 -> 31, twice)
+and JS2 (2 -> 31, twice) did what the owner's headset run logged.
+
+The spares now follow the frame time and the gun's rate (`spare_rounds_for` = the shots of three frames + 1, 2 to 8;
+the rate averaged over a burst's frames and never below 15 a second, since the frames after the block count too):
+2 at 90-155 fps, as before (the game's HUD counter reads 2 high, as always), 3 at 30-40 fps (and at 72 fps for a gun
+measured above 24 rounds a second), 4 at 20 fps; at most 6 live (the frame time is capped at 0.1 s), where the P90, Scorpion and
+JS2 then run dry with the game's magazine at 4 and no raise. A fixed 6 was tried first and dropped: the HUD read 6 high
+(verifier, `pipe shot`: 6/153 with our gun empty). A raise is still taken as the game's rounds: an empty picked-up gun
+gets its first load that way (above).
+
+## The rack fist on the knob (2026-11-20 night, monitor, Shanghai, #87)
+
+The rack fist's grasp centre is placed at the knob plus `rack_fist_offset` (settings `rack_over_out` / `rack_over_up`,
+`rack_under_out` / `rack_under_down`); since 2026-11-15 5 cm out and 1 cm up (overhand), 3 cm out and 4 cm down
+(underhand), to keep the hand out of the receiver. The owner's marks (2026-11-19) show it floating beside and above the
+knob. New measure in pipe `fingers`: `rack_fist_grip_minus_knob` = the drawn fist's grasp centre after the arm's solve
+minus the knob at the current pull (Wep_Root axes). Before: (0.050, 0.010, 0), 5.1 cm, at every pull (FAMAS). Defaults
+now 5 mm each way: FAMAS 0.7 cm, SV-98 0.7 cm, M416 0.5 cm at pull 0, 0.04 and 0.08 (hand at the reload report's
+`handle_zone` centre, a fresh off-hand grab). The knob here is the gun's handle point: for the FAMAS and SV-98 the game's
+own animated hand on the knob (`handle_probe`, the FAMAS within 0.4 cm), so this is the fist against the real knob as
+far as the drawn fist reaches it; for the M416 the AR default (#88), a placeholder. The measure is the configured offset
+whenever the arm reaches (it shows the IK reaching, not the mesh contact). The FAMAS fist now sits on the receiver
+instead of beside the gun; it may touch it (the 2026-11-15 reason, SCAR-H; the hand collision is off while the handle
+is held), the panel sliders move it back out.
+
+## Charging handles from the model (2026-11-20 night, monitor, Shanghai, #88)
+
+11 guns whose empty reload never pulls the handle (the bolt release, or no hand on it: `handle_probe analyse` says
+"bolt moved, no hand riding it" or "no pull") had no measured point. Their bolt bone at rest (`handle_probe record
+--all-bones`, Wep_Slide in Wep_Root axes, +x left) fits the owner's side table: AUG (0.016, 0.025, 0.454) front left,
+UMP-45 (0, 0.056, 0.576) front top ahead of the magwell, M240 / M249 (-0.027, ...) right, AEK-971 (-0.009, ...); the
+M16A4, M416 and MK11 share the AR rig's bolt (0, 0.049, 0.373). Each side handle sits at a receiver's half width from
+the centreline (x 0.030-0.035, belt-feds 0.045: 1.8-3.5 cm out from the bone) at the bone's height (+ up to 1 cm). The
+AR T-handle sits at the rear end of the bolt carrier, 17.3 cm behind the bolt and 1.1 cm above it: (0, 0.06, 0.20),
+the AR point; the owner's table calls its place right for these guns ("the hand placement is not": #87's fist). The
+MK11's magazine sits 4.7 cm further forward and 4.2 cm lower than the M16A4's, but its bolt bone is the same. `handle_point_from_model` marks them; pipe `reload` says `handle_in_gun=model(...)`. Monitor: all
+11 report `model`, and the off hand at the handle zone's centre gives `zone=handle`. Not checked against the drawn
+mesh: the headset (GUN-45) and the grab-zone tuner (GUN-42) correct them.
+
+## Magazines held by their body (2026-11-20 night, monitor, Shanghai, #90)
+
+The drawn held magazine's place in the fist comes from the authored grip (`arm_pose` `magazine_grip_ar`, captured on the
+SCAR-H, the game's hand 5.3 cm below the top; `magazine_grip_ak`, on the AK-12, 4.3 cm) whatever the gun, or a plain
+fist's fixed 7 cm (the gun hand reloading, #38). Now (setting `magazine_by_gun`, on) each gun's magazine is moved by its
+own game-hand depth (`magazine_grab_for`, `magazine_hold_drop`) minus the grip's gun's, along the magazine's own up, in
+both paths (`contact::authored_grip_shift`, `held_fist_drop`, tested: the depth is the game's pinch, ~3 cm off the fist's
+grasp centre, so only the difference applies). Unmeasured guns (MX4, PP-2000, CZ-805; the P90's hand is above its
+top) keep the grip's own. Pipe `fingers`: `held_top_above_fist` (the drawn top after the palming turn, fist axes),
+`hold_drop`, `held`. Monitor (`reload take`, the setting off -> on on the same build): FAMAS 0.086 -> 0.073, M416 0.082
+-> 0.112, QBZ-95-1 0.086 -> 0.077; AK-12 0.076, Galil 0.079, MX4 0.066, CZ-805 0.082 unchanged. `reload grab` takes
+only AK-pattern magazines (an AR one is latched until B): a held-magazine test needs `reload take`. Not done here
+(#141): magazine lengths (the issue's bottom-within-3-cm check), cupped short magazines, the missing grab points, the
+Galil's "cannot grab" (its zone and a held magazine worked on the monitor). Seen once: a NaN magazine zone right after a
+gun switch (SCAR-H), not reproduced in 15 reads.
+
+## Pump shotguns: the fore-end at rest, the first shell, the shell in the hand (2026-11-20 night, monitor, Shanghai, #94)
+
+**The game's pump stroke after a shot.** The game's fire animation strokes the fore-end (Wep_Slide, a child of Wep_Root)
+back 7.4 cm and forward again after every shot (870 at rest z 0.669, to 0.595; UTAS to 0.579), and first kicks it
+~8 mm forward (0.677), so "the most forward pose seen" is no rest (tried first: the drawn fore-end settled 8 mm
+ahead). Now (setting `pump_at_rest`, on, pump guns with `manual_cycle`) the rest is the pose the animation holds still
+for 0.3 s (`contact::slide_rest`, tested) and the fore-end is drawn there; the hand's pump still moves it
+(`set_handle_hold` pull on top). Pipe `arms`: `pump_rest= held= slide_animated_z= drawn_z= rest_z= hidden_frames=
+hidden_max_mm=`. Monitor, a real shot (pad RT) with the off hand on the fore-end: animated 0.595..0.672, drawn
+0.668..0.669 for the 870, SPAS-12, UTAS and Hawk; setting off: drawn follows the animation.
+
+**The first shell (mark 20).** The state machine already chambers from the tube: one shell into an emptied 870 or UTAS
+and pipe `reload rack`, or a hand stroke on the fore-end (fake hands), gives `chamber=1` (tube 1 -> 0, `chambered`);
+the owner's own marks 18 -> 19 (SPAS-12, one shell in the tube) show the same on the headset. Mark 20's "via the
+chambering mechanism" most likely means a shell dropped into the open ejection port (the game's own 870 empty reload
+does that), which the mod does not have: an owner decision.
+
+**The UTAS (mark 24).** The mod wants one pump per shot, as the real UTS-15 (a pump gun, its two tubes alternate but
+every shot is pumped); unchanged, for the owner to confirm.
+
+**The shell in the hand (mark 10).** A held shell was drawn as it sits in the gun relative to the fist frame (the gun's
+barrel axis = the fist's +z, out through the curled fingers): it ran diagonally through the fingers (screenshot,
+M1014). Now (setting `shell_across`, on) it is turned -90 degrees about the fist's x and lies across the knuckles
+(+y), between thumb and index, its hull out at the index side. The tube's insert uses the hand's position only, not
+the shell's rotation. One turn for every gun, on top of each gun's own seated shell rotation (the issue asked for a pose
+per gun; nothing measured per gun yet). Monitor (M1014, off hand raised, screenshots): off, the shell crosses the
+fingers diagonally; on, it is inside the closed fingers, the hull seen between thumb and index from the side.
+
+**Tool pitfall: fake pump strokes.** With fakehand, the off hand must be on the gun's handle zone (the CZ hold is 17 cm
+off the 870's fore-end: no stroke started); converge it against `reload` `handle_zone`/`palm` and let go of the grip
+first so the pump starts on a fresh grip. Even then every second stroke in a row failed (the placement stalled at
+1.4 cm, the pull at 1-2 cm), whichever the setting: off first then on, off chambered 3 of 3 and on failed 3 of 3; on
+first then off, the other way round. A failed fake stroke says nothing about the pump; compare settings in separate runs.
+
+## Belt-fed: the hand on the cover, an empty belt, the belt that dropped (2026-11-20 night, monitor, Shanghai, #95)
+
+**The cover.** A held lid now holds the drawn off hand on its grab point (Wep_Scope1 as turned), the fist over it, as
+the charging handle does (`set_handle_hold`, no pull; setting `lid_hand_lock`, on). The lid still follows the
+controller's angle about the hinge (`reload_hands` reads the controller's palm, not the drawn hand). Monitor (M240,
+fake hands, the controller 3 cm beside the grab point): `fingers` handle_hold 0.00 (before) -> 1.00, `fist_over`.
+
+**An empty belt.** With the cover up on an empty box the links were still drawn (the `rounds` flag reached arm_pose
+but only the revolver path used it): `edit_belt_feed` now scales Wep_Belt1-10 to 0.001, and `take_belt` refuses an
+empty box (unit-tested). Pipe `arms`: `belt_feed drawn= rounds= lid= belt_scale=`. The box comes off with B (an AR-type
+latch; `reload grab` leaves it on).
+
+**The belt that dropped at once (marks 66-69: `belt_taken belt_dropped` pairs).** The likely cause (found by the
+review in the owner's marks 67-68): the gun was carried in the off hand (`hand=1`, `off task=support`) and the gun hand
+reloaded. In that state `grip_first` opens the reload's grip whenever the palm is within 12 cm of the pistol grip and
+nearer it than the magazine, handle and pouch zones (`grip_before_reload`), which knew nothing of the lid, the tray or a
+held belt: a belt carried back past the pistol grip dropped. Now a held belt or lid, or the hand at them
+(`hand_result::belt_zone`), keeps the reload's grip (unit-tested). Not reproduced live: driving the off-hand carry with
+fake hands dropped the gun instead (the fake off hand was not on the M240's handguard). Ruled out: the accessory touch
+(off in the marks, `accessory_touch=0`; it now stands down at the lid and belt anyway); with the gun hand on the gun
+(`hand=0`) the monitor holds the belt 15 cm to 1 m away. The grip is also opened by `accessory_busy` and `grip_first`,
+not only by the controller's grip and invalid hands.
+
+## Magazines pulled out by hand: the P90 and the AK 5C (2026-11-20 night, #98)
+
+Owner (marks 31, 1): the P90's magazine should be taken out by hand, not thrown out with B; the AK 5C like an AK. Their
+`gun_traits` release is now `none` (box or top feed, not rocked: the AR variant stays) and `profile_for` sets
+`reload_profile::pull_out`: `press_button` never frees the magazine (the bolt catch after a new magazine still works),
+`grab_magazine` takes it as an AK's. Setting `magazine_pull_out` (on; off: B as before, through `reload_options`).
+Unit-tested in `gun_traits_test` (P90, AK 5C, M416, AK-12). No palming on them (`reload_hands` `can_palm`, `reload_test` `test_pull_out_no_palming`): it waited for a B that does nothing and a loaded well never takes the new one (review). A tactical reload there: the fresh magazine back to the pouch, the old one out by hand; an AK-style knock-out (`flick`) is the owner's call. The real P90's latches are squeezed by the hand that pulls
+it; the AK 5C (an FNC pattern) has a button in reality: the owner's call to treat it as an AK.
+
+## Charging handles from either side: the FAMAS and the AK-12 (2026-11-20 night, #97)
+
+Owner (mark 52): the FAMAS (its handle under the carry handle) and the AK-12 can be racked from both sides. For them
+(`profiles` `handle_both_sides`) `reload_hands` tests a second rack zone at the knob mirrored across the gun's mid-plane
+(gun x flipped) and takes the nearer; the stroke keeps the side it was grabbed on (`rack_mirrored_`), and the drawn fist,
+the rack side and the slide follow that knob. Pipe `reload`: `rack ... mirrored=`. Setting `handle_both_sides` (on).
+Unit-tested (`reload_test` `test_rack_zones`: the mirrored grab racks a loaded AK only with the flag; `prefer_mirrored`:
+only a zone that can rack is chosen, an underhand one only while the gun needs charging). Monitor (fake hands, the
+mirrored point = the own zone's x reflected across the magwell's, read with the hand away first): FAMAS own x -0.006,
+mirrored 0.146: `mirrored=1`, `round_ejected`; off: `zone=none`. AK-12 own 0.114, mirrored 0.014: `mirrored=1`, racks;
+off, the same point still racks on its own zone (`mirrored=0`): its knob is 2 cm off centre and the zones overlap, so
+there the setting mostly decides the fist's side. SCAR-H (one side): `zone=none`. The M416's T-handle is on the centre
+line: its mirror is itself, no comparison. Not added: the SCAR-H (reversible, one side at a time) and the AUG: the
+owner's call.
 
 ## Open
 

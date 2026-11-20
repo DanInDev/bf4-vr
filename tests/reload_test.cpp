@@ -755,6 +755,41 @@ namespace
 		gun_state locked;
 		locked.bolt_locked = true;
 		expect(needs_rack(locked) && !needs_rack(gun_state{}), "needs_rack: the bolt held open; a chambered gun does not");
+
+		// #97: a handle reachable from both sides (FAMAS, AK-12): the mirrored knob (gun x flipped) racks too, held on that side.
+		const v3 mirrored_world = frame.root + v3{ -0.02f, 0.06f, -0.53f }; // gun (0.02, 0.06, 0.53) through the turned frame
+		const auto mirrored_stroke = [&](bool both_sides, float& side_seen, float& knob_x)
+		{
+			reload loaded(ak);
+			loaded.load(31, 60); // chambered: only the overhand zone (no underhand fallback to reach across)
+			reload_hands hands(flat_hold());
+			hand_frame f0 = palm_at(away, false);
+			f0.handle_both_sides = both_sides;
+			hands.update(loaded, f0);
+			hand_frame f1 = palm_at(mirrored_world + v3{ -0.03f, 0.03f, 0.0f }, true);
+			f1.handle_both_sides = both_sides;
+			hand_result r = hands.update(loaded, f1);
+			side_seen = r.rack_side;
+			knob_x = r.handle_in_gun.x;
+			const bool racking = r.racking;
+			hand_frame f2 = palm_at(mirrored_world + v3{ -0.03f, 0.03f, 0.06f }, false);
+			f2.handle_both_sides = both_sides;
+			r = hands.update(loaded, f2);
+			return racking && has(r, reload_event::round_ejected);
+		};
+		// #97 review: the side is chosen from zones that can rack: a chambered gun's underhand zone cannot.
+		rack_zone_test own_over, across_under, across_over, own_none;
+		own_over.zone = rack_zone::over; own_over.over_distance = 0.08f;
+		across_under.zone = rack_zone::under; across_under.over_distance = 0.05f;
+		across_over.zone = rack_zone::over; across_over.over_distance = 0.05f;
+		expect(!prefer_mirrored(own_over, across_under, false), "mirror: a loaded gun keeps the own overhand zone over the far underhand one");
+		expect(prefer_mirrored(own_over, across_under, true), "mirror: an empty gun may take the nearer underhand zone across");
+		expect(prefer_mirrored(own_over, across_over, false) && !prefer_mirrored(across_over, own_over, false), "mirror: the nearer overhand zone wins");
+		expect(prefer_mirrored(own_none, across_over, false) && !prefer_mirrored(own_over, own_none, false), "mirror: only a zone that is there");
+		float side_seen = 0.0f, knob_x = 0.0f;
+		expect(!mirrored_stroke(false, side_seen, knob_x), "one-sided handle (M416-like): the gun's other side does not rack");
+		expect(mirrored_stroke(true, side_seen, knob_x) && side_seen == 1.0f && close(knob_x, 0.02f, 1e-5f),
+			"both sides: the mirrored knob racks, held on the gun's left");
 	}
 
 	// #40: the open hand snaps onto the seated magazine by distance; not while holding, gripping or with no
@@ -1749,10 +1784,57 @@ namespace
 		last.has_handle = true;
 		expect(!grip_before_reload({ 0.0f, 0.03f, 0.05f }, { 0.0f, 0.0f, 0.12f }, 0.12f, last), "nearer the handle than the grip: rack");
 		expect(grip_before_reload({ 0.0f, -0.07f, 0.10f }, grip, 0.12f, hand_result{}), "no zones placed yet: the grip");
+		// #95: a belt carried by the gun hand (the gun in the off hand) past the pistol grip stays in the hand.
+		hand_result belt = last;
+		belt.belt_draw = 2;
+		belt.belt_zone = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, belt), "a held belt at the pistol grip: still the belt's grip");
+		hand_result lid = last;
+		lid.lid_held = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, lid), "a held lid: still the lid's grip");
+		hand_result near = last;
+		near.belt_zone = true;
+		expect(!grip_before_reload({ 0.0f, -0.07f, 0.12f }, grip, 0.12f, near), "at the lid or tray: the reload's grip");
 	}
 
 	// AR palming by hand: the new magazine at the magwell turns aside, B catches the old one, turning
 	// the hand back seats the new one; the old one stays in the hand for the pouch.
+	// #98: a pull-out gun (P90, AK 5C) has no palming: a fresh magazine at its loaded magwell neither gets ready nor
+	// seats, B does nothing, and it goes back to the pouch; the old one comes out by hand once the hand is free.
+	void test_pull_out_no_palming()
+	{
+		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f };
+		const auto frame_at = [&](v3 hand, bool grip, bool button) {
+			hand_frame f = at(hand, grip, button);
+			f.has_root = true;
+			f.root = { 0.0f, -0.2f, -0.2f };
+			f.root_rotation = gun_frame;
+			f.magazine_rotation = gun_frame;
+			f.palming = true;
+			return f;
+		};
+		reload_profile p90 = ar;
+		p90.hold = hold_open::no;
+		p90.pull_out = true;
+		reload gun(p90);
+		gun.load(31, 60);
+		reload_hands hands(flat_hold());
+		hand_result r = hands.update(gun, frame_at(chest, true, false));
+		expect(has(r, reload_event::magazine_taken), "pull-out: a new magazine from the pouch");
+		bool ever_ready = false;
+		for (int i = 0; i < 30; ++i)
+		{
+			r = hands.update(gun, frame_at(magwell, true, i == 20));
+			ever_ready = ever_ready || r.palm != hand_result::palm_stage::none;
+		}
+		expect(!ever_ready && gun.state().magazine_in && gun.state().holding && gun.state().magazine_rounds == 30,
+			"pull-out: at the loaded magwell no palming, B does nothing, the old one stays");
+		hands.update(gun, frame_at(chest, true, false));
+		r = hands.update(gun, frame_at(chest, false, false));
+		expect(has(r, reload_event::magazine_stowed) && !gun.state().holding, "pull-out: the new one goes back to the pouch");
+		expect(gun.grab_magazine() == reload_event::magazine_out, "pull-out: then the old one comes out by hand");
+	}
+
 	void test_hands_palming()
 	{
 		const q4 gun_frame{ 0.0f, 1.0f, 0.0f, 0.0f }; // Wep_Root +z = world -z, +x (the gun's left) = world -x
@@ -2265,10 +2347,16 @@ namespace
 				return r;
 			};
 			step(away, false);
-			hand_result r = step(lid_grab_at(0.0f), true);
-			expect(r.lid_held && r.off_hand_busy, "belt: the lid taken at its grab point");
+			hand_result r = step(lid_grab_at(0.0f) + v3{ 0.0f, 0.03f, 0.0f }, false);
+			expect(r.belt_zone && !r.lid_held, "belt: near the lid the hand is the lid's (the accessory touch stands down, #95)");
+			r = step(lid_grab_at(0.0f), true);
+			expect(r.lid_held && r.off_hand_busy && r.belt_zone, "belt: the lid taken at its grab point");
 			r = step(lid_grab_at(0.6f), true);
 			expect(close(r.lid, 0.6f, 0.02f) && has(r, reload_event::lid_opened) && !gun.state().chamber, "belt: swung 60 % up it follows the hand, open");
+			// #95: the drawn hand is held on the lid's grab point (gun axes), wherever the controller is.
+			r = step(lid_grab_at(0.6f) + v3{ 0.03f, 0.0f, 0.0f }, true);
+			expect(r.lid_held && close(r.handle_in_gun.x, lid_grab_at(drawn).x, 1e-4f) && close(r.handle_in_gun.y, lid_grab_at(drawn).y, 1e-4f)
+				&& close(r.handle_in_gun.z, lid_grab_at(drawn).z, 1e-4f), "belt: the held lid holds the hand at its grab point");
 			r = step(lid_grab_at(0.6f), false);
 			for (int i = 0; i < 10; ++i)
 			{
@@ -2447,8 +2535,19 @@ static void test_reload_sound_cues()
 		expect(!hide_quick_throw_switch(true, 6, -1), "no previous weapon known");
 	}
 
+static void test_spare_rounds()
+{
+	// #89: a 900-1200 rpm gun (15-20 rounds a second) at the headset's 90 fps: 2, as before (the HUD reads 2 high).
+	expect(spare_rounds_for(20.0f, 1.0f / 90.0f) == 2 && spare_rounds_for(15.0f, 1.0f / 72.0f) == 2, "spares: headset frame rate, 2");
+	// At 20 fps two spares were fired before the block reached the game (monitor): now 4.
+	expect(spare_rounds_for(15.0f, 1.0f / 20.0f) == 4, "spares: 900 rpm at 20 fps, 4");
+	expect(spare_rounds_for(20.0f, 1.0f / 8.0f) == 8, "spares: very slow frames, at most 8");
+	expect(spare_rounds_for(0.0f, 1.0f / 20.0f) == 2 && spare_rounds_for(20.0f, 0.0f) == 2, "spares: nothing known, 2");
+}
+
 int main()
 {
+	test_spare_rounds();
 	test_reload_sound_cues();
 	test_load();
 	test_ar_empty_reload();
@@ -2486,6 +2585,7 @@ int main()
 	test_grip_before_reload();
 	test_seating();
 	test_hands_palming();
+	test_pull_out_no_palming();
 	test_grip_lock();
 	test_seated_hold();
 	test_palm_lock();
