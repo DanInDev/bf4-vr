@@ -1396,7 +1396,14 @@ monitor: each `mirrored=1`, `round_ejected` at the mirrored zone, the P90 off `z
 the centre line already. Not added, with reasons: reversible handles fitted to one side at a time (SCAR-H, SG553,
 CZ-805, MX4, CZ-3A1, SAR-21: the model shows it on one side), the AUG (left only), the Magpul PDR (an ambidextrous
 handle not confirmed). The AK-12 2012 prototype's handle was reversible too (one side at a time, sources differ); it
-stays both-sided by the owner's word (mark 52), its knob near the top.
+stays both-sided by the owner's word (mark 52), its knob near the top. Sources: P90 "ambidextrous cocking knobs" (FN America,
+fnamerica.com/products/rifles/fn-p90); G36 "the charging handle is centrally located under the carrying handle and
+employs a swivelling lever", ambidextrous (gunsopedia.com Heckler & Koch G36); QBZ-95 family: the handle under the
+integral carrying handle at the top of the receiver (modernfirearms.net Type 95; no source calls it ambidextrous: it
+is reached from either side under the handle); AK-12 2012 prototype: a forward, non-reciprocating handle that could be
+moved to either side (weaponsandhistory.com "AK-12 and its prototypes"). The one-side-at-a-time claims for SG553,
+CZ-805, MX4, CZ-3A1 and SAR-21 rest on their published reversible-handle designs and on the BF4 models showing one
+handle; only the SCAR-H was checked on the monitor (`zone=none`). Probe: `tools/handle_mirror_probe.py`.
 
 ## Open
 
