@@ -187,6 +187,17 @@ namespace
 	}
 }
 
+static void test_magazine_depth()
+{
+	// #90: the grips' own guns keep their hold; a short magazine (FAMAS, 3.7 cm) sits 1.6 cm nearer its top, a STANAG
+	// (M416, 8.9 cm) 3.6 cm deeper; the plain fist by the same difference; unknown: unchanged.
+	expect(contact::authored_grip_shift(0.053f, false) == 0.0f && contact::authored_grip_shift(0.043f, true) == 0.0f, "magazine depth: SCAR-H and AK-12 unchanged");
+	expect(std::fabs(contact::authored_grip_shift(0.037f, false) + 0.016f) < 1e-5f, "magazine depth: FAMAS 1.6 cm nearer its top");
+	expect(std::fabs(contact::authored_grip_shift(0.089f, false) - 0.036f) < 1e-5f, "magazine depth: M416 3.6 cm deeper");
+	expect(std::fabs(contact::held_fist_drop(0.037f, false) - 0.054f) < 1e-5f, "magazine depth: the plain fist's FAMAS at 5.4 cm, not the pinch's 3.7");
+	expect(contact::held_fist_drop(0.0f, false) == 0.07f && contact::authored_grip_shift(0.0f, true) == 0.0f, "magazine depth: unknown keeps 7 cm / the grip");
+}
+
 static void test_rack_fist_offset()
 {
 	const contact::rack_fist_offsets offsets;
@@ -227,6 +238,7 @@ int main()
 {
 	test_support_slide();
 	test_rack_fist_offset();
+	test_magazine_depth();
 	test_pinch();
 	test_coupling();
 	test_distance();

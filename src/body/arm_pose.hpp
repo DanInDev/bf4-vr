@@ -171,6 +171,9 @@ namespace bfvr::body
 		// about its body tilt_pivot metres below its top).
 		float tilt{};
 		float tilt_pivot{ 0.07f };
+		// #90: the held magazine's top this far above the fist's grasp centre (weapon/profiles magazine_hold_drop);
+		// 0: not measured, the grip keeps its own depth.
+		float hold_drop{};
 	};
 	void set_magazine_pose(const magazine_pose& pose);
 

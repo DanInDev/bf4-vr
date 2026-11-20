@@ -25,6 +25,11 @@ namespace bfvr::weapon
 	// Where the game's own left hand takes this gun's magazine out (tools/handle_probe.py): offset from the seated
 	// Wep_Mag in Wep_Root axes (+x left, +y up, +z barrel). False: not measured, the magazine zone's default.
 	bool magazine_grab_for(std::string_view unlock_name, float (&offset)[3]);
+	// #90: how far a held magazine's top sits above the fist's grasp centre: where the game's own hand takes this gun's
+	// magazine (magazine_grab_for, its depth below the top), so the fist holds it by its body as the game does (FAMAS
+	// 3.7 cm, M416 8.9 cm); 2 to 12 cm; 0 when not measured or the game's hand is above the top (P90): the drawn hand then
+	// keeps the grip it has (the authored grip's own depth, or 7 cm in a plain fist).
+	float magazine_hold_drop(std::string_view unlock_name);
 	// The way this gun's magazine leaves its well, measured from the game's empty reload: degrees from straight down (gun
 	// -y) in the gun's mid-plane, + forward along the barrel. False: straight down (the reference, AK-12 and SCAR-H).
 	bool magazine_way_out_for(std::string_view unlock_name, float& degrees);

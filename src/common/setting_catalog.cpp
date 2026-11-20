@@ -78,6 +78,7 @@ namespace bfvr::settings
 			{ "unlock_all_weapons", "Weapon", "Weapons", "All crate weapons", "Every gun in the weapon crate can be picked", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "scope", "Weapon", "Aiming", "Magnifying scopes", "The lens shows the world magnified", "" },
+			{ "magazine_by_gun", "Weapon", "Reloading", "Magazine depth per gun", "Held as deep as the game holds it", "" },
 			{ "sight_lens", "Weapon", "Aiming", "Real sight lens", "Reticle by angle, any distance", "" },
 			{ "scope_glass", "Weapon", "Aiming", "Scope glass", "Magnified view in the optic's glass", "" },
 			{ "sight_lens_cone", "Weapon", "Aiming", "Clear lens angle", "Degrees off the sight line the lens stays clear", "", true },

@@ -207,6 +207,12 @@ int main()
 		expect(handle_point_for("U_M416", point) && point[2] < 0.25f, "M416: the rear T-handle");
 		expect(!handle_point_from_model("U_FAMAS") && !handle_point_from_model("U_AK12"), "measured guns are not from the model");
 		expect(handle_point_for("U_M416", point) && handle_point_from_model("U_M416"), "M416: its empty reload uses the bolt release: placed from the model (#88)");
+		// #90: a held magazine by its body, where the game's own hand takes it.
+		expect(std::fabs(magazine_hold_drop("U_FAMAS") - 0.037f) < 1e-4f, "FAMAS: held 3.7 cm below its top (its short box)");
+		expect(std::fabs(magazine_hold_drop("U_M416") - 0.089f) < 1e-4f, "M416: 8.9 cm (a STANAG)");
+		expect(magazine_hold_drop("U_SAR21") == 0.12f, "SAR-21: its 13.5 cm clamped to 12");
+		expect(magazine_hold_drop("U_P90") == 0.0f && magazine_hold_drop("U_MX4") == 0.0f, "P90 (grab above the top), MX4 (not measured): none, the grip's own");
+		expect(magazine_hold_drop("U_RFB_SP") == 0.02f, "RFB: 1.4 cm clamped to 2");
 		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
 		{
 			// The P90: its handle well away from where its top magazine is taken (they were 2 cm apart with the AR default).
