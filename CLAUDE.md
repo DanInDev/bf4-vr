@@ -201,5 +201,12 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   (`fakehead 0.064 -45`, fakehand turned with it). An entity's world matrix is not where it is drawn: first-person lights
   are re-based (`fplight`). Judge a picture against a fired bullet, not against an assumed eye projection.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
+- 2026-11-21: after a level load the slot captures (knife, grenade) can leave slot 6 or 7 in hand ("the gun did not come
+  back"); `givegun <gun> 0` then changes nothing in hand. Check `holster` slot= first; `game.ps1 keys -Keys 1` selects
+  slot 0. `givegun` gives no attachments and a re-give of the same gun keeps the slot's kit (the crate's grips): Shanghai's
+  grips exist only on the crate's guns (#91, `re/notes/weapon.md` foregrips). The weapon crate opens headless with the use
+  reach (`fakehand 0 0 -0.15 -0.60 -0.45 ...`, `pad 0 0 0 0 800 0100`) but its menu never closed again (Done, Enter,
+  Esc, E, pad A): only a level restart. A fake controller's palm (grab zones) sits 6 cm behind its position (+z).
+  Esc right after `dev-run -Resume` returns skips the Shanghai briefing (ready in 20 s instead of 2-3 min).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
