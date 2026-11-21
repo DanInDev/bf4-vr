@@ -180,6 +180,7 @@ namespace bfvr::weapon
 		bool sling_copy_was_shown{};
 		bool sling_test_show{}; // research: pipe holster slingtest on|off (lock)
 		std::atomic<bool> dropped_now{};
+		std::atomic<bool> unarmed_now{}; // #136: the game's unarmed item is in hand
 		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
 		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
 		free_hands dropper;
@@ -654,6 +655,7 @@ namespace bfvr::weapon
 		// the controller grip (#68, gun_hand_pose); other gadgets and the knife keep their own hold.
 		// #136: the game's unarmed item sits in a gun slot: to the gun hold, the captures and the sling it is no weapon.
 		const bool unarmed = held.valid && is_unarmed(held.name);
+		unarmed_now = unarmed;
 		const slot_state gun = unarmed ? slot_state{} : held;
 		body::set_gun_in_hand(gun.valid && gun.current >= 0 && gun.current <= 1);
 		// The unarmed hand is held as you hold the controller (#68's rule), not the game's unarmed run / crouch animation.
@@ -879,7 +881,8 @@ namespace bfvr::weapon
 				clear_grab_zone(grab_slot::dropped_gun);
 			}
 		}
-		if (!enabled.load(std::memory_order_relaxed))
+		// #136: no holsters while the game has taken the weapons (its unarmed item): nothing to draw, no grip claimed.
+		if (!enabled.load(std::memory_order_relaxed) || unarmed)
 		{
 			zones.reset();
 			grip_claimed = false;
@@ -1075,7 +1078,9 @@ namespace bfvr::weapon
 
 	bool gun_dropped()
 	{
-		return dropped_now.load(std::memory_order_relaxed);
+		// #136: no gun in the gun hand at all (the game's unarmed item) counts as a dropped one for every caller: no
+		// two-handed hold, the grenade from either hand, no reload, no drawn shot line.
+		return dropped_now.load(std::memory_order_relaxed) || unarmed_now.load(std::memory_order_relaxed);
 	}
 
 	bool gun_in_off_hand()
@@ -1205,12 +1210,12 @@ namespace bfvr::weapon
 		char text[1024];
 		std::snprintf(text, sizeof(text),
 			"holsters=%d slot=%d in_hand=%d weapon=%s zone=%s pending=%s switches=%llu failed=%llu last=%s body_yaw=%.2f\nsquad_signal=%d raised=%d orders=%llu\nmelee_gesture=%d strikes=%llu forward_speed=%.2f\n"
-			"use_reach=%d reaching=%d using=%d uses=%llu palm_forward=%.2f side=%.2f up=%.2f\nfree_hands=%d dropped=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
+			"use_reach=%d reaching=%d using=%d uses=%llu palm_forward=%.2f side=%.2f up=%.2f\nfree_hands=%d dropped=%d unarmed=%d in_off_hand=%d in_off_grip=%d drops=%llu pickups=%llu hand_overs=%llu floor_y=%.2f grip=(%.3f,%.3f,%.3f) grip_in_reach=%d slung=%d at=(%.3f,%.3f,%.3f)",
 			enabled ? 1 : 0, slot.current, in_hand_slot.load(), slot.name, holster_name(last_zone), holster_name(pending), static_cast<unsigned long long>(switches),
 			static_cast<unsigned long long>(failed), last_result, zones.body_yaw(), signal_enabled ? 1 : 0, signal_raised ? 1 : 0,
 			static_cast<unsigned long long>(orders), melee_enabled ? 1 : 0, static_cast<unsigned long long>(strikes), melee.forward_speed(),
 			use_enabled ? 1 : 0, use_reaching ? 1 : 0, use_down ? 1 : 0, static_cast<unsigned long long>(uses), use_offset[0], use_offset[1], use_offset[2],
-			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
+			free_hands_on ? 1 : 0, dropped_now ? 1 : 0, unarmed_now ? 1 : 0, off_hand_now ? 1 : 0, off_grip_now ? 1 : 0, static_cast<unsigned long long>(drops), static_cast<unsigned long long>(pickups), static_cast<unsigned long long>(hand_overs),
 			body::latest_weapon_points().floor_y, last_grip_point[0], last_grip_point[1], last_grip_point[2], last_grip_in_reach ? 1 : 0, last_slung ? 1 : 0, last_dropped_at[0], last_dropped_at[1], last_dropped_at[2]);
 		float aim_yaw{}, aim_pitch{};
 		const bool aim_known = input::aim_angles(aim_yaw, aim_pitch);
