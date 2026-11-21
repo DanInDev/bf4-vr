@@ -31,6 +31,7 @@ int main()
 {
 	expect(kind("U_AK12_PK-AS", optic_kind::reflex), "PK-AS is a red dot");
 	expect(kind("U_SCAR-H_EOTech", optic_kind::reflex), "EOTech is a holo");
+	expect(kind("U_UMP45_RX01", optic_kind::reflex), "RX01 is BF4's Reflex (RDS), the crate UMP-45's red dot");
 	expect(kind("U_AK12_Magnifier", optic_kind::magnifier), "the flip magnifier");
 	expect(std::fabs(classify_optic("U_AK12_Magnifier").magnification - 1.73f) < 1e-4f, "the magnifier's measured zoom");
 	expect(kind("U_AK12_PKA", optic_kind::magnified) && std::fabs(classify_optic("U_AK12_PKA").magnification - 3.4f) < 1e-4f, "PKA is a 3.4x, not the PK-AS");

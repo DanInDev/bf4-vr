@@ -124,6 +124,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 | AIM-11 | done | From the hip, sweep the green dot across a near wall, a doorway, a far wall and the sky; then `reticle_depth` (Weapon > Dot on target) off | The dot sits on whatever the barrel points at (no double image at any distance) and jumps cleanly across the doorway edge; the sky puts it back at 25 m; off: it always floats at 25 m | | 2026-11-09 headset: works great.; earlier: 2026-11-09: monitor: hits on a flat wall lie on one line within 0.7 cm |
 | AIM-9 | open | Recoil (`recoil = 1`): single shots, a long burst one-handed, then two-handed; AK-12 then SCAR-H | The muzzle kicks up and back, settles in ~0.2 s, a burst climbs ~7°, two hands steady it; the SCAR kicks harder; the view never moves. Tune 0-3 | | |
 | AIM-21 | open | No red square on the sights (#93): aim down the iron sights of a shotgun (Hawk / M1014) and a rifle, then a holo | No red or orange square on the sight line with iron sights; the holo shows only its own ring | #93 | |
+| AIM-22 | open | The Shanghai checkpoint's UMP-45 (its "Reflex RDS", RX01): raise the sight to your eye and aim at a far light, move the head a little | The mod's red dot shows in the sight, steady on the target as with the AK-12's PK-AS | #143 | 2026-11-21 monitor: `sightstate` optic=U_UMP45_RX01 reflex=1 (before: optic=none reflex=0); sight 1.1 cm off the right eye's line, 25.8 cm ahead: `twohand` dot_seen=1/0, aiming=1 |
 
 ## Gun handling
 
