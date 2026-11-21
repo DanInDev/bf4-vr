@@ -32,6 +32,7 @@
 #include "stereo/camera_hook.hpp"
 #include "stereo/eye_pass.hpp"
 #include "stereo/muzzle_quads.hpp"
+#include "stereo/first_person_lights.hpp"
 #include "stereo/foveation.hpp"
 #include "stereo/hud_capture.hpp"
 #include "stereo/stream_view.hpp"
@@ -337,6 +338,7 @@ namespace bfvr::core
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
+			stereo::set_light_at_gun(store.boolean("light_at_gun", true));
 			body::set_shell_across(store.boolean("shell_across", true));
 			body::set_rack_fist_offsets(store.real("rack_over_out", 0.005f), store.real("rack_over_up", 0.005f), store.real("rack_under_out", 0.005f),
 				store.real("rack_under_down", 0.005f));
@@ -516,6 +518,8 @@ namespace bfvr::core
 			}
 			// Shots start at the drawn gun (controller aim); the setting switches it live.
 			weapon::install_shot_origin_hook();
+			// The weapon's flashlight and laser light drawn where the gun puts them, not turned with the head (#92).
+			stereo::install_first_person_light_hook();
 
 			control_enabled = config::get_bool("control_pipe", true);
 			if (control_enabled)

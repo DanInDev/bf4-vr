@@ -102,6 +102,7 @@ namespace bfvr::settings
 			{ "magazine_by_gun", kind::boolean, 0, 0, 0, "1", "", "a held magazine sits as deep in the hand as the game's own hand takes that gun's magazine (a short one nearer its top, a long one deeper); 0 = every magazine as the SCAR-H's (AR) or AK-12's (AK)" },
 			{ "magazine_grip", kind::choice, 0, 0, 0, "auto", "auto|wrap|cup", "a held magazine: wrapped in the fist, or standing on the upturned palm with the fingers closing on it (auto: cup once the palm faces up)" },
 			{ "flash_at_gun", kind::boolean, 0, 0, 0, "1", "", "the muzzle flash, its smoke and sparks drawn at the gun in your hand (the game draws them where its own flat gun would be)" },
+			{ "light_at_gun", kind::boolean, 0, 0, 0, "1", "", "the weapon's flashlight and laser light shine where the gun in your hand points (the game turned them with your head)" },
 			{ "hand_collision", kind::boolean, 0, 0, 0, "1", "", "the free hand is drawn on the gun's surface, never inside its receiver or handguard; a fast slap through the gun ends on the side it came from" },
 			{ "pistol_two_hands", kind::boolean, 0, 0, 0, "1", "", "pistols and the revolver: close the off hand round the gun hand to hold them with both hands (steadier aim); 0: one-handed only" },
 			{ "support_lock", kind::boolean, 0, 0, 0, "1", "", "two-handed: the off hand stays on the handguard where it grabbed until you let go (off: it slides along with the controller within the range)" },

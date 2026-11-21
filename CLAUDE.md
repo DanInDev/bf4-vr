@@ -196,6 +196,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   `glassdebug 2` (the reticle alone, pure green): red pixels in an eye shot catch the scene's red lamps as the gun sways.
 - 2026-11-20: `givegun <name>` answers "ok" even for a name the level does not have (`U_M9`: the old gun stayed in hand);
   check `reload` `weapon=` after a give. Pistols: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`).
+- 2026-11-21 (#92): `fakehead 0.064` puts the head exactly at the game's camera, where anything the renderer re-bases from
+  the game's camera into the drawn view looks right. Owner reports "off to the side I look": test with the head turned
+  (`fakehead 0.064 -45`, fakehand turned with it). An entity's world matrix is not where it is drawn: first-person lights
+  are re-based (`fplight`). Judge a picture against a fired bullet, not against an assumed eye projection.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).

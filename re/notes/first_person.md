@@ -29,7 +29,7 @@ RenderView `+0x00` (in each of the three views) holds the same local camera; onl
 | idle (two baselines) | 2–3.4 | 0 |
 | `tshift` +0xF10 / +0xFA0 / +0xF60 by 0.3 m | 2.5–3.5 | 0 |
 | `tshift` +0xED0 by 0.3 m | **15.4** (gun jumps to the left edge; flashlight beam moves) | 0 |
-| `fakeyaw 20` (eye pose composed onto +0x40 and +0xED0) | gun and world move together (~240 px), flashlight spot stays on the same wall patch | |
+| `fakeyaw 20` (eye pose composed onto +0x40 and +0xED0) | gun and world move together (~240 px), flashlight spot stays on the same wall patch (2026-11-21: the light's entity follows the drawn gun, but the renderer re-bases first-person lights from the game's camera into the head-turned view; fixed by `light_at_gun`, `weapon.md` "Flashlight and laser at the drawn gun", #92) | |
 | `pin` +0xB8, +0x10E4, +0x10E8, +0x100C, +0x1010 (FOV candidates) | 1.9–3.2 (no change) | 0 |
 
 How the candidates were found: `tools/matrix_search.py` listed 71 copies of the camera rotation

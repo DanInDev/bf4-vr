@@ -1494,6 +1494,64 @@ Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`)
 - Since #37 the game's aim stays with the body (`aim_with_body`): the bullet direction comes from the
   shot frame alone (holes follow the gun 15 degrees left and right with the aimer fixed).
 
+## Flashlight and laser at the drawn gun (2026-11-21, monitor, Shanghai, #92)
+
+Owner (headset, 2026-11-19, marks 8, 12, 14): the lit circle sat well to the side of where the gun pointed, on the side
+the head was turned. Two parts: the light's **entity** is placed right (below), but the **renderer re-bases** every
+first-person light into the drawn view and turned it with the head (last bullets). First conclusion "nothing needs
+changing" was wrong: every monitor test had the fake head straight at the game camera (`fakehead 0.064`, yaw 0), where
+the re-basing is the identity. **Test head-vs-camera effects with `fakehead 0.064 <yaw>`.**
+- **Where the light comes from**: the light is a `SpotLightEntity` (vtable `0x141DEFA70`), its world matrix at +0x50
+  (rows right, up, forward, position; it shines along -forward). Only writer (write-watch): `0x140CCF9F0` <-
+  `0x140FBA580` (accessory compose) <- `0x140FBB210` (the weapon's accessory records) <- `0x14100AC60`. The bone comes
+  from `0x1407184F0`, which reads Animatable +0x58, and +0x58 is the **same buffer** as the model pose +0x50 that the
+  mod's pose edit (`0x140716050` hook) writes. So the accessory is placed from the drawn Wep_Root.
+- **Monitor** (`tools/light_probe.py`, MX4 + `U_MX4_Flashlight`): the light sits at (0, 0.084, 0.664) m in Wep_Root's
+  frame, 0.00-0.01 cm and 0.00 deg from that with the drawn gun ahead, 30 cm right, turned 30 deg either way and pitched
+  20 deg up. Over 20 moves of the drawn gun, polled every ~0.25 ms, the light took its new place at most 0.7 ms after
+  the pose, and no frame was presented (pipe status `presents`) between the two: the same frame, no lag (two runs).
+  Pitfall: an earlier version timed "first poll at the final value", which a light that never moved passes at once
+  (a stale entity after a re-give) and a 50-90 ms pipe stall fails; the probe now checks that the light moved and
+  counts presented frames.
+- **Pictures**: with the gun turned 30 deg right the curtain beside the window is lit where the drawn gun points; ahead
+  and left the light falls through the glass; with the light off the curtain stays dark. The green laser
+  (`U_MX4_GreenLaser`) draws its beam from the drawn muzzle along the barrel to a dot on the curtain; its green pixels
+  move with the gun and vanish when it is switched off: the probe's laser phase measured mean x 880 / 1238 / 1621 and
+  831 / 1157 / 1566 px (of 2160) turned 30 deg left / ahead / right; the first run's counts were 106 / 47 / 120 laser
+  pixels (seen nearly end-on, ahead, the thin beam covers 2-47 between runs: the probe now uses 15 deg right instead).
+- **The renderer's re-basing** (read-watch on the light's +0x70/+0x80 found render-side readers under `0x140CDE7F0` <-
+  `0x1408BE76B` <- `0x14083F49C`): `FUN_140CC9C50(lights, renderer, view, to, from)` draws every light whose byte
+  **+0xDA** is set (the flashlight sets it while it shines, 0 when off) at **L x inverse(from) x to**: `to` is the drawn
+  view (the caller's `[rbx+0x8F0]`, equal to the mod's world camera with the head in it), `from` the game's camera
+  (`[rbx+0x1C80]`, no head). In the flat game they are the same view. Head and gun turned 45 deg right, without the
+  fix: the light drawn 40.1 deg / 0.41 m off its entity (pipe `fplight`, re-based with the "from" actually passed), the
+  lit disc at x 1794-1870 of 2160 on the far wall. Seen by eye only (screenshot, not measured): one tapped bullet (shots
+  leave the drawn barrel) broke the window pane beside the door the gun pointed at.
+- **Fix** (`stereo/first_person_lights`, setting `light_at_gun`, on): the hook passes `to` as `from`, so the light is
+  drawn at its own world matrix. `tools/light_probe.py` step 4: with the setting the hook re-based 147-149 calls a
+  second, with it off 0 calls and the game's re-basing put the light 40.11 deg / 0.41 m off its entity. (With the
+  setting, the readout's "drawn" figure is L x inverse(to) x to, the identity by construction: it shows the swap, not
+  where the light lands.) **Where it lands** is measured by the lit disc (light on minus off, switched by the flag)
+  against the laser beam's far end in the same pose, taken from the beam's own pixels in the shot without the hook
+  (the beam is drawn from the gun's mesh, not re-based; the dot, itself re-based, is excluded): **54 px with the
+  setting, 833 px without** (2160 px wide image). Earlier runs measured from the topmost green pixel, which can be the
+  dot: 12 and 102 px with, 712 and 788 without. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
+- **Measured only with the MX4** (flashlight, green laser), at the hip and head-turned. With the Saiga 20K + ACOG +
+  flashlight and the game aiming (hip_accuracy 0 for the test), the light's *entity* matched the drawn barrel within
+  0.0 deg ahead and turned 30 deg either way (scratch run before the fix, raw output on #92). The owner's Hawk and
+  QBS-09 (marks 8, 12) were not measured; the cause is in the renderer, the same for every gun's light.
+- **The laser**: its beam is drawn from the gun either way; its **dot is a first-person `SpotLightEntity`** too (census
+  with the laser on). Head and gun 45 deg right: with `light_at_gun 1` beam and dot lie together (green x 1082..1173),
+  with 0 the dot is thrown to x 1929 on the wall. Both are world objects, so both eyes see them from their own place.
+- **Which lights the hook changes** (pipe `fplight census`, the renderer's set walked on the render thread with the
+  game's own tree successor `0x140623390`): at rest with the flashlight on, one light (the flashlight, first-person); six
+  censuses during a 1.5 s burst: the flashlight only, no muzzle-flash light; with the laser on, its dot only. Other
+  first-person lights in other levels or with other gadgets were not surveyed.
+- Pitfalls met: judging "light on" by total brightness failed twice (the curtain moves, the window dominates); the
+  +0xDA flag (pipe `fplight <light>` `first_person_flag`) tells it. Bullet holes do not show on the frosted glass door.
+  A readout that re-bases from `to` to `to` is the identity whatever the hook does: `fplight` now uses the "from" the
+  game was actually called with.
+
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
 
 Owner (headset): the flash comes from in front of the player, not from the barrel; it may show where the game
