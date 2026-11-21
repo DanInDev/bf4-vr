@@ -14,7 +14,8 @@ namespace bfvr::stereo
 	bool install_first_person_light_hook();
 	// Live setting light_at_gun.
 	void set_light_at_gun(bool on);
-	// Pipe "fplight [hex light address]": the hook's counters and both cameras; with a light, its matrix as the game
-	// would draw it (re-based between the two cameras) and as the hook draws it.
-	std::string first_person_light_report(std::uintptr_t light);
+	// Pipe "fplight [hex light address]": the hook's counters, both cameras and the "from" the game was last called with;
+	// with a light, where it was drawn (re-based with that "from") and where the game's own camera would put it.
+	// "fplight census": every light in the renderer's set, taken on the render thread, the first-person ones listed.
+	std::string first_person_light_report(std::uintptr_t light, bool census);
 }

@@ -15,15 +15,19 @@ which the mod's pose edit writes): FUN_140fbb210 -> FUN_1407184f0 (bone read) ->
 
 4. the owner's case (marks 8, 12, 14 of 2026-11-19): the head turned 45 degrees right of the game's camera, the gun
    with it. The renderer re-bases first-person lights from the game's camera into the drawn view (FUN_140CC9C50); pipe
-   `fplight <light>` shows where the game would draw the light and where the mod draws it (setting light_at_gun):
-   with the setting the drawn light must be within 2 cm / 2 degrees of its own matrix (the drawn gun, step 2);
+   `fplight <light>` shows the "from" camera the game was last called with and where that drew the light: with
+   light_at_gun the hook must run (rebased_from_view rises) and the light be drawn within 2 cm / 2 degrees of its own
+   matrix (the drawn gun, step 2); with it off the hook must stand aside and the light be drawn off the gun. The lit
+   disc's place in the picture is measured both ways (light on minus off, switched by its flag). Then a census of
+   the renderer's lights (`fplight census`), at rest and during a burst: which lights carry the first-person flag;
 5. the laser (a beam drawn from the gun and a dot, a first-person light): gives the gun with the laser, takes
-   screenshots with the drawn gun turned 30 degrees left, 15 right and 30 right (not ahead: end-on the beam is too
+   screenshots with the drawn gun turned 30 degrees left and 30 right (nearer the view's line the thin beam is too
    thin to see), toggles the laser and takes them again; the state with more green pixels is "on", and the laser's
-   pixels are the green ones that the "off" shot of the same pose lacks. They must be there in every pose and move
-   with the gun (mean x rising from pose to pose by more than 100 px of 2160). Then the head turned 45
+   pixels are the green ones that the "off" shot of the same pose lacks. They must be there in both poses and move
+   with the gun (mean x more than 300 px of 2160 further right turned right). Then the head turned 45
    degrees right: with light_at_gun the beam and its dot must lie together (within 250 px); without it the dot is
-   thrown to the right (shown, not required).
+   thrown to the right (shown, not required). The beam's far end (drawn from the gun's mesh, no re-base) is the
+   reference for step 4's disc: with light_at_gun the disc must lie within 200 px of it.
 
     python -E -P tools\\light_probe.py [U_MX4] [U_MX4_Flashlight] [U_MX4_GreenLaser]
 
@@ -133,8 +137,9 @@ def angle(a, b):
     return math.degrees(math.acos(max(-1.0, min(1.0, dot))))
 
 
-# Not straight ahead: seen end-on the thin beam covers 2-47 pixels (runs of 2026-11-21), too few to judge.
-LASER_POSES = (('turned 30 left', 30), ('turned 15 right', -15), ('turned 30 right', -30))
+# Turned well to each side: nearer the view's line the thin beam covered 2-68 pixels between runs (ahead and 15 deg
+# right, 2026-11-21), too few to judge.
+LASER_POSES = (('turned 30 left', 30), ('turned 30 right', -30))
 
 
 def green(path):
@@ -156,9 +161,8 @@ def laser_shots(folder, tag):
     return masks
 
 
-def laser_check(gun, laser):
+def laser_check(gun, laser, folder, discs):
     """Returns the number of failures."""
-    folder = tempfile.mkdtemp(prefix='bfvr_laser_')
     print('> givegun %s 0 %s -> %s' % (gun, laser, command('givegun %s 0 %s' % (gun, laser)).strip()[:40]))
     time.sleep(3)
     first = laser_shots(folder, 'a')
@@ -166,7 +170,7 @@ def laser_check(gun, laser):
     time.sleep(1.0)
     second = laser_shots(folder, 'b')
     on, off = (first, second) if sum(m.sum() for m in first) >= sum(m.sum() for m in second) else (second, first)
-    print('  screenshots in %s; laser on in the %s set' % (folder, 'first' if on is first else 'second'))
+    print('  laser on in the %s set' % ('first' if on is first else 'second'))
     failures = 0
     means = []
     for (name, _), lit, dark in zip(LASER_POSES, on, off):
@@ -184,10 +188,9 @@ def laser_check(gun, laser):
         print('  %-16s laser pixels %5d  mean x %6.1f  x %d..%d  y %d..%d  (green with it off: %d)' % (
             name, len(xs), xs.mean(), xs.min(), xs.max(), ys.min(), ys.max(), int(dark.sum())))
     if None not in means:
-        moves = means[1] - means[0] > 100 and means[2] - means[1] > 100
+        moves = means[1] - means[0] > 300
         failures += not moves
-        print('  the laser moves with the drawn gun: 30 left %.0f < 15 right %.0f < 30 right %.0f px %s' % (
-            means[0], means[1], means[2], 'ok' if moves else 'FAIL'))
+        print('  the laser moves with the drawn gun: 30 left %.0f, 30 right %.0f px %s' % (means[0], means[1], 'ok' if moves else 'FAIL'))
     # The owner's case: the head turned 45 degrees right, the gun with it. The beam is drawn from the gun either way; its
     # dot is a first-person light: with light_at_gun it sits at the beam's end, without it the game's re-basing throws it
     # far to the side the head turned.
@@ -198,16 +201,22 @@ def laser_check(gun, laser):
     hands_turned(-45)
     time.sleep(1.5)
     spans = {}
+    beam_end = None
     for value in (1, 0):
         command('setting set light_at_gun %d' % value)
         time.sleep(1.0)
         for n in range(3):
-            path = os.path.join(folder, 'head45_light_at_gun%d_%d.png' % (value, n))
+            path = os.path.join(folder, 'laser_head45_light_at_gun%d_%d.png' % (value, n))
             command('shot ' + path)
             time.sleep(0.3)
         ys, xs = np.nonzero(green(path))
         spans[value] = (xs.min(), xs.max()) if len(xs) else None
+        if value == 1 and len(xs):
+            top = int(np.argmin(ys))  # the beam rises from the muzzle below the eye to its far end
+            beam_end = (float(xs[top]), float(ys[top]))
         print('  head 45 right, light_at_gun %d: laser pixels %d, x %s' % (value, len(xs), '%d..%d' % spans[value] if spans[value] else '-'))
+    print('  census with the laser on (pipe fplight census):')
+    print('    ' + command('fplight census').replace('\n', '\n    '))
     command('setting set light_at_gun 1')
     command('fakehead 0.064')
     together = spans[1] is not None and spans[1][1] - spans[1][0] < 250
@@ -215,6 +224,18 @@ def laser_check(gun, laser):
     failures += not together
     print('  the dot at the beam\'s end with light_at_gun (beam and dot within 250 px): %s; without it the dot thrown right: %s' % (
         'ok' if together else 'FAIL', 'yes' if thrown else 'no'))
+    # The flashlight's disc against the laser beam's far end (drawn from the gun's own mesh, independent of the re-base):
+    # both lights sit on the gun's rail, so with light_at_gun the disc must lie near it, without it far off.
+    if beam_end and discs.get(1):
+        near = math.dist(beam_end, discs[1][:2])
+        far = math.dist(beam_end, discs[0][:2]) if discs.get(0) else float('nan')
+        ok = near < 200
+        failures += not ok
+        print('  flashlight disc against the laser beam\'s end (%.0f, %.0f): %.0f px with light_at_gun, %.0f px without %s' % (
+            beam_end + (near, far, 'ok' if ok else 'FAIL')))
+    else:
+        failures += 1
+        print('  FAIL no flashlight disc or laser beam end to compare (disc %s, beam end %s)' % (discs.get(1), beam_end))
     return failures
 
 
@@ -234,47 +255,98 @@ def light_flag(light):
     return m.group(1) if m else None
 
 
-def switch_light_on(light):
-    """The accessory toggle (pad D-pad up) until the light's first-person flag (+0xDA, set while it shines) is on."""
+def set_light(light, on):
+    """The accessory toggle (pad D-pad up) until the light's first-person flag (+0xDA, set while it shines) says on/off."""
     for _ in range(3):
-        if light_flag(light) not in (None, '0'):
+        flag = light_flag(light)
+        if flag is not None and (flag != '0') == on:
             return True
         command('pad 0 0 0 0 300 0001')
         time.sleep(1.2)
-    return light_flag(light) not in (None, '0')
+    flag = light_flag(light)
+    return flag is not None and (flag != '0') == on
 
 
-def head_turned_check(light):
+def switch_light_on(light):
+    return set_light(light, True)
+
+
+def luminance(path):
+    return np.asarray(Image.open(path).convert('RGB'), dtype=np.float32) @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+
+
+def disc_centre(light, folder, tag):
+    """The lit disc: the pixels much brighter with the light on than off (the flag switches it, third shot of each)."""
+    paths = {}
+    for on in (True, False):
+        set_light(light, on)
+        time.sleep(0.5)
+        for n in range(3):
+            paths[on] = os.path.join(folder, '%s_%s_%d.png' % (tag, 'on' if on else 'off', n))
+            command('shot ' + paths[on])
+            time.sleep(0.3)
+    set_light(light, True)
+    lit = (luminance(paths[True]) - luminance(paths[False]))[:1500] > 60
+    ys, xs = np.nonzero(lit)
+    return (float(xs.mean()), float(ys.mean()), len(xs)) if len(xs) > 500 else None
+
+
+def head_turned_check(light, folder):
     """The owner's case (marks 8, 12, 14): the head turned 45 degrees right of the game's camera, the gun with it. The
-    renderer re-bases first-person lights from the game's camera into the drawn view (pipe fplight): with light_at_gun
-    the light must be drawn at its own matrix (the drawn gun, checked above) within 2 cm / 2 degrees; with it off the
-    game's own re-basing is shown for comparison. Returns the number of failures."""
+    renderer re-bases first-person lights from the game's camera into the drawn view; pipe fplight shows the "from"
+    it was last called with and where that drew the light. With light_at_gun the hook must run (rebased_from_view
+    rises) and the light be drawn within 2 cm / 2 degrees of its own matrix (the drawn gun, checked above); with it
+    off the hook must stand aside and the game's re-basing show (drawn off the gun). The lit disc's place in the
+    picture is measured for both, for the laser phase to compare. Returns (failures, {setting: disc centre})."""
     failures = 0
+    discs = {}
     command('fakehead 0.064 -45')
     hands_turned(-45)
     time.sleep(1.5)
-    pattern = r'game: ([\d.]+) deg ([\d.]+) m off the entity; light_at_gun: ([\d.]+) deg ([\d.]+) m'
+    pattern = r'drawn: ([\d.]+) deg ([\d.]+) m off the entity; from the game\'s camera: ([\d.]+) deg ([\d.]+) m'
     for value in (0, 1):
         command('setting set light_at_gun %d' % value)
+        time.sleep(0.5)
+        before = re.search(r'rebased_from_view=(\d+)', command('fplight'))
         time.sleep(1.0)
         report = command('fplight %x' % light)
+        after = re.search(r'rebased_from_view=(\d+)', report)
         m = re.search(pattern, report)
-        drawn = re.search(r'drawn by the game forward=\(([-\d. ]+)\)', report)
-        if not m:
+        if not (m and before and after):
             print('  head 45 right, light_at_gun %d: FAIL no fplight readout (%s)' % (value, report.strip()[:120]))
             failures += 1
             continue
-        game_deg, game_m, ours_deg, ours_m = (float(g) for g in m.groups())
-        if value == 0:
-            print('  head 45 right, light_at_gun 0: the game draws the light %.2f deg / %.3f m off the gun (forward %s)' % (
-                game_deg, game_m, drawn.group(1) if drawn else '-'))
+        drawn_deg, drawn_m, game_deg, game_m = (float(g) for g in m.groups())
+        hooked = int(after.group(1)) - int(before.group(1))
+        if value == 1:
+            ok = hooked > 0 and drawn_deg < 2.0 and drawn_m < 0.02
         else:
-            ok = ours_deg < 2.0 and ours_m < 0.02
-            failures += not ok
-            print('  head 45 right, light_at_gun 1: drawn %.2f deg / %.3f m off the gun (the game alone: %.2f deg / %.3f m) %s' % (
-                ours_deg, ours_m, game_deg, game_m, 'ok' if ok else 'FAIL'))
+            ok = hooked == 0 and drawn_deg > 5.0
+        failures += not ok
+        discs[value] = disc_centre(light, folder, 'head45_light_at_gun%d' % value)
+        print('  head 45 right, light_at_gun %d: hook re-based %d calls in 1 s; light drawn %.2f deg / %.3f m off the gun '
+              '(from the game\'s camera: %.2f deg / %.3f m); lit disc at %s %s' % (
+                  value, hooked, drawn_deg, drawn_m, game_deg, game_m,
+                  '(%.0f, %.0f), %d px' % discs[value] if discs[value] else 'none in view', 'ok' if ok else 'FAIL'))
+    command('setting set light_at_gun 1')
     command('fakehead 0.064')
-    return failures
+    return failures, discs
+
+
+def census_check(light):
+    """Which lights the hook changes: every light in the renderer's set with the first-person flag, at rest (the
+    flashlight on) and during a 1.5 s burst (a muzzle flash light would show here). Printed, not judged."""
+    print('  census at rest (pipe fplight census):')
+    print('    ' + command('fplight census').replace('\n', '\n    '))
+    command('pad 0 0 0 0 1500 0000 0 1')
+    seen = {}
+    for _ in range(6):
+        time.sleep(0.2)
+        for m in re.finditer(r'first-person light (\w+) vtable (\w+)', command('fplight census')):
+            seen[m.group(1)] = m.group(2)
+    time.sleep(0.5)
+    print('  first-person lights seen during a burst: %s' % (
+        ', '.join('%s (vtable %s%s)' % (k, v, ', the flashlight' if int(k, 16) == light else '') for k, v in seen.items()) or 'none'))
 
 
 def main():
@@ -375,8 +447,12 @@ def main():
                   'moved every time' if not unmoved else 'did NOT move %d times' % unmoved,
                   sorted(delays)[len(delays) // 2] if delays else -1, max(delays) if delays else -1,
                   ' '.join(str(s) for s in stale_frames), 'ok, same frame' if timely else 'FAIL'))
-        failures += head_turned_check(light)
-        failures += laser_check(gun, laser)
+        folder = tempfile.mkdtemp(prefix='bfvr_light_')
+        print('  screenshots in %s' % folder)
+        turned_failures, discs = head_turned_check(light, folder)
+        failures += turned_failures
+        census_check(light)
+        failures += laser_check(gun, laser, folder, discs)
     finally:
         command('setting set light_at_gun %s' % (earlier_light or '1'))
         for name, value in earlier.items():

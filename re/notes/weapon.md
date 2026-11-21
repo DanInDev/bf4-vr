@@ -1523,17 +1523,27 @@ the re-basing is the identity. **Test head-vs-camera effects with `fakehead 0.06
   `0x1408BE76B` <- `0x14083F49C`): `FUN_140CC9C50(lights, renderer, view, to, from)` draws every light whose byte
   **+0xDA** is set (the flashlight sets it while it shines, 0 when off) at **L x inverse(from) x to**: `to` is the drawn
   view (the caller's `[rbx+0x8F0]`, equal to the mod's world camera with the head in it), `from` the game's camera
-  (`[rbx+0x1C80]`, no head). In the flat game they are the same view. Head and gun turned 45 deg right: pipe `fplight`
-  showed the game drawing the light 40.1 deg / 0.41 m off its entity, the disc far right on the wall, while one tapped
-  bullet (shots leave the drawn barrel) hit beside the door the gun pointed at.
+  (`[rbx+0x1C80]`, no head). In the flat game they are the same view. Head and gun turned 45 deg right, without the
+  fix: the light drawn 40.1 deg / 0.41 m off its entity (pipe `fplight`, re-based with the "from" actually passed), the
+  lit disc at x 1794-1870 of 2160 on the far wall. Seen by eye only (screenshot, not measured): one tapped bullet (shots
+  leave the drawn barrel) broke the window pane beside the door the gun pointed at.
 - **Fix** (`stereo/first_person_lights`, setting `light_at_gun`, on): the hook passes `to` as `from`, so the light is
-  drawn at its own world matrix (0.00 deg / 0.000 m, `tools/light_probe.py` step 4); the disc then sits on the door at
-  the gun's line. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
-- **The laser**: its beam is drawn from the gun either way; its **dot is a first-person light** too. Head and gun 45 deg
-  right: with `light_at_gun 1` beam and dot lie together (green x 1082..1172 of 2160), with 0 the dot is thrown to
-  x 1929 on the wall. Both are world objects, so both eyes see them from their own place.
+  drawn at its own world matrix. Measured (`tools/light_probe.py` step 4, two runs): with the setting the hook re-based
+  147-149 calls a second and the light was drawn 0.00-0.02 deg / 0.000 m off its entity, with it off 0 calls and
+  40.11 deg / 0.41 m. The disc (light on minus off, switched by the flag) lay 12 px (102 in a first run) from the laser
+  beam's far end with the setting, 712-788 px from it without. The beam is drawn from the gun's mesh, not re-based, so
+  it is the reference. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
+- **The laser**: its beam is drawn from the gun either way; its **dot is a first-person `SpotLightEntity`** too (census
+  with the laser on). Head and gun 45 deg right: with `light_at_gun 1` beam and dot lie together (green x 1082..1173),
+  with 0 the dot is thrown to x 1929 on the wall. Both are world objects, so both eyes see them from their own place.
+- **Which lights the hook changes** (pipe `fplight census`, the renderer's set walked on the render thread with the
+  game's own tree successor `0x140623390`): at rest with the flashlight on, one light (the flashlight, first-person); six
+  censuses during a 1.5 s burst: the flashlight only, no muzzle-flash light; with the laser on, its dot only. Other
+  first-person lights in other levels or with other gadgets were not surveyed.
 - Pitfalls met: judging "light on" by total brightness failed twice (the curtain moves, the window dominates); the
   +0xDA flag (pipe `fplight <light>` `first_person_flag`) tells it. Bullet holes do not show on the frosted glass door.
+  A readout that re-bases from `to` to `to` is the identity whatever the hook does: `fplight` now uses the "from" the
+  game was actually called with.
 
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
 

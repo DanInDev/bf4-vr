@@ -919,12 +919,16 @@ namespace bfvr::control
 			if (command == "twohand") return weapon::two_hand_report() + "\n" + weapon::shot_origin_report();
 			if (command == "fplight")
 			{
+				if (argument == "census")
+				{
+					return stereo::first_person_light_report(0, true);
+				}
 				unsigned long long light = 0;
 				if (!argument.empty() && sscanf_s(argument.c_str(), "%llx", &light) != 1)
 				{
-					return "error: usage: fplight [hex light address]";
+					return "error: usage: fplight [hex light address | census]";
 				}
-				return stereo::first_person_light_report(static_cast<std::uintptr_t>(light));
+				return stereo::first_person_light_report(static_cast<std::uintptr_t>(light), false);
 			}
 			if (command == "flash") return stereo::muzzle_quads::pipe_command(argument);
 			if (command == "hipaccuracy") return weapon::hip_accuracy_report();
@@ -1101,7 +1105,7 @@ namespace bfvr::control
 				}
 				return watch_writes(static_cast<std::uintptr_t>(address), length, duration_ms, std::strcmp(mode, "rw") == 0);
 			}
-			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | fakefocus lost|back|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] [rw] | fplight [hex light] | mark [note] | help";
+			if (command == "help") return "commands: status | shot <path.png> | hudshot <path.png> | dump <path.exe> | peek <hex address> <length> | peekmany <length> <hex address>... | scan <hex bytes> [max] | poke <hex address> <hex bytes> | pad <lx> <ly> <rx> <ry> [ms] | tshift <slot> <hex offset> <m> | viewcrop [h v] | rendersize | frametrace <path.txt> | worldpass <1|2> [shift m] [0 module|1 renderer] | eyepass <flags 1 twice|2 shifted last|4 restore> [shift m] | eyeshot <path.png> | eyeprobe <prefix> | fakehead <ipd> [yaw deg]|off | fakehand <yaw> [pitch] [left x y z [right x y z]] | off | fakefocus lost|back|off | stereorender aer|pair | viewcount <1|2> [shift m] [viewport] | threads | gunscale [g] | arms | armik [0|1] | haptics [<hand 0|1> <amplitude> <ms>] | hand <l|r> <x y z> [yaw pitch] / off | armaxes <q> | bone <i> <dx> <dy> <dz> | aspect <w/h> | fakeyaw <deg> | pin <slot> <hex offset> <float> | watch <hex address> [length] [ms] [rw] | fplight [hex light | census] | mark [note] | help";
 			return "error: unknown command '" + command + "' (try help)";
 		}
 
