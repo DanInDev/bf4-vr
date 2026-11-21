@@ -1514,8 +1514,8 @@ drew the gun through the pose edit). Measured now, nothing needs changing:
   and left the light falls through the glass; with the light off the curtain stays dark. The green laser
   (`U_MX4_GreenLaser`) draws its beam from the drawn muzzle along the barrel to a dot on the curtain; its green pixels
   move with the gun and vanish when it is switched off: the probe's laser phase measured mean x 880 / 1238 / 1621 and
-  831 / 1157 / 1566 px (of 2160) turned 30 deg left / ahead / right, 47-182 laser pixels per shot (seen end-on, ahead,
-  the thin beam covers as few as 10-22). The laser's own entity was not traced; the pictures are the evidence for it.
+  831 / 1157 / 1566 px (of 2160) turned 30 deg left / ahead / right; the first run's counts were 106 / 47 / 120 laser
+  pixels (seen nearly end-on, ahead, the thin beam covers the fewest, hence the probe's floor of 10). The laser's own entity was not traced; the pictures are the evidence for it.
 - Both are world objects, so both eyes see them from their own place.
 
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
