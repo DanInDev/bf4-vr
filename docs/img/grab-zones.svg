@@ -72,18 +72,18 @@
 <text class="side" x="-915" y="130" text-anchor="middle">GUN HAND</text>
 <text class="side" x="915" y="130" text-anchor="middle">OFF HAND</text>
 <g class="both">
-<circle class="reach" cx="-200" cy="-50" r="155"/>
+<circle class="reach" cx="-200" cy="-50" r="310"/>
 <circle class="dot" cx="-200" cy="-50" r="12"/>
-<line class="lead" x1="-355" y1="-50" x2="-586" y2="-70"/>
+<line class="lead" x1="-510" y1="-50" x2="-586" y2="-70"/>
 <text class="zl" x="-600" y="-50" text-anchor="end">Gadget 1</text>
-<text class="zs" x="-600" y="-6" text-anchor="end">over the shoulder, 16 cm</text>
+<text class="zs" x="-600" y="-6" text-anchor="end">over the shoulder, 31 cm</text>
 </g>
 <g class="both">
-<circle class="reach" cx="200" cy="-50" r="140"/>
+<circle class="reach" cx="200" cy="-50" r="310"/>
 <circle class="dot" cx="200" cy="-50" r="12"/>
-<line class="lead" x1="340" y1="-50" x2="586" y2="-70"/>
+<line class="lead" x1="510" y1="-50" x2="586" y2="-70"/>
 <text class="zl" x="600" y="-50" text-anchor="start">Gadget 2</text>
-<text class="zs" x="600" y="-6" text-anchor="start">over the shoulder, 14 cm</text>
+<text class="zs" x="600" y="-6" text-anchor="start">over the shoulder, 31 cm</text>
 </g>
 <g class="off">
 <circle class="reach" cx="-110" cy="270" r="100"/>
@@ -146,10 +146,10 @@
 <rect class="visor" x="-55" y="-50" width="90" height="95" rx="26"/>
 <path class="strap" d="M 20 -20 L 175 -10"/>
 <g class="both">
-<circle class="reach" cx="150" cy="-50" r="155"/>
+<circle class="reach" cx="150" cy="-50" r="310"/>
 <circle class="dot" cx="150" cy="-50" r="12"/>
-<text class="zl" x="325" y="-62" text-anchor="start">Gadget 1</text>
-<text class="zl" x="325" y="4" text-anchor="start">Gadget 2</text>
+<text class="zl" x="480" y="-62" text-anchor="start">Gadget 1</text>
+<text class="zl" x="480" y="4" text-anchor="start">Gadget 2</text>
 </g>
 <g class="off">
 <circle class="reach" cx="-100" cy="270" r="100"/>

@@ -56,8 +56,8 @@ STYLE = """
 # Grab zones v2 (#57): primary at the sling, gadgets over the shoulders, magazines from the low chest
 # down to the off-side hip (one capsule, drawn as its two ends).
 ZONES = [
-    ("Gadget 1", "over the shoulder", "both", 0.20, 0.05, 0.15, 0.155),
-    ("Gadget 2", "over the shoulder", "both", -0.20, 0.05, 0.15, 0.14),
+    ("Gadget 1", "over the shoulder", "both", 0.20, 0.05, 0.15, 0.31),
+    ("Gadget 2", "over the shoulder", "both", -0.20, 0.05, 0.15, 0.31),
     ("Grenades", "high chest", "off", 0.11, -0.27, -0.10, 0.10),
     ("Knife", "high chest", "gun", -0.10, -0.27, -0.10, 0.11),
     ("Magazines", "low chest", "off", -0.04, -0.47, -0.10, 0.13),
