@@ -110,6 +110,11 @@ namespace bfvr::weapon
 			|| traits.feed == feed::cylinder; // top break, speedloader (reload_profile revolver, 2026-11-17)
 	}
 
+	bool is_unarmed(std::string_view unlock_name)
+	{
+		return unlock_name.find("Unarmed") != std::string_view::npos;
+	}
+
 	bool cycles_by_hand(const gun_traits& traits)
 	{
 		return traits.cycle == cycle::bolt || traits.cycle == cycle::pump;

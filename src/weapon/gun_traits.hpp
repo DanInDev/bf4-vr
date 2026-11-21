@@ -56,6 +56,10 @@ namespace bfvr::weapon
 	// family G, and the pump of a box-fed gun; tube pumps wait for family F).
 	bool cycles_by_hand(const gun_traits& traits);
 
+	// #136: the game's "no weapon" item (U_WeaponUnarmed, sections where the game takes the weapons away). It sits in a gun
+	// slot with a magazine, but it is no gun: no reload, no gun hold, no slot captures.
+	bool is_unarmed(std::string_view unlock_name);
+
 	// The crate table, for tests and tools.
 	std::size_t crate_gun_count();
 	std::string_view crate_gun_at(std::size_t index);
