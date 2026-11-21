@@ -106,6 +106,7 @@ namespace bfvr::weapon
 			const float none[3]{};
 			body::set_gun_hand_rotation(false, identity);
 			body::set_support_hand(0.0f);
+			foregrip_read_at = 0; // #91: read the grip again on the next tracked update
 			input::set_aim_direction(false, none);
 			input::set_shot_line(false, none, none);
 			sight_aiming = false;
@@ -151,6 +152,10 @@ namespace bfvr::weapon
 		}
 		const sight_state sight = read_sight_state();
 		const int forced = foregrip_force.load();
+		// Handed over at once: the update reads the grip again only while a tracked hand drives it.
+		const int kind = forced >= 0 ? forced : sight.valid && sight.attachments_known ? static_cast<int>(sight.foregrip) : 0;
+		foregrip_sent = kind;
+		body::set_foregrip(kind);
 		return std::string("foregrip weapon=") + (sight.weapon[0] ? sight.weapon : "-") + " attachments_known=" + (sight.attachments_known ? "1" : "0")
 			+ " gun_grip=" + foregrip_name(sight.foregrip) + " (" + (sight.grip[0] ? sight.grip : "none") + ") forced="
 			+ (forced < 0 ? "auto" : foregrip_name(static_cast<foregrip_kind>(forced))) + " sent=" + foregrip_name(static_cast<foregrip_kind>(foregrip_sent.load()));

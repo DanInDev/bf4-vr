@@ -696,8 +696,8 @@ the weapon blueprint. Live walk:
 Found by scanning the weapon object (only `+0x4850`, the weapon unlock) and then the weapons component
 for asset names.
 
-**Foregrips (#91, 2026-11-21).** The names follow `U_<gun>_Foregrip[_Angled|_Folding|...]` (SCAR-H and AK-12 above,
-Baku). `weapon/foregrip` classifies them (vertical / angled / stubby); pipe `foregrip` shows the gun's grip and can
+**Foregrips (#91, 2026-11-21).** Seen live only `U_SCAR-H_Foregrip_Angled` and `U_AK12_Foregrip_Folding` (above,
+Baku); the potato, stubby, ergo and plain vertical names in `weapon/foregrip` are assumed from that pattern. `weapon/foregrip` classifies them (vertical / angled / stubby); pipe `foregrip` shows the gun's grip and can
 force a kind. **Shanghai loads none:** `unlockfind` (case-sensitive, `strstr`) for `Foregrip`, `grip`, `Ergo` and
 `Bipod` all return nothing; the UMP-45, FAMAS and MX4 carry only optics, lasers and lights there. Real grips need a
 level that loads them (Baku / the Prologue). `weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a

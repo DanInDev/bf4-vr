@@ -1,5 +1,6 @@
 // Checks the foregrip table (src/weapon/foregrip, #91): the unlock names seen live (SCAR-H angled, AK-12
-// folding), the other kinds by BF4's naming, a bipod and the gun's other attachments.
+// folding), a bipod and the gun's other attachments. The plain, potato, stubby and ergo names are assumed from the
+// pattern of those two, never seen live (Shanghai loads no grips, re/notes/weapon.md).
 #include <cstdio>
 #include <initializer_list>
 
