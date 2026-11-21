@@ -16,9 +16,10 @@ which the mod's pose edit writes): FUN_140fbb210 -> FUN_1407184f0 (bone read) ->
 4. the owner's case (marks 8, 12, 14 of 2026-11-19): the head turned 45 degrees right of the game's camera, the gun
    with it. The renderer re-bases first-person lights from the game's camera into the drawn view (FUN_140CC9C50); pipe
    `fplight <light>` shows the "from" camera the game was last called with and where that drew the light: with
-   light_at_gun the hook must run (rebased_from_view rises) and the light be drawn within 2 cm / 2 degrees of its own
-   matrix (the drawn gun, step 2); with it off the hook must stand aside and the light be drawn off the gun. The lit
-   disc's place in the picture is measured both ways (light on minus off, switched by its flag). Then a census of
+   light_at_gun the hook must run (rebased_from_view rises; "from" is then the view, so the drawn figure is the identity
+   by construction and only shows the substitution); with it off the hook must stand aside and the light be drawn off
+   the gun. Where the light lands is the lit disc, measured both ways (light on minus off, switched by its flag) and
+   judged in step 5 against the laser beam. Then a census of
    the renderer's lights (`fplight census`), at rest and during a burst: which lights carry the first-person flag;
 5. the laser (a beam drawn from the gun and a dot, a first-person light): gives the gun with the laser, takes
    screenshots with the drawn gun turned 30 degrees left and 30 right (nearer the view's line the thin beam is too
@@ -26,7 +27,8 @@ which the mod's pose edit writes): FUN_140fbb210 -> FUN_1407184f0 (bone read) ->
    pixels are the green ones that the "off" shot of the same pose lacks. They must be there in both poses and move
    with the gun (mean x more than 300 px of 2160 further right turned right). Then the head turned 45
    degrees right: with light_at_gun the beam and its dot must lie together (within 250 px); without it the dot is
-   thrown to the right (shown, not required). The beam's far end (drawn from the gun's mesh, no re-base) is the
+   thrown to the right (shown, not required). The beam's far end (drawn from the gun's mesh, no re-base; taken from
+   the shot with light_at_gun 0, where the dot is thrown away, so the hook cannot move the reference) is the
    reference for step 4's disc: with light_at_gun the disc must lie within 200 px of it.
 
     python -E -P tools\\light_probe.py [U_MX4] [U_MX4_Flashlight] [U_MX4_GreenLaser]
@@ -211,8 +213,12 @@ def laser_check(gun, laser, folder, discs):
             time.sleep(0.3)
         ys, xs = np.nonzero(green(path))
         spans[value] = (xs.min(), xs.max()) if len(xs) else None
-        if value == 1 and len(xs):
-            top = int(np.argmin(ys))  # the beam rises from the muzzle below the eye to its far end
+        if value == 0 and len(xs):
+            # The reference must not depend on the hook: in this shot (light_at_gun 0) the dot is thrown far off, so the
+            # pixels near the beam's foot (the muzzle, lowest) are the beam alone; its far end is the topmost of them.
+            foot = xs[int(np.argmax(ys))]
+            beam = np.abs(xs - foot) < 200
+            top = int(np.argmin(np.where(beam, ys, 1 << 30)))
             beam_end = (float(xs[top]), float(ys[top]))
         print('  head 45 right, light_at_gun %d: laser pixels %d, x %s' % (value, len(xs), '%d..%d' % spans[value] if spans[value] else '-'))
     print('  census with the laser on (pipe fplight census):')
@@ -231,7 +237,8 @@ def laser_check(gun, laser, folder, discs):
         far = math.dist(beam_end, discs[0][:2]) if discs.get(0) else float('nan')
         ok = near < 200
         failures += not ok
-        print('  flashlight disc against the laser beam\'s end (%.0f, %.0f): %.0f px with light_at_gun, %.0f px without %s' % (
+        print('  flashlight disc against the laser beam\'s far end (%.0f, %.0f; the beam alone, from the shot without the hook): '
+              '%.0f px with light_at_gun, %.0f px without %s' % (
             beam_end + (near, far, 'ok' if ok else 'FAIL')))
     else:
         failures += 1
@@ -318,14 +325,16 @@ def head_turned_check(light, folder):
             continue
         drawn_deg, drawn_m, game_deg, game_m = (float(g) for g in m.groups())
         hooked = int(after.group(1)) - int(before.group(1))
+        # With the setting the hook passes the drawn view as "from", so "drawn" is the identity by construction: it shows
+        # the substitution happened, not where the light lands (the disc, measured below, shows that).
         if value == 1:
             ok = hooked > 0 and drawn_deg < 2.0 and drawn_m < 0.02
         else:
             ok = hooked == 0 and drawn_deg > 5.0
         failures += not ok
         discs[value] = disc_centre(light, folder, 'head45_light_at_gun%d' % value)
-        print('  head 45 right, light_at_gun %d: hook re-based %d calls in 1 s; light drawn %.2f deg / %.3f m off the gun '
-              '(from the game\'s camera: %.2f deg / %.3f m); lit disc at %s %s' % (
+        print('  head 45 right, light_at_gun %d: hook re-based %d calls in 1 s; with the "from" passed the light is drawn %.2f deg / %.3f m '
+              'off its entity (from the game\'s camera: %.2f deg / %.3f m); lit disc at %s %s' % (
                   value, hooked, drawn_deg, drawn_m, game_deg, game_m,
                   '(%.0f, %.0f), %d px' % discs[value] if discs[value] else 'none in view', 'ok' if ok else 'FAIL'))
     command('setting set light_at_gun 1')

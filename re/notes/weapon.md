@@ -1528,11 +1528,18 @@ the re-basing is the identity. **Test head-vs-camera effects with `fakehead 0.06
   lit disc at x 1794-1870 of 2160 on the far wall. Seen by eye only (screenshot, not measured): one tapped bullet (shots
   leave the drawn barrel) broke the window pane beside the door the gun pointed at.
 - **Fix** (`stereo/first_person_lights`, setting `light_at_gun`, on): the hook passes `to` as `from`, so the light is
-  drawn at its own world matrix. Measured (`tools/light_probe.py` step 4, two runs): with the setting the hook re-based
-  147-149 calls a second and the light was drawn 0.00-0.02 deg / 0.000 m off its entity, with it off 0 calls and
-  40.11 deg / 0.41 m. The disc (light on minus off, switched by the flag) lay 12 px (102 in a first run) from the laser
-  beam's far end with the setting, 712-788 px from it without. The beam is drawn from the gun's mesh, not re-based, so
-  it is the reference. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
+  drawn at its own world matrix. `tools/light_probe.py` step 4: with the setting the hook re-based 147-149 calls a
+  second, with it off 0 calls and the game's re-basing put the light 40.11 deg / 0.41 m off its entity. (With the
+  setting, the readout's "drawn" figure is L x inverse(to) x to, the identity by construction: it shows the swap, not
+  where the light lands.) **Where it lands** is measured by the lit disc (light on minus off, switched by the flag)
+  against the laser beam's far end in the same pose, taken from the beam's own pixels in the shot without the hook
+  (the beam is drawn from the gun's mesh, not re-based; the dot, itself re-based, is excluded): **54 px with the
+  setting, 833 px without** (2160 px wide image). Earlier runs measured from the topmost green pixel, which can be the
+  dot: 12 and 102 px with, 712 and 788 without. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
+- **Measured only with the MX4** (flashlight, green laser), at the hip and head-turned. With the Saiga 20K + ACOG +
+  flashlight and the game aiming (hip_accuracy 0 for the test), the light's *entity* matched the drawn barrel within
+  0.0 deg ahead and turned 30 deg either way (scratch run before the fix, raw output on #92). The owner's Hawk and
+  QBS-09 (marks 8, 12) were not measured; the cause is in the renderer, the same for every gun's light.
 - **The laser**: its beam is drawn from the gun either way; its **dot is a first-person `SpotLightEntity`** too (census
   with the laser on). Head and gun 45 deg right: with `light_at_gun 1` beam and dot lie together (green x 1082..1173),
   with 0 the dot is thrown to x 1929 on the wall. Both are world objects, so both eyes see them from their own place.
