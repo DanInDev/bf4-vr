@@ -1601,6 +1601,13 @@ namespace
 		expect(draw_at(h, frame, { -0.22f, -0.72f, 0.02f }) == holster::none, "left hip: no holster any more (magazines)");
 		expect(draw_at(h, frame, magazine_pouch) == holster::none && draw_at(h, frame, grenade_pouch) == holster::none, "the off hand's pouches are no holsters");
 		expect(draw_at(h, frame, { 0.15f, -0.25f, -0.35f }) == holster::none, "aiming position: nothing");
+		// #71 (owner 2026-11-16: the shoulder spots barely worked): the gadget zones at least twice as large (31 cm).
+		expect(draw_at(h, frame, { 0.20f, 0.33f, 0.15f }) == holster::gadget1, "#71: 28 cm above the gun-side shoulder spot: gadget 1");
+		expect(draw_at(h, frame, { 0.45f, 0.05f, 0.30f }) == holster::gadget1, "#71: far out and back over the gun-side shoulder: gadget 1");
+		expect(draw_at(h, frame, { -0.48f, 0.05f, 0.15f }) == holster::gadget2, "#71: 28 cm out from the off-side shoulder spot: gadget 2");
+		expect(draw_at(h, frame, { 0.08f, -0.12f, -0.12f }) == holster::none, "#71: the gun hand at the cheek (aiming): no gadget");
+		expect(draw_at(h, frame, { 0.0f, -0.08f, -0.08f }) == holster::none, "#71: at the mouth (the pin with the teeth): no gadget");
+		expect(draw_at(h, frame, { 0.0f, 0.0f, -0.15f }) == holster::none, "#71: in front of the face: no gadget");
 		// The pistol and the rifle: 30 cm apart; a reach for the pistol around the hip never draws the rifle.
 		{
 			const v3 hip{ 0.22f, -0.75f, 0.0f };
@@ -1662,7 +1669,7 @@ namespace
 		const holster_result rings = turning.update(turn);
 		const int gadget1_zone = static_cast<int>(holster::gadget1) - static_cast<int>(holster::primary);
 		expect(rings.has_centres && std::fabs(rings.centres[gadget1_zone].x - shoulder.x) < 1e-4f && std::fabs(rings.centres[gadget1_zone].z - shoulder.z) < 1e-4f
-			&& std::fabs(rings.radii[gadget1_zone] - 0.155f) < 1e-6f, "ring centre and radius of the gun-side shoulder holster");
+			&& std::fabs(rings.radii[gadget1_zone] - 0.31f) < 1e-6f, "ring centre and radius of the gun-side shoulder holster (#71: 31 cm)");
 		expect(std::fabs(rings.radii[0] - 0.14f) < 1e-6f, "the primary's ring at the sling is 14 cm");
 		holster_frame mirrored_ring = left;
 		mirrored_ring.gun_hand = { 5.0f, 5.0f, 5.0f };
@@ -1695,6 +1702,9 @@ namespace
 		expect(off_draw(off, frame, { -0.22f, -0.75f, 0.0f }, false) == holster::none, "off hand at its hip: magazines, no holster");
 		expect(off_draw(off, frame, sling_point, false) == holster::none, "the primary at the sling is the gun hand's");
 		expect(off_draw(off, frame, { -0.10f, -0.27f, -0.10f }, false) == holster::none, "the knife is the gun hand's (cross draw)");
+		expect(off_draw(off, frame, grenade_pouch, false) == holster::none
+				&& off_draw(off, frame, { grenade_pouch.x, grenade_pouch.y + 0.06f, grenade_pouch.z }, false) == holster::none,
+			"#71: the off hand at the grenade pouch (and 6 cm above it) takes no gadget");
 
 		// Chest rig: the pouches sit in the body frame, apart from each other and from the off hand's holsters.
 		const v3 head{ 0.1f, 1.6f, -0.2f };
