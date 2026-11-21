@@ -23,6 +23,7 @@ namespace bfvr::weapon
 			{ "eotech", optic_kind::reflex, 1.0f, true },
 			{ "holo", optic_kind::reflex, 1.0f, true },
 			{ "kobra", optic_kind::reflex, 1.0f },
+			{ "rx01", optic_kind::reflex, 1.0f }, // BF4's "Reflex (RDS)": the crate UMP-45's (2026-11-21)
 			{ "rds", optic_kind::reflex, 1.0f },
 			{ "reflex", optic_kind::reflex, 1.0f },
 			{ "coyote", optic_kind::reflex, 1.0f },
