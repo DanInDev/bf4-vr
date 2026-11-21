@@ -1505,13 +1505,17 @@ drew the gun through the pose edit). Measured now, nothing needs changing:
   mod's pose edit (`0x140716050` hook) writes. So the accessory is placed from the drawn Wep_Root.
 - **Monitor** (`tools/light_probe.py`, MX4 + `U_MX4_Flashlight`): the light sits at (0, 0.084, 0.664) m in Wep_Root's
   frame, 0.00-0.01 cm and 0.00 deg from that with the drawn gun ahead, 30 cm right, turned 30 deg either way and pitched
-  20 deg up. Over 20 moves of the drawn gun, polled every ~0.25 ms, the light took its new place at most 0.26 ms after
-  the pose: the same frame (a frame ~7 ms), no lag.
+  20 deg up. Over 20 moves of the drawn gun, polled every ~0.25 ms, the light took its new place at most 0.7 ms after
+  the pose, and no frame was presented (pipe status `presents`) between the two: the same frame, no lag (two runs).
+  Pitfall: an earlier version timed "first poll at the final value", which a light that never moved passes at once
+  (a stale entity after a re-give) and a 50-90 ms pipe stall fails; the probe now checks that the light moved and
+  counts presented frames.
 - **Pictures**: with the gun turned 30 deg right the curtain beside the window is lit where the drawn gun points; ahead
   and left the light falls through the glass; with the light off the curtain stays dark. The green laser
   (`U_MX4_GreenLaser`) draws its beam from the drawn muzzle along the barrel to a dot on the curtain; its green pixels
-  move with the gun (left of centre turned left, centre ahead, right turned right) and vanish when it is switched off.
-  The laser's own entity was not traced; the pictures are the evidence for it.
+  move with the gun and vanish when it is switched off: the probe's laser phase measured mean x 880 / 1238 / 1621 and
+  831 / 1157 / 1566 px (of 2160) turned 30 deg left / ahead / right, 47-182 laser pixels per shot (seen end-on, ahead,
+  the thin beam covers as few as 10-22). The laser's own entity was not traced; the pictures are the evidence for it.
 - Both are world objects, so both eyes see them from their own place.
 
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
