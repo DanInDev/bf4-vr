@@ -214,6 +214,16 @@ namespace bfvr::weapon
 			{ "U_FY-JS", { 0.012f, -0.028f, 0.038f } },
 			{ "U_Scout", { 0.012f, -0.014f, 0.047f } },
 			{ "U_SV98", { 0.007f, -0.017f, 0.061f } },
+			// #141 (2026-11-21): the steady core (frames within 6 cm of their median, >= 4, its median): a few frames of
+			// the hand arriving or leaving had failed the whole-spread rule. MX4 and PP-2000 from seven takes (BF4 in front).
+			{ "U_A91", { 0.012f, -0.071f, -0.032f } },        // 15 of 26 frames, 1.1 cm
+			{ "U_CZ805", { -0.001f, -0.067f, 0.022f } },      // 41 of 47, 5.9 cm
+			{ "U_M82A3_SP", { 0.001f, -0.063f, -0.096f } },   // 18 of 23, 0.1 cm
+			{ "U_USAS-12_SP", { 0.012f, -0.145f, 0.007f } },  // 7 of 13, 1.6 cm: its long box
+			{ "U_Ultimax", { 0.001f, -0.059f, 0.034f } },     // 13 of 21, 0.4 cm
+			{ "U_QBB95", { -0.003f, -0.001f, -0.025f } },     // 38 of 41, 1.5 cm: the drum at its middle
+			{ "U_MX4", { 0.013f, -0.137f, -0.039f } },        // 6 frames, 1.1 cm
+			{ "U_PP2000", { -0.019f, -0.124f, -0.017f } },    // 7 of 8, 1.2 cm
 		};
 		for (const measured& gun : table)
 		{
