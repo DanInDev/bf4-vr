@@ -307,10 +307,10 @@ int main()
 		expect(magazine_grab_for("U_Scout", grab) && grab[1] > -0.03f, "Scout: the short box, grabbed close under the gun");
 		expect(magazine_grab_for("U_SCAR-H", grab) && grab[0] > 0.0f, "SCAR-H: from the left");
 		expect(magazine_grab_for("U_P90", grab) && grab[2] < -0.1f, "P90: taken behind its magazine, on top of the gun");
-		expect(!magazine_grab_for("U_870", grab) && !magazine_grab_for("U_AEK971", grab), "tube guns and the AEK-971 (6.2 cm even in its steady core): the default");
-		// #141: the steady core of the frames (within 6 cm of their median): guns whose few arriving / leaving frames failed
+		expect(!magazine_grab_for("U_870", grab) && !magazine_grab_for("U_QBS09_SP", grab), "tube guns: the default");
+		// #141: one rule, >= 4 frames within 6 cm of the median of all frames: guns whose few arriving / leaving frames failed
 		// the whole-spread rule, and the MX4 and PP-2000 with seven takes each (BF4 in front).
-		for (const char* gun : { "U_A91", "U_CZ805", "U_M82A3_SP", "U_USAS-12_SP", "U_Ultimax", "U_QBB95", "U_MX4", "U_PP2000" })
+		for (const char* gun : { "U_A91", "U_CZ805", "U_AEK971", "U_M82A3_SP", "U_USAS-12_SP", "U_Ultimax", "U_QBB95", "U_MX4", "U_PP2000" })
 		{
 			expect(magazine_grab_for(gun, grab), gun);
 		}
@@ -325,7 +325,7 @@ int main()
 				expect(grab[1] < 0.03f && grab[1] > -0.15f, "every grab between 3 cm above (the P90's top magazine) and 15 cm below the magwell");
 			}
 		}
-		expect(measured == 37, "37 crate guns have a measured grab point (#141: 8 more)");
+		expect(measured == 38, "38 crate guns have a measured grab point (#141: 9 more)");
 	}
 	// The way out: the AK-12 and SCAR-H are the reference and stay straight down; only clearly slanted guns differ.
 	{
