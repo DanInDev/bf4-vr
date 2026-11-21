@@ -551,9 +551,10 @@ namespace bfvr::body
 		ik::vec3 sling_grip_in_gun;
 		bool has_sling_grip{};
 		bool has_gun_hand_in_aim{};
-		// #136: the grip for an empty gun hand before any gun was held (a session that starts unarmed): a crate gun's
-		// measured gun_hand_in_aim (pipe arms). Without it the hand kept the game's animated unarmed hold.
-		constexpr ik::quat default_gun_hand_in_aim{ 0.0f, 1.0f, 0.0f, 0.0f };
+		// #136: the grip for an empty gun hand before any gun was held (a session that starts unarmed). Without it the hand
+		// kept the game's animated unarmed hold. The SCAR-H's measured gun_hand_in_aim (pipe arms, 2026-11-21); the M416 and
+		// UMP-45 lie within 10 degrees of it, the AK-12 and P226 ~30.
+		constexpr ik::quat default_gun_hand_in_aim{ 0.4124f, -0.5480f, -0.5732f, -0.4484f };
 		ik::quat grip_in_aim()
 		{
 			return has_gun_hand_in_aim ? gun_hand_in_aim : default_gun_hand_in_aim;
