@@ -283,7 +283,8 @@ int main()
 		expect(std::fabs(magazine_hold_drop("U_FAMAS") - 0.037f) < 1e-4f, "FAMAS: held 3.7 cm below its top (its short box)");
 		expect(std::fabs(magazine_hold_drop("U_M416") - 0.089f) < 1e-4f, "M416: 8.9 cm (a STANAG)");
 		expect(magazine_hold_drop("U_SAR21") == 0.12f, "SAR-21: its 13.5 cm clamped to 12");
-		expect(magazine_hold_drop("U_P90") == 0.0f && magazine_hold_drop("U_MX4") == 0.0f, "P90 (grab above the top), MX4 (not measured): none, the grip's own");
+		expect(magazine_hold_drop("U_P90") == 0.0f && magazine_hold_drop("U_870") == 0.0f, "P90 (grab above the top), tube guns (not measured): none, the grip's own");
+		expect(magazine_hold_drop("U_MX4") == 0.12f, "#141: MX4 measured (13.7 cm below Wep_Mag), clamped to 12");
 		expect(magazine_hold_drop("U_RFB_SP") == 0.02f, "RFB: 1.4 cm clamped to 2");
 		expect(handle_point_for("U_Scout", point) && point[0] < -0.05f && point[1] > 0.08f, "Scout: the bolt knob, out on the right and high");
 		{
@@ -306,7 +307,14 @@ int main()
 		expect(magazine_grab_for("U_Scout", grab) && grab[1] > -0.03f, "Scout: the short box, grabbed close under the gun");
 		expect(magazine_grab_for("U_SCAR-H", grab) && grab[0] > 0.0f, "SCAR-H: from the left");
 		expect(magazine_grab_for("U_P90", grab) && grab[2] < -0.1f, "P90: taken behind its magazine, on top of the gun");
-		expect(!magazine_grab_for("U_QBB95", grab) && !magazine_grab_for("U_870", grab), "QBB-95 (spread across takes) and tube guns: the default");
+		expect(!magazine_grab_for("U_870", grab) && !magazine_grab_for("U_QBS09_SP", grab), "tube guns: the default");
+		// #141: one rule, >= 4 frames within 6 cm of the median of all frames: guns whose few arriving / leaving frames failed
+		// the whole-spread rule, and the MX4 and PP-2000 with seven takes each (BF4 in front).
+		for (const char* gun : { "U_A91", "U_CZ805", "U_AEK971", "U_M82A3_SP", "U_USAS-12_SP", "U_Ultimax", "U_QBB95", "U_MX4", "U_PP2000" })
+		{
+			expect(magazine_grab_for(gun, grab), gun);
+		}
+		expect(magazine_grab_for("U_QBB95", grab) && grab[1] > -0.02f, "QBB-95: its drum is taken at its middle, level with the bone");
 		int measured = 0;
 		for (std::size_t i = 0; i < crate_gun_count(); ++i)
 		{
@@ -317,7 +325,7 @@ int main()
 				expect(grab[1] < 0.03f && grab[1] > -0.15f, "every grab between 3 cm above (the P90's top magazine) and 15 cm below the magwell");
 			}
 		}
-		expect(measured == 29, "29 crate guns have a measured grab point");
+		expect(measured == 38, "38 crate guns have a measured grab point (#141: 9 more)");
 	}
 	// The way out: the AK-12 and SCAR-H are the reference and stay straight down; only clearly slanted guns differ.
 	{

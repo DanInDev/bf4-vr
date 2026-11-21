@@ -214,6 +214,20 @@ namespace bfvr::weapon
 			{ "U_FY-JS", { 0.012f, -0.028f, 0.038f } },
 			{ "U_Scout", { 0.012f, -0.014f, 0.047f } },
 			{ "U_SV98", { 0.007f, -0.017f, 0.061f } },
+			// #141 (2026-11-21): one rule, the steady core: a gun is taken when >= 4 of its frames lie within 6 cm of the
+			// median of all its frames; the point is those frames' median. A few frames of the hand arriving or leaving had
+			// failed the old rule (every frame within 6 cm). MX4 and PP-2000 from seven takes (BF4 in front). The comments:
+			// core frames of all, and the core's own spread. Left out although the rule takes them: QBS-09 (a tube) and SRS
+			// (above the bone, doubtful).
+			{ "U_A91", { 0.012f, -0.071f, -0.032f } },        // 15 of 26 frames, 1.1 cm
+			{ "U_CZ805", { -0.001f, -0.067f, 0.022f } },      // 41 of 47, 5.9 cm
+			{ "U_AEK971", { 0.030f, -0.049f, 0.060f } },      // 33 of 36, 6.2 cm
+			{ "U_M82A3_SP", { 0.001f, -0.063f, -0.096f } },   // 18 of 23, 0.1 cm
+			{ "U_USAS-12_SP", { 0.012f, -0.145f, 0.007f } },  // 7 of 13, 1.6 cm: its drum, taken low
+			{ "U_Ultimax", { 0.001f, -0.059f, 0.034f } },     // 13 of 21, 0.4 cm
+			{ "U_QBB95", { -0.003f, -0.001f, -0.025f } },     // 38 of 41, 1.5 cm: the drum at its middle
+			{ "U_MX4", { 0.013f, -0.137f, -0.039f } },        // 6 frames, 1.1 cm
+			{ "U_PP2000", { -0.019f, -0.124f, -0.017f } },    // 7 of 8, 1.2 cm
 		};
 		for (const measured& gun : table)
 		{

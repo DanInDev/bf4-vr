@@ -270,6 +270,14 @@ def analyse_magazine(recordings):
         out['grab_offset'] = [round(median([p[k] for p in offsets]), 3) for k in range(3)]
         out['grab_frames'] = len(offsets)
         out['grab_spread_cm'] = round(max(math.dist(p, out['grab_offset']) for p in offsets) * 100, 1)
+        # #141: the steady core. A hand arriving at or leaving the magazine adds a few far frames that made the whole
+        # spread fail the 6 cm rule although most frames agree: the frames within 6 cm of the median, and their median.
+        core = [p for p in offsets if math.dist(p, out['grab_offset']) <= 0.06]
+        if len(core) >= 2:
+            centre = [median([p[k] for p in core]) for k in range(3)]
+            out['grab_core'] = [round(c, 3) for c in centre]
+            out['grab_core_frames'] = len(core)
+            out['grab_core_spread_cm'] = round(max(math.dist(p, centre) for p in core) * 100, 1)
         out['result'] = 'held'
     else:
         out['result'] = 'moved, no hand riding it'
