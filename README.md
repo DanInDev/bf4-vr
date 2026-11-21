@@ -12,7 +12,7 @@
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows%2010%2F11-2b3035">
   <img alt="Headset: Meta Quest 3" src="https://img.shields.io/badge/headset-Meta%20Quest%203-2b3035">
   <img alt="Campaign only" src="https://img.shields.io/badge/mode-campaign%20only-2b3035">
-  <a href="https://ko-fi.com/danindev"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-call%20in%20a%20supply%20drop-ff5e5b?logo=ko-fi&logoColor=white"></a>
+  <a href="https://ko-fi.com/danindev"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white"></a>
 </p>
 
 ---
@@ -166,14 +166,7 @@ in the [technical notes](docs/architecture/README.md#controller-mapping-in-menus
 
 ## Support the battle
 
-BF4-VR is built in spare evenings, one reverse-engineered address at a time. If it got you into the fight,
-you can **[call in a supply drop on Ko-fi](https://ko-fi.com/danindev)**: every coffee keeps the squad
-caffeinated, the headset charged and the next gun's charging handle getting pulled. It is entirely optional;
-the mod is and stays free.
-
-<p align="center">
-  <a href="https://ko-fi.com/danindev"><img alt="Support BF4-VR on Ko-fi" src="https://img.shields.io/badge/Ko--fi-support%20the%20battle-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white"></a>
-</p>
+Enjoying the fight? You can [call in a supply drop on Ko-fi](https://ko-fi.com/danindev). The mod stays free.
 
 ## For developers
 
