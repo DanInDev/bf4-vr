@@ -1645,7 +1645,8 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   89 -> 22-25 fps in Shanghai's rain, each eye 5 -> 20 ms. On the monitor (`tools/fire_cost_probe.py`, G36C, fake head):
   each eye 3.0 ms idle, 7.1-7.3 firing (160 -> 83 fps); with `flash_at_gun 0` 2.9 firing; the game's aim (`sight_ads`)
   costs nothing. About 50 particle batches an eye per frame each copied the 3 MB buffer and ran the move. Now one copy
-  and move per buffer and eye pass, later batches draw from it: firing 3.4-3.6 ms an eye, as with the flash off.
+  and move per buffer and eye pass, later batches draw from it. Measured numbers with the raw probe output: #144's
+  comment of 2026-11-22.
   - The game's writes to that buffer **never pass the hooked Map** (a write counter keyed to the buffer stayed 0 through
     bursts), so a copy cannot be invalidated by writes; it is trusted only within the eye pass that made it.
   - Proof that the reuse draws current particles: pipe `flash verify 200` copies the source buffer at a pass's first

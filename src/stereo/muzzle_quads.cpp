@@ -49,18 +49,21 @@ namespace bfvr::stereo::muzzle_quads
 		{
 			ID3D11Buffer* first = nullptr;
 			ID3D11Buffer* last = nullptr;
-			UINT bytes{};
+			UINT first_bytes{}, last_bytes{};
+			UINT bytes{};             // the size both copies of the pending pair have
+			const void* source{};     // the particle buffer the pair was copied from
 			std::uint64_t pass{};
 			bool have_last{};
 		};
 		thread_local verify_state checked;
 
-		ID3D11Buffer* staging_like(ID3D11DeviceContext* context, ID3D11Buffer*& slot, UINT bytes)
+		ID3D11Buffer* staging_like(ID3D11DeviceContext* context, ID3D11Buffer*& slot, UINT& slot_bytes, UINT bytes)
 		{
-			if (slot && checked.bytes == bytes)
+			if (slot && slot_bytes == bytes)
 			{
 				return slot;
 			}
+			slot_bytes = 0;
 			if (slot)
 			{
 				slot->Release();
@@ -71,7 +74,10 @@ namespace bfvr::stereo::muzzle_quads
 			if (device)
 			{
 				D3D11_BUFFER_DESC desc{ bytes, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ, 0, 0 };
-				device->CreateBuffer(&desc, nullptr, &slot);
+				if (SUCCEEDED(device->CreateBuffer(&desc, nullptr, &slot)))
+				{
+					slot_bytes = bytes;
+				}
 				device->Release();
 			}
 			return slot;
@@ -80,8 +86,9 @@ namespace bfvr::stereo::muzzle_quads
 		// A new copy in another pass: the pending pair (first copy, last reuse) of the previous pass is compared (a stall).
 		void verify_compare(ID3D11DeviceContext* context)
 		{
-			if (!checked.have_last || !checked.first || !checked.last)
+			if (!checked.have_last || !checked.first || !checked.last || checked.first_bytes != checked.bytes || checked.last_bytes != checked.bytes)
 			{
+				checked.have_last = false;
 				return;
 			}
 			checked.have_last = false;
@@ -504,8 +511,8 @@ RWByteAddressBuffer vertices : register(u0);
 			if (ready && pass_now && own.moved && own.source == stream && own.source_pass == pass_now && std::memcmp(own.move_key, key, sizeof(key)) == 0
 				&& check_left.load(std::memory_order_relaxed) <= 0 && !force_test.load(std::memory_order_relaxed))
 			{
-				if (verify_left.load(std::memory_order_relaxed) > 0 && checked.pass == pass_now && checked.first
-					&& staging_like(context, checked.last, stream_desc.ByteWidth))
+				if (verify_left.load(std::memory_order_relaxed) > 0 && checked.pass == pass_now && checked.first && checked.source == stream
+					&& checked.bytes == stream_desc.ByteWidth && staging_like(context, checked.last, checked.last_bytes, stream_desc.ByteWidth))
 				{
 					context->CopyResource(checked.last, stream);
 					checked.have_last = true;
@@ -521,9 +528,10 @@ RWByteAddressBuffer vertices : register(u0);
 			if (ready && pass_now && verify_left.load(std::memory_order_relaxed) > 0)
 			{
 				verify_compare(context);
-				if (staging_like(context, checked.first, stream_desc.ByteWidth))
+				if (staging_like(context, checked.first, checked.first_bytes, stream_desc.ByteWidth))
 				{
 					checked.bytes = stream_desc.ByteWidth;
+					checked.source = stream;
 					context->CopyResource(checked.first, stream);
 					checked.pass = pass_now;
 					checked.have_last = false;
