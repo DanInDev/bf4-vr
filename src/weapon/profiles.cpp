@@ -217,7 +217,8 @@ namespace bfvr::weapon
 			// #141 (2026-11-21): one rule, the steady core: a gun is taken when >= 4 of its frames lie within 6 cm of the
 			// median of all its frames; the point is those frames' median. A few frames of the hand arriving or leaving had
 			// failed the old rule (every frame within 6 cm). MX4 and PP-2000 from seven takes (BF4 in front). The comments:
-			// core frames of all, and the core's own spread.
+			// core frames of all, and the core's own spread. Left out although the rule takes them: QBS-09 (a tube) and SRS
+			// (above the bone, doubtful).
 			{ "U_A91", { 0.012f, -0.071f, -0.032f } },        // 15 of 26 frames, 1.1 cm
 			{ "U_CZ805", { -0.001f, -0.067f, 0.022f } },      // 41 of 47, 5.9 cm
 			{ "U_AEK971", { 0.030f, -0.049f, 0.060f } },      // 33 of 36, 6.2 cm

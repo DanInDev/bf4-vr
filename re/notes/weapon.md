@@ -410,7 +410,7 @@ M82A3, USAS-12, Ultimax, Scorpion (spread 7-11 cm), SRS (4.9 cm but above the bo
 whole-spread rule failed guns whose few frames of the hand arriving or leaving lay far off while most agreed (A-91: 15 of
 26 within 1.1 cm). One rule: a gun is taken when >= 4 frames lie within 6 cm of the median of all its frames (the point: their median).
 Taken now: A-91, CZ-805, AEK-971, M82A3, USAS-12, Ultimax, QBB-95, and the MX4 (6 frames) and PP-2000 (7) after seven
-takes each with BF4 in front (3 each before). Still the default: QBS-09 (a tube gun, one take). The MX4's hand is 13.7 cm
+takes each with BF4 in front (3 each before). Still the default although the rule would take them: QBS-09 (a tube gun: its magazine never leaves the gun) and SRS (above the bone, doubtful, as before). The MX4's hand is 13.7 cm
 below Wep_Mag; `magazine_hold_drop` holds it at the 12 cm clamp.
 
 Way out (the magazine's first 3 cm, unit vector): AUG (0.54, -0.83), QBU-88 (0.53, -0.84), RFB (0.35, -0.93),
