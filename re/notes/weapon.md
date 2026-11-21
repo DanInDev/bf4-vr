@@ -1494,10 +1494,13 @@ Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`)
 - Since #37 the game's aim stays with the body (`aim_with_body`): the bullet direction comes from the
   shot frame alone (holes follow the gun 15 degrees left and right with the aimer fixed).
 
-## Flashlight and laser follow the drawn gun (2026-11-21, monitor, Shanghai, #92)
+## Flashlight and laser at the drawn gun (2026-11-21, monitor, Shanghai, #92)
 
-The issue expected the light in the flat gun's frame (the 2026-10-25 table in `first_person.md`, from before the mod
-drew the gun through the pose edit). Measured now, nothing needs changing:
+Owner (headset, 2026-11-19, marks 8, 12, 14): the lit circle sat well to the side of where the gun pointed, on the side
+the head was turned. Two parts: the light's **entity** is placed right (below), but the **renderer re-bases** every
+first-person light into the drawn view and turned it with the head (last bullets). First conclusion "nothing needs
+changing" was wrong: every monitor test had the fake head straight at the game camera (`fakehead 0.064`, yaw 0), where
+the re-basing is the identity. **Test head-vs-camera effects with `fakehead 0.064 <yaw>`.**
 - **Where the light comes from**: the light is a `SpotLightEntity` (vtable `0x141DEFA70`), its world matrix at +0x50
   (rows right, up, forward, position; it shines along -forward). Only writer (write-watch): `0x140CCF9F0` <-
   `0x140FBA580` (accessory compose) <- `0x140FBB210` (the weapon's accessory records) <- `0x14100AC60`. The bone comes
@@ -1515,8 +1518,22 @@ drew the gun through the pose edit). Measured now, nothing needs changing:
   (`U_MX4_GreenLaser`) draws its beam from the drawn muzzle along the barrel to a dot on the curtain; its green pixels
   move with the gun and vanish when it is switched off: the probe's laser phase measured mean x 880 / 1238 / 1621 and
   831 / 1157 / 1566 px (of 2160) turned 30 deg left / ahead / right; the first run's counts were 106 / 47 / 120 laser
-  pixels (seen nearly end-on, ahead, the thin beam covers the fewest, hence the probe's floor of 10). The laser's own entity was not traced; the pictures are the evidence for it.
-- Both are world objects, so both eyes see them from their own place.
+  pixels (seen nearly end-on, ahead, the thin beam covers 2-47 between runs: the probe now uses 15 deg right instead).
+- **The renderer's re-basing** (read-watch on the light's +0x70/+0x80 found render-side readers under `0x140CDE7F0` <-
+  `0x1408BE76B` <- `0x14083F49C`): `FUN_140CC9C50(lights, renderer, view, to, from)` draws every light whose byte
+  **+0xDA** is set (the flashlight sets it while it shines, 0 when off) at **L x inverse(from) x to**: `to` is the drawn
+  view (the caller's `[rbx+0x8F0]`, equal to the mod's world camera with the head in it), `from` the game's camera
+  (`[rbx+0x1C80]`, no head). In the flat game they are the same view. Head and gun turned 45 deg right: pipe `fplight`
+  showed the game drawing the light 40.1 deg / 0.41 m off its entity, the disc far right on the wall, while one tapped
+  bullet (shots leave the drawn barrel) hit beside the door the gun pointed at.
+- **Fix** (`stereo/first_person_lights`, setting `light_at_gun`, on): the hook passes `to` as `from`, so the light is
+  drawn at its own world matrix (0.00 deg / 0.000 m, `tools/light_probe.py` step 4); the disc then sits on the door at
+  the gun's line. The math is `stereo/light_rebase` (tests/light_rebase_test.cpp).
+- **The laser**: its beam is drawn from the gun either way; its **dot is a first-person light** too. Head and gun 45 deg
+  right: with `light_at_gun 1` beam and dot lie together (green x 1082..1172 of 2160), with 0 the dot is thrown to
+  x 1929 on the wall. Both are world objects, so both eyes see them from their own place.
+- Pitfalls met: judging "light on" by total brightness failed twice (the curtain moves, the window dominates); the
+  +0xDA flag (pipe `fplight <light>` `first_person_flag`) tells it. Bullet holes do not show on the frosted glass door.
 
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
 

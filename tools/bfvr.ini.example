@@ -367,6 +367,9 @@ hand_collision = 1
 # #65: the muzzle flash, its smoke and sparks drawn at the gun in your hand; the game draws them where its own flat gun
 # would be (in front of your chest). Pipe `flash` shows the state, `flash survey <ms>` / `flash check <n>` research them.
 flash_at_gun = 1
+# #92: the weapon's flashlight and laser light shine where the gun in your hand points. The game re-bases them from its
+# own camera into your view, which turned them with your head (the spot off to the side you looked). Pipe `fplight`.
+light_at_gun = 1
 support_slide_back = 0.06
 support_slide_forward = 0.08
 # rack_grip fist: where the fist sits against the charging handle's knob (metres, the gun's frame): overhand out on

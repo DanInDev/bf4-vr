@@ -123,6 +123,8 @@ add_library(bfvr_runtime STATIC
 	src/input/stick_cursor.cpp
 	src/stereo/muzzle_move.cpp
 	src/stereo/muzzle_quads.cpp
+	src/stereo/light_rebase.cpp
+	src/stereo/first_person_lights.cpp
 	src/input/physical_stance.cpp
 	src/input/trigger_latch.cpp
 	src/input/release_gate.cpp
@@ -283,6 +285,9 @@ if(BFVR_BUILD_TESTS)
 	# #65: the muzzle flash moved from the game's flat gun onto the drawn one; exits non-zero on failure.
 	add_executable(bfvr_muzzle_move_test tests/muzzle_move_test.cpp src/stereo/muzzle_move.cpp)
 	target_link_libraries(bfvr_muzzle_move_test PRIVATE bfvr_common)
+	# #92: the first-person light re-based between two cameras (BF4's math) and the fix; exits non-zero on failure.
+	add_executable(bfvr_light_rebase_test tests/light_rebase_test.cpp src/stereo/light_rebase.cpp)
+	target_link_libraries(bfvr_light_rebase_test PRIVATE bfvr_common)
 	# #64: the break-open launcher (the M320) reloaded by hand; exits non-zero on failure.
 	add_executable(bfvr_break_open_test tests/break_open_test.cpp src/weapon/break_open.cpp)
 	target_link_libraries(bfvr_break_open_test PRIVATE bfvr_common)
@@ -452,6 +457,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME menu_back COMMAND bfvr_menu_back_test)
 	add_test(NAME stick_cursor COMMAND bfvr_stick_cursor_test)
 	add_test(NAME muzzle_move COMMAND bfvr_muzzle_move_test)
+	add_test(NAME light_rebase COMMAND bfvr_light_rebase_test)
 	add_test(NAME break_open COMMAND bfvr_break_open_test)
 	add_test(NAME move_steer COMMAND bfvr_move_steer_test)
 	add_test(NAME drive_wheel COMMAND bfvr_drive_wheel_test)
