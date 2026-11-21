@@ -74,7 +74,7 @@ def run(gun, kind, hold):
     print('  ' + line, flush=True)
     if off is None:
         print('  no two-handed hold: not measured', flush=True)
-        return None
+        return None, False
     dist = sum(x * x for x in off) ** 0.5
     print('  grabbed %d cm ahead (foregrip_hold %d): drawn off wrist %.1f cm from the game\'s hand (x %.1f y %.1f z %.1f cm)'
           % (round(AHEAD * 100), hold, dist * 100, off[0] * 100, off[1] * 100, off[2] * 100), flush=True)
@@ -87,7 +87,7 @@ def run(gun, kind, hold):
     command('pad 0 0 0 0 300 0000')
     hands(AWAY_LEFT)
     time.sleep(0.5)
-    return dist
+    return dist, ' foregrip=0 ' not in line  # the second: the arm code had a grip (read or forced) during the hold
 
 
 def main():
@@ -116,8 +116,8 @@ def main():
         print('restored: ' + ', '.join('%s=%s' % (n, setting_value(n)) for n in saved) + ', foregrip auto, fakehand and fakehead off', flush=True)
     print('summary:', flush=True)
     ok = True
-    for item, kind, hold, dist in results:
-        on_grip = hold == 1 and kind != '0' and (kind != 'auto' or item.startswith('-'))
+    for item, kind, hold, (dist, had_grip) in results:
+        on_grip = hold == 1 and had_grip  # a grip-less gun in hand (auto, no grip read) is judged as a slide
         if dist is None:
             verdict = 'not measured'
             ok = False
