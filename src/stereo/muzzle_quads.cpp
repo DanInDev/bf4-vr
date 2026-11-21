@@ -34,7 +34,81 @@ namespace bfvr::stereo::muzzle_quads
 
 		std::atomic<ULONGLONG> trigger_at{};
 		std::atomic<ULONGLONG> opened_at{};
-		std::atomic<std::uint64_t> moved_batches{}, not_moved{}, candidates{};
+		std::atomic<std::uint64_t> moved_batches{}, not_moved{}, candidates{}, copies{};
+		// #144: one copy and one move per particle buffer and eye pass, not one per batch (~50 batches an eye while firing
+		// in Shanghai's rain made each eye 7-20 ms slower). The game's writes to that buffer do not pass the hooked Map
+		// (none counted in 2026-11-22's test), so a copy is trusted only within the eye pass that made it: each pass is
+		// one run of the game's view render, its particles written before they are drawn. Outside a pass: no reuse.
+		std::atomic<std::uint64_t> pass_id{ 1 };
+		std::atomic<bool> in_pass{};
+		// Research (pipe "flash verify <passes>"): the source buffer's bytes at a pass's first copy against those at its last
+		// reused batch; any difference means the game wrote particles between batches and the reuse drew stale ones.
+		std::atomic<int> verify_left{};
+		std::atomic<std::uint64_t> verify_passes{}, verify_changed{}, verify_bytes_changed{};
+		struct verify_state
+		{
+			ID3D11Buffer* first = nullptr;
+			ID3D11Buffer* last = nullptr;
+			UINT bytes{};
+			std::uint64_t pass{};
+			bool have_last{};
+		};
+		thread_local verify_state checked;
+
+		ID3D11Buffer* staging_like(ID3D11DeviceContext* context, ID3D11Buffer*& slot, UINT bytes)
+		{
+			if (slot && checked.bytes == bytes)
+			{
+				return slot;
+			}
+			if (slot)
+			{
+				slot->Release();
+				slot = nullptr;
+			}
+			ID3D11Device* device = nullptr;
+			context->GetDevice(&device);
+			if (device)
+			{
+				D3D11_BUFFER_DESC desc{ bytes, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ, 0, 0 };
+				device->CreateBuffer(&desc, nullptr, &slot);
+				device->Release();
+			}
+			return slot;
+		}
+
+		// A new copy in another pass: the pending pair (first copy, last reuse) of the previous pass is compared (a stall).
+		void verify_compare(ID3D11DeviceContext* context)
+		{
+			if (!checked.have_last || !checked.first || !checked.last)
+			{
+				return;
+			}
+			checked.have_last = false;
+			D3D11_MAPPED_SUBRESOURCE a{}, b{};
+			if (SUCCEEDED(context->Map(checked.first, 0, D3D11_MAP_READ, 0, &a)))
+			{
+				if (SUCCEEDED(context->Map(checked.last, 0, D3D11_MAP_READ, 0, &b)))
+				{
+					const auto* x = static_cast<const std::uint8_t*>(a.pData);
+					const auto* y = static_cast<const std::uint8_t*>(b.pData);
+					std::uint64_t differing = 0;
+					for (UINT i = 0; i < checked.bytes; ++i)
+					{
+						differing += x[i] != y[i] ? 1 : 0;
+					}
+					++verify_passes;
+					if (differing)
+					{
+						++verify_changed;
+						verify_bytes_changed += differing;
+					}
+					--verify_left;
+					context->Unmap(checked.last, 0);
+				}
+				context->Unmap(checked.first, 0);
+			}
+		}
 		// pipe "flash check <batches>": how near the moved quads come to the drawn muzzle.
 		std::atomic<int> check_left{};
 		std::atomic<bool> force_test{};
@@ -315,6 +389,11 @@ RWByteAddressBuffer vertices : register(u0);
 			ID3D11UnorderedAccessView* view = nullptr;
 			UINT stride{};
 			UINT bytes{};
+			// What `vertices` holds now (#144): the source buffer, the eye pass that copied it, the move applied.
+			const void* source{};
+			std::uint64_t source_pass{};
+			float move_key[16]{};
+			bool moved{};
 		};
 		thread_local buffers own;
 
@@ -417,6 +496,39 @@ RWByteAddressBuffer vertices : register(u0);
 			{
 				device->Release();
 			}
+			float key[16];
+			std::memcpy(key, m.rows, 12 * sizeof(float));
+			std::memcpy(key + 12, m.muzzle, 3 * sizeof(float));
+			key[15] = static_cast<float>(stream_desc.ByteWidth);
+			const std::uint64_t pass_now = in_pass.load(std::memory_order_relaxed) ? pass_id.load(std::memory_order_relaxed) : 0;
+			if (ready && pass_now && own.moved && own.source == stream && own.source_pass == pass_now && std::memcmp(own.move_key, key, sizeof(key)) == 0
+				&& check_left.load(std::memory_order_relaxed) <= 0 && !force_test.load(std::memory_order_relaxed))
+			{
+				if (verify_left.load(std::memory_order_relaxed) > 0 && checked.pass == pass_now && checked.first
+					&& staging_like(context, checked.last, stream_desc.ByteWidth))
+				{
+					context->CopyResource(checked.last, stream);
+					checked.have_last = true;
+				}
+				context->IASetVertexBuffers(0, 1, &own.vertices, &stride_wanted, &offset);
+				original(context, count, start, base);
+				context->IASetVertexBuffers(0, 1, &stream, &stride, &offset);
+				stream->Release();
+				++moved_batches;
+				return true;
+			}
+			own.moved = false;
+			if (ready && pass_now && verify_left.load(std::memory_order_relaxed) > 0)
+			{
+				verify_compare(context);
+				if (staging_like(context, checked.first, stream_desc.ByteWidth))
+				{
+					checked.bytes = stream_desc.ByteWidth;
+					context->CopyResource(checked.first, stream);
+					checked.pass = pass_now;
+					checked.have_last = false;
+				}
+			}
 			D3D11_MAPPED_SUBRESOURCE mapped{};
 			if (!ready || !stream || FAILED(context->Map(own.move, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
 			{
@@ -479,6 +591,11 @@ RWByteAddressBuffer vertices : register(u0);
 			context->CSSetUnorderedAccessViews(0, 1, &own.view, &keep);
 			context->CSSetConstantBuffers(0, 1, &own.move);
 			context->Dispatch((quads + 63) / 64, 1, 1);
+			++copies;
+			own.source = stream;
+			own.source_pass = pass_now;
+			std::memcpy(own.move_key, key, sizeof(key));
+			own.moved = !force_test.load(std::memory_order_relaxed);
 			ID3D11UnorderedAccessView* none = nullptr;
 			context->CSSetUnorderedAccessViews(0, 1, &none, &keep);
 			context->CSSetShader(cs, nullptr, 0);
@@ -748,6 +865,18 @@ RWByteAddressBuffer vertices : register(u0);
 		enabled = on;
 	}
 
+	void begin_pass()
+	{
+		pass_id.fetch_add(1, std::memory_order_relaxed);
+		in_pass.store(true, std::memory_order_relaxed);
+	}
+
+	void end_pass()
+	{
+		in_pass.store(false, std::memory_order_relaxed);
+		pass_id.fetch_add(1, std::memory_order_relaxed);
+	}
+
 	std::string pipe_command(const std::string& argument)
 	{
 		unsigned value = 0;
@@ -778,16 +907,26 @@ RWByteAddressBuffer vertices : register(u0);
 			check_left = static_cast<int>(value);
 			return "flash check: the next " + std::to_string(value) + " moved batches";
 		}
+		if (sscanf_s(argument.c_str(), "verify %u", &value) == 1)
+		{
+			verify_passes = verify_changed = verify_bytes_changed = 0;
+			verify_left = static_cast<int>(value);
+			return "flash verify: the next " + std::to_string(value) + " passes that reuse a copy (fire to start them)";
+		}
 		if (sscanf_s(argument.c_str(), "stride %u", &value) == 1)
 		{
 			quad_stride = value;
 			return "flash stride " + std::to_string(value);
 		}
 		char line[256];
-		std::snprintf(line, sizeof(line), "flash_at_gun=%d stride=%u candidates=%llu moved=%llu not_moved=%llu firing_ago_ms=%llu", enabled.load() ? 1 : 0, quad_stride.load(),
-			static_cast<unsigned long long>(candidates.load()), static_cast<unsigned long long>(moved_batches.load()), static_cast<unsigned long long>(not_moved.load()),
+		std::snprintf(line, sizeof(line), "flash_at_gun=%d stride=%u candidates=%llu moved=%llu copies=%llu not_moved=%llu passes=%llu firing_ago_ms=%llu", enabled.load() ? 1 : 0,
+			quad_stride.load(), static_cast<unsigned long long>(candidates.load()), static_cast<unsigned long long>(moved_batches.load()),
+			static_cast<unsigned long long>(copies.load()), static_cast<unsigned long long>(not_moved.load()), static_cast<unsigned long long>(pass_id.load() / 2),
 			static_cast<unsigned long long>(firing_ago()));
 		std::string out = line;
+		std::snprintf(line, sizeof(line), "\nverify passes=%llu changed=%llu bytes_changed=%llu left=%d", static_cast<unsigned long long>(verify_passes.load()),
+			static_cast<unsigned long long>(verify_changed.load()), static_cast<unsigned long long>(verify_bytes_changed.load()), verify_left.load());
+		out += line;
 		body::muzzle_frame aim, game, drawn;
 		if (body::muzzle_frames(aim, game, drawn))
 		{

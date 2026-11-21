@@ -214,6 +214,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   the game's camera into the drawn view looks right. Owner reports "off to the side I look": test with the head turned
   (`fakehead 0.064 -45`, fakehand turned with it). An entity's world matrix is not where it is drawn: first-person lights
   are re-based (`fplight`). Judge a picture against a fired bullet, not against an assumed eye projection.
+- 2026-11-22 (#144): GPU timings (`status` gpu_ms per eye) mean nothing on a headless **Debug** build (35-75 ms an eye
+  idle: the CPU feeds the GPU too slowly); measure frame cost with `dev-run -Resume -Preset bf4-release` (~3 ms an eye
+  idle at 160 fps) and `tools/fire_cost_probe.py`. The game's writes to its particle vertex buffer do not pass the hooked
+  `Map`: never key a cache on seen writes (re/notes/weapon.md "The cost").
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - 2026-11-21: after a level load the slot captures (knife, grenade) can leave slot 6 or 7 in hand ("the gun did not come
   back"); `givegun <gun> 0` then changes nothing in hand. Check `holster` slot= first; `game.ps1 keys -Keys 1` selects

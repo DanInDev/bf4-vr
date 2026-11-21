@@ -1641,6 +1641,20 @@ thinks the torso is. Earlier (#65, 2026-11-14) smoke and casings were seen at th
   effects (readers of `FiringFunctionData` +0x150 and of the effect's transform), and what frame it uses (the camera,
   the first-person rig's weapon bone before the mod's pose edit, or the aimer); then move that frame to the drawn
   muzzle, as `weapon/shot_origin` does for the bullets.
+- **The cost (2026-11-22, #144, Release, monitor):** the per-batch copy halved the frame rate while firing. Headset marks:
+  89 -> 22-25 fps in Shanghai's rain, each eye 5 -> 20 ms. On the monitor (`tools/fire_cost_probe.py`, G36C, fake head):
+  each eye 3.0 ms idle, 7.1-7.3 firing (160 -> 83 fps); with `flash_at_gun 0` 2.9 firing; the game's aim (`sight_ads`)
+  costs nothing. About 50 particle batches an eye per frame each copied the 3 MB buffer and ran the move. Now one copy
+  and move per buffer and eye pass, later batches draw from it: firing 3.4-3.6 ms an eye, as with the flash off.
+  - The game's writes to that buffer **never pass the hooked Map** (a write counter keyed to the buffer stayed 0 through
+    bursts), so a copy cannot be invalidated by writes; it is trusted only within the eye pass that made it.
+  - Proof that the reuse draws current particles: pipe `flash verify 200` copies the source buffer at a pass's first
+    copy and at its last reused batch and compares the bytes: 200 passes while firing, 0 bytes different. The game fills
+    the buffer before a pass draws from it.
+  - `flash check 30` with the gun 1.49 m off the game's muzzle: the nearest quad 0.14 m from the game's muzzle before,
+    0.14 m from the drawn muzzle after (0.31 m from the game's).
+  - Debug builds cannot measure this: headless Debug shows 35-75 ms an eye idle (the CPU feeds the GPU too slowly), the
+    firing cost drowns in it. Use `dev-run -Preset bf4-release`.
 
 ## Empty hands: the gun in the off hand (#38, 2026-11-09, monitor)
 

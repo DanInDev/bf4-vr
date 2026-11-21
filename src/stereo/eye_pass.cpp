@@ -3099,7 +3099,9 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			reset_eye_discards();
 			glass_eye = 0;
 			in_eye_render = true;
+			muzzle_quads::begin_pass();
 			original_per_view_render(renderer, slot, context);
+			muzzle_quads::end_pass();
 			in_eye_render = false;
 			end_state_dump();
 			{
@@ -3210,7 +3212,9 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			reset_eye_discards();
 			glass_eye = 1;
 			in_eye_render = true;
+			muzzle_quads::begin_pass();
 			original_per_view_render(renderer, slot, context);
+			muzzle_quads::end_pass();
 			in_eye_render = false;
 			extra_mesh::end_render();
 			if (patch_constants)
