@@ -1494,6 +1494,26 @@ Unlock names: U_P226, U_Glock18, U_MP443, U_M1911, U_M93R, U_FN57 (`unlockfind`)
 - Since #37 the game's aim stays with the body (`aim_with_body`): the bullet direction comes from the
   shot frame alone (holes follow the gun 15 degrees left and right with the aimer fixed).
 
+## Flashlight and laser follow the drawn gun (2026-11-21, monitor, Shanghai, #92)
+
+The issue expected the light in the flat gun's frame (the 2026-10-25 table in `first_person.md`, from before the mod
+drew the gun through the pose edit). Measured now, nothing needs changing:
+- **Where the light comes from**: the light is a `SpotLightEntity` (vtable `0x141DEFA70`), its world matrix at +0x50
+  (rows right, up, forward, position; it shines along -forward). Only writer (write-watch): `0x140CCF9F0` <-
+  `0x140FBA580` (accessory compose) <- `0x140FBB210` (the weapon's accessory records) <- `0x14100AC60`. The bone comes
+  from `0x1407184F0`, which reads Animatable +0x58, and +0x58 is the **same buffer** as the model pose +0x50 that the
+  mod's pose edit (`0x140716050` hook) writes. So the accessory is placed from the drawn Wep_Root.
+- **Monitor** (`tools/light_probe.py`, MX4 + `U_MX4_Flashlight`): the light sits at (0, 0.084, 0.664) m in Wep_Root's
+  frame, 0.00-0.01 cm and 0.00 deg from that with the drawn gun ahead, 30 cm right, turned 30 deg either way and pitched
+  20 deg up. Over 20 moves of the drawn gun, polled every ~0.25 ms, the light took its new place at most 0.26 ms after
+  the pose: the same frame (a frame ~7 ms), no lag.
+- **Pictures**: with the gun turned 30 deg right the curtain beside the window is lit where the drawn gun points; ahead
+  and left the light falls through the glass; with the light off the curtain stays dark. The green laser
+  (`U_MX4_GreenLaser`) draws its beam from the drawn muzzle along the barrel to a dot on the curtain; its green pixels
+  move with the gun (left of centre turned left, centre ahead, right turned right) and vanish when it is switched off.
+  The laser's own entity was not traced; the pictures are the evidence for it.
+- Both are world objects, so both eyes see them from their own place.
+
 ## The muzzle flash: not at the drawn barrel (2026-11-16, monitor, #65)
 
 Owner (headset): the flash comes from in front of the player, not from the barrel; it may show where the game
