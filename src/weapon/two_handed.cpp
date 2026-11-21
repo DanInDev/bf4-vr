@@ -90,6 +90,9 @@ namespace bfvr::weapon
 		bool shot_valid{};
 		std::uint64_t grabs{};
 		LARGE_INTEGER last_update{};
+		ULONGLONG foregrip_read_at{}; // #91: the last read of the gun's foregrip
+		std::atomic<int> foregrip_force{ -1 }; // pipe `foregrip <kind>`: a kind for a gun without one (-1: the gun's own)
+		std::atomic<int> foregrip_sent{ 0 };   // report: the kind last handed to body/arm_pose
 
 		void clear()
 		{
@@ -130,6 +133,27 @@ namespace bfvr::weapon
 			body::support_along(along);
 			return along;
 		}
+	}
+
+	std::string foregrip_pipe_command(const std::string& argument)
+	{
+		if (argument == "auto")
+		{
+			foregrip_force = -1;
+		}
+		else if (argument.size() == 1 && argument[0] >= '0' && argument[0] <= '3')
+		{
+			foregrip_force = argument[0] - '0';
+		}
+		else if (!argument.empty())
+		{
+			return "error: usage: foregrip [auto|0|1|2|3] (0 none, 1 vertical, 2 angled, 3 stubby; auto: the gun's own)";
+		}
+		const sight_state sight = read_sight_state();
+		const int forced = foregrip_force.load();
+		return std::string("foregrip weapon=") + (sight.weapon[0] ? sight.weapon : "-") + " attachments_known=" + (sight.attachments_known ? "1" : "0")
+			+ " gun_grip=" + foregrip_name(sight.foregrip) + " (" + (sight.grip[0] ? sight.grip : "none") + ") forced="
+			+ (forced < 0 ? "auto" : foregrip_name(static_cast<foregrip_kind>(forced))) + " sent=" + foregrip_name(static_cast<foregrip_kind>(foregrip_sent.load()));
 	}
 
 	bool pistol_cup()
@@ -259,6 +283,20 @@ namespace bfvr::weapon
 		}
 		body::set_gun_hand_rotation(out.weight > 0, out.rotation);
 		body::set_support_hand(out.weight);
+		// #91: the mounted foregrip, read a few times a second (a weapon switch changes it).
+		if (const ULONGLONG tick = GetTickCount64(); tick - foregrip_read_at >= 200)
+		{
+			foregrip_read_at = tick;
+			const int forced = foregrip_force.load(std::memory_order_relaxed);
+			int kind = forced;
+			if (forced < 0)
+			{
+				const sight_state sight = read_sight_state();
+				kind = sight.valid && sight.attachments_known ? static_cast<int>(sight.foregrip) : 0;
+			}
+			foregrip_sent = kind;
+			body::set_foregrip(kind);
+		}
 		if (grab_debug_enabled())
 		{
 			const body::weapon_points points = body::latest_weapon_points();

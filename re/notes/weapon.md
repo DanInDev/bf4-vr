@@ -694,7 +694,13 @@ the weapon blueprint. Live walk:
 | 6 `U_M67_SP`, 7 `U_Knife` | themselves only |
 
 Found by scanning the weapon object (only `+0x4850`, the weapon unlock) and then the weapons component
-for asset names. `weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a
+for asset names.
+
+**Foregrips (#91, 2026-11-21).** The names follow `U_<gun>_Foregrip[_Angled|_Folding|...]` (SCAR-H and AK-12 above,
+Baku). `weapon/foregrip` classifies them (vertical / angled / stubby); pipe `foregrip` shows the gun's grip and can
+force a kind. **Shanghai loads none:** `unlockfind` (case-sensitive, `strstr`) for `Foregrip`, `grip`, `Ergo` and
+`Bipod` all return nothing; the UMP-45, FAMAS and MX4 carry only optics, lasers and lights there. Real grips need a
+level that loads them (Baku / the Prologue). `weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a
 nominal zoom, the magnifier; unit-tested; only PK-AS, EOTech and Magnifier seen live).
 `weapon/sight_state` walks the tree when the record's unlock is the current weapon's: the red dot
 (`sight_dot`) now needs a red dot or holo among the attachments (iron-sight guns and scopes get none;

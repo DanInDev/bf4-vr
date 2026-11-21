@@ -106,6 +106,7 @@ namespace bfvr::settings
 			{ "hand_collision", kind::boolean, 0, 0, 0, "1", "", "the free hand is drawn on the gun's surface, never inside its receiver or handguard; a fast slap through the gun ends on the side it came from" },
 			{ "pistol_two_hands", kind::boolean, 0, 0, 0, "1", "", "pistols and the revolver: close the off hand round the gun hand to hold them with both hands (steadier aim); 0: one-handed only" },
 			{ "support_lock", kind::boolean, 0, 0, 0, "1", "", "two-handed: the off hand stays on the handguard where it grabbed until you let go (off: it slides along with the controller within the range)" },
+			{ "foregrip_hold", kind::boolean, 0, 0, 0, "1", "", "two-handed, a gun with a foregrip (vertical, angled, potato): the off hand holds the grip where the game's own hand does, with its grip pose, instead of sliding along the handguard" },
 			{ "support_slide_back", kind::real, 0.0f, 0.2f, 0.01f, "0.06", "", "two-handed: the off hand may hold the gun up to this far behind the game's own handguard spot, metres (towards the magazine)" },
 			{ "support_slide_forward", kind::real, 0.0f, 0.3f, 0.01f, "0.08", "", "two-handed: the off hand may hold the gun up to this far ahead of the game's own handguard spot, metres (towards the muzzle)" },
 			{ "rack_over_out", kind::real, 0.0f, 0.12f, 0.005f, "0.005", "", "rack_grip fist, overhand: the fist this far out from the charging handle's knob on the handle's side, metres (it holds the knob at its inner edge, outside the gun)" },

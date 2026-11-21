@@ -336,6 +336,7 @@ namespace bfvr::core
 			body::set_rack_grip(store.text("rack_grip", "fist"));
 			weapon::set_pistol_two_hands(store.boolean("pistol_two_hands", true));
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));
+			body::set_foregrip_hold(store.boolean("foregrip_hold", true));
 			body::set_hand_collision(store.boolean("hand_collision", true));
 			stereo::muzzle_quads::set_on(store.boolean("flash_at_gun", true));
 			stereo::set_light_at_gun(store.boolean("light_at_gun", true));

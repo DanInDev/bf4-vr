@@ -103,6 +103,11 @@ namespace bfvr::weapon
 				{
 					std::memcpy(state.optic, name, sizeof(state.optic));
 				}
+				if (const foregrip_kind grip = classify_foregrip(name); grip != foregrip_kind::none && state.foregrip == foregrip_kind::none)
+				{
+					state.foregrip = grip;
+					std::memcpy(state.grip, name, sizeof(state.grip));
+				}
 				for (const std::uintptr_t child : { left, right })
 				{
 					if (child && depth < static_cast<int>(max_unlocks))
@@ -184,8 +189,8 @@ namespace bfvr::weapon
 			out += one;
 		}
 		const float power = zoom_power(s);
-		char tail[48];
-		std::snprintf(tail, sizeof(tail), " power=%.2f", power);
+		char tail[120];
+		std::snprintf(tail, sizeof(tail), " power=%.2f foregrip=%s grip=%s", power, foregrip_name(s.foregrip), s.grip[0] ? s.grip : "none");
 		return out + tail;
 	}
 
