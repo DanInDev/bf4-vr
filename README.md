@@ -172,7 +172,9 @@ Enjoying the fight? You can [call in a supply drop on Ko-fi](https://ko-fi.com/d
 
 The technical side lives in **[docs/architecture/](docs/architecture/README.md)**: how the mod is built, how it
 works with the Frostbite engine, the reverse-engineering notes, the tools and the development loop. Read
-[docs/SAFETY.md](docs/SAFETY.md) before running anything.
+[docs/SAFETY.md](docs/SAFETY.md) before running anything. Development happens on the `dev` branch; `main` holds
+the released versions. Pull requests go to `dev` ([CONTRIBUTING.md](CONTRIBUTING.md)).
+
 ## Credits
 
 - **[BF3 VR: The Great Destroyer](https://github.com/criminalvictory/Battlefield-3-VR-The-Great-Destroyer)**, a

@@ -62,11 +62,23 @@ keys unless BF4 is the foreground window. A headset test needs the user; batch t
 - A dead end, a misleading tool or a new address is written down when it happens (`re/notes/`,
   "Tool pitfalls" below, `re/symbols/`), so the next session does not repeat it.
 
+## Branches (owner, 2026-11-21: the repository is public)
+
+- **`dev`** is the working branch: every task branches from `dev` and merges back into `dev`; headset tests run on
+  a build of `dev`. GitHub pull requests target `dev` (`CONTRIBUTING.md`).
+- **`main`** holds releases only. It changes only at a release: the version bumped on `dev`
+  (`project(bfvr VERSION x.y.z)` in `CMakeLists.txt`), then `git switch main`, `git merge --ff-only dev`, tag
+  `vx.y.z` on `main`, push `main` and the tag (the `release` workflow builds the zip and refuses a tag not on `main`).
+  Release when the headset checks of what changed since the last release are done or named as open.
+- Never commit, cherry-pick or rebase on `main`; `tools/agent/pre-command.ps1` refuses it always, and any merge into
+  `main` other than `--ff-only dev`.
+- `re/local-server` (BF4 multiplayer research) stays a separate branch and is never merged.
+
 ## Unattended runs
 
 `docs/UNATTENDED.md` is the method; `/work-queue` runs it over the issues labelled `agent-ready`.
 Between `tools\agent\run.ps1 start` and `stop` the hooks in `.claude/settings.json` refuse pushes, work on
-`main`, closing issues and saving live settings, and a turn cannot end with the gate red. One issue per
+`main` and `dev`, closing issues and saving live settings, and a turn cannot end with the gate red. One issue per
 branch; green branches are collected on `night/<date>`; three failed attempts park an issue as
 `agent-blocked` with what was tried. State lives in issues and files, never only in the conversation.
 
@@ -83,18 +95,20 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   immersion (as the first scope picture did: a flat image instead of the view inside the optic's own glass). Each gun
   works as the real one does (where the game's own animation differs, as the game's gun does), and every gun that has a
   feature in reality gets it, built to the same quality bar (gate, monitor check, verifier, headset row).
-- One branch per task, from `main`. **Claude is the main worker on this repository** (owner, 2026-11-16): it
-  decides when to merge into `main` and push, as it sees fit: the gate green, the monitor check done, and what
-  only the headset can judge named in `docs/HEADSET-TESTS.md`. After a merge, delete the branch locally and on
-  GitHub, and tell the owner what was merged in the report. Unattended runs keep their own rules
-  (`docs/UNATTENDED.md`: no pushes or merges into `main` during a run; the report lists what to merge).
+- One branch per task, from `dev`. **Claude is the main worker on this repository** (owner, 2026-11-16): it
+  decides when to merge into `dev` and push, and when to release to `main`, as it sees fit: the gate green, the
+  monitor check done, and what only the headset can judge named in `docs/HEADSET-TESTS.md`. After a merge, delete
+  the branch locally and on GitHub, and tell the owner what was merged in the report. Unattended runs keep their
+  own rules (`docs/UNATTENDED.md`: no pushes or merges into `dev` or `main` during a run; the report lists what to
+  merge).
 - Every new feature gets a live on/off setting (`src/common/settings_store.cpp`), a row on the in-VR panel
   (`src/ui/settings_panel.cpp`) and a line in `tools/bfvr.ini.example`.
 - New engine-free logic gets a unit test under `tests/` (ctest runs them for both presets).
 - Each feature that needs the headset gets a row in `docs/HEADSET-TESTS.md`; post monitor results on its issue.
 - Report in plain language: what changed, what was verified on the monitor, what still needs the headset.
 - The user's main checkout is `C:\Users\dnlni\Desktop\hobby\bf-vr`. After a merge, rebuild there so its
-  `bfvr_launcher.exe` and the `dinput8.dll` beside it match `main` (its **Update mod** installs that DLL).
+  `bfvr_launcher.exe` and the `dinput8.dll` beside it match `dev` (its **Update mod** installs that DLL), in Debug
+  and Release (`cmake --build build\bf4 --config Release --target bfvr_loader bfvr_launcher`).
 
 ## Testing without a headset
 
@@ -160,7 +174,7 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
 - 2026-11-16 (#41): positions in palette space (`extramesh` `at`, copy matrices) are relative to the root bone, which
   sits on a whole-metre grid point, not at the feet: y ~1.8 is chest height there. Compare with `arms` `palette camera`.
   An item's Wep_Root can be far from its mesh (the knife: 0.3-0.6 m, `extramesh` `from_root`).
-- 2026-11-16: a headset row added on a branch needs an ID that is free on `main` (`git show main:docs/HEADSET-TESTS.md`):
+- 2026-11-16: a headset row added on a branch needs an ID that is free on `dev` (`git show dev:docs/HEADSET-TESTS.md`):
   a GUN-29 written on a branch overwrote #64's GUN-29 row.
 - 2026-11-16: during a run the stop hook reported "Sources changed since the last gate run" after turns where
   `gate.ps1 -Status` matched in every worktree (one of its git calls exits 128). It objects once per stop.

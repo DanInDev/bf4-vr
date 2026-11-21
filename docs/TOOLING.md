@@ -57,8 +57,10 @@ are an allow-list, checked again inside the finished zip: game files, dumps, scr
 logs can never end up in it. `LICENSE.txt` is the MIT licence (the same as `LICENSE` at the root). There is no installer
 exe yet: the zip plus the launcher's install/remove is the release format.
 
-**Publishing:** bump `project(bfvr VERSION x.y.z)` in `CMakeLists.txt`, then push the tag `vx.y.z`. The `release`
-workflow checks the tag against the version, builds `bf4-release`, packages it and creates the GitHub release
+**Publishing:** releases come from `main` only (`CONTRIBUTING.md`). Bump `project(bfvr VERSION x.y.z)` in
+`CMakeLists.txt` on `dev`, then `git switch main`, `git merge --ff-only dev`, `git tag vx.y.z`,
+`git push origin main vx.y.z`. The `release` workflow refuses a tag that is not on `main`, checks the tag against
+the version, builds `bf4-release`, packages it and creates the GitHub release
 with the zip; the launcher's **Updates?** then reports it. `bfvr_launcher_test.exe --online` asks GitHub the way the
 button does.
 

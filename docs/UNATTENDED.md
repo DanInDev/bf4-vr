@@ -28,7 +28,8 @@ context continues from the labels, the branches and the run report.
 
 ## What the agent does
 
-One issue at a time, each on its own branch from `main`:
+One issue at a time, each on its own branch from `dev` (the working branch; `main` holds releases only,
+`CLAUDE.md` "Branches"):
 
 1. Check first: a unit test or the monitor check, seen failing.
 2. Change, then `tools\gate.ps1` green.
@@ -60,7 +61,8 @@ result still matches them. A commit or a document change does not make it stale.
 | Commit hooks are never skipped | `pre-command.ps1` | Always |
 | No dumps, game files, screenshots, profile data in a commit | `tools/githooks/pre-commit` | Always |
 | No push, no PR merge, no closing issues, no destructive git | `pre-command.ps1` | During a run |
-| No commit, merge or rebase on `main` | `pre-command.ps1` | During a run |
+| No commit, cherry-pick or rebase on `main`; no merge into it but `--ff-only dev` (a release) | `pre-command.ps1` | Always |
+| No commit, merge or rebase on `dev` | `pre-command.ps1` | During a run |
 | Live settings are not saved | `pre-command.ps1` | During a run |
 | A turn cannot end with the gate red or stale | `tools/agent/stop-check.ps1` | During a run |
 
@@ -82,7 +84,7 @@ Honest limits of the enforcement:
 1. Read `docs/runs/<date>.md` on `night/<date>`: done, blocked, and the headset checks in order.
 2. Build `night/<date>` (Release) and deploy it; do the 5-10 headset checks. Name results by ID
    ("GRN-4 works, HAND-15 still low").
-3. Say which branches to merge into `main`. Blocked issues: answer the question in the comment, or
+3. Say which branches to merge into `dev`. Blocked issues: answer the question in the comment, or
    re-label `agent-ready` with a better monitor check.
 
 ## Writing issues that work unattended

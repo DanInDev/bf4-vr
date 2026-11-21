@@ -14,6 +14,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # main holds releases only (CONTRIBUTING.md): a tag pushed anywhere else publishes nothing.
+      - name: Tag is on main
+        shell: pwsh
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Tag ${{ github.ref_name }} is not on main: release from main after git merge --ff-only dev" }
 
       - name: Tag matches the project version
         shell: pwsh

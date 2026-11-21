@@ -10,7 +10,7 @@ no edits, no commits, no game input.
 Given: a GitHub issue number and a branch.
 
 1. `gh issue view <n> --comments`: the goal, the monitor check, what is out of scope.
-2. `git diff main...<branch>` and read the changed files in full where the diff is not enough.
+2. `git diff dev...<branch>` and read the changed files in full where the diff is not enough.
 3. `tools\gate.ps1 -Status` must report a pass that matches the sources. If it is stale, run `tools\gate.ps1`.
 4. Judge, in this order:
    - Does the change do what the issue asks, and only that?

@@ -24,8 +24,20 @@ if ($command -match $gameTool) {
 # 2. Always: the commit check is never skipped.
 if ($command -match '(?i)\bgit\b.*--no-verify') { Deny 'commit hooks are never skipped. Fix what the hook reports.' }
 
-# 3. Only during an unattended run.
 try { $root = Get-RepoRoot $hint } catch { exit 0 }
+$branch = ([string](& git -C $root branch --show-current 2>$null)).Trim()
+
+# 3. Always: main holds releases only (CLAUDE.md "Branches"); it moves by a fast-forward to dev and nothing else.
+if ($branch -in 'main', 'master') {
+	if ($command -match '(?i)\bgit\b[^|;&]*\b(commit|cherry-pick|rebase|revert)\b') {
+		Deny "$branch holds releases only. Work on a branch from dev and merge it into dev."
+	}
+	if ($command -match '(?i)\bgit\b[^|;&]*\bmerge\b(?!-)' -and $command -notmatch '(?i)\bmerge\s+--ff-only\s+(origin/)?dev\s*($|[|;&])') {
+		Deny "$branch changes only at a release: git merge --ff-only dev (CLAUDE.md ""Branches"")."
+	}
+}
+
+# 4. Only during an unattended run.
 if (-not (Test-RunActive $root)) { exit 0 }
 
 if ($command -match '(?i)\bgit\b[^|;&]*\bpush\b') { Deny 'unattended runs never push. The owner pushes after review.' }
@@ -33,8 +45,7 @@ if ($command -match '(?i)\bgh\s+pr\s+merge\b|\bgh\s+issue\s+(close|delete)\b|\bg
 if ($command -match '(?i)\bgit\b[^|;&]*\b(reset\s+--hard|branch\s+-D|clean\s+-[a-z]*f)') { Deny 'destructive git commands are not allowed in an unattended run. Leave the branch and label the issue agent-blocked.' }
 if ($command -match '(?i)\bsetting\s+save\b') { Deny 'live settings are not saved in an unattended run; restore what you changed.' }
 
-$branch = ([string](& git -C $root branch --show-current 2>$null)).Trim()
-if ($branch -in 'main', 'master' -and $command -match '(?i)\bgit\b[^|;&]*\b(commit|merge|rebase|cherry-pick)\b') {
+if ($branch -in 'main', 'master', 'dev' -and $command -match '(?i)\bgit\b[^|;&]*\b(commit|merge|rebase|cherry-pick)\b') {
 	Deny "unattended runs never change $branch. Work on the issue's own branch; collect green branches on night/<date>."
 }
 exit 0
