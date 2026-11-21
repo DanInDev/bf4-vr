@@ -314,10 +314,6 @@ namespace bfvr::body
 	// Live setting gun_hand_pose (#68): the gun hand while the off hand carries the gun, or holding a grenade or a
 	// gadget, takes the gun grip as you hold the controller (neutral) or the game's animated hold (animated).
 	void set_gun_hand_neutral(bool neutral);
-	// Live setting magazine_grip: how the off hand holds a magazine. "auto" = wrapped in the fist, cupped
-	// on the palm (base plate in the palm, fingers closing on it by contact) once the palm faces up;
-	// "wrap" / "cup" = always that grip.
-	void set_magazine_grip(const std::string& grip);
 	// Live setting rack_grip: "fist" (default) = the knob in a closed fist, overhand or underhand by the zone
 	// the stroke was grabbed in, the hand locked on it; "pinch" = between the thumb and the side of the index
 	// (the thumb closes on it by contact); "hook" = inside the curled index; "auto" = the pinch with the

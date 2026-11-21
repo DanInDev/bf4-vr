@@ -294,7 +294,7 @@ namespace bfvr::core
 			weapon::set_revolver_by_hand(store.boolean("revolver_by_hand", true));
 			weapon::set_drop_discards_ammo(store.boolean("drop_discards_ammo", true));
 			weapon::set_magazine_pull_out(store.boolean("magazine_pull_out", true));
-			weapon::set_palm_reload(true);
+			weapon::set_palm_reload(store.boolean("magazine_palming", false));
 			weapon::set_magazine_snapping(true);
 			weapon::set_magazine_reach(store.real("magazine_reach", 0.13f));
 			weapon::set_free_hand_reload(true);
@@ -332,7 +332,6 @@ namespace bfvr::core
 			body::set_finger_poses(true);
 			body::set_off_hand_neutral(store.text("off_hand_pose", "neutral") == "neutral");
 			body::set_gun_hand_neutral(store.text("gun_hand_pose", "neutral") == "neutral");
-			body::set_magazine_grip(store.text("magazine_grip", "auto"));
 			body::set_rack_grip(store.text("rack_grip", "fist"));
 			weapon::set_pistol_two_hands(store.boolean("pistol_two_hands", true));
 			body::set_support_slide(store.boolean("support_lock", true), store.real("support_slide_back", 0.06f), store.real("support_slide_forward", 0.08f));

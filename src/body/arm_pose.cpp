@@ -478,8 +478,7 @@ namespace bfvr::body
 		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
 		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
-		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
-		bool cupped{};
+		bool cupped{}; // the cup on the upturned palm was removed (owner, 2026-11-22): always false, kept for the blend below
 		contact::cup_placement cup;        // this frame's cupped magazine, model space
 		float cup_palm_up{};
 		float cup_gap_mm[fingers::count]{}; // each finger's nearest point to the magazine after closing
@@ -2363,44 +2362,31 @@ namespace bfvr::body
 		void choose_magazine_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
 		{
 			const bool holding = task == fingers::task::magazine && magazine_request.detached && magazine_request.in_hand;
+			// The palm placement stays only as the fallback frame when no drawn fist can be measured.
 			cup = holding ? place_cup(local) : contact::cup_placement{};
-			const int mode = magazine_grip.load(std::memory_order_relaxed);
-			cupped = cup.valid && (mode == 2 || (mode == 0 && contact::cup_grip(cupped, cup_palm_up)));
+			cupped = false;
 			palm_contact = false;
-			if (!cupped)
+			if (holding && rig.thumb_base[0] > 0 && magazine_request.tilt > palm_contact_tilt && close_on_palmed(local, task, target))
 			{
-				if (holding && rig.thumb_base[0] > 0 && magazine_request.tilt > palm_contact_tilt && close_on_palmed(local, task, target))
-				{
-					palm_contact = true;
-				}
-				else if (holding && rig.thumb_base[0] > 0)
-				{
-					authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
-					authored_hand = 0;
-				}
-				else if (!magazine_request.detached && snap_request.weight >= 0.5f && rig.thumb_base[0] > 0)
-				{
-					// #40: snapping onto the seated magazine, the fingers already take its grip.
-					authored = snap_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
-					authored_hand = 0;
-				}
-				else if (lock_request.weight >= 0.5f && rig.thumb_base[0] > 0)
-				{
-					// Grip lock: on the rail, sliding home or held on the seated magazine, the game's grip.
-					authored = lock_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
-					authored_hand = 0;
-				}
-				return;
+				palm_contact = true;
 			}
-			task = fingers::task::cup;
-			target = fingers::shape_for(task, {});
-			bool touched[fingers::count]{};
-			for (int finger = 0; finger < fingers::count; ++finger)
+			else if (holding && rig.thumb_base[0] > 0)
 			{
-				target.curl[finger] = close_on(local, finger, cup.body, 0.0f, target.curl[finger], cup_gap_mm[finger]);
-				touched[finger] = cup_gap_mm[finger] <= 0.5f;
+				authored = magazine_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+				authored_hand = 0;
 			}
-			contact::couple_free_fingers(target.curl, touched);
+			else if (!magazine_request.detached && snap_request.weight >= 0.5f && rig.thumb_base[0] > 0)
+			{
+				// #40: snapping onto the seated magazine, the fingers already take its grip.
+				authored = snap_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+				authored_hand = 0;
+			}
+			else if (lock_request.weight >= 0.5f && rig.thumb_base[0] > 0)
+			{
+				// Grip lock: on the rail, sliding home or held on the seated magazine, the game's grip.
+				authored = lock_request.ak ? &magazine_grip_ak : &magazine_grip_ar;
+				authored_hand = 0;
+			}
 		}
 
 		// The knob of the charging handle where the racking hand holds it (moved back by the pull), model space.
@@ -3861,11 +3847,6 @@ namespace bfvr::body
 		finger_poses = enabled;
 	}
 
-	void set_magazine_grip(const std::string& grip)
-	{
-		magazine_grip = grip == "wrap" ? 1 : grip == "cup" ? 2 : 0;
-	}
-
 	void set_rack_grip(const std::string& grip)
 	{
 		rack_grip = grip == "pinch" ? 0 : grip == "hook" ? 1 : grip == "auto" ? 2 : 3;
@@ -4049,13 +4030,11 @@ namespace bfvr::body
 		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
-			static const char* const grips[] = { "auto", "wrap", "cup" };
 			std::snprintf(text + length, sizeof(text) - length,
-				"\nmagazine_grip=%s cupped=%d palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
+				"\nmagazine palm_up=%.2f on_palm=%.2f gap_mm thumb..pinky=%.0f %.0f %.0f %.0f %.0f"
 				"\nrack_grip=%s pinching=%d underhand=%d stroke_palm_up=%.2f thumb_gap_mm=%.0f pinch_in_hand=(%.3f,%.3f,%.3f)"
 				"\nauthored=%s weight=%.2f palm_contact=%d caught_beside=%d rack_fist_grip_minus_knob=(%.3f,%.3f,%.3f) %.3f measured=%d"
-				" held_top_above_fist=(%.3f,%.3f,%.3f) hold_drop=%.3f held=%d", grips[magazine_grip.load() % 3],
-				cupped ? 1 : 0, cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
+				" held_top_above_fist=(%.3f,%.3f,%.3f) hold_drop=%.3f held=%d", cup_palm_up, cup_weight, cup_gap_mm[0], cup_gap_mm[1], cup_gap_mm[2], cup_gap_mm[3], cup_gap_mm[4],
 				rack_grip.load() == 0 ? "pinch" : rack_grip.load() == 1 ? "hook" : rack_grip.load() == 2 ? "auto" : fisting ? (handle_request.underhand ? "fist(under)" : "fist(over)") : "fist", pinching ? 1 : 0, hooking_under ? 1 : 0, rack_palm_up, pinch_gap_mm, pinch_in_hand.x, pinch_in_hand.y, pinch_in_hand.z,
 				authored_shown == &pinch_grip ? "pinch" : authored_shown == &magazine_grip_ak ? "magazine_ak"
 					: authored_shown == &magazine_grip_ar ? "magazine_ar" : "none",

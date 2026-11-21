@@ -73,15 +73,6 @@ namespace bfvr::body::contact
 		return index_side + towards * (std::fmax(0.5f * apart, knob_half + finger_radius) / apart);
 	}
 
-	bool cup_grip(bool cupped, float palm_up, float enter, float leave)
-	{
-		if (!std::isfinite(palm_up))
-		{
-			return cupped;
-		}
-		return cupped ? palm_up > leave : palm_up >= enter;
-	}
-
 	float support_slide::update(bool held, float along, float rest, float back, float forward, bool lock)
 	{
 		const float low = -std::fmax(back, 0.0f);
