@@ -68,7 +68,8 @@ namespace bfvr::weapon
 			{ holster::secondary, { 0.22f, -0.75f, 0.0f }, 0.14f },       // gun-side hip
 			{ holster::knife, { -0.10f, -0.27f, -0.10f }, 0.11f },        // high chest, off-hand side
 			// #71 (owner 2026-11-16: barely worked): 31 cm, twice the old 15.5 / 14 cm. The edges just touch the knife's and
-			// the grenade pouch's; the cheek (aiming) and the mouth (the pin with the teeth) stay outside.
+			// the grenade pouch's; the cheek (aiming) and the mouth (the pin with the teeth) stay outside at the reference
+			// body. The centres scale with body height, the radii do not: below about 1.62 m the mouth is inside.
 			{ holster::gadget1, { 0.20f, 0.05f, 0.15f }, 0.31f, true },   // over the gun-side shoulder, behind the head
 			{ holster::gadget2, { -0.20f, 0.05f, 0.15f }, 0.31f, true },  // over the off-side shoulder
 		};
