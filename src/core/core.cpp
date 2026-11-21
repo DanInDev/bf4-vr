@@ -278,7 +278,7 @@ namespace bfvr::core
 			const std::string move = store.text("move_direction", "head");
 			input::set_move_reference(move == "gun" ? input::move_reference::gun : move == "body" ? input::move_reference::body : input::move_reference::head);
 			input::set_sprint_steer(store.boolean("sprint_steer", true));
-			input::set_drive_controls(store.text("drive_controls", "stick") == "wheel" ? input::drive_controls::wheel : input::drive_controls::stick,
+			input::set_drive_controls(store.text("drive_controls", "wheel") != "stick" ? input::drive_controls::wheel : input::drive_controls::stick,
 				store.real("wheel_lock_degrees", 90.0f));
 			weapon::set_physical_reload(store.text("reload", "physical") == "physical");
 			weapon::set_physical_reload_all(store.boolean("physical_reload_all", false));

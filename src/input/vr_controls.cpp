@@ -165,7 +165,7 @@ namespace bfvr::input
 		}
 
 		// Driving (set_drive_controls): XInput thread state.
-		std::atomic<drive_controls> drive_mode{ drive_controls::stick };
+		std::atomic<drive_controls> drive_mode{ drive_controls::wheel };
 		std::mutex drive_lock;
 		drive_wheel wheel;
 		LARGE_INTEGER wheel_last{};
