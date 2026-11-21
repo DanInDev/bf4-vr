@@ -347,6 +347,11 @@ namespace bfvr::body
 	// Live settings support_lock / support_slide_back / support_slide_forward: the off hand on the handguard stays
 	// where it grabbed (lock) and within back..forward metres of the gun's own support spot (body/grasp_contact).
 	void set_support_slide(bool lock, float back, float forward);
+	// #91: the mounted foregrip's kind (weapon/foregrip: 0 none, 1 vertical, 2 angled, 3 stubby) and the live setting
+	// foregrip_hold. With a foregrip and the setting on, the off hand holds the game's own grip spot and pose (no slide
+	// along the handguard): the game's left hand sits on that grip.
+	void set_foregrip(int kind);
+	void set_foregrip_hold(bool on);
 	// #62, live setting hand_collision: the free hand is drawn on the gun's surface instead of inside its receiver and
 	// handguard (body/hand_collision); pipe `fingers` shows the contact.
 	void set_hand_collision(bool on);

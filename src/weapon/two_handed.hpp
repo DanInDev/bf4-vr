@@ -22,6 +22,9 @@ namespace bfvr::weapon
 	void set_pistol_two_hands(bool on);
 	// The gun in hand is held at the grip by the game's own off hand (a pistol or revolver) and the setting is on.
 	bool pistol_cup();
+	// #91 pipe "foregrip [auto|0..3]": the gun's foregrip (weapon/foregrip) as read and as handed to body/arm_pose;
+	// a number forces that kind on a gun without one (0 none, 1 vertical, 2 angled, 3 stubby), auto reads the gun again.
+	std::string foregrip_pipe_command(const std::string& argument);
 	// Live setting sight_lens_cone (#39): the zoom mesh (clear lens, open at the top) only while an eye looks into
 	// the lens within this many degrees of the sight line; 0 = whenever a gun is held.
 	void set_sight_lens_cone(float degrees);

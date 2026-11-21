@@ -938,6 +938,7 @@ namespace bfvr::control
 			if (command == "zoommesh") return weapon::zoom_mesh_command(argument);
 			if (command == "calibrate") return ui::body_calibration_command(argument);
 			if (command == "sightstate") return weapon::sight_state_report();
+			if (command == "foregrip") return weapon::foregrip_pipe_command(argument);
 			if (command == "motion")
 			{
 				float yaw_rate{}, speed{};

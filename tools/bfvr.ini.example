@@ -358,6 +358,10 @@ rack_grip = fist
 # with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
 # muzzle) metres of the game's own handguard spot.
 support_lock = 1
+# #91: a gun with a foregrip (vertical, folding, angled, potato, stubby): the off hand holds the grip where the game's
+# own hand does, with its grip pose, instead of sliding along the handguard. Pipe `sightstate` names the grip,
+# `arms` shows on_grip.
+foregrip_hold = 1
 # Pistols and the revolver: close the off hand round the gun hand to hold them with both hands, aim steadied by both
 # (0: one-handed only) (#99).
 pistol_two_hands = 1

@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "weapon/foregrip.hpp"
 #include "weapon/optics.hpp"
 
 // The current weapon's sight as the game holds it (#39), readable at the hip: which zoom level the next
@@ -31,6 +32,12 @@ namespace bfvr::weapon
 		bool attachments_known{};
 		gun_optics optics;
 		char optic[48]{};
+		// #91: the mounted foregrip and its unlock name (none: the handguard hold).
+		foregrip_kind foregrip{ foregrip_kind::none };
+		char grip[48]{};
+		// Every unlock name in the tree, in walk order (pipe `foregrip`), up to 12.
+		int unlock_count{};
+		char unlocks[12][48]{};
 	};
 
 	// Reads the game (any thread; a dozen ReadProcessMemory calls).

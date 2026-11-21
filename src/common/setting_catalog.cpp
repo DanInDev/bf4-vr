@@ -106,6 +106,7 @@ namespace bfvr::settings
 			{ "light_at_gun", "Weapon", "Hands and melee", "Flashlight follows the gun", "Light and laser where the gun points", "" },
 			{ "pistol_two_hands", "Weapon", "Hands and melee", "Pistols with both hands", "Off hand round the gun hand", "" },
 			{ "support_lock", "Weapon", "Hands and melee", "Handguard hand stays put", "Where you grab, until you let go", "" },
+			{ "foregrip_hold", "Weapon", "Hands and melee", "Hand on the foregrip", "Vertical, angled, potato: held where the game holds it", "" },
 			{ "support_slide_back", "Weapon", "Hands and melee", "Handguard reach back", "Metres behind the game's grip spot", "", true },
 			{ "support_slide_forward", "Weapon", "Hands and melee", "Handguard reach forward", "Metres ahead of the game's grip spot", "", true },
 			{ "rack_over_out", "Skeleton", "Rack fist placement", "Overhand: out to the side", "Metres from the knob, away from the gun", "" },

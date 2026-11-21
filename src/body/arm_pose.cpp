@@ -427,6 +427,10 @@ namespace bfvr::body
 		std::atomic<float> support_back{ 0.06f };
 		std::atomic<float> support_forward{ 0.08f };
 		contact::support_slide support_place; // under rig_lock
+		// #91: a mounted foregrip (weapon/foregrip kind) holds the off hand on the game's grip spot (setting foregrip_hold).
+		std::atomic<int> foregrip_kind{ 0 };
+		std::atomic<bool> foregrip_hold_on{ true };
+		bool support_on_grip{}; // under rig_lock (report)
 		// #62: the free hand kept out of the gun (live setting hand_collision); under rig_lock.
 		std::atomic<bool> hand_collision_on{ true };
 		contact::hand_collider hand_colliders[2];
@@ -1480,7 +1484,9 @@ namespace bfvr::body
 					const float along = ik::rotate(ik::conjugate(gun.rotation), goal.wrist - gun.position).z;
 					// #99: a pistol's cupping hand stays where the game's own left hand wraps it (no slide along a pistol).
 					const bool cupping = along_hold >= 0.0f && along_hold < pistol_hold_metres;
-					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y, cupping ? held_at.position.z
+					// #91: on a foregrip the game's hand sits on one fixed point of the grip; sliding takes it off.
+					support_on_grip = foregrip_hold_on.load(std::memory_order_relaxed) && foregrip_kind.load(std::memory_order_relaxed) != 0;
+					const ik::vec3 on_gun{ held_at.position.x, held_at.position.y, cupping || support_on_grip ? held_at.position.z
 						: support_place.update(true, along, held_at.position.z, support_back.load(std::memory_order_relaxed),
 							support_forward.load(std::memory_order_relaxed), support_lock.load(std::memory_order_relaxed)) };
 					support_game_in_gun = held_at.position;
@@ -3894,6 +3900,16 @@ namespace bfvr::body
 		support_forward = metres(forward);
 	}
 
+	void set_foregrip(int kind)
+	{
+		foregrip_kind = kind >= 0 && kind <= 3 ? kind : 0;
+	}
+
+	void set_foregrip_hold(bool on)
+	{
+		foregrip_hold_on = on;
+	}
+
 	void set_rack_fist_offsets(float over_out, float over_up, float under_out, float under_down)
 	{
 		const auto metres = [](float v) { return std::isfinite(v) ? std::fmax(-0.15f, std::fmin(0.15f, v)) : 0.0f; };
@@ -4198,8 +4214,9 @@ namespace bfvr::body
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
 		{
 			length += std::snprintf(text + length, sizeof(text) - length,
-				"support along_now=%.3f along_hold=%.3f cupping=%d held=%d solved_wrist_in_gun=(%.3f,%.3f,%.3f) game_hand_in_gun=(%.3f,%.3f,%.3f)\n",
-				along_now, along_hold, along_hold >= 0.0f && along_hold < pistol_hold_metres ? 1 : 0, support_drawn ? 1 : 0, support_drawn_in_gun.x,
+				"support along_now=%.3f along_hold=%.3f cupping=%d foregrip=%d on_grip=%d held=%d solved_wrist_in_gun=(%.3f,%.3f,%.3f) game_hand_in_gun=(%.3f,%.3f,%.3f)\n",
+				along_now, along_hold, along_hold >= 0.0f && along_hold < pistol_hold_metres ? 1 : 0, foregrip_kind.load(), support_on_grip ? 1 : 0,
+				support_drawn ? 1 : 0, support_drawn_in_gun.x,
 				support_drawn_in_gun.y, support_drawn_in_gun.z, support_game_in_gun.x, support_game_in_gun.y, support_game_in_gun.z);
 		}
 		if (length > 0 && length < static_cast<int>(sizeof(text)))
