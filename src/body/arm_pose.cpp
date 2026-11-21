@@ -472,6 +472,7 @@ namespace bfvr::body
 		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
 		std::atomic<bool> gun_hand_neutral{ true };
 		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
+		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
 		bool cupped{};
@@ -550,6 +551,14 @@ namespace bfvr::body
 		ik::vec3 sling_grip_in_gun;
 		bool has_sling_grip{};
 		bool has_gun_hand_in_aim{};
+		// #136: the grip for an empty gun hand before any gun was held (a session that starts unarmed). Without it the hand
+		// kept the game's animated unarmed hold. The SCAR-H's measured gun_hand_in_aim (pipe arms, 2026-11-21); the M416 and
+		// UMP-45 lie within 10 degrees of it, the AK-12 and P226 ~30.
+		constexpr ik::quat default_gun_hand_in_aim{ 0.4124f, -0.5480f, -0.5732f, -0.4484f };
+		ik::quat grip_in_aim()
+		{
+			return has_gun_hand_in_aim ? gun_hand_in_aim : default_gun_hand_in_aim;
+		}
 		// Racking: the inside of the hooked index (centroid of Index1-3), hand-bone axes, from the last shaping.
 		ik::vec3 hook_in_hand;
 		bool has_hook{};
@@ -1355,9 +1364,11 @@ namespace bfvr::body
 					gun_hand_in_aim = ik::normalize(ik::quat{ 0, 1, 0, 0 } * ik::conjugate(weapon_in_hand.rotation));
 					has_gun_hand_in_aim = true;
 				}
-				if (hand == 0 && carrier == 1 && off_hand_neutral.load(std::memory_order_relaxed) && has_gun_hand_in_aim)
+				// #136: with no weapon at all the hands need no gun held earlier: the default grip stands in.
+				const bool empty_hands = gun_hand_empty.load(std::memory_order_relaxed);
+				if (hand == 0 && carrier == 1 && off_hand_neutral.load(std::memory_order_relaxed) && (has_gun_hand_in_aim || empty_hands))
 				{
-					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(gun_hand_in_aim);
+					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(grip_in_aim());
 				}
 				// #68 (owner 2026-11-15): the gun hand turned itself round once the gun went to the off hand (the game's
 				// animated grip, turned by the controller), and a grenade or the C4 detonator in it sat oddly. Like the
@@ -1365,9 +1376,9 @@ namespace bfvr::body
 				// own place in the hand (the knife has its own frame below).
 				// Only the hand grenade and the C4 detonator (set_gun_hand_item): a launcher in a gadget slot (M320) is
 				// gun-like and already follows the aim with its own hold (re/notes/weapon.md "Gadgets from the stash").
-				if (hand_rules::gun_hand_controller_grip(hand, carrier, gun_hand_carries, hand_item_in_gun_hand.load(std::memory_order_relaxed), gun_hand_neutral.load(std::memory_order_relaxed), has_gun_hand_in_aim))
+				if (hand_rules::gun_hand_controller_grip(hand, carrier, gun_hand_carries, hand_item_in_gun_hand.load(std::memory_order_relaxed), gun_hand_neutral.load(std::memory_order_relaxed), has_gun_hand_in_aim || empty_hands))
 				{
-					goal.hand = frame * ik::normalize(aim) * gun_hand_in_aim;
+					goal.hand = frame * ik::normalize(aim) * grip_in_aim();
 				}
 				const bool off_grip_carries = carry_weapon && hand == 0 && off_by_grip.load(std::memory_order_relaxed);
 				if (carry_weapon && hand == 0)
@@ -2188,9 +2199,9 @@ namespace bfvr::body
 			{
 				return fingers::task::magazine; // a grenade in the free gun hand (#38): the fist
 			}
-			if (hand == 1 && gun_on_floor_now.load(std::memory_order_relaxed))
+			if (hand == 1 && (gun_on_floor_now.load(std::memory_order_relaxed) || gun_hand_empty.load(std::memory_order_relaxed)))
 			{
-				return fingers::task::free; // the gun on the floor or the sling: the hand is empty
+				return fingers::task::free; // the gun on the floor or the sling, or no weapon at all (#136): the hand is empty
 			}
 			if (hand == 1)
 			{
@@ -3467,6 +3478,11 @@ namespace bfvr::body
 		hand_item_in_gun_hand = item;
 	}
 
+	void set_gun_hand_empty(bool empty)
+	{
+		gun_hand_empty = empty;
+	}
+
 	void set_knife_pitch(float degrees)
 	{
 		knife_pitch = degrees * 3.14159265f / 180.0f;
@@ -4155,7 +4171,7 @@ namespace bfvr::body
 		const std::lock_guard guard(rig_lock);
 		const hand_target hand_targets[2] = { targets[0], targets[1] };
 		const stereo::hand_sample hands = stereo::latest_hand_sample();
-		char text[1536];
+		char text[2048];
 		const auto v = [](const ik::vec3& p, char (&out)[48]) -> const char*
 		{
 			std::snprintf(out, sizeof(out), "(%.3f,%.3f,%.3f)", p.x, p.y, p.z);
@@ -4203,6 +4219,12 @@ namespace bfvr::body
 				v(arm.wrist_in_camera, e));
 			const ik::quat h = arm.hand_in_aim;
 			length += std::snprintf(text + length, sizeof(text) - length, "  hand_in_aim=(%.3f,%.3f,%.3f,%.3f)\n", h.x, h.y, h.z, h.w);
+		}
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			const ik::quat g = grip_in_aim();
+			length += std::snprintf(text + length, sizeof(text) - length, "gun_hand_in_aim=(%.4f,%.4f,%.4f,%.4f) measured=%d empty_hand=%d\n", g.x, g.y, g.z, g.w,
+				has_gun_hand_in_aim ? 1 : 0, gun_hand_empty.load() ? 1 : 0);
 		}
 		return text;
 	}

@@ -185,7 +185,9 @@ namespace bfvr::weapon
 			}
 			// Grenades, the knife and gadgets carry -1: no magazine to reload.
 			weapon.launcher = is_break_open(weapon.name);
-			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && (weapon.capacity > 1 || weapon.launcher) && weapon.capacity <= 500;
+			// #136: the unarmed item has a magazine (29) but is no gun.
+			weapon.valid = weapon.magazine >= 0 && weapon.reserve >= 0 && (weapon.capacity > 1 || weapon.launcher) && weapon.capacity <= 500
+				&& !is_unarmed(weapon.name);
 			weapon.slot = static_cast<int>(index);
 			weapon.ammo = server_ammo + firing_magazine;
 			return weapon;

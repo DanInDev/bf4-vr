@@ -300,6 +300,8 @@ int main()
 			expect(std::sqrt(well_to_handle) > 0.15f, "P90: handle more than 15 cm from the magazine grab");
 		}
 	}
+	// #136: the game's "no weapon" item is no gun.
+	expect(is_unarmed("U_WeaponUnarmed") && !is_unarmed("U_AK12") && !is_unarmed("U_Knife") && !is_unarmed(""), "#136: only U_WeaponUnarmed is unarmed");
 	// Magazine grab points: the game's hand on the magazine, from the seated Wep_Mag.
 	{
 		float grab[3]{};
