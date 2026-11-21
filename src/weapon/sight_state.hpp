@@ -35,6 +35,9 @@ namespace bfvr::weapon
 		// #91: the mounted foregrip and its unlock name (none: the handguard hold).
 		foregrip_kind foregrip{ foregrip_kind::none };
 		char grip[48]{};
+		// Every unlock name in the tree, in walk order (pipe `foregrip`), up to 12.
+		int unlock_count{};
+		char unlocks[12][48]{};
 	};
 
 	// Reads the game (any thread; a dozen ReadProcessMemory calls).

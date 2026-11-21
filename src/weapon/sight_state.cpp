@@ -97,6 +97,10 @@ namespace bfvr::weapon
 					return;
 				}
 				++visited;
+				if (state.unlock_count < static_cast<int>(std::size(state.unlocks)))
+				{
+					std::memcpy(state.unlocks[state.unlock_count++], name, sizeof(name));
+				}
 				const gun_optics before = state.optics;
 				add_optic(state.optics, name);
 				if ((state.optics.reflex && !before.reflex) || (state.optics.magnified && !before.magnified))

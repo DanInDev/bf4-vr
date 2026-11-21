@@ -156,9 +156,15 @@ namespace bfvr::weapon
 		const int kind = forced >= 0 ? forced : sight.valid && sight.attachments_known ? static_cast<int>(sight.foregrip) : 0;
 		foregrip_sent = kind;
 		body::set_foregrip(kind);
-		return std::string("foregrip weapon=") + (sight.weapon[0] ? sight.weapon : "-") + " attachments_known=" + (sight.attachments_known ? "1" : "0")
+		std::string out = std::string("foregrip weapon=") + (sight.weapon[0] ? sight.weapon : "-") + " attachments_known=" + (sight.attachments_known ? "1" : "0")
 			+ " gun_grip=" + foregrip_name(sight.foregrip) + " (" + (sight.grip[0] ? sight.grip : "none") + ") forced="
-			+ (forced < 0 ? "auto" : foregrip_name(static_cast<foregrip_kind>(forced))) + " sent=" + foregrip_name(static_cast<foregrip_kind>(foregrip_sent.load()));
+			+ (forced < 0 ? "auto" : foregrip_name(static_cast<foregrip_kind>(forced))) + " sent=" + foregrip_name(static_cast<foregrip_kind>(foregrip_sent.load()))
+			+ "\nunlocks:";
+		for (int i = 0; i < sight.unlock_count; ++i)
+		{
+			out += std::string(" ") + sight.unlocks[i];
+		}
+		return out;
 	}
 
 	bool pistol_cup()

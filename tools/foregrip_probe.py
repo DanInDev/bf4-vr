@@ -3,9 +3,9 @@ of the game's own hold, and the `arms` support line says where the drawn off wri
 left hand (gun axes). With a foregrip and foregrip_hold on it must sit on the game's spot (within 2 cm); on a bare
 handguard it stays where it grabbed (about 6 cm ahead, the slide).
 
-    python -E -P tools\\foregrip_probe.py U_MX4 U_UMP45:2 U_FAMAS:3:off
+    python -E -P tools\\foregrip_probe.py U_MX4 U_UMP45:2 U_FAMAS:3:off -:auto -:auto:off
 
-Field two forces a foregrip kind (pipe `foregrip <n>`: 0 none, 1 vertical, 2 angled, 3 stubby) for a level that loads no
+A gun named "-" is the gun in hand, not given (a crate gun keeps its attachments; givegun gives none). Field two forces a foregrip kind (pipe `foregrip <n>`: 0 none, 1 vertical, 2 angled, 3 stubby) for a level that loads no
 grips (Shanghai); without it the gun's own grip is read (`foregrip auto`). A third field "off" runs with foregrip_hold 0.
 Needs a level with the mod loaded; no focus. free_hands, use_reach and foregrip_hold are set back afterwards, the
 forced kind returns to auto, fakehand and fakehead are cleared.
@@ -56,8 +56,12 @@ def run(gun, kind, hold):
     command('setting set foregrip_hold %d' % hold)
     print(command('foregrip %s' % kind).strip(), flush=True)
     hands(HOLD_LEFT)
-    print('> givegun %s 0 -> %s' % (gun, command(f'givegun {gun} 0').strip()[:24]), flush=True)
-    time.sleep(3.5)
+    if gun == '-':
+        print('> the gun in hand (from the game\'s crate, with its attachments)', flush=True)
+        time.sleep(1.0)
+    else:
+        print('> givegun %s 0 -> %s' % (gun, command(f'givegun {gun} 0').strip()[:24]), flush=True)
+        time.sleep(3.5)
     print('  ' + command('foregrip').strip(), flush=True)
     command('pad 0 0 0 0 300 0000')
     hands(AWAY_LEFT)
@@ -74,6 +78,12 @@ def run(gun, kind, hold):
     dist = sum(x * x for x in off) ** 0.5
     print('  grabbed %d cm ahead (foregrip_hold %d): drawn off wrist %.1f cm from the game\'s hand (x %.1f y %.1f z %.1f cm)'
           % (round(AHEAD * 100), hold, dist * 100, off[0] * 100, off[1] * 100, off[2] * 100), flush=True)
+    shots = os.environ.get('FOREGRIP_SHOTS')  # a folder: an eye shot of the hold (the second of two, see CLAUDE.md)
+    if shots:
+        path = os.path.join(shots, 'foregrip-%s-%s-%d.png' % (gun.strip('-') or 'inhand', kind, hold))
+        command('shot ' + path)
+        time.sleep(0.6)
+        print('  ' + command('shot ' + path).strip()[:60], flush=True)
     command('pad 0 0 0 0 300 0000')
     hands(AWAY_LEFT)
     time.sleep(0.5)
@@ -84,7 +94,8 @@ def main():
     guns = sys.argv[1:] or ['U_MX4:2', 'U_MX4:0', 'U_MX4:2:off']
     print('### foregrip_probe ' + time.strftime('%H:%M:%S'), flush=True)
     saved = {name: setting_value(name) for name in ('free_hands', 'use_reach', 'foregrip_hold')}
-    command('fakehead 0.064')
+    # FOREGRIP_HEAD_YAW (degrees): the head turned against the hands, so the shots see the gun from its side.
+    command('fakehead 0.064 %s' % os.environ.get('FOREGRIP_HEAD_YAW', '0'))
     command('setting set free_hands 0')
     command('setting set use_reach 0')
     results = []
@@ -106,7 +117,7 @@ def main():
     print('summary:', flush=True)
     ok = True
     for item, kind, hold, dist in results:
-        on_grip = hold == 1 and kind not in ('0', 'auto')
+        on_grip = hold == 1 and kind != '0' and (kind != 'auto' or item.startswith('-'))
         if dist is None:
             verdict = 'not measured'
             ok = False

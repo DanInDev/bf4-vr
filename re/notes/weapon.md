@@ -696,11 +696,22 @@ the weapon blueprint. Live walk:
 Found by scanning the weapon object (only `+0x4850`, the weapon unlock) and then the weapons component
 for asset names.
 
-**Foregrips (#91, 2026-11-21).** Seen live only `U_SCAR-H_Foregrip_Angled` and `U_AK12_Foregrip_Folding` (above,
-Baku); the potato, stubby, ergo and plain vertical names in `weapon/foregrip` are assumed from that pattern. `weapon/foregrip` classifies them (vertical / angled / stubby); pipe `foregrip` shows the gun's grip and can
-force a kind. **Shanghai loads none:** `unlockfind` (case-sensitive, `strstr`) for `Foregrip`, `grip`, `Ergo` and
-`Bipod` all return nothing; the UMP-45, FAMAS and MX4 carry only optics, lasers and lights there. Real grips need a
-level that loads them (Baku / the Prologue). `weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a
+**Foregrips (#91, 2026-11-21).** Names: `U_<gun>_Foregrip_Vertical|_Angled|_Folding|_Stubby|_Ergo` (all seen in
+Shanghai's memory: AK-12, Galil ACE 23/53, Saiga 20K, AUG, SG553, Pecheneg, Type95B; "potato" not seen). `weapon/foregrip`
+classifies them (vertical / angled / stubby); pipe `foregrip` lists the gun's unlocks and can force a kind.
+- **Pitfall:** `unlockfind` (heap walk of the attachment-unlock vtable) finds no grip in Shanghai, and `givegun` gives guns
+  without attachments. Only the name strings are in memory (a text table: name pointer and length every 0x30 bytes).
+  **The game's weapon crate gives its guns with their grips**: its menu shows each gun's kit (UMP-45: RX01, heavy barrel,
+  angled grip; MX4: Kobra, flash hider, stubby grip), and the gun taken from it has the grip in its unlock tree
+  (`foregrip`: `U_UMP45_Foregrip_Angled`). A later `givegun` of the same gun into that slot keeps the crate's kit.
+- **Opening the crate headless:** stand at it (pad left stick walks with BF4 in front), then the use reach: `fakehand 0 0
+  -0.15 -0.60 -0.45 0.085 -0.222 -0.300` and `pad 0 0 0 0 800 0100`. E from `game.ps1 keys` did not open it, and with
+  BF4 in front neither the pad's right stick nor mouse moves turn the soldier (the head drives the aim). In the menu
+  `pipe pointer <u> <v> 1` selects a gun (MX4 at 0.176 0.653 in the PDW row), but nothing closed it again (Done by pointer,
+  by `game.ps1 click` at (1245, 992), Enter, Esc, E, pad A): a level restart did.
+- The UMP-45's red dot `U_UMP45_RX01` is not in `weapon/optics` (sightstate `reflex=0`).
+
+`weapon/optics` classifies the optic by its suffix (red dot / holo, magnified with a
 nominal zoom, the magnifier; unit-tested; only PK-AS, EOTech and Magnifier seen live).
 `weapon/sight_state` walks the tree when the record's unlock is the current weapon's: the red dot
 (`sight_dot`) now needs a red dot or holo among the attachments (iron-sight guns and scopes get none;

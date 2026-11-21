@@ -3,8 +3,8 @@
 // Foregrip attachments by unlock name (#91). A gun's unlock set (weapon/sight_state) names its foregrip,
 // "U_SCAR-H_Foregrip_Angled", "U_AK12_Foregrip_Folding"; the suffix tells the kind. With one mounted the game's
 // own left hand holds that grip at one fixed spot with its own grip pose, so the off hand stays there instead of
-// sliding along the handguard. Engine-free; tests/foregrip_test.cpp. Seen live: _Foregrip_Angled, _Foregrip_Folding;
-// the potato, stubby and ergo names are assumed from that pattern, not yet seen.
+// sliding along the handguard. Engine-free; tests/foregrip_test.cpp. Seen live: _Foregrip_Vertical, _Angled, _Folding,
+// _Stubby, _Ergo; "potato" is assumed.
 namespace bfvr::weapon
 {
 	enum class foregrip_kind : int
