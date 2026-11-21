@@ -12,6 +12,7 @@
   <img alt="Platform: Windows" src="https://img.shields.io/badge/platform-Windows%2010%2F11-2b3035">
   <img alt="Headset: Meta Quest 3" src="https://img.shields.io/badge/headset-Meta%20Quest%203-2b3035">
   <img alt="Campaign only" src="https://img.shields.io/badge/mode-campaign%20only-2b3035">
+  <a href="https://ko-fi.com/danindev"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-call%20in%20a%20supply%20drop-ff5e5b?logo=ko-fi&logoColor=white"></a>
 </p>
 
 ---
@@ -128,22 +129,51 @@ The full walk-through, with what each button changes, picture-quality tips, upda
 
 ![Quest 3 controllers in BF4-VR: what each button and gesture does](docs/img/quest3-controls.svg)
 
-Grab by putting a hand into a zone and squeezing its grip.
+### Grabbing
+
+Grab by putting a hand into a zone and squeezing its **grip**.
 
 ![Grab zones around the body: shoulders, chest and hips](docs/img/grab-zones.svg)
 
-Driving a car: squeeze both grips to hold the steering wheel and turn it; the right trigger is the throttle and
-the left trigger brakes and reverses. The view rides with the car. Let go of the wheel and the left stick still
-drives. If you prefer driving with the stick only (forward, back to brake and reverse, sideways to steer), switch
-**Drive with** to **Left stick** on the panel (Controls > Driving).
+### Squad attack
 
-Squad attack (the campaign's "engage" order, keyboard Q): raise your off hand to eye level or above, a little
-ahead of your head, as a fist held over your head, and squeeze its grip. Your squad attacks what you are looking
-at. Switch it off with **Squad order by hand** on the panel (Weapon > Hands and melee).
+The campaign's "engage" order (keyboard **Q** on the PC).
 
-Hold the left menu button (≡) for the settings panel inside VR. Buttons can be remapped on its Controls page
-or in the launcher, with presets such as "Jump on B, reload on A". The full controller mapping for menus is in
-the [technical notes](docs/architecture/README.md#controller-mapping-in-menus-theater-mode).
+1. Raise your **off hand** to **eye level or above**, a little ahead of your head (a fist held over your head).
+2. Squeeze that hand's **grip**: your squad attacks **what you are looking at**.
+
+Don't want it? Switch off **Squad order by hand** on the panel (**Weapon > Hands and melee**).
+
+### Driving
+
+By default you drive with a **steering wheel** in front of you, and the view rides with the car.
+
+| Control | Steering wheel (default) | Left stick |
+| --- | --- | --- |
+| Steer | Squeeze **both grips** to hold the wheel, then turn it | **Left stick** sideways |
+| Throttle | **Right trigger** | **Left stick** forward |
+| Brake / reverse | **Left trigger** | **Left stick** back |
+
+Let go of the wheel and the **left stick** still drives. To drive with the stick only, set **Drive with** to
+**Left stick** on the panel (**Controls > Driving**); **Wheel turn for full lock** sets how far the wheel turns
+(less is quicker steering).
+
+### Settings and remapping
+
+Hold the **left menu button (≡)** for the settings panel inside VR. Buttons can be remapped on its **Controls**
+page or in the launcher, with presets such as "Jump on B, reload on A". The full controller mapping for menus is
+in the [technical notes](docs/architecture/README.md#controller-mapping-in-menus-theater-mode).
+
+## Support the battle
+
+BF4-VR is built in spare evenings, one reverse-engineered address at a time. If it got you into the fight,
+you can **[call in a supply drop on Ko-fi](https://ko-fi.com/danindev)**: every coffee keeps the squad
+caffeinated, the headset charged and the next gun's charging handle getting pulled. It is entirely optional;
+the mod is and stays free.
+
+<p align="center">
+  <a href="https://ko-fi.com/danindev"><img alt="Support BF4-VR on Ko-fi" src="https://img.shields.io/badge/Ko--fi-support%20the%20battle-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white"></a>
+</p>
 
 ## For developers
 
