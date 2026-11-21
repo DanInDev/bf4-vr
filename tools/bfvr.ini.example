@@ -401,11 +401,11 @@ move_direction = head
 # you go, so the game gets the straight push it needs. The gun is lowered in a sprint anyway; firing,
 # letting go of the stick or pushing more than 60 degrees aside ends it.
 sprint_steer = 1
-# Driving a car: stick = the left stick drives as on a pad (forward throttle, back brake and reverse, sideways
-# steers); wheel = squeeze the grips to hold a steering wheel in front of you and turn it, the right trigger is
-# the throttle and the left brakes and reverses (the left stick still drives while the wheel is let go).
+# Driving a car: wheel (default) = squeeze the grips to hold a steering wheel in front of you and turn it, the
+# right trigger is the throttle and the left brakes and reverses (the left stick still drives while the wheel is
+# let go); stick = the left stick drives as on a pad (forward throttle, back brake and reverse, sideways steers).
 # In either mode the view rides with the car and the right stick rests (look with your head).
-drive_controls = stick
+drive_controls = wheel
 # With drive_controls = wheel: wheel turn for full steering, degrees (45-360).
 wheel_lock_degrees = 90
 # The gun aims with the gun-hand controller: bullets leave the drawn gun along its barrel and land on

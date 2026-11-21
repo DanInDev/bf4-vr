@@ -132,9 +132,14 @@ Grab by putting a hand into a zone and squeezing its grip.
 
 ![Grab zones around the body: shoulders, chest and hips](docs/img/grab-zones.svg)
 
-Driving a car: the left stick drives (forward, back to brake and reverse, sideways to steer) and the view rides
-with the car. On the panel (Controls > Driving) you can switch to a steering wheel: squeeze both grips to hold it
-and turn it, with the right trigger as throttle and the left as brake and reverse.
+Driving a car: squeeze both grips to hold the steering wheel and turn it; the right trigger is the throttle and
+the left trigger brakes and reverses. The view rides with the car. Let go of the wheel and the left stick still
+drives. If you prefer driving with the stick only (forward, back to brake and reverse, sideways to steer), switch
+**Drive with** to **Left stick** on the panel (Controls > Driving).
+
+Squad attack (the campaign's "engage" order, keyboard Q): raise your off hand to eye level or above, a little
+ahead of your head, as a fist held over your head, and squeeze its grip. Your squad attacks what you are looking
+at. Switch it off with **Squad order by hand** on the panel (Weapon > Hands and melee).
 
 Hold the left menu button (≡) for the settings panel inside VR. Buttons can be remapped on its Controls page
 or in the launcher, with presets such as "Jump on B, reload on A". The full controller mapping for menus is in

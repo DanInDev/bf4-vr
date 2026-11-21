@@ -1,5 +1,7 @@
 # Vehicles (driving)
 
+Since 2026-11-21 the steering wheel is the default (`drive_controls = wheel`, owner); the stick stays an option.
+
 Status 2026-11-19: driving works with the left stick and with a virtual steering wheel (`drive_controls`,
 `src/input/drive_wheel`, `src/input/vr_controls.cpp` `for_vehicle`). Checked on the monitor at the Baku
 checkpoint "Reach Secondary Extraction" (the player starts in the driver's seat of an SUV), headless debug
