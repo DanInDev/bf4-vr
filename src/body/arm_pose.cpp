@@ -472,6 +472,7 @@ namespace bfvr::body
 		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
 		std::atomic<bool> gun_hand_neutral{ true };
 		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
+		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		std::atomic<int> magazine_grip{}; // live setting: 0 auto (palm up cups), 1 wrap, 2 cup
 		bool cupped{};
@@ -2188,9 +2189,9 @@ namespace bfvr::body
 			{
 				return fingers::task::magazine; // a grenade in the free gun hand (#38): the fist
 			}
-			if (hand == 1 && gun_on_floor_now.load(std::memory_order_relaxed))
+			if (hand == 1 && (gun_on_floor_now.load(std::memory_order_relaxed) || gun_hand_empty.load(std::memory_order_relaxed)))
 			{
-				return fingers::task::free; // the gun on the floor or the sling: the hand is empty
+				return fingers::task::free; // the gun on the floor or the sling, or no weapon at all (#136): the hand is empty
 			}
 			if (hand == 1)
 			{
@@ -3465,6 +3466,11 @@ namespace bfvr::body
 	void set_gun_hand_item(bool item)
 	{
 		hand_item_in_gun_hand = item;
+	}
+
+	void set_gun_hand_empty(bool empty)
+	{
+		gun_hand_empty = empty;
 	}
 
 	void set_knife_pitch(float degrees)
