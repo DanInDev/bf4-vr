@@ -479,7 +479,7 @@ namespace bfvr::body
 		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		bool cupped{}; // the cup on the upturned palm was removed (owner, 2026-11-22): always false, kept for the blend below
-		contact::cup_placement cup;        // this frame's cupped magazine, model space
+		contact::cup_placement cup;        // the magazine placed on the palm: only the fallback frame when no fist is measured
 		float cup_palm_up{};
 		float cup_gap_mm[fingers::count]{}; // each finger's nearest point to the magazine after closing
 		float cup_weight{};                 // the drawn magazine's blend from the fist (0) onto the palm (1)
@@ -2306,9 +2306,6 @@ namespace bfvr::body
 			return curl;
 		}
 
-		// The off hand's grip on a held magazine: wrapped the way the game's own reload holds it (an
-		// authored grip per variant) or cupped (contact), by the setting or the palm facing up. Rewrites
-		// the task and its target shape for a cup.
 		// #40, palming: the game's grip holds one upright magazine; leaning aside (and with the caught one
 		// beside it) its fingers floated off or went through. The magazine stays where that grip puts it
 		// (attach_held_magazine), the fingers close by contact on the bodies in the hand.
@@ -2359,6 +2356,9 @@ namespace bfvr::body
 			return true;
 		}
 
+		// The off hand's grip on a held magazine: wrapped the way the game's own reload holds it (an authored grip per
+		// variant), or closed by contact on the leaning magazines while palming. The cup on the upturned palm is gone
+		// (owner, 2026-11-22).
 		void choose_magazine_grip(ik::bone_transform* local, fingers::task& task, fingers::hand_shape& target)
 		{
 			const bool holding = task == fingers::task::magazine && magazine_request.detached && magazine_request.in_hand;
@@ -2819,12 +2819,12 @@ namespace bfvr::body
 				place_requested_magazine(local); // no drawn fist: where the reload put it from the controller
 				return;
 			}
-			// Between the grips the magazine slides from the fist onto the palm and back (as the fingers ease).
+			// The palm placement is used only when no fist can be measured (cupped is always false since 2026-11-22).
 			const float step = 1.0f - std::exp(-last_finger_seconds / 0.03f);
 			cup_weight += ((cupped && palm_valid ? 1.0f : 0.0f) - cup_weight) * step;
 			const float on_palm = !fist.valid ? 1.0f : !palm_valid ? 0.0f : cup_weight;
 			// The magazine relative to the gun as seated (local is the animation's here), placed in the
-			// fist's frame, or standing on the palm with its base plate on it (cup).
+			// fist's frame (or on the palm when there is no fist).
 			const ik::quat seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * ik::model_of(local, rig.parents, rig.magazine).rotation;
 			ik::bone_transform placed = ik::model_of(local, rig.parents, rig.magazine);
 			const ik::quat fist_frame = fist.valid ? fist.frame : cup.frame;
