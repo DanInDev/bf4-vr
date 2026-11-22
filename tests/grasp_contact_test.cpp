@@ -58,12 +58,6 @@ namespace
 
 	void test_switch()
 	{
-		expect(!cup_grip(false, 0.3f), "a sideways palm wraps");
-		expect(cup_grip(false, 0.6f), "palm up cups");
-		expect(cup_grip(true, 0.3f), "turning back a little keeps the cup");
-		expect(!cup_grip(true, 0.1f), "turning well back wraps again");
-		expect(cup_grip(true, std::nanf("")) && !cup_grip(false, std::nanf("")), "no reading keeps the grip");
-
 		// Racking hold: palm up under the handle hooks, palm down on it pinches, sideways keeps the last.
 		expect(underhand_rack(false, 0.8f), "palm up takes the handle underhand");
 		expect(!underhand_rack(true, -0.8f), "palm down takes it overhand");

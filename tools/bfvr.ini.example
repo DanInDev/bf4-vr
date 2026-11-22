@@ -181,6 +181,9 @@ belts_by_hand = 1
 revolver_by_hand = 1
 # Physical reload: a dropped magazine loses its rounds (0 = they go back into the reserve).
 drop_discards_ammo = 1
+# AR palming (#40): a new magazine held beside the seated one turns aside in the hand, B catches the old one in
+# the same hand and the new one goes in. Off by default for now (owner, 2026-11-22): B drops the old one.
+magazine_palming = 0
 # The P90 and AK 5C have no magazine release to press: pull the magazine out by hand (0: B drops it as on the
 # other guns) (#98).
 magazine_pull_out = 1
@@ -342,11 +345,6 @@ off_hand_pose = neutral
 # grip as you hold the controller (like the free off hand), animated = the game's own hold turned by the controller.
 # Launchers in gadget slots (M320) keep their own hold.
 gun_hand_pose = neutral
-# A held magazine: wrap = in the fist; cup = standing on the upturned palm, base plate in the palm, the
-# fingers closing until they touch it (contact, not a fixed curl); auto = cup once the palm faces up,
-# wrap again when it turns back (with a margin, so it does not flicker). Pipe `fingers` shows the grip
-# and each fingertip's gap to the magazine.
-magazine_grip = auto
 # Racking: fist (default) = the knob in a closed fist, overhand when grabbed beside or above the handle,
 # underhand from the larger zone below it (grab_debug draws both), the hand locked on the knob to the release;
 # pinch = the charging handle's knob between the thumb and the side of the index (a key pinch;

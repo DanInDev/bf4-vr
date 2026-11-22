@@ -444,11 +444,20 @@ int main(int argc, char** argv)
 	// An old bfvr.ini still names them: they are not registered, so loading skips them.
 	for (const char* removed : { "two_handed", "two_hand_mode", "arm_reach", "body_shoulders", "finger_poses", "gun_life_size",
 			 "gun_fov_life_size", "steady_walk", "reticle_depth", "extra_meshes", "magazine_snap", "palm_reload", "game_sounds",
-			 "free_hand_reload", "grenade_model", "grenade_mesh", "pouch_models", "holsters", "knife_grip", "aim_with_body", "shots_from_gun", "shot_line", "pause_flat", "focus_notice" })
+			 "free_hand_reload", "magazine_grip", "grenade_model", "grenade_mesh", "pouch_models", "holsters", "knife_grip", "aim_with_body", "shots_from_gun", "shot_line", "pause_flat", "focus_notice" })
 	{
 		if (settings::global().definition_of(removed) || settings::presentation_of(removed))
 		{
 			std::printf("FAIL: %s should no longer be a setting (#48)\n", removed);
+			++failures;
+		}
+	}
+	{
+		// Owner 2026-11-22: AR palming is a setting again, off by default, on the panel's Reloading page.
+		const auto palming = settings::global().definition_of("magazine_palming");
+		if (!palming || palming->fallback != "0" || !settings::presentation_of("magazine_palming"))
+		{
+			std::printf("FAIL: magazine_palming should be a panel setting, default 0\n");
 			++failures;
 		}
 	}
