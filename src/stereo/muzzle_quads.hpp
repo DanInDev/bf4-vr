@@ -24,6 +24,11 @@ namespace bfvr::stereo::muzzle_quads
 	void note_plain(ID3D11DeviceContext* context, UINT vertices, UINT instances, UINT start_vertex, UINT first_instance);
 	void note_indirect(ID3D11DeviceContext* context, bool indexed);
 
+	// From eye_pass around each eye's run of the game's view render (#144): within one pass a particle buffer is copied
+	// and moved once, and its later batches draw from that copy; outside a pass every batch copies as before.
+	void begin_pass();
+	void end_pass();
+
 	// Live setting flash_at_gun.
 	void set_on(bool on);
 
