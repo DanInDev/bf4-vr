@@ -315,6 +315,68 @@ int main()
 		expect(roll_turn(minus) < 0.5f * 3.14159265f + 1e-3f, "roll: the forearm roll bone turned the long way round", round);
 	}
 
+	// #160: the hand turned about the forearm in steps up to 200 degrees. With the twist kept between solves the roll
+	// bone follows the whole way (its share of it, no flip past half a turn); without, it flips the short way round.
+	{
+		bone_transform start[7];
+		start[1].position = { 0.2f, 1.5f, 0.0f };
+		start[2].position = { 0.14f, 0.0f, 0.0f };
+		start[3].position = { 0.28f, 0.0f, -0.04f };
+		start[4].position = { 0.10f, 0.0f, 0.0f };
+		start[5].position = { 0.16f, 0.0f, 0.0f };
+		const vec3 wrist = model_of(start, parents, 5).position;
+		const vec3 axis = normalize(wrist - model_of(start, parents, 4).position);
+		// The roll bone's turn against the forearm (the IK may swing the forearm itself), about the forearm's axis.
+		const auto roll_twist = [&](const bone_transform* local)
+		{
+			const quat now = normalize(conjugate(model_of(local, parents, 3).rotation) * model_of(local, parents, 4).rotation);
+			const quat was = normalize(conjugate(model_of(start, parents, 3).rotation) * model_of(start, parents, 4).rotation);
+			const quat q = normalize(now * conjugate(was));
+			const vec3 along = normalize(rotate(conjugate(model_of(start, parents, 3).rotation), axis));
+			const float sign = q.w < 0.0f ? -1.0f : 1.0f;
+			return 2.0f * std::atan2(sign * dot(vec3{ q.x, q.y, q.z }, along), sign * q.w);
+		};
+		float memory = 0.0f;
+		float last_kept = 0.0f, last_short = 0.0f, first_kept = 0.0f;
+		bool monotonic = true, share_right = true;
+		for (int degrees = 0; degrees <= 160; degrees += 10)
+		{
+			const float angle = static_cast<float>(degrees) * 3.14159265f / 180.0f;
+			arm_goal goal;
+			goal.wrist = wrist;
+			goal.pole = model_of(start, parents, 1).position + vec3{ 0.0f, -0.5f, 0.3f };
+			goal.hand = normalize(quat{ axis.x * std::sin(0.5f * angle), axis.y * std::sin(0.5f * angle), axis.z * std::sin(0.5f * angle), std::cos(0.5f * angle) }
+				* model_of(start, parents, 5).rotation);
+			goal.roll_share = 0.6f;
+			goal.twist_memory = &memory;
+			bone_transform kept[7], short_way[7];
+			for (int bone = 0; bone < 7; ++bone)
+			{
+				kept[bone] = short_way[bone] = start[bone];
+			}
+			arm_goal plain = goal;
+			plain.twist_memory = nullptr;
+			expect(solve_arm(kept, parents, bones, goal) && solve_arm(short_way, parents, bones, plain), "twist sweep: solver refused", degrees);
+			float now = roll_twist(kept);
+			if (now < last_kept - 0.5f)
+			{
+				now += 2.0f * 3.14159265f; // the measure itself wraps at pi
+			}
+			if (degrees == 0)
+			{
+				first_kept = now; // the re-bend's own twist (the test chain's elbow moves to the pole)
+				last_kept = now;
+			}
+			monotonic = monotonic && now >= last_kept - 1e-3f;
+			share_right = share_right && std::fabs(now - first_kept - 0.6f * angle) < 0.02f;
+			last_kept = now;
+			last_short = roll_twist(short_way);
+		}
+		expect(monotonic, "twist sweep: the roll bone turned back with the memory", -1);
+		expect(share_right, "twist sweep: the roll bone did not take 0.6 of the turn", -1);
+		expect(last_short < first_kept, "twist sweep: without memory the twist flips the short way round past half a turn", -1);
+	}
+
 	std::printf(failures ? "arm_ik_test: %d failures\n" : "arm_ik_test: all passed\n", failures);
 	return failures ? 1 : 0;
 }

@@ -294,6 +294,8 @@ gun_hand_pose = neutral
 rack_grip = fist
 # #136: with no weapon out (the unarmed walks), both wrists turn in this many degrees about the controller ray, thumbs towards the torso.
 empty_hand_turn = 80
+# #160: the share of a wrist turn the forearm takes along its length (its roll bone), the rest at the wrist joint.
+forearm_twist = 0.8
 # Two-handed: the off hand stays on the handguard where it grabbed until you let go (support_lock = 0: it slides
 # with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
 # muzzle) metres of the game's own handguard spot.

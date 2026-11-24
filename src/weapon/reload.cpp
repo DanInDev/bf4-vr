@@ -172,6 +172,21 @@ namespace bfvr::weapon
 
 	reload_event reload::grab_magazine()
 	{
+		// #95 (owner 2026-11-24): a belt-fed box comes off in the hand with the lid up, as the button takes it (its belt
+		// goes along); under a shut lid the belt holds it.
+		if (profile_.belt)
+		{
+			if (!state_.lid_open || !state_.magazine_in || state_.belt_held || state_.holding)
+			{
+				return reload_event::none;
+			}
+			state_.belt_laid = false;
+			state_.holding = true;
+			state_.held_rounds = state_.magazine_rounds;
+			state_.magazine_in = false;
+			state_.magazine_rounds = 0;
+			return reload_event::magazine_out;
+		}
 		// An AR magazine is latched until the button releases it (#98: unless the gun has none to press).
 		if ((profile_.kind != variant::ak && !pulled_by_hand()) || profile_.tube || !state_.magazine_in || state_.holding)
 		{

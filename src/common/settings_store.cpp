@@ -100,6 +100,7 @@ namespace bfvr::settings
 			{ "rack_under_down", kind::real, -0.05f, 0.10f, 0.005f, "0.005", "", "rack_grip fist, underhand: the fist this far below the knob, metres" },
 			{ "rack_grip", kind::choice, 0, 0, 0, "fist", "fist|auto|pinch|hook", "the charging handle in a closed fist, overhand when grabbed beside or above it, underhand from the larger zone below, the hand locked on the knob (fist); between the thumb and the side of the index (pinch), or inside the curled index (hook); auto: the pinch with the palm down on it, hooked in the index and middle with the palm up under it" },
 			{ "empty_hand_turn", kind::real, -180.0f, 180.0f, 5.0f, "80", "", "#136: with no weapon out, both wrists turn in this many degrees about the controller ray, thumbs towards the torso" },
+			{ "forearm_twist", kind::real, 0.0f, 1.0f, 0.05f, "0.8", "", "#160: the share of a wrist turn the forearm takes along its length (the rest at the wrist): 0 = all at the wrist, 1 = all in the forearm" },
 			{ "shoulder_width", kind::real, -0.1f, 0.2f, 0.01f, "0", "", "first-person shoulders moved outwards by this, metres per side" },
 			{ "knife_pitch", kind::real, -180.0f, 180.0f, 5.0f, "145", "", "held knife: degrees the blade is raised to lie along the controller ray (lower = blade tilts down)" },
 			{ "knife_yaw", kind::real, -180.0f, 180.0f, 5.0f, "-15", "", "degrees the held knife is turned about the controller's up (+ = to the right)" },

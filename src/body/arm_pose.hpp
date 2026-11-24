@@ -41,6 +41,8 @@ namespace bfvr::body
 	void set_gun_hand_empty(bool empty);
 	// #136: degrees both empty wrists turn in about the controller's ray, thumbs towards the torso (setting empty_hand_turn).
 	void set_empty_hand_turn(float degrees);
+	// #160: the share of a wrist turn the forearm roll bone takes (setting forearm_twist).
+	void set_forearm_twist(float share);
 	// Pipe (arms emptyhands 0|1|off): treat the hands as empty (or not) whatever is drawn; -1 = as the game says.
 	void force_empty_hands(int state);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).

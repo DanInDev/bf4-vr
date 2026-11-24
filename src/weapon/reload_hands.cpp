@@ -374,7 +374,8 @@ namespace bfvr::weapon
 		// against the overhand zone the nearer one wins.
 		const bool near_magwell = !frame.handle_only && to_magwell < magazine_reach && !((frame.tube || frame.revolver) && !gun.state().holding)
 			&& !(frame.cup_grip && !gun.state().holding && gun.state().magazine_in)
-			&& !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell);
+			// #95: a belt-fed box beats the rack zones (the M249's reach down over it: the hand at the box racked instead).
+			&& (frame.belt || !(rack_test.zone == rack_zone::over && rack_test.over_distance < to_magwell));
 		const bool near_handle = (in_rack_zone || near_knob) && !near_magwell;
 		const bool near_chest = !frame.handle_only && to_chest < chest_reach;
 		const float stow_reach = chest_reach * config_.stow_reach_scale;
@@ -541,11 +542,14 @@ namespace bfvr::weapon
 				belt_feed_grab = true;
 			}
 		}
-		if (lid_held_ && (!frame.grip || !valid || !belt_points))
+		// #95: a belt-fed lid's hand moved well away from it lets it go where it is (it no longer follows the hand down).
+		const bool lid_left = lid_held_ && frame.belt && valid && distance(reach, lid_grab) > config_.lid_hold_reach * lid_reach;
+		if (lid_held_ && (!frame.grip || !valid || !belt_points || lid_left))
 		{
 			lid_held_ = false;
-			// Let go: past halfway it swings up, else shut (the state now; the drawing follows below).
-			if (lid_ > 0.5f)
+			// Let go: a belt-fed lid lifted at all stays open (it swings up), pushed nearly down it shuts; the revolver's
+			// frame past halfway swings open, else shut (the state now; the drawing follows below).
+			if (lid_ > (frame.revolver ? 0.5f : config_.lid_stays_open))
 			{
 				emit(result, gun.open_lid());
 			}

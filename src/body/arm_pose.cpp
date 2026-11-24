@@ -486,6 +486,8 @@ namespace bfvr::body
 		bool c4_pack_placed{};    // rig_lock: placed in the drawn left hand this frame
 		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		std::atomic<float> empty_hand_turn{ 80.0f }; // #136: setting empty_hand_turn, degrees the empty wrists turn in
+		std::atomic<float> forearm_twist{ 0.8f };    // #160: setting forearm_twist, the roll bone's share of a wrist turn
+		float twist_memory[2]{};                     // #160: each arm's last wrist twist (ik::arm_goal::twist_memory)
 		std::atomic<int> empty_hands_forced{ -1 };   // pipe arms emptyhands 0|1|off: test the empty hands with a gun out
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		bool cupped{}; // the cup on the upturned palm was removed (owner, 2026-11-22): always false, kept for the blend below
@@ -1578,6 +1580,8 @@ namespace bfvr::body
 				goal.has_pole_fallback = true;
 				goal.max_stretch = arm_stretch.load(std::memory_order_relaxed);
 				goal.max_protraction = shoulder_reach.load(std::memory_order_relaxed);
+				goal.roll_share = forearm_twist.load(std::memory_order_relaxed);
+				goal.twist_memory = &twist_memory[hand];
 				last_arms[hand].hand_in_aim = ik::normalize(ik::conjugate(frame * ik::normalize(aim)) * goal.hand);
 				const float reach = ik::reach_ratio(local, rig.parents, bones, goal.wrist);
 				if (ik::solve_arm(local, rig.parents, bones, goal))
@@ -3541,6 +3545,11 @@ namespace bfvr::body
 	void set_empty_hand_turn(float degrees)
 	{
 		empty_hand_turn = std::isfinite(degrees) ? degrees : 0.0f;
+	}
+
+	void set_forearm_twist(float share)
+	{
+		forearm_twist = std::isfinite(share) ? (std::min)((std::max)(share, 0.0f), 1.0f) : 0.5f;
 	}
 
 	void force_empty_hands(int state)

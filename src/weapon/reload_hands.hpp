@@ -256,8 +256,13 @@ namespace bfvr::weapon
 		float rearm_distance{ 0.18f }; // a magazine taken from the gun must leave this far before it can go in
 		float rack_pull{ 0.04f };      // pulled back this far along the barrel before letting go = rack
 		float pump_reach{ 0.12f };     // a pump gun: the held hand this near the fore-end works it
-		float lid_reach{ 0.10f };      // belt-fed: the hand this near the lid's grab point takes the lid
+		float lid_reach{ 0.14f };      // belt-fed: the hand this near the lid's grab point takes the lid (#95: 0.10 was too tight)
 		float lid_swing_seconds{ 0.09f }; // ... let go, it swings the rest of the way (The Great Destroyer, src/handmag.cpp)
+		// #95 (owner 2026-11-24): a belt-fed lid let go this far open or more stays open (swings up); it shuts only when
+		// pushed down below it. The revolver's frame keeps halfway (#132: it must not flip open by itself).
+		float lid_stays_open{ 0.15f };
+		// ... and the held lid lets go when the hand moves this many lid_reach from its grab point (it was dragged shut).
+		float lid_hold_reach{ 2.5f };
 		float belt_reach{ 0.09f };     // the hand this near the belt end (or the laid belt) takes it
 		float belt_lay{ 0.08f };       // the held belt end this near the feed tray lays itself
 		float flick_close_rate{ 3.0f }; // a revolver open: the barrel's up component rising this fast (1/s, ~170 deg/s) shuts it
