@@ -1213,6 +1213,13 @@ slope / P). Scopes and magnifiers then go without the game's aim. What was learn
   reaches only the field stop around the line (ACOG 60 -> 32 degrees, `uv_per_tangent` 1.9 -> 3.1; 8x 6.2; `line_uv`
   0.5 0.5). Monitor magnification through the ACOG (scratchpad `magnify.py`, the glass against a lowered-gun shot):
   3.01 (head turned), 2.37 (rolled), 2.23 (straight, weak match) for its 2.74.
+  Magnifiers (`dev` ba874dc, facing the lit towers; the match only counts the glass's own pixels from `glassdebug 1`):
+  CZ-805 EOTech + magnifier 1.72 (straight, ncc 0.74), 1.88 (head turned 25, 0.66), 1.70 (rolled 20, 0.93, offset 0 px:
+  the picture exactly on the line); AUG magnifier 1.72 (head rolled 15, 0.90, offset 0), for their 1.73. The glass is
+  as sharp as the eye's image enlarged 1.73x (about one picture pixel per eye pixel). Pitfalls of the measure: a target
+  of one straight edge (the curtain) or a repeating window grid gives false peaks; a glass lying mostly to one side of
+  the line point (eye off the line) gives a one-sided patch; D-pad up toggles the magnifier, so a script must check
+  `scope` `magnification=` (the lens report's `power=` is the last optic's) before measuring.
 - (Superseded, see above.) **The scope render keeps the eye's orientation.** Matched against an eye shot of the same direction (`s3where`,
   correlation 0.5): its picture is centred on the view's axis whatever the gun's pitch (hold level: centre at
   (1108, 1079) with the sight line's point at (1108, 1215); hold pitched 6 degrees up: both at the centre within
