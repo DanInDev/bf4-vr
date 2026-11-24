@@ -44,7 +44,6 @@ namespace bfvr::settings
 			{ "chest_depth", "Body", "Size", "Chest pouches in front", "Metres from the eyes; 0 = from your height", "" },
 			{ "hip_drop", "Body", "Size", "Hip holsters below the eyes", "Metres; 0 = from your height", "" },
 			{ "arm_length", "Body", "Size", "Arm length", "Longer arms reach further", "" },
-			{ "hide_legs", "Body", "Body", "Hide the legs", "They sit oddly under a tracked head", "" },
 			{ "soldier_radius", "Body", "Body", "Room to the walls", "Metres; 0 = the game's 0.35. From the next spawn", "" },
 			{ "gun_hand_pose", "Body", "Hands", "Gun hand without a gun", "Grenade, C4 detonator, the gun in the other hand", "neutral=As you hold the controller|animated=Animated (research)", true },
 			{ "off_hand_pose", "Body", "Hands", "Free hand pose", "Animated turns the hand with the game's rifle pose", "neutral=As you hold the controller|animated=Animated (research)", true },
