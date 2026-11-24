@@ -104,7 +104,8 @@ namespace bfvr::stereo
 		game,
 	};
 	void set_scene_aim(scene_aim mode);
-	// A scripted scene (held 1.5 s past the detector's end) with scene_aim = game: the mod keeps out.
+	// A scripted scene (held 1.5 s past the detector's end) with scene_aim = game, once the right stick was used in it
+	// (#153: before that the view stays level on the body's yaw, no forced turns): the mod keeps out.
 	bool scene_game_control();
 	// This frame aims along the view (scene_aim = head in a scripted scene).
 	bool scene_aims_along_view();

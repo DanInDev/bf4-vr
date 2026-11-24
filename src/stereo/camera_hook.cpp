@@ -426,6 +426,8 @@ namespace bfvr::stereo
 		std::atomic<scene_aim> scene_aim_mode{ scene_aim::game };
 		// Held 1.5 s past the detector's end (camera against aim): it can let go for a moment mid-scene.
 		std::atomic<ULONGLONG> scene_until{};
+		std::atomic<bool> scene_stick_used{};          // #153: the right stick asked for the game's view in this scene
+		constexpr int scene_stick_threshold = 16000;   // about half way
 		bool scene_now()
 		{
 			return GetTickCount64() < scene_until.load(std::memory_order_relaxed);
@@ -1101,7 +1103,23 @@ namespace bfvr::stereo
 
 	bool scene_game_control()
 	{
-		return scene_aim_mode.load(std::memory_order_relaxed) == scene_aim::game && scene_now();
+		if (scene_aim_mode.load(std::memory_order_relaxed) != scene_aim::game || !scene_now())
+		{
+			scene_stick_used = false;
+			return false;
+		}
+		// #153 (owner 2026-11-24): doors, the third level's walk and other scripted moves turned the view with the game's
+		// camera. The game takes the view (and the aim) only once the right stick asks for it in this scene, as in the
+		// Baku lean-out (#133); until then the view stays level on the body's yaw and only follows the walk.
+		if (!scene_stick_used.load(std::memory_order_relaxed))
+		{
+			const input::gamepad_state pad = input::latest();
+			if (std::abs(static_cast<int>(pad.right_x)) > scene_stick_threshold || std::abs(static_cast<int>(pad.right_y)) > scene_stick_threshold)
+			{
+				scene_stick_used = true;
+			}
+		}
+		return scene_stick_used.load(std::memory_order_relaxed);
 	}
 
 	bool scene_aims_along_view()
@@ -1121,8 +1139,8 @@ namespace bfvr::stereo
 	std::string cutscene_report()
 	{
 		char text[160];
-		std::snprintf(text, sizeof(text), "cutscene_view=%s scripted=%d camera_vs_aim_deg=%.1f health=%.1f", cutscene_screen.load() ? "screen" : "look",
-			scripted_now.load() ? 1 : 0, scripted_deviation.load(), scripted_health.load());
+		std::snprintf(text, sizeof(text), "cutscene_view=%s scripted=%d camera_vs_aim_deg=%.1f health=%.1f scene=%d game_view=%d", cutscene_screen.load() ? "screen" : "look",
+			scripted_now.load() ? 1 : 0, scripted_deviation.load(), scripted_health.load(), scene_now() ? 1 : 0, scene_stick_used.load() ? 1 : 0);
 		return text;
 	}
 
