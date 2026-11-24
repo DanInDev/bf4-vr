@@ -660,6 +660,7 @@ namespace bfvr::weapon
 		body::set_gun_in_hand(gun.valid && gun.current >= 0 && gun.current <= 1);
 		// The unarmed hand is held as you hold the controller (#68's rule), not the game's unarmed run / crouch animation.
 		body::set_gun_hand_item(unarmed || (held.valid && (held.current == 6 || std::strstr(held.name, "_C4") != nullptr)));
+		body::set_c4_out(held.valid && std::strstr(held.name, "_C4") != nullptr);
 		body::set_gun_hand_empty(unarmed);
 		// Slot 6: the hand grenade (re/notes/weapon.md "Weapon slots"), selected for the capture (#36).
 		advance_grenade_capture(gun, now);
