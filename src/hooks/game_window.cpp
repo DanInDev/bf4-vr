@@ -8,6 +8,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "ui/vr_panel.hpp"
 
 namespace bfvr::hooks
 {
@@ -403,6 +404,9 @@ namespace bfvr::hooks
 		else
 		{
 			++pointer_behind;
+			// #155: behind another window the game's menus take hovers but not every click (the weapon crate's
+			// Done, the pause menu): say what to do while the laser is on them.
+			ui::flash_notice("Click the BF4 window on the PC: its menus need it in front", 1000);
 			// Client coordinates of the real window; the window procedure scales them to the virtual size.
 			const LPARAM position = MAKELPARAM(x, y);
 			PostMessageW(hwnd, WM_MOUSEMOVE, pressed ? MK_LBUTTON : 0, position);
