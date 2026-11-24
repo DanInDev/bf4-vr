@@ -1385,6 +1385,33 @@ namespace
 		expect(!r.holding && !r.off_busy, "hand empty after the throw");
 	}
 
+	// Owner 2026-11-24: the seated magazine is taken near its bottom third, from a generous zone.
+	void test_magazine_lower_third()
+	{
+		reload gun(ar);
+		gun.load(30, 60);
+		reload_hands hands(flat_hold());
+		const auto frame = [&](v3 hand, bool grip)
+		{
+			hand_frame f = at(hand, grip);
+			f.has_root = true;
+			f.root = {};
+			f.root_rotation = {};
+			f.magazine_length = 0.19f;
+			return f;
+		};
+		hand_result r = hands.update(gun, frame({ magwell.x, magwell.y - 0.16f, magwell.z }, false));
+		expect(close(r.zone_centre[0].y, magwell.y - 0.1235f, 1e-3f) && close(r.zone_reach[0], 0.13f, 1e-3f),
+			"the magazine zone sits 65 percent down a 19 cm magazine (its lower third), 13 cm wide");
+		expect(r.in_zone == hand_result::zone::magazine, "a hand at the bottom third is at the magazine");
+		r = hands.update(gun, frame({ magwell.x, magwell.y - 0.04f, magwell.z }, false));
+		expect(r.in_zone == hand_result::zone::magazine, "the top of the magazine still counts (generous)");
+		r = hands.update(gun, frame({ magwell.x, magwell.y - 0.30f, magwell.z }, false));
+		expect(r.in_zone != hand_result::zone::magazine, "30 cm below the well is past the magazine");
+		expect(magazine_length_for("U_M416") > 0.15f && magazine_length_for("U_AK12") > 0.15f && magazine_length_for("U_P90") == 0.0f
+			&& magazine_length_for("U_QBB95") == 0.0f && magazine_length_for("U_870") == 0.0f, "box and AK magazines have a length; top, drum and tube none");
+	}
+
 	// Owner 2026-11-24: the pin by hand was hard. A squeeze made a moment before the hand reaches the grenade (the
 	// usual motion: let go of the gun, close the hand on the way to the ring) takes the pin; an old one does not.
 	void test_grenade_pin_early_squeeze()
@@ -2818,6 +2845,7 @@ int main()
 	test_accessory_touch();
 	test_grenade_throw();
 	test_grenade_pin_early_squeeze();
+	test_magazine_lower_third();
 	test_grenade_either_hand();
 	test_grenade_teeth();
 	test_level_head();

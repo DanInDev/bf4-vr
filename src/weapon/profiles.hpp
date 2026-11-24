@@ -36,6 +36,9 @@ namespace bfvr::weapon
 	// 3.7 cm, M416 8.9 cm); 2 to 12 cm; 0 when not measured or the game's hand is above the top (P90): the drawn hand then
 	// keeps the grip it has (the authored grip's own depth, or 7 cm in a plain fist).
 	float magazine_hold_drop(std::string_view unlock_name);
+	// Owner 2026-11-24: the length of a box magazine below the well (metres), for a grab zone near its bottom third;
+	// 0 for a top magazine (P90), a drum, a tube, a belt or a cylinder.
+	float magazine_length_for(std::string_view unlock_name);
 	// The way this gun's magazine leaves its well, measured from the game's empty reload: degrees from straight down (gun
 	// -y) in the gun's mid-plane, + forward along the barrel. False: straight down (the reference, AK-12 and SCAR-H).
 	bool magazine_way_out_for(std::string_view unlock_name, float& degrees);

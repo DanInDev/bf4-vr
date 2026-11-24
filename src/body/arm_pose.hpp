@@ -366,13 +366,14 @@ namespace bfvr::body
 	// #40: the open off hand snapping onto the seated magazine (weight 0..1, eased by the caller): the drawn
 	// hand takes the game's magazine grip on it (AK or AR variant) with those fingers, and after the grab
 	// eases back to the controller with the magazine in it. weight 0 = off.
-	void set_magazine_snap(float weight, bool ak);
+	void set_magazine_snap(float weight, bool ak, float grab_depth = 0.0f); // grab_depth: down the magazine from its top, metres
 	// Grip lock (weapon/physical_reload): the drawn off hand holds the magazine at this pose (its top,
 	// Wep_Mag, and rotation, OpenXR LOCAL) with the game's magazine grip, blended by weight.
 	struct magazine_lock_pose
 	{
 		float weight{};
 		bool ak{};
+		float grab_depth{}; // the hand this far down the magazine from its top (0: the game's grip)
 		float position[3]{};
 		float rotation[4]{ 0, 0, 0, 1 };
 	};

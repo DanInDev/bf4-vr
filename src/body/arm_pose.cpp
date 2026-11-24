@@ -454,6 +454,7 @@ namespace bfvr::body
 		{
 			float weight{};
 			bool ak{};
+			float grab_depth{}; // owner 2026-11-24: the hand this far down the magazine (0: the game's grip)
 			bool has_delta{};
 			ik::vec3 delta_position;
 			ik::quat delta_rotation;
@@ -944,7 +945,9 @@ namespace bfvr::body
 				const authored_grip& grip = snap_request.ak ? magazine_grip_ak : magazine_grip_ar;
 				const ik::bone_transform seated = ik::model_of(local, rig.parents, rig.magazine);
 				const ik::quat hand = ik::normalize(seated.rotation * ik::conjugate(grip.magazine_rotation));
-				const ik::vec3 wrist = seated.position - ik::rotate(hand, grip.magazine);
+				// Lowered along the magazine's own up to where the hand takes it (its bottom third), from the game's grip depth.
+				const float lower = snap_request.grab_depth > 0.0f ? contact::authored_grip_shift(snap_request.grab_depth, snap_request.ak) : 0.0f;
+				const ik::vec3 wrist = seated.position - ik::rotate(hand, grip.magazine) - ik::rotate(seated.rotation, ik::vec3{ 0.0f, lower, 0.0f });
 				snap_request.delta_position = wrist - goal.wrist;
 				snap_request.delta_rotation = ik::normalize(hand * ik::conjugate(goal.hand));
 				snap_request.has_delta = true;
@@ -1044,7 +1047,9 @@ namespace bfvr::body
 			const ik::quat rotation = frame * ik::normalize(ik::quat{ q[0], q[1], q[2], q[3] });
 			const authored_grip& grip = lock_request.ak ? magazine_grip_ak : magazine_grip_ar;
 			const ik::quat hand = ik::normalize(rotation * ik::conjugate(grip.magazine_rotation));
-			const ik::vec3 wrist = top - ik::rotate(hand, grip.magazine);
+			// Owner 2026-11-24: on the seated magazine, lowered along its own up to its lower third (see apply_magazine_snap).
+			const float lower = lock_request.grab_depth > 0.0f ? contact::authored_grip_shift(lock_request.grab_depth, lock_request.ak) : 0.0f;
+			const ik::vec3 wrist = top - ik::rotate(hand, grip.magazine) - ik::rotate(rotation, ik::vec3{ 0.0f, lower, 0.0f });
 			goal.wrist = goal.wrist + (wrist - goal.wrist) * weight;
 			goal.hand = nlerp(goal.hand, hand, weight);
 		}
@@ -4048,11 +4053,12 @@ namespace bfvr::body
 		lock_request.weight = std::isfinite(pose.weight) ? std::fmax(0.0f, std::fmin(1.0f, pose.weight)) : 0.0f;
 	}
 
-	void set_magazine_snap(float weight, bool ak)
+	void set_magazine_snap(float weight, bool ak, float grab_depth)
 	{
 		const std::lock_guard guard(rig_lock);
 		snap_request.weight = std::isfinite(weight) ? std::fmax(0.0f, std::fmin(1.0f, weight)) : 0.0f;
 		snap_request.ak = ak;
+		snap_request.grab_depth = std::isfinite(grab_depth) ? std::fmax(0.0f, std::fmin(0.3f, grab_depth)) : 0.0f;
 	}
 
 	std::string hands_report()

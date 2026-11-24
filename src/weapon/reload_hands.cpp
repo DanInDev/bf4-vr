@@ -275,8 +275,13 @@ namespace bfvr::weapon
 		}
 		const float way_out = frame.has_way_out ? frame.way_out_degrees * 0.017453293f : 0.0f;
 		const v3 out_in_gun{ 0.0f, -std::cos(way_out), std::sin(way_out) };
-		const v3 grab_offset = (frame.has_magazine_grab ? frame.magazine_grab : out_in_gun * config_.magazine_grab_drop) + frame.magazine_shift;
-		const float magazine_reach = config_.reach_magazine * frame.magazine_size; // the grab zone's (a held magazine seats by config_'s)
+		// Owner 2026-11-24: a magazine of known length is taken near its bottom third, from a generous zone; others where the
+		// game's hand takes it (or straight below the well).
+		const bool lower_third = frame.magazine_length > 0.0f;
+		const v3 grab_offset = (lower_third ? out_in_gun * (frame.magazine_length * config_.magazine_grab_fraction)
+			: frame.has_magazine_grab ? frame.magazine_grab : out_in_gun * config_.magazine_grab_drop) + frame.magazine_shift;
+		// The grab zone's reach (a held magazine seats by config_'s).
+		const float magazine_reach = (lower_third ? config_.magazine_zone_reach : config_.reach_magazine) * frame.magazine_size;
 		const v3 magazine_body = frame.has_root ? frame.magwell + rotate(frame.root_rotation, grab_offset) : frame.magwell;
 		// Ahead of the grab point along the barrel (not the magwell: the AK-12's own hand takes it 3.9 cm ahead).
 		const bool on_handguard = frame.has_root && dot(reach - magazine_body, rotate(frame.root_rotation, { 0, 0, 1 })) > config_.magazine_ahead_limit;
@@ -966,6 +971,7 @@ namespace bfvr::weapon
 		{
 			const float t = std::fmax(0.0f, std::fmin(1.0f, (magazine_reach - to_magwell) / (magazine_reach - config_.magazine_snap_full)));
 			result.magazine_snap = t * t * (3.0f - 2.0f * t);
+			result.magazine_grab_depth = lower_third ? frame.magazine_length * config_.magazine_grab_fraction : 0.0f;
 		}
 
 		const float tilt_target = palm_ == palm_stage::none ? 0.0f : config_.palm_tilt_degrees * 0.017453293f;
@@ -1030,6 +1036,8 @@ namespace bfvr::weapon
 				result.hand_lock = 1.0f;
 				result.lock_position = result.draw == magazine_draw::in_hand ? result.magazine_position : frame.magwell;
 				result.lock_rotation = result.draw == magazine_draw::in_hand ? result.magazine_rotation : frame.magazine_rotation;
+				// Owner 2026-11-24: on the seated magazine the locked hand closes on its lower third, where it took it.
+				result.lock_grab_depth = result.draw != magazine_draw::in_hand && lower_third ? frame.magazine_length * config_.magazine_grab_fraction : 0.0f;
 			}
 		}
 		else

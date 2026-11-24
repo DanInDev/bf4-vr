@@ -417,6 +417,7 @@ namespace bfvr::weapon
 		std::atomic<float> magazine_reach{ 0.13f };   // #57: the magazine zone's reach (low chest down to the off-side hip)
 		float snap_weight{};
 		bool snap_ak{};
+		float snap_depth{}; // owner 2026-11-24: the snapped grip this far down the magazine (0: the game's own grip)
 
 		void ease_magazine_snap(const hand_result* result, bool ak, float seconds)
 		{
@@ -430,8 +431,9 @@ namespace bfvr::weapon
 			if (target > 0.0f)
 			{
 				snap_ak = ak;
+				snap_depth = result->magazine_grab_depth;
 			}
-			body::set_magazine_snap(snap_weight, snap_ak);
+			body::set_magazine_snap(snap_weight, snap_ak, snap_depth);
 		}
 
 		// Grip lock: the drawn off hand onto the magazine on the rail, in within a frame or two, out a little
@@ -452,6 +454,7 @@ namespace bfvr::weapon
 			if (target > 0.0f)
 			{
 				lock_pose.ak = ak;
+				lock_pose.grab_depth = result->lock_grab_depth;
 				lock_pose.position[0] = result->lock_position.x;
 				lock_pose.position[1] = result->lock_position.y;
 				lock_pose.position[2] = result->lock_position.z;
@@ -1141,6 +1144,7 @@ namespace bfvr::weapon
 			frame.has_magazine_grab = per_gun && magazine_grab_for(weapon.name, grab);
 			frame.magazine_grab = { grab[0], grab[1], grab[2] };
 			frame.has_way_out = per_gun && magazine_way_out_for(weapon.name, frame.way_out_degrees);
+			frame.magazine_length = magazine_length_for(weapon.name); // owner 2026-11-24: grabbed near its bottom third
 			frame.pump = gun.profile().manual_cycle && traits_for(weapon.name).cycle == cycle::pump;
 			frame.cup_grip = pistol_cup(); // #99
 			// #94: the hand pumps it, so the game's stroke after every shot is not drawn (keyed by the gun's ammo object).
