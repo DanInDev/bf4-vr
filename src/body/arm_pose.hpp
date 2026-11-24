@@ -35,6 +35,8 @@ namespace bfvr::body
 	// #68: the hand grenade or the C4 detonator is drawn in the gun hand; with gun_hand_pose neutral it is held by
 	// the controller grip. Other gadgets (launchers) keep their own hold.
 	void set_gun_hand_item(bool item);
+	// #149: the C4 is out: its pack (Wep_Mag) is kept in the drawn left hand as the game's animation holds it.
+	void set_c4_out(bool out);
 	// #136: no weapon at all (the game's unarmed item): the gun hand's fingers are free, as with a dropped gun.
 	void set_gun_hand_empty(bool empty);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).

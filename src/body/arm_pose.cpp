@@ -478,6 +478,11 @@ namespace bfvr::body
 		// takes the gun grip as you hold the controller (true) or the game's animated hold turned by it (false).
 		std::atomic<bool> gun_hand_neutral{ true };
 		std::atomic<bool> hand_item_in_gun_hand{}; // the hand grenade or the C4 detonator is drawn (set_gun_hand_item)
+		// #149: the C4 is out. Its pack is Wep_Mag (bone 131, under Wep_Root = the detonator), which the game's
+		// animation keeps in its own left hand: re-placed in the drawn left hand after the arm IK.
+		std::atomic<bool> c4_out{};
+		ik::vec3 c4_pack_offset;  // rig_lock: the pack in the animated left hand's frame (report)
+		bool c4_pack_placed{};    // rig_lock: placed in the drawn left hand this frame
 		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		bool cupped{}; // the cup on the upturned palm was removed (owner, 2026-11-22): always false, kept for the blend below
@@ -3352,6 +3357,16 @@ namespace bfvr::body
 							muzzle_game = ik::model_of(local, rig.parents, rig.aim);
 							root_game = ik::model_of(local, rig.parents, rig.weapon);
 						}
+						// #149: the C4 pack where the game's animated left hand holds it, before the IK moves that hand.
+						const bool c4_pack = c4_out.load(std::memory_order_relaxed) && rig.magazine >= 0 && rig.arms[0].hand >= 0;
+						ik::quat pack_seated;
+						if (c4_pack)
+						{
+							const ik::bone_transform pack_animated = ik::model_of(local, rig.parents, rig.magazine);
+							c4_pack_offset = ik::compose(ik::inverse(ik::model_of(local, rig.parents, rig.arms[0].hand)), pack_animated).position;
+							pack_seated = ik::conjugate(ik::model_of(local, rig.parents, rig.weapon).rotation) * pack_animated.rotation;
+						}
+						c4_pack_placed = false;
 						edit_arms(local);
 						edit_weapon(local);
 						edit_launcher(local);
@@ -3364,6 +3379,18 @@ namespace bfvr::body
 						}
 						edit_fingers(local);
 						attach_held_magazine(local);
+						ik::bone_transform left_fist;
+						if (c4_pack && last_arms[0].solved && fist_transform(local, 0, left_fist))
+						{
+							// The game's animation does not hold the pack (47 cm from its left hand, monitor 2026-11-24): it
+							// goes into the drawn left fist, turned as it sits against the detonator (as a magazine in the fist).
+							ik::bone_transform pack;
+							pack.position = left_fist.position;
+							pack.rotation = ik::normalize(left_fist.rotation * pack_seated);
+							pack.scale = local[rig.magazine].scale;
+							ik::set_model_transform(local, rig.parents, rig.magazine, pack);
+							c4_pack_placed = true;
+						}
 						if (weight < 1.0f)
 						{
 							blend_pose(local, scene_animated, count, weight);
@@ -3475,6 +3502,11 @@ namespace bfvr::body
 	void set_gun_hand_item(bool item)
 	{
 		hand_item_in_gun_hand = item;
+	}
+
+	void set_c4_out(bool out)
+	{
+		c4_out = out;
 	}
 
 	void set_gun_hand_empty(bool empty)
@@ -4236,6 +4268,12 @@ namespace bfvr::body
 			const ik::quat g = grip_in_aim();
 			length += std::snprintf(text + length, sizeof(text) - length, "gun_hand_in_aim=(%.4f,%.4f,%.4f,%.4f) measured=%d empty_hand=%d\n", g.x, g.y, g.z, g.w,
 				has_gun_hand_in_aim ? 1 : 0, gun_hand_empty.load() ? 1 : 0);
+		}
+		if (length > 0 && length < static_cast<int>(sizeof(text)))
+		{
+			length += std::snprintf(text + length, sizeof(text) - length, "c4 out=%d placed=%d pack_in_animated_left_hand=(%.3f,%.3f,%.3f) cm_away=%.1f\n", c4_out.load() ? 1 : 0,
+				c4_pack_placed ? 1 : 0, c4_pack_offset.x, c4_pack_offset.y, c4_pack_offset.z,
+				100.0f * std::sqrt(c4_pack_offset.x * c4_pack_offset.x + c4_pack_offset.y * c4_pack_offset.y + c4_pack_offset.z * c4_pack_offset.z));
 		}
 		return text;
 	}
