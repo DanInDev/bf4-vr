@@ -2609,7 +2609,73 @@ namespace
 			// A flick up: the barrel pitched up 0.1 rad in one frame (6 /s).
 			gun_turn = { -std::sin(0.05f), 0.0f, 0.0f, std::cos(0.05f) };
 			r = step(away, false, false);
-			expect(has(r, reload_event::lid_closed) && gun.state().chamber && gun.rounds_in_gun() == 6, "REX: a flick up shuts it, ready");
+			const bool closed_on_flick = has(r, reload_event::lid_closed);
+			r = step(away, false, false); // #132: the flick ends (held there): it shuts now
+			expect((closed_on_flick || has(r, reload_event::lid_closed)) && gun.state().chamber && gun.rounds_in_gun() == 6, "REX: a flick up shuts it, ready");
+			// #132 (owner 2026-11-24): open, tip it muzzle up and the cylinder empties.
+			gun_turn = {};
+			step(away, false, false);
+			const int reserve_before = gun.state().reserve;
+			r = step(away, false, true); // B opens it again
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, false, false);
+			}
+			expect(gun.state().lid_open && gun.rounds_in_gun() == 6, "REX: open again, six in");
+			const float up = 0.5f * 1.2f; // 69 degrees up, about -x, raised over three frames (not a flick: under the rate)
+			bool emptied = false, closed = false;
+			for (int i = 1; i <= 40; ++i)
+			{
+				const float a = up * std::fmin(1.0f, i / 30.0f);
+				gun_turn = { -std::sin(a), 0.0f, 0.0f, std::cos(a) };
+				r = step(away, false, false);
+				emptied = emptied || has(r, reload_event::cylinder_emptied);
+				closed = closed || has(r, reload_event::lid_closed);
+			}
+			expect(emptied && !closed && gun.rounds_in_gun() == 0 && gun.state().reserve == reserve_before, "REX: tipped muzzle up, the cylinder empties (once; the live rounds fall to the floor, drop_discards_ammo), it stays open");
+			// A fast swing up to steep is the tip, not a flick close.
+			gun_turn = {};
+			for (int i = 0; i < 3; ++i)
+			{
+				r = step(away, false, false);
+			}
+			gun_turn = { -std::sin(0.6f), 0.0f, 0.0f, std::cos(0.6f) };
+			r = step(away, false, false);
+			expect(!has(r, reload_event::lid_closed) && gun.state().lid_open, "REX: snapped steeply up it stays open");
+		}
+		{
+			// #132: a hand gripping at the cylinder and moving a little does not open it; swung out a third of the way it does.
+			reload_profile rex_profile = ar;
+			rex_profile.revolver = true;
+			rex_profile.capacity = 5;
+			rex_profile.hold = hold_open::no;
+			rex_profile.flick = false;
+			reload gun(rex_profile);
+			gun.load(6, 30);
+			reload_hands hands(flat_hold());
+			const v3 hinge{ 0.0f, 0.026f, 0.137f };
+			const v3 grab{ 0.0f, 0.026f - 0.11f, 0.137f };
+			const auto rex_at = [&](float degrees, bool grip)
+			{
+				const float a = degrees * 0.017453293f;
+				hand_frame f = at({ hinge.x, hinge.y - 0.11f * std::cos(a), hinge.z - 0.11f * std::sin(a) }, grip, false);
+				f.has_root = true;
+				f.root = {};
+				f.root_rotation = {};
+				f.magwell = magwell;
+				f.revolver = true;
+				f.has_belt_points = true;
+				f.lid_hinge = hinge;
+				f.lid_grab = grab;
+				f.lid_degrees = 85.0f;
+				return f;
+			};
+			hands.update(gun, rex_at(0.0f, false));
+			hands.update(gun, rex_at(0.0f, true));
+			hand_result r = hands.update(gun, rex_at(15.0f, true)); // a sixth of the way
+			expect(!gun.state().lid_open && !has(r, reload_event::lid_opened), "REX: a small swing at the cylinder does not open it");
+			r = hands.update(gun, rex_at(40.0f, true));
+			expect(gun.state().lid_open, "REX: swung out past a third it opens");
 		}
 		{
 			// AK quick reload under the lock: a fresh magazine on the rail of a loaded AK knocks the old one out.

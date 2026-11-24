@@ -169,6 +169,7 @@ namespace bfvr::body
 		// A shotgun shell (a tube gun's Wep_Mag): in the fingers at the fist's centre, not a magazine's top above the
 		// fist (2026-11-17: drawn 12 cm above the hand), and without the authored magazine grip.
 		bool shell{};
+		bool speedloader{}; // #132: a revolver's speedloader, held in the fingers as a shell (no shell turn)
 		float position[3]{};
 		float rotation[4]{ 0, 0, 0, 1 };
 		// in_hand, palming: the fist's magazine turned aside by tilt radians (contact::tilt_magazine,
