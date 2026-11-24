@@ -70,11 +70,12 @@ int main()
 		reload ump(profile_for("U_UMP45", 26));
 		ump.load(1, 50);
 		expect(ump.fire() == reload_event::shot && !ump.state().bolt_locked, "UMP-45: no hold-open, the bolt rides home empty");
-		ump.press_button(false); // the empty one drops
+		ump.grab_magazine(); // #98 (owner 2026-11-24): the paddle is worked by the magazine hand: pulled out
+		ump.let_go(false);
 		ump.take_from_chest();
 		ump.insert();
-		expect(ump.press_button(false) == reload_event::magazine_dropped && !ump.state().chamber,
-			"UMP-45: no bolt catch, the button only frees the magazine again");
+		expect(ump.press_button(false) == reload_event::none && !ump.state().chamber,
+			"UMP-45: no bolt catch, and B does not free the magazine (the paddle is worked by hand)");
 		ump.take_from_chest();
 		ump.insert();
 		expect(ump.rack() == reload_event::chambered, "UMP-45: a rack chambers");
@@ -191,8 +192,10 @@ int main()
 			expect(empty.press_button(true) == reload_event::magazine_out, "M249 empty: lid up, the box comes off");
 		}
 	}
-	// #98: no release button on the P90 and the AK 5C (owner, marks 31 and 1): the hand pulls the magazine out, B does not drop it.
-	for (const char* name : { "U_P90", "U_AK5C" })
+	// #98: no release button on the P90 (owner, mark 31) and the UMP-45's paddle is worked by the magazine hand (owner
+	// 2026-11-24): the hand pulls the magazine out, B does not drop it. The AK 5C has a button after all (owner 2026-11-24).
+	expect(profile_for("U_AK5C", 31).kind == variant::ar && !profile_for("U_AK5C", 31).pull_out, "AK 5C: a button, B drops it");
+	for (const char* name : { "U_P90", "U_UMP45" })
 	{
 		const reload_profile profile = profile_for(name, 51);
 		expect(profile.kind == variant::ar && profile.pull_out, (std::string(name) + ": pulled out by hand").c_str());

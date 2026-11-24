@@ -18,7 +18,7 @@ namespace bfvr::weapon
 			{ "U_P90", feed::top, release::none, false, true, cycle::none, true }, // #98: pulled out by hand, no B (owner 2026-11-19)
 			{ "U_MagpulPDR", feed::box, release::button, true, true, cycle::none, true },
 			{ "U_PP2000", feed::box, release::button, true, false, cycle::none, false },  // magazine in the grip
-			{ "U_UMP45", feed::box, release::button, false, false, cycle::none, true },   // HK: no hold-open, paddle
+			{ "U_UMP45", feed::box, release::none, false, false, cycle::none, true },     // HK paddle behind the well, worked by the magazine hand: pulled out, no B (owner 2026-11-24, #98)
 			// Shotgun
 			{ "U_870", feed::tube, release::none, false, false, cycle::pump, true },
 			{ "U_HAWK", feed::box, release::button, false, false, cycle::pump, true },    // pump with a box magazine
@@ -31,7 +31,7 @@ namespace bfvr::weapon
 			// Carbine
 			{ "U_A91", feed::rock, release::none, false, true, cycle::none, true },        // AK magazines, bullpup
 			{ "U_GalilACE52", feed::rock, release::none, false, false, cycle::none, false },
-			{ "U_AK5C", feed::box, release::none, true, false, cycle::none, false }, // #98: pulled out by hand, no B (owner 2026-11-19)
+			{ "U_AK5C", feed::box, release::button, true, false, cycle::none, true }, // FNC pattern: a button (owner 2026-11-24 corrects #98 of 2026-11-19)
 			{ "U_G36C", feed::box, release::button, true, false, cycle::none, true },     // paddle release
 			{ "U_M4A1", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_SG553LB", feed::box, release::button, true, false, cycle::none, true },
