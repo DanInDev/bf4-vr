@@ -224,6 +224,7 @@ Type registry ([re/notes/typeinfo.md](../re/notes/typeinfo.md)):
 | `tools/object_probe.py <addr> [--deref] [--depth 1]` | Live: class of an object and of every typed object it points to |
 | `tools/global_scan.py [--filter Soldier]` | Live: typed objects reachable from `.data` globals, one level through untyped managers; saves `re/dumps/globals-live.json` |
 | `tools/matrix_search.py [--save f] [--compare a b]` | Live: every copy of the camera rotation (rows or transposed) reachable from renderer, camera manager and soldier; compare two runs (e.g. with a `view`/`tshift` change) |
+| `tools/zones_to_defaults.py [--file <bfvr_zones.ini>] [--check]` | #152: copies the grab zones tuned in the headset (panel Weapon > Tune grab zones > Save, `bfvr_zones.ini` beside bf4.exe) into the shipped table `src/weapon/zone_defaults.cpp`, read before the player's own file (which overrides it zone by zone). Refuses malformed lines; `--check` only lists the changes. Then build, gate and commit |
 | `tools/skeleton_probe.py [--match Hand]` (run from `tools\`) | Live: the first-person skeleton's bones (index, parent, name); with `--match`, the live local pose of the matching bones (fingers: re/notes/skeleton.md) |
 | `tools/aim_probe.py [--axis yaw\|pitch] [--static]` | Live: turns with the `pad` stick and lists floats (soldier/camera manager, 2 hops deep) whose change equals the camera's yaw or pitch change |
 

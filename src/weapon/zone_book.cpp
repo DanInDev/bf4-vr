@@ -10,6 +10,7 @@
 
 #include "common/config.hpp"
 #include "common/log.hpp"
+#include "weapon/zone_defaults.hpp"
 
 namespace bfvr::weapon::zone_book
 {
@@ -32,6 +33,13 @@ namespace bfvr::weapon::zone_book
 		{
 			tunes.clear();
 			loaded = true;
+			// #152: the shipped tunes first; the player's own file overrides them zone by zone.
+			zone_tuning::book shipped;
+			for (const std::string& warning : zone_tuning::parse(zone_tuning::built_in_defaults(), shipped))
+			{
+				log::write("zones: built-in tunes %s", warning.c_str());
+			}
+			tunes = shipped;
 			const std::filesystem::path path = file_path();
 			if (path.empty())
 			{
@@ -40,10 +48,12 @@ namespace bfvr::weapon::zone_book
 			std::ifstream file(path, std::ios::binary);
 			if (!file)
 			{
-				return {}; // nothing tuned yet
+				return {}; // nothing tuned by the player
 			}
 			const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-			const auto warnings = zone_tuning::parse(text, tunes);
+			zone_tuning::book own;
+			const auto warnings = zone_tuning::parse(text, own);
+			tunes = zone_tuning::with_overrides(shipped, own);
 			for (const std::string& warning : warnings)
 			{
 				log::write("zones: bfvr_zones.ini %s", warning.c_str());
