@@ -74,6 +74,9 @@ hud_layer = 1
 # Distance and width of the HUD layer in metres (1.3 m at 1.5 m is about 47 degrees wide).
 hud_distance = 1.5
 hud_width = 1.3
+# #156: the HUD in front of you moved, cm (right, up).
+hud_right = 0
+hud_up = 0
 # While the game moves the camera by itself (cutscenes: mostly first person, the camera riding the
 # soldier's animated head; the death fall): screen = shown on the flat virtual screen; look = 3D, your
 # head looks around inside the scene while the game moves you. Detected when the camera turns away
@@ -234,6 +237,14 @@ hud_ammo_gesture = magcheck
 hud_magcheck_roll = 120
 hud_magcheck_hold = 0.4
 hud_ammo_width = 0.12
+# #156: the forearm minimap: size (metres), cm from the wrist towards the elbow, cm around the arm towards the thumb;
+# the gun counters moved, cm (right, up, forward along the barrel). With the VR panel open both stay shown.
+hud_watch_width = 0.12
+hud_watch_along = 12
+hud_watch_side = 3
+hud_ammo_right = 0
+hud_ammo_up = 0
+hud_ammo_forward = 0
 # A magazine in the off hand (pulled from the gun or taken from the pouch, reload = physical) shows its
 # own rounds ("27 / 30") beside it while you look at it, away from the magwell (#56).
 hud_magazine_check = 1
