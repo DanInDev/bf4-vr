@@ -142,6 +142,7 @@ add_library(bfvr_runtime STATIC
 	src/body/pose_book.cpp
 	src/weapon/zone_tuning.cpp
 	src/weapon/zone_book.cpp
+	src/weapon/zone_defaults.cpp
 	src/body/scene_blend.cpp
 	src/body/gun_recoil.cpp
 	src/body/torso.cpp
@@ -413,7 +414,7 @@ if(BFVR_BUILD_TESTS)
 	add_executable(bfvr_pose_tweaks_test tests/pose_tweaks_test.cpp src/body/pose_tweaks.cpp src/body/finger_pose.cpp src/body/arm_ik.cpp)
 	target_link_libraries(bfvr_pose_tweaks_test PRIVATE bfvr_common)
 	# Grab zones tuned per gun (src/weapon/zone_tuning, bfvr_zones.ini) and how reload_hands moves and sizes them.
-	add_executable(bfvr_zone_tuning_test tests/zone_tuning_test.cpp src/weapon/zone_tuning.cpp src/weapon/reload_hands.cpp src/weapon/reload.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp)
+	add_executable(bfvr_zone_tuning_test tests/zone_tuning_test.cpp src/weapon/zone_tuning.cpp src/weapon/zone_defaults.cpp src/weapon/reload_hands.cpp src/weapon/reload.cpp src/weapon/magazine_flight.cpp src/physics/loose_body.cpp)
 	target_link_libraries(bfvr_zone_tuning_test PRIVATE bfvr_common)
 	# #70: the action aim timing (src/weapon/action_aim); exits non-zero on failure.
 	add_executable(bfvr_action_aim_test tests/action_aim_test.cpp src/weapon/action_aim.cpp)

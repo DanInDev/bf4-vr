@@ -6,6 +6,7 @@
 
 #include "weapon/reload.hpp"
 #include "weapon/reload_hands.hpp"
+#include "weapon/zone_defaults.hpp"
 #include "weapon/zone_tuning.hpp"
 
 using namespace bfvr::weapon;
@@ -151,9 +152,25 @@ namespace
 	}
 }
 
+// #152: the shipped tunes parse cleanly, and a player's own file overrides them zone by zone.
+static void test_built_in_defaults()
+{
+	tuning::book shipped;
+	expect(tuning::parse(tuning::built_in_defaults(), shipped).empty(), "the built-in tunes parse without warnings");
+	tuning::book defaults, own;
+	tuning::parse("U_AK12 handle 1 2 3 1.5\nU_AK12 magazine 0 -1 0 1\nU_M416 handle 0 0 2 1\n", defaults);
+	tuning::parse("U_AK12 handle 0 0 1 2\nU_SCAR-H lid 0 1 0 1\n", own);
+	const tuning::book merged = tuning::with_overrides(defaults, own);
+	const auto& ak = merged.at("U_AK12").zones;
+	expect(close(ak[0].forward, 1.0f) && close(ak[0].size, 2.0f), "the player's zone replaces the shipped one");
+	expect(close(ak[1].up, -1.0f), "a shipped zone the player did not tune stays");
+	expect(close(merged.at("U_M416").zones[0].forward, 2.0f) && close(merged.at("U_SCAR-H").zones[2].up, 1.0f), "other guns from either side");
+}
+
 int main()
 {
 	test_file();
+	test_built_in_defaults();
 	test_gun_frame();
 	test_zones_move();
 	test_lid_zone();
