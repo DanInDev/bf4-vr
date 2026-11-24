@@ -62,6 +62,11 @@ namespace bfvr::stereo
 	// same per pixel.
 	bool glass_picture_uv(const float (&along)[3], const float (&right)[3], const float (&up)[3], const float (&slope)[2], float power, float lens_tan,
 		float (&uv)[2]);
+	// #158 (owner 2026-11-24, measured with a turned, pitched and rolled fake head): the picture is rendered along the scope
+	// camera, i.e. along the gun's sight line, not the eye's axis. `picture` is that camera's orientation in the eye's view
+	// space (x y z w; scope_request::relative): the world direction is read on the picture's own axes.
+	bool glass_picture_uv(const float (&along)[3], const float (&right)[3], const float (&up)[3], const float (&slope)[2], float power, float lens_tan,
+		const float (&picture)[4], float (&uv)[2]);
 	// The picture's reach (world tangent from the view's axis) the glass needs: the sight line's own tangent off the axis
 	// plus the field stop over the power, with 15 % room. 0 when the line does not point ahead.
 	float glass_picture_reach(const float (&along)[3], float power);

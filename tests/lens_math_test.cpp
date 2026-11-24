@@ -190,6 +190,23 @@ int main()
 		expect(near(glass_picture_reach(low, 2.74f), 1.15f * (s / c + 0.38f / 2.74f), 1e-3f), "a low line: its offset added");
 		const float back[3]{ 0.0f, 0.0f, 1.0f };
 		expect(glass_picture_reach(back, 2.0f) == 0.0f, "a line pointing back: none");
+
+		// #158: the picture is rendered along the gun's line (the scope camera). The low line again, with the picture turned
+		// down onto it (a pitch of -6.7 degrees about x): the line is the picture's centre.
+		const float half = -0.5f * 0.1169f;
+		const float pitched[4]{ std::sin(half), 0.0f, 0.0f, std::cos(half) };
+		expect(glass_picture_uv(low, gun_right, low_up, zero, 2.74f, 0.25f, pitched, uv) && near(uv[0], 0.5f) && near(uv[1], 0.5f),
+			"picture along the line: the line at its centre");
+		// The head rolled 20 degrees right at the stock (the eye's view rolls, the gun does not): in the eye's view the gun's
+		// right runs 20 degrees up the other way; the picture keeps the gun's roll, so a point right of the line through
+		// the glass lies right of the picture's centre, level.
+		const float roll = 20.0f * 3.14159265f / 180.0f;
+		const float rolled_right[3]{ std::cos(roll), std::sin(roll), 0.0f }, rolled_up[3]{ -std::sin(roll), std::cos(roll), 0.0f };
+		const float picture_roll[4]{ 0.0f, 0.0f, std::sin(0.5f * roll), std::cos(0.5f * roll) };
+		expect(glass_picture_uv(ahead, rolled_right, rolled_up, aside, 4.0f, 0.2f, picture_roll, uv) && near(uv[0], 0.75f) && near(uv[1], 0.5f),
+			"head rolled: the picture stays level with the gun");
+		// The same with the old assumption (the picture on the eye's axes) tilts it: the bug of #158.
+		expect(glass_picture_uv(ahead, rolled_right, rolled_up, aside, 4.0f, 0.2f, uv) && !near(uv[1], 0.5f, 0.02f), "on the eye's axes the point tilts");
 	}
 	{
 		// The field stop (owner 2026-11-24: a VR eye box): the whole 0.38 within 1.5 cm of the line, then a smooth close

@@ -37,6 +37,10 @@ namespace bfvr::stereo
 	// #140: the vertical FOV, degrees, of the zoom level the held optic's reticle belongs to (lens_math::reticle_level_fov:
 	// a flipped magnifier keeps its red dot's level), from the game's data; 0 when unknown.
 	float optic_level_fov_now();
+	// #145: the held optic's identity (the gun and its selected level; 0 when none) and whether that level is a flip
+	// magnifier (it has its own open glass, never a virtual eyepiece). Any thread.
+	std::uint64_t optic_id_now();
+	bool optic_is_magnifier_now();
 
 	// Pipe "scope": the game FOVs, magnification, request and the eye pass's scope renders.
 	std::string scope_report();

@@ -237,6 +237,10 @@ float4 ps(vertex v) : SV_Target
 		latest.eye = request.eye;
 		latest.lens_tan = std::tan(0.5f * request.render_fov_y) * request.crop;
 		latest.magnification = request.magnification;
+		for (int i = 0; i < 4; ++i)
+		{
+			latest.picture[i] = request.relative.orientation[i];
+		}
 		latest.at = GetTickCount64();
 		return true;
 	}

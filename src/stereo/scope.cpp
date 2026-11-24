@@ -31,9 +31,10 @@ namespace bfvr::stereo
 		// rear lens opening 1.45 cm in radius.
 		constexpr scope_math::lens magnifier_lens{ 0.148f, 0.0145f, 0.3f };
 		// #139 scope_glass: the picture is read by angle inside the optic's own glass; its render FOV is set from the
-		// reach the glass needs (lens_math::glass_picture_reach), the disc over 45 % of the render's height (the scissor
-		// keeps the rest out: sharper than 30 % for ~2x the scope render's pixels).
-		constexpr scope_math::lens glass_lens{ 0.148f, 0.11f, 0.45f };
+		// reach the glass needs (lens_math::glass_picture_reach), the disc over `crop` of the render's height (the scissor
+		// keeps the rest out). #158/#159: with the picture centred on the sight line its sharpness against the eye's is about 2 x crop, whatever
+		// the power: 0.55 gives ~1.1 picture pixels per eye pixel (0.45 gave 0.9; the headset's off-axis renders ~0.25).
+		constexpr scope_math::lens glass_lens{ 0.148f, 0.11f, 0.55f };
 		// #39, sights live without the game's aim: with the magnifier flipped in (sight_state), or a sight
 		// the game has zoomed through before, the lens picture also runs at the hip, at the zoom learned
 		// while the game last aimed through it (the AK-12 magnifier's measured 1.73x until then), for an
@@ -51,6 +52,8 @@ namespace bfvr::stereo
 		weapon::sight_state last_sight;
 		std::atomic<float> optic_power{};
 		std::atomic<float> optic_level_fov{};
+		std::atomic<std::uint64_t> optic_id{};
+		std::atomic<bool> optic_magnifier{};
 		bool last_at_hip{};
 
 		float perpendicular(const pose& eye, const float (&point)[3], const float (&direction)[3])
@@ -115,6 +118,20 @@ namespace bfvr::stereo
 		const bool at_hip = !aiming && hip_zoom >= min_magnification;
 		optic_power = sight.valid && sight.selected > 0 ? hip_zoom : 0.0f;
 		optic_level_fov = sight.valid ? reticle_level_fov(sight.level_fov, sight.levels, static_cast<int>(std::size(sight.level_fov)), sight.selected, magnifier) : 0.0f;
+		if (sight.valid && sight.selected > 0)
+		{
+			std::uint64_t id = 1469598103934665603ull; // FNV-1a over the gun's name and the level
+			for (const char* c = sight.weapon; *c; ++c)
+			{
+				id = (id ^ static_cast<unsigned char>(*c)) * 1099511628211ull;
+			}
+			optic_id = (id ^ static_cast<std::uint64_t>(sight.selected)) * 1099511628211ull;
+		}
+		else
+		{
+			optic_id = 0;
+		}
+		optic_magnifier = magnifier;
 		if (at_hip)
 		{
 			zoom = hip_zoom;
@@ -143,11 +160,13 @@ namespace bfvr::stereo
 				next.active = true;
 				next.relative = scope_math::relative_pose(rendered_eye, plan.camera);
 				next.render_fov_y = plan.render_fov_y;
-				// #139: the scope render keeps the eye's orientation (the gun's turn does not reach it, measured): for the
-				// glass it is widened to reach the sight line plus the field stop around it (lens_math).
+				// #158: the scope render looks along the scope camera, the gun's sight line (measured 2026-11-24 with the head
+				// turned 25 degrees, pitched 10 and rolled 20: the picture follows the gun, not the eye; the 2026-11-20 reading
+				// "keeps the eye's orientation" held only with the head straight). For the glass it reaches the line, in the
+				// picture's own frame, plus the field stop around it (lens_math): a narrow, sharp render.
 				if (&optic == &glass_lens)
 				{
-					const float* q = rendered_eye.orientation;
+					const float* q = plan.camera.orientation;
 					const float conj[4]{ -q[0], -q[1], -q[2], q[3] };
 					const float t[3]{ 2 * (conj[1] * direction[2] - conj[2] * direction[1]), 2 * (conj[2] * direction[0] - conj[0] * direction[2]),
 						2 * (conj[0] * direction[1] - conj[1] * direction[0]) };
@@ -176,6 +195,16 @@ namespace bfvr::stereo
 	float optic_level_fov_now()
 	{
 		return optic_level_fov.load(std::memory_order_relaxed);
+	}
+
+	std::uint64_t optic_id_now()
+	{
+		return optic_id.load(std::memory_order_relaxed);
+	}
+
+	bool optic_is_magnifier_now()
+	{
+		return optic_magnifier.load(std::memory_order_relaxed);
 	}
 
 	scope_request latest_scope_request()

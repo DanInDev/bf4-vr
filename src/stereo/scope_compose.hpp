@@ -24,6 +24,7 @@ namespace bfvr::stereo
 		int eye{};                  // the eye behind the sight
 		float lens_tan{};           // #139: the world angle (tangent) from the picture's centre to its disc edge
 		float magnification{};      // #139: the power it was rendered at (the disc spans lens_tan * magnification of view)
+		float picture[4]{ 0.0f, 0.0f, 0.0f, 1.0f }; // #158: the scope camera's orientation in the eye's view space (x y z w)
 		std::uint64_t at{};         // GetTickCount64 of the image
 	};
 	scope_image latest_scope_image();
