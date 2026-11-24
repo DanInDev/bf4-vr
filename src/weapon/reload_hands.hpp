@@ -60,6 +60,10 @@ namespace bfvr::weapon
 		// magazine_grab_for); otherwise magazine_grab_drop straight below it.
 		bool has_magazine_grab{};
 		v3 magazine_grab;
+		// Owner 2026-11-24: the seated magazine is taken near its bottom third, with a generous zone. > 0: the magazine's
+		// length below the magwell (metres); the zone sits magazine_grab_fraction of it down the way out, magazine_zone_reach
+		// wide. 0 (a top or drum magazine): the grab point above.
+		float magazine_length{};
 		// The way this gun's magazine leaves its well (weapon/profiles magazine_way_out_for): degrees from straight down
 		// (gun -y) in the gun's mid-plane, + forward along the barrel. The rail it rides out and in, its drop and the AK
 		// knock-out follow it; without it, straight down (the AK-12 and SCAR-H, the reference).
@@ -151,6 +155,9 @@ namespace bfvr::weapon
 		// #40: how far the open off hand has snapped onto the seated magazine (0..1, by distance in the
 		// magazine zone): the drawn hand takes the game's magazine grip on it, so the grab does not jump.
 		float magazine_snap{};
+		// Owner 2026-11-24: how far down the seated magazine the snapped hand closes (metres from its top; 0: the game's own grip).
+		float magazine_grab_depth{};
+		float lock_grab_depth{}; // the same for the grip lock on the seated magazine (0 while it guides a held one)
 		// Zone centres and reaches (grab_debug): magazine body, charging handle, chest pouch.
 		v3 zone_centre[3];
 		float zone_reach[3]{};
@@ -290,6 +297,8 @@ namespace bfvr::weapon
 		// The magazine is grabbed by its body, this far below where it seats (gun frame -y): on an AK the
 		// charging handle sits only ~3 cm from the magwell, the hand on the magazine well below it.
 		float magazine_grab_drop{ 0.08f };
+		float magazine_grab_fraction{ 0.65f }; // the zone's centre this far down a known magazine length: on its lower third (0.75 put the hand under an M416 magazine, monitor 2026-11-24)
+		float magazine_zone_reach{ 0.13f };    // ... and its reach there (the handle and handguard zones still win where they overlap)
 		// Ahead of the magwell along the barrel is the handguard (the two-handed grip), not the magazine.
 		float magazine_ahead_limit{ 0.03f };
 		// #40: the hand is fully snapped onto the seated magazine this close to its grab point.

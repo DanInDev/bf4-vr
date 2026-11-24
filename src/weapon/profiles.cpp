@@ -164,6 +164,14 @@ namespace bfvr::weapon
 		return false;
 	}
 
+	float magazine_length_for(std::string_view unlock_name)
+	{
+		// A box magazine below the well (pushed or rocked in): the rifle size the hand model uses (19 cm, body/grasp_contact
+		// magazine_size; not measured per gun yet). A top magazine (P90), a drum, a tube, a belt or a cylinder: none.
+		const feed kind = traits_for(unlock_name).feed;
+		return kind == feed::box || kind == feed::rock ? 0.19f : 0.0f;
+	}
+
 	float magazine_hold_drop(std::string_view unlock_name)
 	{
 		float grab[3]{};
