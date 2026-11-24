@@ -455,8 +455,84 @@ void test_off_hand_pickup()
 	expect(r.event == free_hands_event::picked_up && !r.dropped, "the gun hand picks it up from the sling");
 }
 
+// #148: a grip still closed (or closed a little early) when the hand reaches the gun takes it: in the
+// headset the gun stayed in the off hand, drawn under the gun hand, and the trigger did nothing.
+void test_held_grip_arriving()
+{
+	free_hands hands;
+	free_hands_frame f = holding();
+	f.off_valid = true;
+	f.off_holds = true;
+	f.off_grip = true;
+	f.off_hand = { -0.1f, -0.25f, -0.6f };
+	f.has_grip_point = true;
+	f.grip_point = { 0.2f, -0.3f, -0.3f };
+	hands.update(f);
+	f.grip = false;
+	free_hands_result r = hands.update(f);
+	expect(r.event == free_hands_event::handed_to_off && r.block_fire, "one frame with the grip open: the off hand has it");
+	// The grip closes again 20 cm from the pistol grip, then the hand moves onto it, grip held throughout.
+	f.gun_hand = { 0.2f, -0.3f, -0.1f };
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.in_off_hand && !r.grip_in_reach && r.event == free_hands_event::none, "closed away from the pistol grip: not yet");
+	f.gun_hand = { 0.21f, -0.3f, -0.28f };
+	r = hands.update(f);
+	expect(r.event == free_hands_event::taken_back && !r.block_fire, "held grip arriving at the pistol grip takes it back");
+	// Handed over and the grip closes again in the very next frame, already at the pistol grip.
+	f.grip = false;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::handed_to_off, "handed over again");
+	f.grip = true;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::taken_back, "closing at once at the pistol grip takes it back");
+	// Busy (racking with the gun hand) on arrival: no take; it takes once the grip is free and pressed there.
+	f.grip = false;
+	hands.update(f);
+	f.gun_hand = { 0.2f, -0.3f, -0.1f };
+	f.grip = true;
+	f.busy = true;
+	hands.update(f);
+	f.gun_hand = { 0.21f, -0.3f, -0.28f };
+	r = hands.update(f);
+	expect(r.in_off_hand && r.event == free_hands_event::none, "a busy grip arriving does not take it");
+	f.busy = false;
+	r = hands.update(f);
+	expect(r.event == free_hands_event::taken_back, "the grip freed while at the pistol grip takes it");
+	// On the sling: the held grip arriving takes it, staying there held does not take it twice.
+	free_hands slung;
+	free_hands_frame s = holding();
+	s.sling = true;
+	s.sling_valid = true;
+	s.sling_at = { 0.1f, -0.5f, -0.12f };
+	slung.update(s);
+	s.grip = false;
+	r = slung.update(s);
+	expect(r.dropped && r.slung, "let go: on the sling");
+	s.grip = true;
+	r = slung.update(s); // closed away from it (the hand is 20 cm above)
+	expect(r.dropped && r.event == free_hands_event::none, "closed above the sling: not yet");
+	s.gun_hand = { 0.11f, -0.49f, -0.12f };
+	r = slung.update(s);
+	expect(r.event == free_hands_event::picked_up && !r.dropped && !r.block_fire, "held grip arriving at the sling takes it");
+	// The off hand stays press-only: holding its grip while passing the slung gun does not take it.
+	free_hands off;
+	free_hands_frame o = s;
+	o.gun_hand = { 0.2f, -0.3f, -0.3f };
+	o.off_valid = true;
+	o.off_grip = true;
+	o.off_hand = { -0.3f, -0.4f, -0.2f };
+	off.update(o);
+	o.grip = false;
+	off.update(o);
+	o.off_hand = { 0.12f, -0.48f, -0.1f };
+	r = off.update(o);
+	expect(r.dropped && !r.in_off_grip, "a held off-hand grip passing the sling does not take it");
+}
+
 int main()
 {
+	test_held_grip_arriving();
 	test_sling();
 	test_off_hand_pickup();
 	test_holster_take();

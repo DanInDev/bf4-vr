@@ -15,24 +15,28 @@ namespace bfvr::weapon
 		slung_ = false;
 		in_off_hand_ = false;
 		in_off_grip_ = false;
+		held_near_ = false;
 		open_for_ = 0.0f;
 		off_open_for_ = 0.0f;
-		last_grip_ = true;
 		last_off_grip_ = true;
+	}
+
+	bool free_hands::arrives(bool held_near)
+	{
+		const bool arrived = held_near && !held_near_;
+		held_near_ = held_near;
+		return arrived;
 	}
 
 	free_hands_result free_hands::update(const free_hands_frame& frame)
 	{
 		free_hands_result result;
-		const bool pressed = frame.grip && !last_grip_;
-		last_grip_ = frame.grip;
 		const bool off_pressed = frame.off_grip && !last_off_grip_;
 		last_off_grip_ = frame.off_grip;
 		if (!frame.enabled || !frame.gun_in_hand || frame.weapon_changed)
 		{
 			// Off, a gadget or the knife out, or a new weapon drawn: whatever was dropped is in hand again.
 			reset();
-			last_grip_ = frame.grip;
 			return result;
 		}
 		const float step = frame.seconds > 0.0f ? frame.seconds : 0.0f;
@@ -71,7 +75,7 @@ namespace bfvr::weapon
 				gap = std::sqrt(gx * gx + gy * gy + gz * gz);
 			}
 			result.grip_in_reach = frame.hand_valid && gap < config_.regrip_reach;
-			if (pressed && result.grip_in_reach && !frame.busy)
+			if (arrives(frame.grip && result.grip_in_reach && !frame.busy))
 			{
 				in_off_hand_ = false;
 				open_for_ = 0.0f;
@@ -100,6 +104,7 @@ namespace bfvr::weapon
 		}
 		else if (!dropped_)
 		{
+			held_near_ = false;
 			// While the grip belongs to something else (or tracking is lost) the gun stays in hand.
 			if (frame.grip || frame.busy || !frame.hand_valid)
 			{
@@ -138,7 +143,8 @@ namespace bfvr::weapon
 		const bool near = frame.hand_valid && std::sqrt(dx * dx + dy * dy + dz * dz) < (slung_ ? config_.sling_reach : config_.pickup_reach);
 		// #49: off the sling at its holster; the holster saw its own press (a frame earlier), so the grip only has to
 		// be still closed. A gun on the floor is picked up where it lies.
-		if (result.event == free_hands_event::none && ((pressed && near) || (frame.holster_take && frame.grip && slung_)) && !frame.busy)
+		const bool arriving = result.event == free_hands_event::none && arrives(frame.grip && near && !frame.busy);
+		if (result.event == free_hands_event::none && (arriving || (frame.holster_take && frame.grip && slung_)) && !frame.busy)
 		{
 			dropped_ = false;
 			slung_ = false;

@@ -8,7 +8,8 @@
 // to pick it up again. Drawing another weapon (holsters) or the game switching weapons ends the drop.
 // Empty hands (#38): letting go with the gun hand while the off hand holds the handguard hands the gun to
 // the off hand instead (held there, the trigger does nothing); gripping again at the pistol grip takes it
-// back; the off hand letting go drops it.
+// back; the off hand letting go drops it. A gun-hand grip still closed when the hand arrives at the pistol
+// grip or the dropped gun takes it as a press there would (#148); the off hand takes only on a press.
 // Engine-free; OpenXR LOCAL metres. Tested by tests/free_hands_test.cpp.
 namespace bfvr::weapon
 {
@@ -100,6 +101,9 @@ namespace bfvr::weapon
 		v3 position_;
 		float yaw_{};
 		float open_for_{};
-		bool last_grip_{ true };
+		// The gun-hand grip closed, free and in reach last frame: a take happens when that becomes true (a press
+		// there, or a grip still held arriving there, #148), not again while it stays true.
+		bool held_near_{};
+		bool arrives(bool held_near);
 	};
 }
