@@ -164,6 +164,14 @@ Hold the **left menu button (≡)** for the settings panel inside VR. Buttons ca
 page or in the launcher, with presets such as "Jump on B, reload on A". The full controller mapping for menus is
 in the [technical notes](docs/architecture/README.md#controller-mapping-in-menus-theater-mode).
 
+### The game's menus need BF4 in front
+
+The laser points at the game's own menus (main menu, pause menu, weapon crate, gadget stash) only reliably while
+the **BF4 window is the active window on the PC**. If you clicked another window (Steam, a browser), the menus may
+show the cursor but ignore the clicks; the headset then says "Click the BF4 window on the PC". Click once into the
+BF4 window, or start the game and leave the PC alone before putting the headset on. The VR settings panel works
+either way.
+
 ## Support the battle
 
 Enjoying the fight? You can [call in a supply drop on Ko-fi](https://ko-fi.com/danindev). The mod stays free.
