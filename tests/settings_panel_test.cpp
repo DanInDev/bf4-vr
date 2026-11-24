@@ -34,13 +34,13 @@ namespace
 
 	void sample(settings::registry& store)
 	{
-		store.add({ "stereo_render", kind::choice, 0, 0, 0, "aer", "aer|pair", "eye rendering" });
-		store.add({ "gun_scale", kind::real, 0.25f, 2.0f, 0.05f, "1", "", "apparent gun size" });
-		store.add({ "arm_ik", kind::boolean, 0, 0, 0, "1", "", "arms follow the controllers" });
+		store.add({ "foveation", kind::choice, 0, 0, 0, "off", "off|light|medium|strong", "eye rendering" }); // #150: kept settings only
+		store.add({ "ipd_scale", kind::real, 0.25f, 2.0f, 0.05f, "1", "", "apparent gun size" });
+		store.add({ "body_calibrate_now", kind::boolean, 0, 0, 0, "1", "", "arms follow the controllers" });
 		store.add({ "shoulder_offset", kind::vec3, -0.5f, 0.5f, 0.0f, "0 0 0", "", "shoulders" });
 		store.add({ "reload", kind::choice, 0, 0, 0, "button", "button|physical", "reload" });
-		for (const char* name : { "sight_ads", "sight_dot", "reticle", "scope", "drop_discards_ammo", "reload_sounds", "grenade_throw_scale",
-				 "c4_trigger", "sling", "free_hands", "use_reach", "melee_gesture", "squad_signal" })
+		for (const char* name : { "drop_discards_ammo", "reload_sounds", "grenade_throw_scale", "physical_reload_all", "revolver_by_hand", "belts_by_hand",
+				 "shells_by_hand", "manual_cycle", "magazine_palming", "trigger_press", "pin_volume", "hip_accuracy", "unlock_all_weapons" })
 		{
 			store.add({ name, kind::boolean, 0, 0, 0, "0", "", "weapon setting" });
 		}
@@ -87,9 +87,9 @@ namespace
 		sample(store);
 		const auto pages = default_pages(store);
 		expect(pages.size() == 4, "View, Body, Weapon and Advanced (empty pages left out)");
-		expect(pages[0].title == "View" && pages[0].rows.size() == 4 && pages[0].rows[0].heading == "Rendering" && pages[0].rows[1].name == "stereo_render"
-			&& pages[0].rows[2].heading == "Scale" && pages[0].rows[3].name == "gun_scale", "View: sections with their settings");
-		expect(pages[1].title == "Body" && pages[1].rows.size() == 2 && pages[1].rows[1].name == "arm_ik", "Body: advanced settings left out");
+		expect(pages[0].title == "View" && pages[0].rows.size() == 4 && pages[0].rows[0].heading == "Rendering" && pages[0].rows[1].name == "foveation"
+			&& pages[0].rows[2].heading == "Scale" && pages[0].rows[3].name == "ipd_scale", "View: sections with their settings");
+		expect(pages[1].title == "Body" && pages[1].rows.size() == 2 && pages[1].rows[1].name == "body_calibrate_now", "Body: advanced settings left out");
 		expect(pages[2].title == "Weapon" && pages[2].rows.front().is_heading(), "Weapon page starts with a heading");
 		const page& advanced = pages[3];
 		expect(advanced.title == "Advanced" && advanced.rows.size() == 6 && advanced.rows[0].heading == "Body" && advanced.rows[1].component == 0
@@ -117,24 +117,24 @@ namespace
 		expect(at(panel, panel.rows_down_button(), store).kind == target_kind::none, "no scrolling on a short page");
 		expect(at(panel, panel.row_area(0), store).kind == target_kind::none, "a heading is not clickable");
 
-		// View: stereo_render is row 1 (a stepper), gun_scale row 3.
-		expect(panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::changed && store.text("gun_scale") == "1.05", "plus steps a real");
+		// View: foveation is row 1 (a stepper), ipd_scale row 3.
+		expect(panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::changed && store.text("ipd_scale") == "1.05", "plus steps a real");
 		expect(panel.click(at(panel, panel.value_box(3, store), store), store) == settings_panel::action::none, "value of a real does nothing");
-		expect(panel.click(at(panel, panel.value_box(1, store), store), store) == settings_panel::action::changed && store.text("stereo_render") == "pair", "value cycles a choice");
-		expect(panel.click(at(panel, panel.minus_button(1, store), store), store) == settings_panel::action::changed && store.text("stereo_render") == "aer", "minus cycles back");
+		expect(panel.click(at(panel, panel.value_box(1, store), store), store) == settings_panel::action::changed && store.text("foveation") == "light", "value cycles a choice");
+		expect(panel.click(at(panel, panel.minus_button(1, store), store), store) == settings_panel::action::changed && store.text("foveation") == "off", "minus cycles back");
 		for (int i = 0; i < 40; ++i)
 		{
 			panel.click(at(panel, panel.plus_button(3, store), store), store);
 		}
-		expect(store.real("gun_scale") == 2.0f && panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::none, "clamped: no change reported");
-		expect(panel.click({ target_kind::reset_page }, store) == settings_panel::action::changed && store.text("gun_scale") == "1", "reset page");
+		expect(store.real("ipd_scale") == 2.0f && panel.click(at(panel, panel.plus_button(3, store), store), store) == settings_panel::action::none, "clamped: no change reported");
+		expect(panel.click({ target_kind::reset_page }, store) == settings_panel::action::changed && store.text("ipd_scale") == "1", "reset page");
 		expect(panel.click({ target_kind::reset_page }, store) == settings_panel::action::none, "nothing left to reset");
 
 		// Body: a click anywhere on a toggle row toggles.
 		panel.click({ target_kind::page, 1 }, store);
 		expect(panel.current_page() == 1, "page switched");
-		const rect arm = panel.row_area(find_row(panel, "arm_ik"));
-		expect(panel.click(panel.hit((arm.x + 30.0f) / settings_panel::width, v_of(arm), store), store) == settings_panel::action::changed && !store.boolean("arm_ik"),
+		const rect arm = panel.row_area(find_row(panel, "body_calibrate_now"));
+		expect(panel.click(panel.hit((arm.x + 30.0f) / settings_panel::width, v_of(arm), store), store) == settings_panel::action::changed && !store.boolean("body_calibrate_now"),
 			"the row's label toggles too");
 
 		// Weapon: option buttons set their value.
@@ -204,11 +204,11 @@ namespace
 		sample(store);
 		settings_panel panel(default_pages(store));
 		auto items = panel.draw(store, "");
-		expect(has_text(items, "3D rendering") && has_text(items, "Alternate eyes") && has_text(items, "RENDERING") && has_text(items, "Save"),
+		expect(has_text(items, "Foveated rendering") && has_text(items, "Off") && has_text(items, "RENDERING") && has_text(items, "Save"),
 			"names, choice names, headings and buttons drawn");
 		expect(!has_text(items, "Unsaved changes"), "nothing unsaved yet");
 		panel.hover(at(panel, panel.plus_button(3, store), store));
-		store.step("gun_scale", 1);
+		store.step("ipd_scale", 1);
 		items = panel.draw(store, "");
 		expect(has_text(items, "Apparent gun size") && has_text(items, "Unsaved changes"), "hovered row's help (capitalised) and the unsaved chip");
 		expect(has_text(panel.draw(store, "Saved"), "Saved"), "status replaces the chip");
@@ -424,7 +424,7 @@ int main(int argc, char** argv)
 	settings::load_global();
 	for (const std::string& name : settings::global().names())
 	{
-		if (!settings::presentation_of(name))
+		if (!settings::presentation_of(name) && !settings::is_fixed(name))
 		{
 			std::printf("FAIL: %s is not in the setting catalog\n", name.c_str());
 			++failures;
@@ -477,6 +477,29 @@ int main(int argc, char** argv)
 		expect(!asked.empty() && std::find(asked.begin(), asked.end(), "holsters") == asked.end()
 				&& std::find(asked.begin(), asked.end(), "two_hand_mode") == asked.end(),
 			"removed keys in an old bfvr.ini are never read");
+	}
+	{
+		// #150 (owner 2026-11-24): VR features are always on. They are registered (the pipe sets them for tests),
+		// but neither the panel, the launcher nor an old bfvr.ini sees them.
+		expect(settings::fixed_definitions().size() >= 60, "the VR-feature toggles are fixed");
+		for (const char* name : { "sight_ads", "free_hands", "arm_ik", "sight_dot", "reticle", "hand_collision", "use_reach" })
+		{
+			expect(settings::is_fixed(name) && settings::global().definition_of(name) && !settings::presentation_of(name),
+				"a fixed VR feature is registered but has no panel row");
+			const auto live = settings::live_definitions();
+			expect(std::none_of(live.begin(), live.end(), [&](const settings::definition& d) { return d.name == name; }), "the launcher does not list a fixed feature");
+		}
+		for (const auto& page : default_pages(settings::global()))
+		{
+			for (const auto& row : page.rows)
+			{
+				expect(row.is_heading() || !settings::is_fixed(row.name), "no fixed feature anywhere on the panel (also not under Other)");
+			}
+		}
+		expect(!settings::global().boolean("reticle", true), "the aim dot is gone (owner: a real gun has none)");
+		expect(settings::global().text("sight_dot_eyes") == "both", "the red dot shows to both eyes (the owner's setting)");
+		expect(!settings::is_fixed("drive_controls") && !settings::is_fixed("cutscene_hands") && !settings::is_fixed("reload"),
+			"kept: driving (the owner drives with the stick), cutscene hands (R6), the reload switches");
 	}
 	expect(default_pages(settings::global()).front().title == "View", "no start-up page in the game's own panel");
 	{

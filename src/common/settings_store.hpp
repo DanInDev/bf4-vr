@@ -26,4 +26,8 @@ namespace bfvr::settings
 	// Keys the game reads once when it starts (common/config), as definitions: only the launcher
 	// offers them; changing them in a running game does nothing.
 	std::span<const definition> startup_definitions();
+	// #150: VR features that are always on. Registered in the game (the pipe can set them for tests) but never read
+	// from bfvr.ini, not on the panel and not in the launcher (not in live_definitions).
+	std::span<const definition> fixed_definitions();
+	bool is_fixed(std::string_view name);
 }
