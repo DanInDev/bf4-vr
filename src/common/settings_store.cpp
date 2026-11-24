@@ -89,7 +89,6 @@ namespace bfvr::settings
 			{ "chest_depth", kind::real, 0.0f, 0.30f, 0.01f, "0", "", "the chest pouches and the knife in front of your eyes, metres (0 = from body_height: 0.10 at 1.78 m)" },
 			{ "hip_drop", kind::real, 0.0f, 1.10f, 0.01f, "0", "", "the hip holsters below your eyes, metres (0 = from body_height: 0.75 at 1.78 m)" },
 			{ "arm_length", kind::real, 0.8f, 1.5f, 0.05f, "1.15", "", "first-person arms stretched by this (reach)" },
-			{ "hide_legs", kind::boolean, 0, 0, 0, "1", "", "first-person legs hidden (they sit oddly under a tracked head)" },
 			{ "soldier_radius", kind::real, 0.0f, 0.35f, 0.05f, "0", "", "the soldier's collision radius in metres, 0 = the game's 0.35; smaller lets you stand closer to walls and lean out of windows; applied when the soldier spawns (a level's first spawn included); a change in a level applies at the next respawn or checkpoint restart (#53)" },
 			{ "gun_hand_pose", kind::choice, 0, 0, 0, "neutral", "animated|neutral", "the gun hand while the off hand carries the gun, or holding the hand grenade or the C4 detonator: the gun grip as you hold the controller (neutral), or the game's animated hold turned by the controller (animated); launchers such as the M320 keep their own hold" },
 			{ "off_hand_pose", kind::choice, 0, 0, 0, "neutral", "animated|neutral", "the free off hand's wrist: the gun hand's grip mirrored, as you hold the controller, a held magazine upright in the fist (neutral), or the game's handguard hold turned by the controller (animated)" },
@@ -181,6 +180,8 @@ namespace bfvr::settings
 		// #150 (owner 2026-11-24): VR features always on, no longer on the panel, in the launcher or read from
 		// bfvr.ini; each starts at this value every time. The pipe can still set them for tests.
 		const definition fixed[] = {
+			// #147 / R10 (owner 2026-11-24): the legs and torso are always shown.
+			{ "hide_legs", kind::boolean, 0, 0, 0, "0", "", "first-person legs hidden (they sit oddly under a tracked head)" },
 			{ "gun_scale", kind::real, 0.25f, 4.0f, 0.05f, "1", "", "apparent gun and arms size, 1 = life size on the controllers" },
 			{ "stereo_render", kind::choice, 0, 0, 0, "pair", "aer|pair", "both eyes from one game frame, or alternate eyes" },
 			{ "scene_aim", kind::choice, 0, 0, 0, "game", "game|head|controller", "in a scripted scene where the game holds the weapon (the Baku car's grenade launcher): the game's own aiming with the right stick and left trigger, the shot where you look, or along the controller" },

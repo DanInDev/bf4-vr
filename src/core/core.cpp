@@ -324,7 +324,7 @@ namespace bfvr::core
 				weapon::set_body_size(size);
 				body::set_shoulder_back(store.real("shoulder_back", 0.0f));
 			}
-			body::set_legs_hidden(store.boolean("hide_legs", true));
+			body::set_legs_hidden(store.boolean("hide_legs", false)); // #147: always shown (a fixed setting, 0)
 			body::set_soldier_radius(store.real("soldier_radius", 0.0f));
 			body::set_torso_follow(store.boolean("torso_follow", true));
 			stereo::set_aim_follows_torso(store.boolean("aim_follows_torso", true));

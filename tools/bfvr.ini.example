@@ -273,8 +273,6 @@ hip_drop = 0
 # First-person arms: reach (forearm and hand scaled) and shoulders moved outwards (metres per side).
 arm_length = 1.15
 shoulder_width = 0.0
-# First-person legs hidden (they sit oddly under a tracked head).
-hide_legs = 1
 # The soldier's collision radius in metres (#53); 0 = the game's 0.35. Smaller lets you walk up to a wall
 # and lean out of a window. Applied when the soldier spawns (a level's first spawn included); a change in a
 # level applies at the next respawn or checkpoint restart. Only the player's soldier. Pipe `radius` reports it.
