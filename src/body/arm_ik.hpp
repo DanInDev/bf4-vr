@@ -75,11 +75,18 @@ namespace bfvr::body::ik
 		// Out of reach, the shoulder first moves up to this far (metres) towards the goal, like a real
 		// shoulder reaching forward; stretching covers what is left. 0 = the shoulder stays.
 		float max_protraction{};
+		// #160: the share of the wrist's twist (relative to the animated pose) the forearm roll bone takes; the wrist
+		// joint takes the rest. A real forearm turns along its length: the roll bone, part way down it, takes about half.
+		float roll_share{ 0.5f };
+		// #160: the last solve's twist (radians), kept by the caller per arm: the twist goes on past half a turn the way it
+		// was going instead of flipping to the short way round (the forearm spun when the hand turned past it). Null:
+		// the short way, as before.
+		float* twist_memory{};
 	};
 
 	// Two-bone IK: rewrites the local rotations of upper, fore and hand so the wrist reaches
 	// goal.wrist (or points at it when out of reach), the elbow bends towards goal.pole and the
-	// hand takes goal.hand. With a roll bone, half of the change in wrist twist goes to it.
+	// hand takes goal.hand. With a roll bone, goal.roll_share of the change in wrist twist goes to it.
 	// Bone lengths come from the current pose. Returns false (pose untouched) on a degenerate chain.
 	// Rewrites translations too when goal.max_protraction or goal.max_stretch let the arm reach further.
 	bool solve_arm(bone_transform* local, const int* parents, const arm_bones& bones, const arm_goal& goal);

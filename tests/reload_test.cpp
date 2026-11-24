@@ -2583,7 +2583,34 @@ namespace
 			{
 				r = step(away, false);
 			}
-			expect(!gun.state().lid_open && gun.state().chamber && close(r.lid, 0.0f, 1e-3f), "belt: pushed under halfway, it shuts on the belt: ready");
+			expect(gun.state().lid_open && close(r.lid, 1.0f, 1e-3f), "belt: let go 30 % open, it stays open (#95: no snapping shut)");
+			// The hand pulled well away while holding it: the lid lets go there and stays open.
+			r = step(lid_grab_at(1.0f), true);
+			r = step(lid_grab_at(0.7f), true);
+			expect(r.lid_held, "belt: the lid taken again and lowered");
+			r = step(lid_grab_at(0.7f) + v3{ 0.0f, -0.45f, 0.0f }, true);
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, true);
+			}
+			expect(!r.lid_held && gun.state().lid_open && close(r.lid, 1.0f, 1e-3f), "belt: the hand moved away lets the lid go, open (#95)");
+			step(away, false);
+			r = step(lid_grab_at(1.0f), true);
+			r = step(lid_grab_at(0.08f), true);
+			r = step(lid_grab_at(0.08f), false);
+			for (int i = 0; i < 10; ++i)
+			{
+				r = step(away, false);
+			}
+			expect(!gun.state().lid_open && gun.state().chamber && close(r.lid, 0.0f, 1e-3f), "belt: pushed nearly shut, it shuts on the belt: ready");
+			// #95: with the lid up, the hand at the box takes it off, no button.
+			step(away, false);
+			r = step(lid_grab_at(0.0f), true);
+			r = step(lid_grab_at(0.5f), true);
+			r = step(away, false);
+			step({ 0.0f, -0.08f, 0.44f }, false); // on the box, below the belt's zone at the tray
+			r = step({ 0.0f, -0.08f, 0.44f }, true);
+			expect(has(r, reload_event::magazine_out) && gun.state().holding && !gun.state().magazine_in, "belt: lid up, the box taken off by hand (#95)");
 		}
 		{
 			// The revolver: B breaks it open, a speedloader from the pouch at the open cylinder, a flick of the gun up shuts it.

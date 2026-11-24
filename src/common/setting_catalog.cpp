@@ -49,6 +49,7 @@ namespace bfvr::settings
 			{ "off_hand_pose", "Body", "Hands", "Free hand pose", "Animated turns the hand with the game's rifle pose", "neutral=As you hold the controller|animated=Animated (research)", true },
 			{ "rack_grip", "Body", "Hands", "Charging handle grip", "Fist: over or under, by where you grab", "fist=Fist|auto=Pinch or hook|pinch=Pinch|hook=Hook" },
 			{ "empty_hand_turn", "Body", "Hands", "Empty hands: wrist turn", "Degrees the thumbs turn in, no weapon out", "" },
+			{ "forearm_twist", "Body", "Hands", "Forearm twist", "Share of a wrist turn spread along the forearm", "" },
 			// #151: what is drawn on your body; changes show live on the chest.
 			{ "slot_models_ahead", "Body", "Items on your body", "Grenade and knife off the chest", "Metres ahead of their grab spots", "" },
 			{ "knife_holster_right", "Body", "Items on your body", "Knife: right", "cm (- left)", "" },

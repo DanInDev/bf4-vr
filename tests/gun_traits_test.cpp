@@ -191,6 +191,15 @@ int main()
 			expect(empty.state().magazine_rounds == 0 && empty.take_belt() == reload_event::none && !empty.state().belt_held, "M249 empty: no belt to take");
 			expect(empty.press_button(true) == reload_event::magazine_out, "M249 empty: lid up, the box comes off");
 		}
+		{
+			// #95 (owner 2026-11-24): with the lid up the box is pulled off by hand, no button; under a shut lid it stays.
+			reload by_hand(profile_for("U_M249", 201));
+			by_hand.load(3, 400);
+			expect(by_hand.grab_magazine() == reload_event::none && by_hand.state().magazine_in, "M249: lid shut, the hand cannot pull the box");
+			by_hand.open_lid();
+			expect(by_hand.grab_magazine() == reload_event::magazine_out && by_hand.state().holding && by_hand.state().held_rounds == 3 && !by_hand.state().belt_laid,
+				"M249: lid up, the box pulled off by hand with its belt");
+		}
 	}
 	// #98: no release button on the P90 (owner, mark 31) and the UMP-45's paddle is worked by the magazine hand (owner
 	// 2026-11-24): the hand pulls the magazine out, B does not drop it. The AK 5C has a button after all (owner 2026-11-24).

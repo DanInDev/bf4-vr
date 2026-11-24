@@ -111,13 +111,42 @@ namespace bfvr::body::ik
 		// short way round: q and -q are the same rotation, and the game's hand quaternions often come
 		// with w < 0, which read a 4 degree twist as 356 and turned the forearm roll bone 178 degrees
 		// (monitor 2026-11-05: the gun arm's forearm wrapped on itself at the neutral hold).
-		quat twist_fraction(quat q, vec3 axis, float t)
+		float twist_angle(quat q, vec3 axis)
 		{
 			const float sign = q.w < 0.0f ? -1.0f : 1.0f;
 			const float along = sign * dot(vec3{ q.x, q.y, q.z }, axis);
-			const float angle = 2.0f * std::atan2(along, sign * q.w) * t;
+			return 2.0f * std::atan2(along, sign * q.w);
+		}
+
+		quat about_axis(vec3 axis, float angle)
+		{
 			const vec3 v = axis * std::sin(0.5f * angle);
 			return { v.x, v.y, v.z, std::cos(0.5f * angle) };
+		}
+
+		// #160: the twist closest to the last one (whole turns added), so it goes on past half a turn; a wrist cannot turn
+		// much more than that, so past three quarters of a turn either way it starts over the short way.
+		float continue_twist(float angle, float* memory)
+		{
+			constexpr float pi = 3.14159265f;
+			if (!memory || !std::isfinite(*memory))
+			{
+				return angle;
+			}
+			while (angle - *memory > pi)
+			{
+				angle -= 2.0f * pi;
+			}
+			while (angle - *memory < -pi)
+			{
+				angle += 2.0f * pi;
+			}
+			if (std::fabs(angle) > 1.5f * pi)
+			{
+				angle = std::remainder(angle, 2.0f * pi);
+			}
+			*memory = angle;
+			return angle;
 		}
 
 		vec3 any_perpendicular(vec3 n)
@@ -261,7 +290,7 @@ namespace bfvr::body::ik
 		if (bones.roll >= 0)
 		{
 			// Twist change of the hand relative to the roll bone, about the forearm axis, in the
-			// roll bone's frame; the roll bone takes half so the forearm skin does not wrap.
+			// roll bone's frame; the roll bone takes goal.roll_share so the forearm skin does not wrap.
 			const bone_transform roll = model_of(local, parents, bones.roll);
 			const bone_transform hand_now = model_of(local, parents, bones.hand);
 			const quat before = conjugate(roll.rotation) * hand_now.rotation;
@@ -270,7 +299,9 @@ namespace bfvr::body::ik
 			if (length(axis) > 0.5f)
 			{
 				const quat change = normalize(after * conjugate(before));
-				local[bones.roll].rotation = normalize(local[bones.roll].rotation * twist_fraction(change, axis, 0.5f));
+				const float twist = continue_twist(twist_angle(change, axis), goal.twist_memory);
+				const float share = std::clamp(goal.roll_share, 0.0f, 1.0f);
+				local[bones.roll].rotation = normalize(local[bones.roll].rotation * about_axis(axis, twist * share));
 				aim_forearm(); // the roll bone may sit off the forearm axis
 			}
 		}
