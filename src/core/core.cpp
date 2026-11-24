@@ -370,7 +370,7 @@ namespace bfvr::core
 			body::set_knife_turn(store.real("knife_yaw", -15.0f), store.real("knife_roll", 170.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			body::set_grenade_mesh(store.text("grenade", "physical") == "physical");
-			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 1.5f));
+			weapon::set_grenade_throw_scale(store.real("grenade_throw_scale", 2.5f));
 			weapon::set_grenade_throw_aim(store.boolean("grenade_throw_aim", true));
 			weapon::set_two_handed(true);
 			weapon::set_two_hand_lock(true);

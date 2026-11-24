@@ -55,6 +55,7 @@ namespace bfvr::weapon
 		float reach_belt{ 0.10f };  // the grenade pouch, high on the chest (body_rig)
 		float reach_pin{ 0.12f };   // the other palm this close to the grenade grabs the pin (palms, headset 2026-11-10)
 		float pin_pull{ 0.05f };    // pulled this far away = pin out
+		float pin_press_grace{ 0.4f }; // a squeeze this recent still takes the pin on arriving (not one held on the gun)
 		float throw_speed{ 1.5f };  // hand speed at release that counts as a throw (m/s)
 		float velocity_window{ 0.08f }; // seconds of hand motion averaged into one velocity
 		float release_lookback{ 0.15f }; // the throw is the fastest such velocity this long before release
@@ -92,6 +93,8 @@ namespace bfvr::weapon
 		float bite_time_{};
 		v3 pin_start_;
 		float clock_{};
+		float off_pressed_at_{ -1e9f };
+		float gun_pressed_at_{ -1e9f };
 		sample history_[history_size];
 		int history_count_{};
 		int history_next_{};

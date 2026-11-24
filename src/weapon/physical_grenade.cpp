@@ -150,7 +150,7 @@ namespace bfvr::weapon
 		};
 
 		std::atomic<bool> physical{};
-		std::atomic<float> throw_scale{ 1.5f };
+		std::atomic<float> throw_scale{ 2.5f };
 		std::atomic<bool> holding{};
 		std::atomic<int> holder{}; // #38: 0 = off hand, 1 = gun hand
 		std::atomic<bool> armed{};
