@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "common/setting_catalog.hpp"
+#include "common/settings_store.hpp"
 
 namespace bfvr::ui
 {
@@ -152,7 +153,7 @@ namespace bfvr::ui
 				bool other = false;
 				for (const std::string& name : store.names())
 				{
-					if (std::find(listed.begin(), listed.end(), name) == listed.end())
+					if (std::find(listed.begin(), listed.end(), name) == listed.end() && !settings::is_fixed(name))
 					{
 						if (!other)
 						{
