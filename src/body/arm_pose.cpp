@@ -484,6 +484,8 @@ namespace bfvr::body
 		ik::vec3 c4_pack_offset;  // rig_lock: the pack in the animated left hand's frame (report)
 		bool c4_pack_placed{};    // rig_lock: placed in the drawn left hand this frame
 		std::atomic<bool> gun_hand_empty{};        // #136: no weapon at all (the game's unarmed item): free fingers
+		std::atomic<float> empty_hand_turn{ 80.0f }; // #136: setting empty_hand_turn, degrees the empty wrists turn in
+		std::atomic<int> empty_hands_forced{ -1 };   // pipe arms emptyhands 0|1|off: test the empty hands with a gun out
 		// Contact grips (body/grasp_contact). All but the setting under rig_lock.
 		bool cupped{}; // the cup on the upturned palm was removed (owner, 2026-11-22): always false, kept for the blend below
 		contact::cup_placement cup;        // the magazine placed on the palm: only the fallback frame when no fist is measured
@@ -1375,10 +1377,16 @@ namespace bfvr::body
 					has_gun_hand_in_aim = true;
 				}
 				// #136: with no weapon at all the hands need no gun held earlier: the default grip stands in.
-				const bool empty_hands = gun_hand_empty.load(std::memory_order_relaxed);
+				const int forced = empty_hands_forced.load(std::memory_order_relaxed);
+				const bool empty_hands = forced >= 0 ? forced != 0 : gun_hand_empty.load(std::memory_order_relaxed);
+				// #136 (owner 2026-11-24): empty, the pistol-grip hold kept the thumbs on top; the wrists turn in about the
+				// controller's ray (setting empty_hand_turn), thumbs towards the torso: the right hand anticlockwise as seen
+				// from behind, the left (mirrored) clockwise.
+				const float turn_half = 0.5f * 0.017453293f * (empty_hands ? empty_hand_turn.load(std::memory_order_relaxed) : 0.0f);
+				const ik::quat turn_in{ 0, 0, std::sin(hand == 1 ? turn_half : -turn_half), std::cos(turn_half) };
 				if (hand == 0 && carrier == 1 && off_hand_neutral.load(std::memory_order_relaxed) && (has_gun_hand_in_aim || empty_hands))
 				{
-					goal.hand = frame * ik::normalize(aim) * fingers::mirrored_hand(grip_in_aim());
+					goal.hand = frame * ik::normalize(aim) * turn_in * fingers::mirrored_hand(grip_in_aim());
 				}
 				// #68 (owner 2026-11-15): the gun hand turned itself round once the gun went to the off hand (the game's
 				// animated grip, turned by the controller), and a grenade or the C4 detonator in it sat oddly. Like the
@@ -1388,7 +1396,7 @@ namespace bfvr::body
 				// gun-like and already follows the aim with its own hold (re/notes/weapon.md "Gadgets from the stash").
 				if (hand_rules::gun_hand_controller_grip(hand, carrier, gun_hand_carries, hand_item_in_gun_hand.load(std::memory_order_relaxed), gun_hand_neutral.load(std::memory_order_relaxed), has_gun_hand_in_aim || empty_hands))
 				{
-					goal.hand = frame * ik::normalize(aim) * grip_in_aim();
+					goal.hand = frame * ik::normalize(aim) * turn_in * grip_in_aim();
 				}
 				const bool off_grip_carries = carry_weapon && hand == 0 && off_by_grip.load(std::memory_order_relaxed);
 				if (carry_weapon && hand == 0)
@@ -3514,6 +3522,16 @@ namespace bfvr::body
 	void set_gun_hand_empty(bool empty)
 	{
 		gun_hand_empty = empty;
+	}
+
+	void set_empty_hand_turn(float degrees)
+	{
+		empty_hand_turn = std::isfinite(degrees) ? degrees : 0.0f;
+	}
+
+	void force_empty_hands(int state)
+	{
+		empty_hands_forced = state;
 	}
 
 	void set_knife_pitch(float degrees)

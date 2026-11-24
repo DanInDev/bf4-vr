@@ -367,6 +367,7 @@ namespace bfvr::core
 			input::configure_haptics({ store.boolean("haptics", true), store.real("haptics_strength", 0.8f), store.boolean("haptics_game", true),
 				store.boolean("haptics_gestures", true) });
 			body::set_knife_pitch(store.real("knife_pitch", 145.0f));
+			body::set_empty_hand_turn(store.real("empty_hand_turn", 80.0f));
 			body::set_knife_turn(store.real("knife_yaw", -15.0f), store.real("knife_roll", 170.0f));
 			weapon::set_physical_grenades(store.text("grenade", "physical") == "physical");
 			body::set_grenade_mesh(store.text("grenade", "physical") == "physical");
