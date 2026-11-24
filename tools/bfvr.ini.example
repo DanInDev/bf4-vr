@@ -291,6 +291,8 @@ gun_hand_pose = neutral
 # the hand takes the handle: palm down on it (overhand) pinches, palm up under it (underhand) hooks the
 # knob in the index and middle. Kept for the stroke. Pipe `fingers` shows the hold and the palm reading.
 rack_grip = fist
+# #136: with no weapon out (the unarmed walks), both wrists turn in this many degrees about the controller ray, thumbs towards the torso.
+empty_hand_turn = 80
 # Two-handed: the off hand stays on the handguard where it grabbed until you let go (support_lock = 0: it slides
 # with the controller), within support_slide_back (towards the magazine) and support_slide_forward (towards the
 # muzzle) metres of the game's own handguard spot.

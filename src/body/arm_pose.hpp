@@ -39,6 +39,10 @@ namespace bfvr::body
 	void set_c4_out(bool out);
 	// #136: no weapon at all (the game's unarmed item): the gun hand's fingers are free, as with a dropped gun.
 	void set_gun_hand_empty(bool empty);
+	// #136: degrees both empty wrists turn in about the controller's ray, thumbs towards the torso (setting empty_hand_turn).
+	void set_empty_hand_turn(float degrees);
+	// Pipe (arms emptyhands 0|1|off): treat the hands as empty (or not) whatever is drawn; -1 = as the game says.
+	void force_empty_hands(int state);
 	// The knife's blade raised this many degrees towards the controller ray (its mesh points it down).
 	void set_knife_pitch(float degrees);
 	// knife_yaw / knife_roll: further turns of the held knife about the controller's up and its ray, degrees.

@@ -754,7 +754,17 @@ namespace bfvr::control
 				}
 				return "gun_scale=" + std::to_string(stereo::current_gun_scale()) + " applied=" + std::to_string(stereo::applied_gun_size()) + " gun_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::foreground_half_fov(0.39269908f)) + " applied_fov_deg=" + std::to_string(2.0f * 57.29578f * stereo::applied_gun_half_fov()) + "\n" + stereo::gun_pass_fov::report();
 			}
-			if (command == "arms") return body::report();
+			if (command == "arms")
+			{
+				if (argument.rfind("emptyhands ", 0) == 0)
+				{
+					// #136 test: the empty-hand hold with a gun out (the unarmed walk is not in the test checkpoint).
+					const std::string state = argument.substr(11);
+					body::force_empty_hands(state == "1" ? 1 : state == "0" ? 0 : -1);
+					return "empty hands forced: " + state;
+				}
+				return body::report();
+			}
 			if (command == "fingers")
 			{
 				// fingers <off|gun> <squeeze> <trigger> <trigger touch 0|1> <thumb touch 0|1> | fingers <off|gun> live
