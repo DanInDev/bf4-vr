@@ -71,6 +71,7 @@ namespace bfvr::settings
 			{ "crate_secondary", "Weapon", "Armory", "Second gun", "Bare, no attachments: into the second slot", weapon::crate::choices },
 			{ "unlock_all_weapons", "Weapon", "Armory", "All crate weapons", "Every gun in the game's weapon crates can be picked too", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
+			{ "scope_eye_box", "Weapon", "Aiming", "Scope eye box", "cm off the sight line the whole picture stays", "" },
 			{ "sight_lens_cone", "Weapon", "Aiming", "Clear lens angle", "Degrees off the sight line the lens stays clear", "", true },
 			{ "sight_lens_fov", "Weapon", "Aiming", "Reticle size", "Aiming view it is sized for (0 = the optic's own)", "" },
 			{ "sight_lens_brightness", "Weapon", "Aiming", "Reticle brightness", "", "" },

@@ -67,6 +67,8 @@ namespace bfvr::stereo
 	void set_sight_lens(bool on, float ads_fov_degrees, float brightness);
 	// #139: a magnifying optic shows the world magnified on its own glass (setting scope_glass).
 	void set_scope_glass(bool on);
+	// #139 (owner 2026-11-24): the whole picture within this many metres of the sight line (setting scope_eye_box).
+	void set_scope_eye_box(float metres);
 	// #139: the optic's own glass showed the picture in the last 300 ms (the scope plan then renders a wide picture).
 	bool scope_glass_shown();
 	// Research (pipe "glassdebug 0|1|2"): 1 the glass mask's lens quads in colour and the sight line's point magenta; 2 the

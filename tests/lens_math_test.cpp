@@ -107,11 +107,14 @@ int main()
 		expect(glass_picture_reach(back, 2.0f) == 0.0f, "a line pointing back: none");
 	}
 	{
-		// The field stop: Great Destroyer's 0.38 on the line, closing as the eye leaves it, shut at the eye box.
+		// The field stop (owner 2026-11-24: a VR eye box): the whole 0.38 within 1.5 cm of the line, then a smooth close
+		// over 2.25 cm more.
 		expect(near(glass_field_stop(0.0f), 0.38f), "on the line: 0.38");
-		expect(glass_field_stop(0.015f) < 0.15f && glass_field_stop(0.015f) > 0.05f, "1.5 cm off: darkened from the edge, not shut");
-		expect(glass_field_stop(0.02f) == 0.0f && glass_field_stop(0.03f) == 0.0f, "at and past the eye box: dark");
-		expect(near(glass_field_stop(-0.01f), glass_field_stop(0.01f)), "either side alike");
+		expect(near(glass_field_stop(0.012f), 0.38f) && near(glass_field_stop(0.015f), 0.38f), "1.2 and 1.5 cm off: still the whole field (it was nearly shut)");
+		expect(glass_field_stop(0.025f) < 0.38f && glass_field_stop(0.025f) > 0.1f, "2.5 cm off: darkened from the edge, not shut");
+		expect(glass_field_stop(0.0375f) == 0.0f && glass_field_stop(0.05f) == 0.0f, "past the box and its fade: dark");
+		expect(near(glass_field_stop(-0.02f), glass_field_stop(0.02f)), "either side alike");
+		expect(near(glass_field_stop(0.025f, 0.03f), 0.38f) && glass_field_stop(0.02f, 0.005f) == 0.0f, "the box follows the setting");
 	}
 	{
 		// Which lens draws are the glass (live counts: ACOG two draws 5.8k / 5.7k pixels, 29 at the line's point).
