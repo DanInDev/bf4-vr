@@ -218,6 +218,12 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   idle: the CPU feeds the GPU too slowly); measure frame cost with `dev-run -Resume -Preset bf4-release` (~3 ms an eye
   idle at 160 fps) and `tools/fire_cost_probe.py`. The game's writes to its particle vertex buffer do not pass the hooked
   `Map`: never key a cache on seen writes (re/notes/weapon.md "The cost").
+- 2026-11-24 (#148): SP_Naval's start is a scripted no-weapons walk: `givegun` draws a gun but the game refuses switches
+  (`holster` `failed=`) and never fires; judge no firing test there. The campaign menu's **Replay missions overwrites the
+  campaign checkpoint** (the game warns): ask the owner first. Free hands' trigger block (gun dropped, slung or in the off
+  hand) shows in `holster` (`dropped=`, `in_off_hand=`), which marks now include. `tools\pipe.ps1 "fakehand '0 0 ...'"`
+  (single quotes inside double) passes the quotes along and the fake controllers silently stay off (`arms` `controllers
+  left=0 right=0`): write `tools\pipe.ps1 'fakehand 0 0 ...'`.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
 - 2026-11-21: after a level load the slot captures (knife, grenade) can leave slot 6 or 7 in hand ("the gun did not come
   back"); `givegun <gun> 0` then changes nothing in hand. Check `holster` slot= first; `game.ps1 keys -Keys 1` selects

@@ -1133,8 +1133,9 @@ namespace bfvr::control
 			char header[160];
 			std::snprintf(header, sizeof(header), "mark %d at %02u:%02u:%02u.%03u: ", number, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
 			std::string text = header + note + "\n";
-			static constexpr const char* reports[] = { "status", "twohand", "gunscale", "arms", "scope", "grenade", "fingers", "reload", "extramesh", "cutscene", "stance",
-				"haptics", "hudwidgets", "setting list" };
+			// holster: free hands (dropped, in the off hand), which keep the trigger from the game (#148).
+			static constexpr const char* reports[] = { "status", "holster", "twohand", "gunscale", "arms", "scope", "grenade", "fingers", "reload", "extramesh", "cutscene",
+				"stance", "haptics", "hudwidgets", "setting list" };
 			for (const char* report : reports)
 			{
 				text += std::string("\n== ") + report + "\n" + handle(report) + "\n";

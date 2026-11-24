@@ -55,6 +55,10 @@ namespace bfvr::ui
 		bool hint_shown{};
 		std::string mark_notice;
 		ULONGLONG mark_notice_until{};
+		// flash_notice: any thread, its own lock (callers such as the XInput hook must not wait on the panel's).
+		std::mutex flash_lock;
+		std::string flash_text;
+		ULONGLONG flash_until{};
 
 		// The image and what it was drawn from.
 		std::vector<std::uint32_t> image;
@@ -274,6 +278,19 @@ namespace bfvr::ui
 			notice_on = !text.empty() && !notice_image.empty();
 			log::write("panel: notice %s", text.empty() ? "hidden" : ("\"" + text + "\"").c_str());
 		}
+
+		std::string flashed_notice()
+		{
+			const std::lock_guard guard(flash_lock);
+			return GetTickCount64() < flash_until ? flash_text : std::string{};
+		}
+	}
+
+	void flash_notice(const std::string& text, unsigned milliseconds)
+	{
+		const std::lock_guard guard(flash_lock);
+		flash_text = text;
+		flash_until = GetTickCount64() + milliseconds;
 	}
 
 	void update_vr_panel()
@@ -362,6 +379,10 @@ namespace bfvr::ui
 		else if (GetTickCount64() < mark_notice_until)
 		{
 			show_notice(mark_notice, false);
+		}
+		else if (std::string flashed = flashed_notice(); !flashed.empty())
+		{
+			show_notice(flashed, true);
 		}
 		else if (hint_shown)
 		{

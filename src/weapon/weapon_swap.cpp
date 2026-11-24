@@ -1031,7 +1031,14 @@ namespace bfvr::weapon
 		}
 		else if (dropped_now.load(std::memory_order_relaxed) || off_hand_now.load(std::memory_order_relaxed))
 		{
-			out.right_trigger = 0; // the gun lies on the floor or hangs from the off hand (free hands, #38)
+			// The gun lies on the floor, hangs on the sling or from the off hand (free hands, #38). #148: say so,
+			// a held gun that does not fire looked broken.
+			if (out.right_trigger >= 128)
+			{
+				ui::flash_notice(dropped_now.load(std::memory_order_relaxed) ? "Your hand is empty: grip the gun to fire"
+					: "The off hand has the gun: grip its pistol grip to fire");
+			}
+			out.right_trigger = 0;
 		}
 		if (capture_active.load(std::memory_order_relaxed))
 		{

@@ -42,6 +42,9 @@ namespace bfvr::ui
 	constexpr int notice_width = 768;
 	constexpr int notice_height = 80;
 	bool vr_notice_shown();
+	// Any thread: a warning on the notice quad for a moment (after the system-menu and mark notices), e.g. why
+	// the trigger does nothing (#148). Calling it again while shown keeps it up.
+	void flash_notice(const std::string& text, unsigned milliseconds = 1500);
 	// Like vr_panel_pixels, for the notice (notice_width x notice_height).
 	bool vr_notice_pixels(std::uint64_t& revision, std::vector<std::uint32_t>& pixels);
 	// #50: the body calibration step screen (ui/calibration_screen, calibration_width x calibration_height),
