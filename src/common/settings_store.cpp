@@ -81,6 +81,7 @@ namespace bfvr::settings
 			{ "hud_show_markers", kind::boolean, 0, 0, 0, "1", "", "HUD: markers in the world (squad names and triangles)" },
 			{ "body_calibration", kind::choice, 0, 0, 0, "first", "first|always|off", "body calibration (T-pose, both triggers held two seconds) after a level loads: until done once, once per level (not again when a death reloads it), or never; it sets body_height, body_span, arm_length and shoulder_width" },
 			{ "body_height", kind::real, 0.0f, 2.2f, 0.01f, "0", "", "your height from the calibration, metres (0 = not calibrated: the next level asks); scales the pouches, holsters and shoulders (1.78 = as laid out)" },
+			{ "extra_height", kind::real, -30.0f, 50.0f, 1.0f, "12", "", "#154: the view (and the arms, gun and shots with it) this many cm above the soldier's own eye; 12 puts you at the squad's height" },
 			{ "body_span", kind::real, 0.0f, 2.5f, 0.01f, "0", "", "your arm span, grip to grip, from the calibration, metres (information)" },
 			{ "body_calibrate_now", kind::boolean, 0, 0, 0, "0", "", "switch on to start the T-pose calibration at once; it switches itself off" },
 			{ "shoulder_drop", kind::real, 0.0f, 0.45f, 0.01f, "0", "", "your shoulder joints below your eyes, metres (0 = from body_height: 0.22 at 1.78 m)" },

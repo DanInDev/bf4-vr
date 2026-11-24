@@ -35,6 +35,7 @@ namespace bfvr::settings
 			// Body
 			{ "body_calibration", "Body", "Calibration", "Body calibration", "T-pose, both triggers, after a level loads", "first=Until done|always=Every level|off=Off" },
 			{ "body_height", "Body", "Calibration", "Your height", "Metres; 0 asks again at the next level", "" },
+			{ "extra_height", "Body", "Calibration", "Extra height", "cm above the soldier's eye; 12 = the squad's height", "" },
 			{ "body_calibrate_now", "Body", "Calibration", "Calibrate now", "Stand in a T and hold both triggers", "" },
 			{ "body_span", "Body", "Calibration", "Your arm span", "Grip to grip, metres (measured)", "" },
 			{ "shoulder_width", "Body", "Size", "Shoulder width", "Metres added on each side", "" },

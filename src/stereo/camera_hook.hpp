@@ -117,6 +117,9 @@ namespace bfvr::stereo
 	// How far physical stance raised the eye above the game's camera (metres, world up; 0 when off).
 	// Everything placed from tracking space (hands, gun, body) is raised by the same amount.
 	float physical_stance_lift();
+	// #154: the view (with the body rig and the shot origin, through physical_stance_lift) raised this many metres above
+	// the soldier's own eye; setting extra_height (cm). Clamped -0.3..0.5.
+	void set_extra_height(float metres);
 	// Pipe "stance".
 	std::string stance_report();
 

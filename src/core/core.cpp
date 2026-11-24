@@ -259,6 +259,7 @@ namespace bfvr::core
 			stereo::set_stream_view(store.boolean("stream_view", true), store.real("stream_fov", 80.0f), store.real("stream_smoothing", 0.3f),
 				store.boolean("stream_hud", true));
 			stereo::set_physical_stance(store.boolean("physical_stance", false));
+			stereo::set_extra_height(0.01f * store.real("extra_height", 12.0f));
 			// #48: behaviours that once had a setting to compare them with the old one are fixed on.
 			stereo::set_gun_life_size(true);
 			stereo::set_gun_fov_life_size(true);
