@@ -245,14 +245,19 @@ namespace bfvr::body
 	// #41: a grenade drawn at its pouch (OpenXR LOCAL, facing yaw = atan2(-forward.x, -forward.z)) while none
 	// is held, in place of the grab ring.
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw);
+	// #151 (Body > Items on your body): the pouch grenade moved from its grab spot (metres, body axes: right, up,
+	// back) and turned about the vertical (degrees).
+	void set_pouch_grenade_placement(float right, float up, float back, float turn_degrees);
 	// #41: the game's knife is the weapon (captured once, hidden for that render), and the knife drawn at its
 	// holster (OpenXR LOCAL, the body's yaw) while it is not.
 	// capture_ready: out long enough (#41) that the gun is no longer drawn; only then is it recorded.
 	void set_knife_weapon(bool out, bool capture_ready);
 	void set_holster_knife(bool shown, const float (&position)[3], float yaw);
-	// #41: the holstered knife's model axes turned (degrees about x, then y, then z) in the holster frame.
-	void set_holster_knife_turn(float x_degrees, float y_degrees, float z_degrees);
-	// Pipe only: the holstered knife moved (metres, camera axes: +x right, +y up, -z ahead) to look at it away from the body.
+	// #41: the holstered knife turned about its blade (degrees), tipped about the body's left-right axis (on top of
+	// the built-in 35) and leaned about its forward axis; #151 settings knife_holster_turn / _tilt / _lean.
+	void set_holster_knife_turn(float about_blade, float tilt, float lean);
+	// #151: the holstered knife moved from its grab spot (metres, body axes: +x right, +y up, +z back); settings
+	// knife_holster_right / _up / _forward (the pipe's extramesh knifeturn sets it too).
 	void set_holster_knife_shift(float dx, float dy, float dz);
 	// #58: the primary in hand is hidden and tagged for its capture this frame; and its copy hangs at the
 	// sling (OpenXR LOCAL, the body's yaw) while another weapon is out.
