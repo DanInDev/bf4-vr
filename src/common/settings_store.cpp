@@ -133,7 +133,7 @@ namespace bfvr::settings
 			{ "c4_trigger", kind::boolean, 0, 0, 0, "1", "", "with the C4 out, the off-hand trigger throws a C4 (the game's aim button); the gun-hand trigger on the detonator sets them off" },
 			{ "squad_signal", kind::boolean, 0, 0, 0, "1", "", "squad order (Q): raise the off hand to eye level or above, a little ahead of your head (a fist over the head), and squeeze the grip" },
 			{ "grenade", kind::choice, 0, 0, 0, "physical", "button|physical", "grenades: the game's button (LB), or by hand (belt, pin, throw)" },
-			{ "grenade_throw_scale", kind::real, 0.5f, 4.0f, 0.1f, "1.5", "", "physical grenades: launch speed = hand speed times this" },
+			{ "grenade_throw_scale", kind::real, 0.5f, 6.0f, 0.1f, "2.5", "", "physical grenades: launch speed = hand speed times this (owner 2026-11-24: 1.5 threw short)" },
 			{ "grenade_throw_aim", kind::boolean, 0, 0, 0, "1", "", "a thrown grenade goes along your hand's motion: the game's aim turns with the throw for that moment and it starts at your hand (#85; off: the old way, which a stick or snap turn and looking up or down sent elsewhere)" },
 			{ "reload_sounds", kind::boolean, 0, 0, 0, "1", "", "sounds for magazines, chambering, grenade pouch and pin (a WAV in bfvr_sounds replaces one)" },
 			{ "magazine_reach", kind::real, 0.08f, 0.25f, 0.01f, "0.13", "", "physical reload: the off hand grabs or stows a magazine this close to the zone from the low chest to the off-side hip, metres" },

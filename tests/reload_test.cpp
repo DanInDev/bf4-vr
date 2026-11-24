@@ -1385,6 +1385,44 @@ namespace
 		expect(!r.holding && !r.off_busy, "hand empty after the throw");
 	}
 
+	// Owner 2026-11-24: the pin by hand was hard. A squeeze made a moment before the hand reaches the grenade (the
+	// usual motion: let go of the gun, close the hand on the way to the ring) takes the pin; an old one does not.
+	void test_grenade_pin_early_squeeze()
+	{
+		for (int pass = 0; pass < 2; ++pass)
+		{
+			const bool late = pass == 1;
+			grenade_rig g;
+			g.frame.gun_grip = true; // the gun hand holds the gun
+			g.step();
+			g.frame.off_hand = g.frame.belt;
+			g.frame.off_grip = true;
+			g.step();
+			g.move({ -0.1f, -0.3f, -0.3f }, 0.3f);
+			g.frame.gun_grip = false; // lets go of the gun
+			g.step();
+			g.frame.gun_grip = true; // and closes 20 cm short of the grenade
+			g.frame.gun_hand = { 0.1f, -0.28f, -0.3f };
+			g.step();
+			for (int i = 0; i < (late ? 60 : 18); ++i) // 0.2 s on the way, or held 0.67 s before arriving
+			{
+				g.step();
+			}
+			g.frame.gun_hand = { -0.05f, -0.28f, -0.3f };
+			g.step();
+			g.frame.gun_hand = { 0.03f, -0.25f, -0.3f };
+			const grenade_result r = g.step();
+			if (late)
+			{
+				expect(!r.armed, "a squeeze held long before arriving (holding the gun) does not take the pin");
+			}
+			else
+			{
+				expect(r.event == grenade_event::pin_pulled && r.armed, "squeezed on the way, arriving at the grenade: pin pulled");
+			}
+		}
+	}
+
 	// Headset 2026-11-14: looking down tipped every zone forward and down with the eyes. The level head is where
 	// the eyes would be with the head level, about the neck: the same for any pitch and roll, turning with the yaw.
 	void test_level_head()
@@ -2713,6 +2751,7 @@ int main()
 	test_hands_loose_on_ground();
 	test_accessory_touch();
 	test_grenade_throw();
+	test_grenade_pin_early_squeeze();
 	test_grenade_either_hand();
 	test_grenade_teeth();
 	test_level_head();

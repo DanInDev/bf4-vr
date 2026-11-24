@@ -389,7 +389,8 @@ x_menu = 1
 reload_sounds = 1
 # #82: loudness of the grenade pin pull (0 silent .. 1 full); a bfvr_sounds\pin.wav still replaces the sound.
 pin_volume = 0.35
-grenade_throw_scale = 1.5
+# Throw strength: launch speed = hand speed x this (0.5..6). Owner 2026-11-24: 1.5 threw accurately but short.
+grenade_throw_scale = 2.5
 # #85: a thrown grenade goes along the hand's motion (the game's aim turns with the throw for that moment, the start is
 # the hand); 0 = the old way, which stick or snap turns and looking up or down sent elsewhere.
 grenade_throw_aim = 1

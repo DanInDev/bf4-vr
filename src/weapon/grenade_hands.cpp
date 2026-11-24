@@ -80,6 +80,14 @@ namespace bfvr::weapon
 		last_off_grip_ = frame.off_grip;
 		last_gun_grip_ = frame.gun_grip;
 		clock_ += frame.seconds;
+		if (off_pressed)
+		{
+			off_pressed_at_ = clock_;
+		}
+		if (gun_pressed)
+		{
+			gun_pressed_at_ = clock_;
+		}
 
 		if (!frame.hands_valid)
 		{
@@ -122,7 +130,8 @@ namespace bfvr::weapon
 		const v3 holder = gun_holds ? frame.gun_hand : frame.off_hand;
 		const v3 puller = gun_holds ? frame.off_hand : frame.gun_hand;
 		const bool puller_grip = gun_holds ? frame.off_grip : frame.gun_grip;
-		const bool puller_pressed = gun_holds ? off_pressed : gun_pressed;
+		// Owner 2026-11-24: a squeeze made on the way to the ring counts when the hand gets there (pin_press_grace).
+		const bool puller_squeezed_lately = puller_grip && clock_ - (gun_holds ? off_pressed_at_ : gun_pressed_at_) <= config_.pin_press_grace;
 		const bool holder_released = gun_holds ? gun_released : off_released;
 		history_[history_next_] = { clock_, holder };
 		history_next_ = (history_next_ + 1) % history_size;
@@ -153,7 +162,7 @@ namespace bfvr::weapon
 			}
 			if (!armed_)
 			{
-				if (puller_pressed && pin_distance < config_.reach_pin)
+				if (!pin_held_ && puller_squeezed_lately && pin_distance < config_.reach_pin)
 				{
 					pin_held_ = true;
 					pin_start_ = puller;
