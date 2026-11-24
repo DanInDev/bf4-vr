@@ -119,6 +119,9 @@ namespace bfvr::stereo
 		float standing_eye{ 1.565f }; // the game's camera above the soldier's feet standing (live, AK-12 soldier)
 		std::atomic<float> stance_drop{};
 		std::atomic<float> stance_lift{};
+		// #154 (owner 2026-11-24): the soldier's eye (1.565 m above the feet) sat lower than the squad's heads. The view,
+		// the body rig and the shot origin all rise by this (setting extra_height), as they do for the physical stance.
+		std::atomic<float> extra_eye_height{ 0.12f };
 		std::atomic<int> stance_wanted{};
 
 		// The game camera's height above the local soldier's feet: the first-person animatable component
@@ -651,6 +654,8 @@ namespace bfvr::stereo
 					// The camera is level here (controller aim): its up is the world's.
 					eye_pose.position[1] += update_physical_stance(params, eye_math::centre_pose(head).position[1]);
 				}
+				// #154: the extra height (in physical_stance_lift too, so the rig and the shot origin rise with it).
+				eye_pose.position[1] += extra_eye_height.load(std::memory_order_relaxed);
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
 				lean_sample lean;
@@ -1067,7 +1072,13 @@ namespace bfvr::stereo
 
 	float physical_stance_lift()
 	{
-		return physical_stance_on.load(std::memory_order_relaxed) ? stance_lift.load(std::memory_order_relaxed) : 0.0f;
+		return (physical_stance_on.load(std::memory_order_relaxed) ? stance_lift.load(std::memory_order_relaxed) : 0.0f)
+			+ extra_eye_height.load(std::memory_order_relaxed);
+	}
+
+	void set_extra_height(float metres)
+	{
+		extra_eye_height = std::isfinite(metres) ? std::fmax(-0.3f, std::fmin(0.5f, metres)) : 0.0f;
 	}
 
 	std::string stance_report()

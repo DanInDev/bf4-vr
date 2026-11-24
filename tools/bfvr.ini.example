@@ -258,6 +258,9 @@ hud_magazine_check = 1
 body_calibration = first
 body_calibrate_now = 0
 body_height = 0
+# #154: the view (with the arms, the gun and the shots) this many cm above the soldier's own eye (1.565 m), which
+# sat lower than the squad's heads. 0 = the game's eye.
+extra_height = 12
 body_span = 0
 # Body size by hand (#50), metres, 0 = from body_height: shoulder joints below the eyes (0.22 at 1.78 m),
 # chest pouches and knife in front of the eyes (0.10), hip holsters below the eyes (0.75).
