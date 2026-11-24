@@ -1263,6 +1263,40 @@ LT (`game_fov` 45 -> 17.2, `aiming=1`), the eye image above the gun changed by 0
 0.61 between two hip shots: the eye renders keep the headset's view. A reticle cannot be compared against the game's
 own aim picture in VR; its art spans `size` of the screen at the level's FOV by the game's own definition.
 
+## Every optic's own reticle in its glass (2026-11-24, monitor, Shanghai, owner)
+
+Owner: no mod dot in a scope; the game's own reticle (the ACOG's chevron, bars and range ladder, the 8x crosshair, the
+PKS-07's chevrons). Found with pipe `reticle grab <folder> <count> <start> <dest blend> <nth>` (the eye render's nth
+lens-state draw with those numbers: a plain grab caught fire particles, which share 6 indices, stencil 2 and
+ONE / INV_SRC_ALPHA) and `glassdebug 1` + `scope` (every reticle quad's bound constant blocks, read at the draw).
+
+- **The ACOG has two reticle quads**: lines (t3 512x256, alpha = the art, RGB **black**: the side bars with ticks and the
+  4 / 6 ladder) and a chevron (t3 128x128, RGB **white**, the game tints it red: its own draw, `sight_lens 0`, gave
+  (215, 36, 31)). The PSO-1 the same: lines 512x512 (rangefinder curve, 10 marks, chevrons) and the same chevron. The
+  lens shader used only the art's alpha in one red, so the black bars were red and the art was assumed square and
+  centred.
+- **Their material (ps cb1, read at the draw with `read_arena_block`)**: float 8 the art's height (screen fraction at
+  its zoom level), **float 12 the quad's aspect** (width / height: ACOG lines 2, chevron 0.65; the game's own draw of
+  the chevron measured 0.62), **floats 16-17 the art's point on the sight line** (ACOG lines 0.5 0.11 = the bar line;
+  PSO lines 0.6 0.162). A grab's late copy of a ring buffer block is unreliable (the SRS's read as garbage).
+- **The SRS's scopes (8x rifle, PKS-07, ballistic) have no material**: another pixel shader, cb1 unused (it holds the
+  previous draw's block), vs cb0 a plain world matrix. The art is a **quad of the scope's model**: vertices 28 bytes,
+  position 4 halves at 0, uv 2 halves at 24, model +x left. Its origin is where the sight line crosses it: the ACOG's
+  line quad puts the origin at uv (0.50, 0.11), exactly its material anchor. 8x: 6.6 x 6.4 cm centred; PKS-07: 6.6 x
+  3.7 cm, origin at v 0.025 (the bar line, top chevron). Its scale is not in the data; in BF4's own scope pictures the
+  art's width is about the scope's circle, 0.8 of the screen height at the zoom level (`lens_math::scope_art_span`).
+- The ACOG also draws a material quad of size 1 anchored at its corner (1, 1) and a model quad with its origin at a
+  corner: both are refused (the line must cross the art).
+
+In the mod (`stereo/eye_pass`): each reticle quad of a magnifying optic is kept per eye render with its texture,
+aspect, anchor and span (material, or the quad read back once per buffer place); the glass (and the SRS's virtual
+eyepiece, whose red dot is now only a fallback) samples them by the slope off the line, magnified with the world, in
+the art's colours (dark lines dark, white marks in the sight's red); scope quads are not drawn on the lens quads.
+Monitor (fake head, right eye on the line, Shanghai's windows; `scope` `glass_arts`): AUG ACOG 2 arts (bars, 4 / 6,
+chevron), SRS 8x 1 (mil-dot crosshair), PKS-07 1 (chevrons, 10 scale), ballistic 1 (fine crosshair), SV-98 PSO-1 2
+(rangefinder, red chevron), each over the magnified city in its glass. The PSO-1 on the SRS's side mount was not
+judged (the hold search put its glass at the wall).
+
 ## The red square on every sight (2026-11-20 night, monitor, Shanghai, #93)
 
 Every gun draws two additive (ONE / ONE) 6-index quads with stencil ref 2 and no depth write, iron sights included

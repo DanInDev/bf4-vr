@@ -1,6 +1,8 @@
 #include "stereo/lens_math.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace bfvr::stereo
 {
@@ -36,6 +38,130 @@ namespace bfvr::stereo
 	float glass_reticle_span(float span, float power)
 	{
 		return power >= 1.0f && std::isfinite(power) ? span * power : 0.0f;
+	}
+
+	reticle_material read_reticle_material(const float (&block)[20])
+	{
+		reticle_material art;
+		const float size = block[8];
+		const float aspect = block[12];
+		const float u = block[16], v = block[17];
+		const auto finite = [](float x) { return std::isfinite(x); };
+		// The sight line crosses the art (the ACOG also draws a full-height quad anchored at its corner, 1 1).
+		art.known = finite(size) && finite(aspect) && finite(u) && finite(v) && size > 0.001f && size <= 4.0f && aspect >= 0.1f && aspect <= 10.0f && u > 0.01f
+			&& u < 0.99f && v > 0.01f && v < 0.99f;
+		if (art.known)
+		{
+			art.size = size;
+			art.aspect = aspect;
+			art.anchor[0] = u;
+			art.anchor[1] = v;
+		}
+		else if (finite(size) && size > 0.001f && size < 0.5f)
+		{
+			art.size = size;
+		}
+		return art;
+	}
+
+	float half_to_float(std::uint16_t half)
+	{
+		const int sign = (half >> 15) & 1;
+		const int exponent = (half >> 10) & 0x1f;
+		const int mantissa = half & 0x3ff;
+		float value = 0.0f;
+		if (exponent == 0)
+		{
+			value = std::ldexp(static_cast<float>(mantissa), -24);
+		}
+		else if (exponent == 31)
+		{
+			value = mantissa ? std::numeric_limits<float>::quiet_NaN() : std::numeric_limits<float>::infinity();
+		}
+		else
+		{
+			value = std::ldexp(1.0f + static_cast<float>(mantissa) / 1024.0f, exponent - 15);
+		}
+		return sign ? -value : value;
+	}
+
+	bool scope_art_from_quad(const float (&position)[4][2], const float (&uv)[4][2], reticle_material& art)
+	{
+		float low[2]{ position[0][0], position[0][1] }, high[2]{ low[0], low[1] };
+		for (const auto& p : position)
+		{
+			for (int axis = 0; axis < 2; ++axis)
+			{
+				if (!std::isfinite(p[axis]))
+				{
+					return false;
+				}
+				low[axis] = (std::min)(low[axis], p[axis]);
+				high[axis] = (std::max)(high[axis], p[axis]);
+			}
+		}
+		const float width = high[0] - low[0], height = high[1] - low[1];
+		if (width < 0.002f || height < 0.002f || width > 0.2f || height > 0.2f || low[0] > 0.0f || high[0] < 0.0f || low[1] > 0.0f || high[1] < 0.0f)
+		{
+			return false;
+		}
+		// uv at the origin, from how uv runs along x and along y over the corners (an axis-aligned quad).
+		float origin_uv[2]{};
+		for (int axis = 0; axis < 2; ++axis)
+		{
+			int at_low = -1, at_high = -1;
+			for (int k = 0; k < 4; ++k)
+			{
+				if (std::fabs(position[k][axis] - low[axis]) < 1e-4f && at_low < 0)
+				{
+					at_low = k;
+				}
+				if (std::fabs(position[k][axis] - high[axis]) < 1e-4f && at_high < 0)
+				{
+					at_high = k;
+				}
+			}
+			if (at_low < 0 || at_high < 0)
+			{
+				return false;
+			}
+			// The texture coordinate that changes along this axis (u along x, v along y).
+			const float from = uv[at_low][axis], to = uv[at_high][axis];
+			if (std::fabs(to - from) < 0.25f)
+			{
+				return false;
+			}
+			const float t = (0.0f - low[axis]) / (high[axis] - low[axis]);
+			origin_uv[axis] = from + t * (to - from);
+		}
+		art.size = 0.0f; // no material size: scope_art_span
+		art.aspect = width / height;
+		art.anchor[0] = origin_uv[0];
+		art.anchor[1] = origin_uv[1];
+		art.known = false;
+		// The line crosses the art, not its corner or edge (the ACOG also draws a quad with its origin at a corner).
+		constexpr float margin = 0.01f;
+		return origin_uv[0] > margin && origin_uv[0] < 1.0f - margin && origin_uv[1] > margin && origin_uv[1] < 1.0f - margin;
+	}
+
+	float scope_art_span(float aspect, float level_fov_degrees)
+	{
+		if (!(aspect > 0.0f) || !(level_fov_degrees > 0.5f) || level_fov_degrees >= 170.0f)
+		{
+			return 0.0f;
+		}
+		return scope_art_width_of_screen * 2.0f * std::tan(0.5f * level_fov_degrees * 3.14159265f / 180.0f) / aspect;
+	}
+
+	bool reticle_art_uv(const reticle_material& art, float span, const float (&slope)[2], float (&uv)[2])
+	{
+		if (!(span > 0.0f) || !(art.aspect > 0.0f))
+		{
+			return false;
+		}
+		uv[0] = art.anchor[0] + slope[0] / (span * art.aspect);
+		uv[1] = art.anchor[1] - slope[1] / span;
+		return uv[0] >= 0.0f && uv[0] <= 1.0f && uv[1] >= 0.0f && uv[1] <= 1.0f;
 	}
 
 	bool lens_axes(const float (&along)[3], const float (&up)[3], float (&right_out)[3], float (&up_out)[3])
