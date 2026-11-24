@@ -1968,6 +1968,7 @@ namespace bfvr::xr
 		bool letterbox_pending{};
 		bool letterboxed{};
 		unsigned letterbox_tick{};
+		unsigned letterbox_scope_overrides{}; // #145: a menu reading undone because a scope picture was being made
 
 		void watch_letterbox(ID3D11Texture2D* back_buffer)
 		{
@@ -1979,6 +1980,21 @@ namespace bfvr::xr
 				|| desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM;
 			if (!four_bytes || desc.SampleDesc.Count != 1 || desc.Height < 400)
 			{
+				return;
+			}
+			// #145 (headset 2026-11-24): while a magnified optic's picture is being made the game is live, no menu is up. The
+			// scope render goes into this back buffer, scissored to the lens (black above and below), before the eye image
+			// is put back: read in that window the rows looked like a menu's letterbox, and the theater dropped to the flat
+			// screen (the SteamVR void flickering in, 35 switches in one session, some for 15-25 s).
+			if (const stereo::scope_image scope = stereo::latest_scope_image(); scope.texture && GetTickCount64() - scope.at < 300)
+			{
+				letterbox_pending = false;
+				if (letterboxed)
+				{
+					letterboxed = false;
+					++letterbox_scope_overrides;
+					log::write("theater: a scope picture is being made: no menu (letterbox reading undone, %u)", letterbox_scope_overrides);
+				}
 				return;
 			}
 			ComPtr<ID3D11DeviceContext> context;
