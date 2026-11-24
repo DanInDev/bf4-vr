@@ -3185,9 +3185,18 @@ namespace bfvr::body
 				const float tilt_x_half = half_radian * (35.0f + holster_knife_turn[1].load(std::memory_order_relaxed));
 				const float tilt_z_half = half_radian * holster_knife_turn[2].load(std::memory_order_relaxed);
 				const ik::quat about_blade{ 0, std::sin(about_half), 0, std::cos(about_half) };
-				const ik::quat tilt{ ik::quat{ std::sin(tilt_x_half), 0, 0, std::cos(tilt_x_half) } * ik::quat{ 0, 0, std::sin(tilt_z_half), std::cos(tilt_z_half) } };
+				// #151 (2026-11-24): tip ([1]) and lean ([2]) turn the hung knife about the body's own left-right and forward
+				// axes, outside the turn about the blade. Inside it (as before) a lean with the default turn of 90 tipped
+				// the knife forward instead, and no slider could stand it up.
+				const ik::quat base_tilt{ std::sin(half_radian * 35.0f), 0, 0, std::cos(half_radian * 35.0f) };
+				// Monitor 2026-11-24 (knife floated ahead, front and side views): the blade lay level, pointing forward
+				// (seen from above it crossed the lap); tipped -90 about the body's left-right axis it hangs blade down,
+				// handle up. The tip setting adds to that.
+				constexpr float hang_tip = -90.0f;
+				const float tip_half = tilt_x_half - half_radian * 35.0f + half_radian * hang_tip;
+				const ik::quat user_tilt{ ik::quat{ std::sin(tip_half), 0, 0, std::cos(tip_half) } * ik::quat{ 0, 0, std::sin(tilt_z_half), std::cos(tilt_z_half) } };
 				const ik::quat half_round{ 0, 0, 1, 0 };
-				sheath.rotation = ik::normalize(frame * body_yaw * about_blade * tilt * ray_down * half_round * hold * anchor.rotation);
+				sheath.rotation = ik::normalize(frame * body_yaw * user_tilt * about_blade * base_tilt * ray_down * half_round * hold * anchor.rotation);
 				// The grip, not the knife's own origin, at the grab spot.
 				sheath.position = sheath.position - ik::rotate(sheath.rotation, has_knife_grip ? knife_grip_in_anchor : knife_grip_default);
 				ik::bone_transform root = ik::compose(ik::compose(ik::inverse(local[0]), sheath), ik::inverse(anchor));
