@@ -1212,6 +1212,9 @@ namespace bfvr::stereo
 		std::uint64_t glass_area[2][glass_max_quads]{};
 		std::uint64_t glass_on_line[2][glass_max_quads]{};
 		glass_choice glass_kept[2];
+		std::uint64_t open_glass_optic{}; // render thread, #145: the optic last seen with its own glass on the line
+		int glass_on_line_run{};          // render thread: the sighting eye's renders in a row with its glass on the line
+		std::atomic<std::uint64_t> open_glass_seen{}; // the report's copy
 		std::atomic<float> glass_field_seen{};
 		std::atomic<float> scope_eye_box_m{ glass_eye_box }; // setting scope_eye_box (#139, owner 2026-11-24)
 		std::atomic<std::uint64_t> glass_fallbacks{};
@@ -1464,7 +1467,8 @@ cbuffer corners : register(b0)
 	float4 glass;  // picture uv per world tangent, the lens quads that are the glass (bits), 1 = dark (not the sighting eye)
 	float4 colour; // the reticle's light marks
 	float4 arts[3]; // the optic's own reticle arts: their point on the line (uv), height span (slope), aspect
-	float4 art_count;
+	float4 art_count;  // x: arts; yzw: the picture's right (#158)
+	float4 picture_up; // xyz: the picture's up, in this eye's view space
 };
 Texture2D picture : register(t0);
 Texture2D mask : register(t1);
@@ -1538,11 +1542,14 @@ float4 ps_glass(v2p i) : SV_Target
 		if (virtual_eyepiece && art_count.x < 0.5 && length(slope) < 0.0035) // an aim point when no reticle art was seen
 			return float4(colour.rgb, 1.0);
 		// The world at slope / power off the line (right.w: the power), found in the picture, which is rendered along
-		// this eye's own axis (glass.x: uv per world tangent).
+		// the scope camera, the gun's line (#158: its axes in this eye's view; glass.x: uv per world tangent).
 		float3 way = along.xyz + (right.xyz * slope.x + up.xyz * slope.y) / right.w;
-		if (way.z < 0.0)
+		float3 picture_right = art_count.yzw;
+		float3 picture_ahead = cross(picture_up.xyz, picture_right);
+		float forward = dot(way, picture_ahead);
+		if (forward > 0.0)
 		{
-			float2 uv = 0.5 + float2(way.x, -way.y) / -way.z * glass.x;
+			float2 uv = 0.5 + float2(dot(way, picture_right), -dot(way, picture_up.xyz)) / forward * glass.x;
 			if (length(uv - 0.5) <= 0.5)
 				seen = picture.SampleLevel(linear_clamp, uv, 0).rgb;
 		}
@@ -1699,7 +1706,23 @@ float4 ps_glass(v2p i) : SV_Target
 			// line, else (its own glass closed, the SRS's hip model) a virtual eyepiece on the line; only to the eye behind
 			// the sight (a real scope shows nothing to the eye beside it). Never the flat picture then.
 			const bool glass_mode = scope_glass_on.load(std::memory_order_relaxed) && lens_image.magnification >= glass_min_power;
-			const bool virtual_eyepiece = glass_mode && !masked && lens_image.eye == which;
+			// #145 (headset 2026-11-24): the virtual eyepiece is only for an optic whose own glass is closed. A flip magnifier,
+			// or an optic whose glass has been on the line since it was raised, has its own glass: with the eye a little off
+			// the line it showed a second, flat disc 15 cm ahead of the eye in front of the real optic.
+			const std::uint64_t optic = optic_id_now();
+			if (lens_image.eye == which)
+			{
+				// Fifteen eye renders in a row with a lens draw on the line: a lens draw crossing it for a moment as the gun
+				// moves (the SRS's) is no open glass.
+				glass_on_line_run = glass_mode && masked && bits != 0 ? glass_on_line_run + 1 : 0;
+				if (glass_on_line_run >= 15)
+				{
+					open_glass_optic = optic;
+					open_glass_seen = optic;
+				}
+			}
+			const bool closed_eyepiece = optic != 0 && optic != open_glass_optic && !optic_is_magnifier_now();
+			const bool virtual_eyepiece = glass_mode && !masked && lens_image.eye == which && closed_eyepiece;
 			const bool glass = (glass_mode && masked) || virtual_eyepiece || (masked && glass_debug.load(std::memory_order_relaxed) == 1);
 			if (virtual_eyepiece)
 			{
@@ -1815,7 +1838,7 @@ float4 ps_glass(v2p i) : SV_Target
 				{
 					const float zero[2]{};
 					float line_uv[2]{};
-					glass_picture_uv(along, r, u, zero, lens_image.magnification, lens_image.lens_tan, line_uv);
+					glass_picture_uv(along, r, u, zero, lens_image.magnification, lens_image.lens_tan, lens_image.picture, line_uv);
 					glass_line_uv[0] = line_uv[0];
 					glass_line_uv[1] = line_uv[1];
 				}
@@ -1835,6 +1858,11 @@ float4 ps_glass(v2p i) : SV_Target
 					}
 				}
 				const float field = glass_field_stop(eye_off, scope_eye_box_m.load(std::memory_order_relaxed));
+				if (virtual_eyepiece && field <= 0.0f)
+				{
+					++lens_skipped; // the eye is not behind the closed scope's eyepiece: nothing to see through it
+					return false;
+				}
 				// The virtual eyepiece sits where the flat picture's lens would (14.8 cm ahead of the sight's eye point).
 				float quad_view[3]{};
 				to_view(eye, lens_image.quad.position, quad_view);
@@ -1845,7 +1873,11 @@ float4 ps_glass(v2p i) : SV_Target
 				const int art_eye = which == 1 ? 1 : 0;
 				const int arts = glass_art_count[art_eye];
 				glass_arts_seen = arts;
-				const float glass_constants[11][4]{
+				// #158: the picture's axes in this eye's view (both eyes share the orientation).
+				float picture_right[3]{}, picture_up[3]{};
+				rotate_by(lens_image.picture, x_axis, picture_right);
+				rotate_by(lens_image.picture, y_axis, picture_up);
+				const float glass_constants[12][4]{
 					{ 0.0f, 0.0f, width, height },
 					{ projection_sx, projection_sy, static_cast<float>(mask_desc.Width) / width, static_cast<float>(mask_desc.Height) / height },
 					{ r[0], r[1], r[2], lens_image.magnification },
@@ -1856,7 +1888,8 @@ float4 ps_glass(v2p i) : SV_Target
 					{ glass_arts[art_eye][0].anchor[0], glass_arts[art_eye][0].anchor[1], glass_arts[art_eye][0].span, glass_arts[art_eye][0].aspect },
 					{ glass_arts[art_eye][1].anchor[0], glass_arts[art_eye][1].anchor[1], glass_arts[art_eye][1].span, glass_arts[art_eye][1].aspect },
 					{ glass_arts[art_eye][2].anchor[0], glass_arts[art_eye][2].anchor[1], glass_arts[art_eye][2].span, glass_arts[art_eye][2].aspect },
-					{ static_cast<float>(arts), 0.0f, 0.0f, 0.0f },
+					{ static_cast<float>(arts), picture_right[0], picture_right[1], picture_right[2] },
+					{ picture_up[0], picture_up[1], picture_up[2], 0.0f },
 				};
 				std::memcpy(&clip[4][0], glass_constants, sizeof(glass_constants));
 				for (int k = 0; k < glass_max_arts; ++k)
@@ -3919,7 +3952,8 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			lens_debug_centre[1][2], lens_debug_centre[1][3]);
 		std::string report = text;
 		char art_text[96];
-		std::snprintf(art_text, sizeof(art_text), "\n  scope_arts=%llu quad_reads=%llu glass_arts=%d", static_cast<unsigned long long>(scope_arts_noted.load()),
+		std::snprintf(art_text, sizeof(art_text), "\n  open_glass=%d magnifier=%d scope_arts=%llu quad_reads=%llu glass_arts=%d",
+			optic_id_now() != 0 && optic_id_now() == open_glass_seen.load() ? 1 : 0, optic_is_magnifier_now() ? 1 : 0, static_cast<unsigned long long>(scope_arts_noted.load()),
 			static_cast<unsigned long long>(scope_quad_reads.load()), glass_arts_seen.load());
 		report += art_text;
 		for (int k = 0; k < glass_max_arts && k < glass_arts_seen.load(); ++k)

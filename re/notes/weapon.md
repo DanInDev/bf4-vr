@@ -1202,7 +1202,18 @@ slope / P). Scopes and magnifiers then go without the game's aim. What was learn
   the first-person gun is drawn into the G-buffer (target `..BF20`, stencil 32) and lit together with the world, so
   there is no lit image without it (S1 dumps: the ref-32 draws all go to `..BF20` before the HDR pass `..DBE0`).
   Magnified, the housing filled the SRS glass black. Dead end; the picture is the scope render.
-- **The scope render keeps the eye's orientation.** Matched against an eye shot of the same direction (`s3where`,
+- **Corrected 2026-11-24 (#158): the scope render looks along the scope camera, the gun's sight line, not the eye.**
+  With the head straight (all the measurements below) eye and gun agree, which hid it. A fake head turned 25 degrees,
+  pitched 10 and rolled 20 (scratchpad `scoperot.py`: the picture's rotation and scale fitted against the eye's image)
+  gave the picture along the line every time (yaw +20.0 = the line's +20.0 in the eye, pitch 11, roll 20 against the
+  eye) at the asked FOV (scale 1.000). The glass then read the picture on the eye's axes: off by the angle between head
+  and gun, rolled with the head (owner, headset: "leaning in on the buttstock the view in the scope tilts right"), and
+  its render widened to 80-104 degrees to reach a line it already had at its centre (blurry). Now the glass reads the
+  picture on its own axes (`scope_image::picture`, the scope camera's orientation in the eye's view) and the render
+  reaches only the field stop around the line (ACOG 60 -> 32 degrees, `uv_per_tangent` 1.9 -> 3.1; 8x 6.2; `line_uv`
+  0.5 0.5). Monitor magnification through the ACOG (scratchpad `magnify.py`, the glass against a lowered-gun shot):
+  3.01 (head turned), 2.37 (rolled), 2.23 (straight, weak match) for its 2.74.
+- (Superseded, see above.) **The scope render keeps the eye's orientation.** Matched against an eye shot of the same direction (`s3where`,
   correlation 0.5): its picture is centred on the view's axis whatever the gun's pitch (hold level: centre at
   (1108, 1079) with the sight line's point at (1108, 1215); hold pitched 6 degrees up: both at the centre within
   15 px), at the FOV it is given (scale within ~13 % of the prediction). `scope_math::compose_rows` matches
@@ -1222,6 +1233,10 @@ slope / P). Scopes and magnifiers then go without the game's aim. What was learn
 - **The SRS's hip model has a closed eyepiece**: `glassdebug` puts the sight line's point on the scope's solid rear,
   its three lens draws in front of it (43-52k pixels), none on the line. Such an optic gets a **virtual eyepiece**: the
   same angle mapping in a 2 cm disc on the line (where the flat picture's lens was), with an aim dot.
+  #145 (headset 2026-11-24): it also came up for optics with their own glass whenever the eye was a little off the line
+  (AUG magnifier, `virtual` counting at 1.6-2.7 cm off): a flat disc with a red dot 15 cm ahead, in front of the real
+  optic. Now only for an optic that is no flip magnifier and has not had a lens draw on the line for 15 eye renders in a
+  row since it was raised (`scope` `open_glass`), and only while the eye is within the field stop's reach of the line.
 - The other eye gets no picture (a real scope shows nothing beside it); the flat picture never draws with the glass on.
 
 Monitor (fake head 0.064, CZ-805 hold, right eye 0.3-0.4 cm off the line; `scope`, `eyeshot2`, `eyeshot`):

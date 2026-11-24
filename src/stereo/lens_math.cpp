@@ -185,14 +185,30 @@ namespace bfvr::stereo
 	bool glass_picture_uv(const float (&along)[3], const float (&right)[3], const float (&up)[3], const float (&slope)[2], float power, float lens_tan,
 		float (&uv)[2])
 	{
+		const float identity[4]{ 0.0f, 0.0f, 0.0f, 1.0f };
+		return glass_picture_uv(along, right, up, slope, power, lens_tan, identity, uv);
+	}
+
+	bool glass_picture_uv(const float (&along)[3], const float (&right)[3], const float (&up)[3], const float (&slope)[2], float power, float lens_tan,
+		const float (&picture)[4], float (&uv)[2])
+	{
 		if (!(power >= 1.0f) || !(lens_tan > 1e-4f) || !std::isfinite(power) || !std::isfinite(lens_tan))
 		{
 			return false;
 		}
+		float eye_way[3]{};
+		for (int i = 0; i < 3; ++i)
+		{
+			eye_way[i] = along[i] + (right[i] * slope[0] + up[i] * slope[1]) / power;
+		}
+		// Into the picture's axes: rotate by the conjugate of its orientation (v' = v + 2w (u x v) + 2 u x (u x v), u = -xyz).
+		const float u[3]{ -picture[0], -picture[1], -picture[2] }, w = picture[3];
+		const float t[3]{ u[1] * eye_way[2] - u[2] * eye_way[1], u[2] * eye_way[0] - u[0] * eye_way[2], u[0] * eye_way[1] - u[1] * eye_way[0] };
+		const float tt[3]{ u[1] * t[2] - u[2] * t[1], u[2] * t[0] - u[0] * t[2], u[0] * t[1] - u[1] * t[0] };
 		float way[3]{};
 		for (int i = 0; i < 3; ++i)
 		{
-			way[i] = along[i] + (right[i] * slope[0] + up[i] * slope[1]) / power;
+			way[i] = eye_way[i] + 2.0f * w * t[i] + 2.0f * tt[i];
 		}
 		if (way[2] > -1e-4f)
 		{
