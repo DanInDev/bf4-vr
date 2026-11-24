@@ -3920,6 +3920,13 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 
 	bool scope_drawn_in_frame()
 	{
+		// #145 (headset 2026-11-24): with the glass on the picture is only ever in the optic's own glass (or the virtual
+		// eyepiece), in the frame; the theater's quad showed it a second time as a disc 15 cm ahead of the eye, in front of
+		// the optic (an OpenXR layer: no eye shot shows it, only the headset and the SteamVR view).
+		if (scope_glass_on.load(std::memory_order_relaxed))
+		{
+			return true;
+		}
 		static std::uint64_t seen = 0;
 		static ULONGLONG changed_at = 0;
 		const std::uint64_t now_draws = lens_draws.load(std::memory_order_relaxed);
