@@ -1597,6 +1597,7 @@ namespace bfvr::xr
 			const float distance = store.real("hud_distance", 1.5f);
 			const float width = store.real("hud_width", 1.3f);
 			const float height = width * static_cast<float>(hud_swapchain_height) / static_cast<float>(hud_swapchain_width);
+			const float right = 0.01f * store.real("hud_right", 0.0f), up = 0.01f * store.real("hud_up", 0.0f); // #156
 			const struct { const char* toggle; stereo::hud_layout::uv_rect rect; } pieces[] = {
 				{ "hud_show_main", upper_rect }, { "hud_show_bottom", lower_middle_rect },
 				{ "hud_show_minimap", minimap_piece }, { "hud_show_ammo", ammo_piece },
@@ -1612,8 +1613,8 @@ namespace bfvr::xr
 				placed.rect = piece.rect;
 				placed.width = (piece.rect.u1 - piece.rect.u0) * width;
 				placed.height = (piece.rect.v1 - piece.rect.v0) * height;
-				placed.placement.position[0] = (0.5f * (piece.rect.u0 + piece.rect.u1) - 0.5f) * width;
-				placed.placement.position[1] = (0.5f - 0.5f * (piece.rect.v0 + piece.rect.v1)) * height;
+				placed.placement.position[0] = (0.5f * (piece.rect.u0 + piece.rect.u1) - 0.5f) * width + right;
+				placed.placement.position[1] = (0.5f - 0.5f * (piece.rect.v0 + piece.rect.v1)) * height + up;
 				placed.placement.position[2] = -distance;
 				fill_quad(out[count++], placed, view_space);
 			}
@@ -1672,9 +1673,14 @@ namespace bfvr::xr
 			minimap_gesture.configure(watch);
 			const bool off_busy = weapon::grenade_in_hand() || weapon::off_hand_at_belt() || weapon::reload_owns_off_hand()
 				|| weapon::off_hand_on_gun() || weapon::off_hand_holds_gun();
-			if (minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds, off_busy) && store.boolean("hud_show_minimap", true))
+			// #156: while the VR panel is open the minimap and the counters stay shown, so their placement can be tuned there.
+			const bool tuning = ui::vr_panel_view().open;
+			const bool glance = minimap_gesture.update(head, hands.grip[0], hands.valid[0], seconds, off_busy);
+			if ((glance || (tuning && hands.valid[0])) && store.boolean("hud_show_minimap", true))
 			{
-				const float offset[3] = { left_handed ? -0.03f : 0.03f, 0.0f, 0.12f }; // above the inner forearm, towards the elbow
+				// Above the inner forearm, towards the elbow (hud_watch_side, hud_watch_along).
+				const float side = 0.01f * store.real("hud_watch_side", 3.0f);
+				const float offset[3] = { left_handed ? -side : side, 0.0f, 0.01f * store.real("hud_watch_along", 12.0f) };
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[0], offset, eye, store.real("hud_watch_width", 0.12f), minimap_rect, aspect));
 			}
 			// #56: the mag check (gun upside down, magazine looked at) and/or the side inspect (#26).
@@ -1686,14 +1692,17 @@ namespace bfvr::xr
 			inspect.upside_down = std::cos(store.real("hud_magcheck_roll", 120.0f) * degrees);
 			inspect.mag_hold = store.real("hud_magcheck_hold", 0.4f);
 			ammo_gesture.configure(inspect);
-			if (ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds) && store.boolean("hud_show_ammo", true))
+			const bool inspected = ammo_gesture.update(head, hands.grip[1], hands.valid[1], seconds);
+			if ((inspected || (tuning && hands.valid[1])) && store.boolean("hud_show_ammo", true))
 			{
 				// Upside down: just past the magazine (grip -y is up then); otherwise beside the gun's left side.
 				// on_body turns the quad to the eyes with its top up, so it never reads upside down.
 				const float* q = hands.grip[1].orientation;
 				const float grip_up_y = 1.0f - 2.0f * (q[0] * q[0] + q[2] * q[2]); // world y of the grip's +y axis
-				const float side_offset[3] = { left_handed ? 0.06f : -0.06f, 0.05f, -0.10f };
-				const float mag_offset[3] = { 0.0f, -0.11f, -0.08f };
+				// #156: hud_ammo_right / _up / _forward in the grip's axes (+x right, +y up, -z along the barrel).
+				const float dx = 0.01f * store.real("hud_ammo_right", 0.0f), dy = 0.01f * store.real("hud_ammo_up", 0.0f), dz = -0.01f * store.real("hud_ammo_forward", 0.0f);
+				const float side_offset[3] = { (left_handed ? 0.06f : -0.06f) + dx, 0.05f + dy, -0.10f + dz };
+				const float mag_offset[3] = { dx, -0.11f - dy, -0.08f + dz };
 				fill_quad(out[count++], stereo::hud_layout::on_body(hands.grip[1], grip_up_y < 0 ? mag_offset : side_offset, eye,
 					store.real("hud_ammo_width", 0.12f), counters_rect, aspect));
 			}

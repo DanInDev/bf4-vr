@@ -85,6 +85,7 @@ detailed checks. Sessions from now on ask for a few broad things, not the whole 
 
 | ID | Status | Check | Look for | Issue | Last result |
 | --- | --- | --- | --- | --- | --- |
+| HUD-15 | open | HUD placement on the panel (#156): open the panel, HUD page; with the panel open the forearm minimap and the gun counters stay shown. Move each with its sliders (minimap: size, along the arm, around the arm; counters: size, right, up, forward); with HUD placement = In front, move the HUD right and up; Save | Every slider moves its piece at once while you watch; after closing the panel they stay where you put them and show on the glance / mag check as before; tell me the values you like for the defaults | #156 | 2026-11-24: gate green; not checkable on the monitor (the HUD quads exist only with a headset session) |
 | HUD-1 | done | `hud_show_crosshair` (HUD page) on and off | The game's crosshair appears and goes; nothing else in the middle of the HUD changes | #28 |  2026-11-04: works |
 | HUD-2 | open | Fight with `hud_show_damage` off, then on (hit markers and score: HUD-11, off by default since #51) | Off: no red damage arcs. On: they come back | #28 |  2026-11-04: skipped: needs a fight (MARK4) |
 | HUD-3 | done | At the gadget stash with `hud_show_prompts` off, then `hud_show_objectives` off | Prompts off: no "open" prompt, while E or the use reach still opens it. Objectives off: note what goes | #28 |  2026-11-04: works |
