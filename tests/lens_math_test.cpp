@@ -57,6 +57,91 @@ int main()
 	expect(near(acog / span, 1.138f, 0.01f), "ACOG through its 2.74x glass: 1.14x the 1x span (its art is drawn for 17.2 degrees)");
 	expect(glass_reticle_span(span, 0.5f) == 0.0f, "below 1x: none");
 
+	// Owner 2026-11-24: the optic's own reticle material (ps cb1 as live, the AUG's ACOG quads).
+	{
+		const float lines_block[20]{ 1, 1, 1, 1, 1, 0, 0, 0, 0.135f, 0, 0, 0, 2.0f, 0, 0, 0, 0.5f, 0.11f, 0, 0 };
+		const reticle_material lines = read_reticle_material(lines_block);
+		expect(lines.known && lines.size == 0.135f && lines.aspect == 2.0f && lines.anchor[0] == 0.5f && lines.anchor[1] == 0.11f, "ACOG lines: size, aspect 2, anchor on the bar line");
+		const float chevron_block[20]{ 1, 1, 1, 1, 1, 0, 0, 0, 0.045f, 0, 0, 0, 0.65f, 0, 0, 0, 0.5f, 0.5f, 0, 0 };
+		expect(read_reticle_material(chevron_block).known && read_reticle_material(chevron_block).aspect == 0.65f, "ACOG chevron: aspect 0.65");
+		// A fire particle quad in the same state (live: 0.25 0 0 0 | 0 1.837 0 69.3 | 1.108 ...) is no reticle material.
+		const float fire_block[20]{ 0.25f, 0, 0, 0, 0, 1.837f, 0, 69.306f, 1.108f, 0, 1.4653f, 375.83f, 0, 0, 0, 1, 0.269f, 0.746f, 0.609f, 1.335f };
+		const reticle_material fire = read_reticle_material(fire_block);
+		expect(!fire.known && fire.size == 0.038f && fire.aspect == 1.0f, "fire quad: not a reticle, the old default");
+		// The ACOG's full-height quad anchored at its corner (live: size 1, aspect 1, anchor 1 1): not a reticle on the line.
+		const float corner_block[20]{ 1, 1, 1, 1, 1, 0, 0, 0, 1.0f, 0, 0, 0, 1.0f, 0, 0, 0, 1.0f, 1.0f, 0, 0 };
+		expect(!read_reticle_material(corner_block).known, "a material anchored at its corner: not the line's reticle");
+		// A material with only a size (as read before): that size, square and centred.
+		const float size_only[20]{ 0, 0, 0, 0, 0, 0, 0, 0, 0.040f };
+		const reticle_material old = read_reticle_material(size_only);
+		expect(!old.known && old.size == 0.040f && old.anchor[0] == 0.5f && old.anchor[1] == 0.5f, "size only: square, centred");
+
+		// On the line the art's anchor; the lines art's bar line is 0.11 down its height.
+		float uv[2]{};
+		const float zero[2]{};
+		const float lines_span = reticle_span(lines.size, 17.2f);
+		expect(reticle_art_uv(lines, lines_span, zero, uv) && near(uv[0], 0.5f) && near(uv[1], 0.11f), "on the line: the anchor");
+		// Half the art's width to the right is its right edge (width = aspect x the height span).
+		const float right_edge[2]{ 0.5f * lines_span * 2.0f * 0.999f, 0.0f };
+		expect(reticle_art_uv(lines, lines_span, right_edge, uv) && near(uv[0], 1.0f, 0.002f), "half the width right: the right edge");
+		// Above the line by more than 0.11 of the height: past the art's top (v down).
+		const float above[2]{ 0.0f, 0.12f * lines_span };
+		expect(!reticle_art_uv(lines, lines_span, above, uv), "above the bar line by 0.12 of the height: outside");
+		const float below[2]{ 0.0f, -0.5f * lines_span };
+		expect(reticle_art_uv(lines, lines_span, below, uv) && near(uv[1], 0.61f), "half the height below the line: v 0.61 (the ladder)");
+		expect(!reticle_art_uv(lines, 0.0f, zero, uv), "no span: nothing");
+	}
+
+	// Scope reticles from their quad's corners (live vertex bytes, 2026-11-24: position halves at byte 0, uv at byte 24).
+	{
+		expect(near(half_to_float(0x2837), 0.03293f, 1e-5f) && near(half_to_float(0xa81a), -0.03204f, 1e-5f) && half_to_float(0x3c00) == 1.0f
+				&& half_to_float(0x0000) == 0.0f && half_to_float(0x8000) == 0.0f,
+			"half floats");
+		const auto quad = [](const std::uint16_t (&words)[4][4], float (&position)[4][2], float (&uv)[4][2]) {
+			for (int k = 0; k < 4; ++k)
+			{
+				position[k][0] = half_to_float(words[k][0]);
+				position[k][1] = half_to_float(words[k][1]);
+				uv[k][0] = half_to_float(words[k][2]);
+				uv[k][1] = half_to_float(words[k][3]);
+			}
+		};
+		float position[4][2]{}, uv[4][2]{};
+		reticle_material art;
+		// The ACOG's line quad: its origin is the material's anchor (0.5, 0.11), the model's +x left (u runs the other way).
+		const std::uint16_t acog_lines[4][4]{ { 0xa834, 0x1af7, 0x3c00, 0x0000 }, { 0x283a, 0x1af7, 0x0000, 0x0000 }, { 0xa834, 0xa71f, 0x3c00, 0x3c00 },
+			{ 0x283a, 0xa71f, 0x0000, 0x3c00 } };
+		quad(acog_lines, position, uv);
+		expect(scope_art_from_quad(position, uv, art) && near(art.anchor[0], 0.5f, 0.01f) && near(art.anchor[1], 0.11f, 0.01f) && near(art.aspect, 2.1f, 0.05f),
+			"ACOG lines from the quad: the material's anchor, aspect ~2");
+		// The SRS's 8x rifle scope: a crosshair centred on the line, about square.
+		const std::uint16_t eight[4][4]{ { 0x2837, 0xa81a, 0x8000, 0x3c00 }, { 0xa837, 0xa81a, 0x3c00, 0x3c00 }, { 0x2837, 0x281b, 0x8000, 0x0002 },
+			{ 0xa837, 0x281b, 0x3c00, 0x0002 } };
+		quad(eight, position, uv);
+		expect(scope_art_from_quad(position, uv, art) && near(art.anchor[0], 0.5f, 0.01f) && near(art.anchor[1], 0.5f, 0.01f) && near(art.aspect, 1.03f, 0.02f),
+			"8x scope: centred, square");
+		// The PKS-07: 6.6 x 3.7 cm, the line near the top (its chevron and bar line).
+		const std::uint16_t pks[4][4]{ { 0x2833, 0xa899, 0x0000, 0x3c00 }, { 0xa83b, 0xa899, 0x3c00, 0x3c00 }, { 0xa83b, 0x1321, 0x3c00, 0x17a9 },
+			{ 0x2833, 0x1321, 0x0000, 0x17a9 } };
+		quad(pks, position, uv);
+		expect(scope_art_from_quad(position, uv, art) && near(art.anchor[0], 0.5f, 0.01f) && art.anchor[1] > 0.01f && art.anchor[1] < 0.05f && near(art.aspect, 1.79f, 0.03f),
+			"PKS-07: the line near its top");
+		// A fire particle's quad (metres away, not round the origin): no scope art.
+		const std::uint16_t fire[4][4]{ { 0x4129, 0x8029, 0x3c00, 0x3c00 }, { 0x4129, 0x0029, 0x3c00, 0x0000 }, { 0xc129, 0x8029, 0x0000, 0x3c00 },
+			{ 0xc129, 0x0029, 0x0000, 0x0000 } };
+		quad(fire, position, uv);
+		expect(!scope_art_from_quad(position, uv, art), "a large quad: no scope art");
+		// A quad whose origin is its corner (the ACOG draws one, anchor 1 1): no scope art.
+		const std::uint16_t corner[4][4]{ { 0x0000, 0x0000, 0x3c00, 0x3c00 }, { 0xa83b, 0x0000, 0x0000, 0x3c00 }, { 0x0000, 0x283b, 0x3c00, 0x0000 },
+			{ 0xa83b, 0x283b, 0x0000, 0x0000 } };
+		quad(corner, position, uv);
+		expect(!scope_art_from_quad(position, uv, art), "origin at a corner: no scope art");
+		// Width 0.8 of the screen height at the level: the 8x at 8.7 degrees.
+		expect(near(scope_art_span(1.0f, 8.7f), 0.8f * 2.0f * std::tan(4.35f * 3.14159265f / 180.0f), 1e-5f) && scope_art_span(2.0f, 8.7f) < scope_art_span(1.0f, 8.7f)
+				&& scope_art_span(1.0f, 0.0f) == 0.0f,
+			"scope art span");
+	}
+
 	float right[3]{}, up[3]{};
 	{
 		// Straight ahead, upright: right is +x, up is +y.

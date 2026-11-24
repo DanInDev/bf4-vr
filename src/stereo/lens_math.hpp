@@ -21,6 +21,35 @@ namespace bfvr::stereo
 	// Seen through a glass of this power the art's world span is magnified with the world (0 below 1x).
 	float glass_reticle_span(float span, float power);
 
+	// Owner 2026-11-24: every optic's own reticle as the game has it. A reticle quad's material (its ps cb1, 20 floats):
+	// float 8 the art's height as a fraction of the screen height (at its zoom level's view), float 12 the quad's aspect
+	// (width / height: the ACOG's 512x256 lines 2, its 128x128 chevron 0.65), floats 16 and 17 the art's point (uv) that
+	// sits on the sight line (the ACOG's lines 0.5 0.11: the bar line under the chevron). Measured on the ACOG's quads drawn
+	// by the game's own shader (2026-11-24, re/notes/weapon.md "Every optic's own reticle").
+	struct reticle_material
+	{
+		float size{ 0.038f };
+		float aspect{ 1.0f };
+		float anchor[2]{ 0.5f, 0.5f };
+		bool known{}; // the block has the reticle material's layout (else size only, as before: aspect 1, centred)
+	};
+	reticle_material read_reticle_material(const float (&block)[20]);
+	// Where the art is seen at `slope` off the sight line (the gun's right / up, tangents): uv (v down) for an art spanning
+	// `span` (slope) in height. False outside the art.
+	bool reticle_art_uv(const reticle_material& art, float span, const float (&slope)[2], float (&uv)[2]);
+
+	// A scope's reticle (the SRS's rifle, PKS-07 and ballistic scopes) is another shader with no material: a quad of the
+	// scope's model (vertex: position as 4 halves at byte 0, uv as 2 halves at byte 24; model +x left, +y up) whose origin
+	// is where the sight line crosses it (the ACOG's line quad puts the origin exactly on its material anchor, 0.5 0.11).
+	// From its 4 corners: the aspect (width / height) and the origin's uv. False when the corners are no flat quad round
+	// the origin of at most 20 cm, or the origin is at its edge (a quad the ACOG draws with its origin at a corner).
+	float half_to_float(std::uint16_t half);
+	bool scope_art_from_quad(const float (&position)[4][2], const float (&uv)[4][2], reticle_material& art);
+	// Its height as a slope at its zoom level's view: in the game's own scope view the art's width is about the scope's
+	// circle, 0.8 of the screen height (BF4 PKS-07 and 8x pictures, owner 2026-11-24).
+	constexpr float scope_art_width_of_screen = 0.8f;
+	float scope_art_span(float aspect, float level_fov_degrees);
+
 	// The gun's right and up square to its sight line (all in one view space: x right, y up, -z ahead). False
 	// when up runs along the line.
 	bool lens_axes(const float (&along)[3], const float (&up)[3], float (&right_out)[3], float (&up_out)[3]);
