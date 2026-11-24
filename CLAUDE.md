@@ -232,6 +232,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   grips exist only on the crate's guns (#91, `re/notes/weapon.md` foregrips). The weapon crate opens headless with the use
   reach (`fakehand 0 0 -0.15 -0.60 -0.45 ...`, `pad 0 0 0 0 800 0100`) but its menu never closed again (Done, Enter,
   Esc, E, pad A): only a level restart. A fake controller's palm (grab zones) sits 6 cm behind its position (+z).
+  2026-11-24 (#95): not for the reload zones: `reload` measures them from its `palm=`, which is the controller's own
+  position (`off_hand=` is the one 6 cm behind). Put the controller on the magazine zone's centre: 6 cm ahead of it the
+  hand counts as on the handguard (> 3 cm ahead along the barrel) and the zone is skipped (`zone=handle`/`none`).
+  A teleported fakehand right after a magazine grab can seat it again: pull in 2 cm steps.
   Esc right after `dev-run -Resume` returns skips the Shanghai briefing (ready in 20 s instead of 2-3 min).
 - Repo Python tools run as `python -E -P tools\<tool>.py`; disassembly of the in-memory image:
   `python -E tools\disasm.py <dump.exe> <address> --full` (the dump stays outside git).
