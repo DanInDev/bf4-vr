@@ -32,18 +32,18 @@ namespace bfvr::weapon
 			{ "U_A91", feed::rock, release::none, false, true, cycle::none, true },        // AK magazines, bullpup
 			{ "U_GalilACE52", feed::rock, release::none, false, false, cycle::none, false },
 			{ "U_AK5C", feed::box, release::button, true, false, cycle::none, true }, // FNC pattern: a button (owner 2026-11-24 corrects #98 of 2026-11-19)
-			{ "U_G36C", feed::box, release::button, true, false, cycle::none, true },     // paddle release
+			{ "U_G36C", feed::box, release::none, true, false, cycle::none, true },       // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			{ "U_M4A1", feed::box, release::button, true, false, cycle::none, true },
-			{ "U_SG553LB", feed::box, release::button, true, false, cycle::none, true },
+			{ "U_SG553LB", feed::box, release::none, true, false, cycle::none, true },    // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			// Assault rifle
 			{ "U_AEK971", feed::rock, release::none, false, false, cycle::none, true },
 			{ "U_AK12", feed::rock, release::none, false, false, cycle::none, true },
-			{ "U_SteyrAug", feed::box, release::button, true, true, cycle::none, true },
+			{ "U_SteyrAug", feed::box, release::none, true, true, cycle::none, true },    // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			{ "U_CZ805", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_FAMAS", feed::box, release::button, false, true, cycle::none, false },
 			{ "U_M16A4", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_M416", feed::box, release::button, true, false, cycle::none, true },
-			{ "U_QBZ951", feed::box, release::button, false, true, cycle::none, false },
+			{ "U_QBZ951", feed::box, release::none, false, true, cycle::none, false },    // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			{ "U_SAR21", feed::box, release::button, true, true, cycle::none, true },
 			{ "U_SCAR-H", feed::box, release::button, true, false, cycle::none, true },
 			// LMG
@@ -51,13 +51,13 @@ namespace bfvr::weapon
 			{ "U_M249", feed::belt, release::lever, false, false, cycle::none, true },
 			{ "U_MG4", feed::belt, release::lever, false, false, cycle::none, true },
 			{ "U_Pecheneg", feed::belt, release::lever, false, false, cycle::none, true },
-			{ "U_QBB95", feed::drum, release::button, false, true, cycle::none, false },
+			{ "U_QBB95", feed::drum, release::none, false, true, cycle::none, false },    // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			{ "U_Type88", feed::belt, release::lever, false, false, cycle::none, true },
 			{ "U_Ultimax", feed::box, release::button, false, false, cycle::none, true },  // open bolt: no hold-open
 			// DMR
 			{ "U_MK11", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_M39EBR", feed::rock, release::none, true, false, cycle::none, true },     // M14: rock-in, hold-open
-			{ "U_QBU88", feed::box, release::button, true, true, cycle::none, true },
+			{ "U_QBU88", feed::box, release::none, true, true, cycle::none, true },       // paddle behind the well, worked by the magazine hand: by hand, no B (owner 2026-11-24, #98)
 			{ "U_RFB_SP", feed::rock, release::none, true, true, cycle::none, true },     // FAL magazines, bullpup
 			{ "U_SCAR-HSV", feed::box, release::button, true, false, cycle::none, true },
 			{ "U_SVD12", feed::rock, release::none, true, false, cycle::none, true },

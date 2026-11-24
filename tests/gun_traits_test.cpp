@@ -195,6 +195,18 @@ int main()
 	// #98: no release button on the P90 (owner, mark 31) and the UMP-45's paddle is worked by the magazine hand (owner
 	// 2026-11-24): the hand pulls the magazine out, B does not drop it. The AK 5C has a button after all (owner 2026-11-24).
 	expect(profile_for("U_AK5C", 31).kind == variant::ar && !profile_for("U_AK5C", 31).pull_out, "AK 5C: a button, B drops it");
+	// Owner 2026-11-24: every gun whose paddle sits behind the well (worked by the magazine hand) is taken out by hand, the
+	// QBB-95's drum too; trigger-guard paddles (gun hand) and buttons stay on B; the AK pattern stays rocked.
+	for (const char* name : { "U_UMP45", "U_G36C", "U_SG553LB", "U_SteyrAug", "U_QBZ951", "U_QBB95", "U_QBU88" })
+	{
+		const reload_profile profile = profile_for(name, 31);
+		expect(profile.kind == variant::ar && profile.pull_out, (std::string(name) + ": paddle behind the well, out by hand").c_str());
+	}
+	for (const char* name : { "U_M416", "U_M4A1", "U_SCAR-H", "U_Scorpion", "U_PP2000", "U_SV98", "U_FAMAS", "U_USAS-12_SP" })
+	{
+		expect(!profile_for(name, 31).pull_out, (std::string(name) + ": B still drops it").c_str());
+	}
+	expect(profile_for("U_AK12", 31).kind == variant::ak && !profile_for("U_AK12", 31).pull_out, "AK-12: still rocked out");
 	for (const char* name : { "U_P90", "U_UMP45" })
 	{
 		const reload_profile profile = profile_for(name, 51);
