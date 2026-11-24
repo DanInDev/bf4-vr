@@ -554,7 +554,9 @@ namespace bfvr::weapon
 			float angle = hinge_angle(reach) - lid_hand_offset_ - lid_closed_angle_;
 			angle = std::atan2(std::sin(angle), std::cos(angle));
 			lid_ = std::fmax(0.0f, std::fmin(1.0f, angle / lid_full));
-			if (!gun.state().lid_open && lid_ > 0.1f)
+			// #132: the revolver's cylinder opens only once swung out a third of the way (at a tenth, a hand gripping near it
+			// to hold the gun flipped it open).
+			if (!gun.state().lid_open && lid_ > (frame.revolver ? config_.revolver_open_fraction : 0.1f))
 			{
 				emit(result, gun.open_lid());
 			}
@@ -569,9 +571,31 @@ namespace bfvr::weapon
 			if (frame.revolver && gun.state().lid_open && frame.has_root && valid && frame.seconds > 1e-4f)
 			{
 				const float pitch = rotate(frame.root_rotation, { 0, 0, 1 }).y;
-				if (has_last_pitch_ && (pitch - last_pitch_) / frame.seconds > config_.flick_close_rate && lid_ > 0.9f)
+				// #132: tipped muzzle up with the cylinder out, it empties (once per tip); a flick that ends pointing that
+				// steeply up is the tip, not a close.
+				tipped_for_ = pitch > config_.empty_pitch && lid_ > 0.9f ? tipped_for_ + frame.seconds : 0.0f;
+				if (tipped_for_ >= config_.empty_seconds && !emptied_)
 				{
-					emit(result, gun.close_lid());
+					emit(result, gun.empty_cylinder());
+					emptied_ = true;
+				}
+				if (pitch < config_.empty_pitch * 0.5f)
+				{
+					emptied_ = false;
+				}
+				// The flick shuts it when it ends (the rise slows), and only if it ended no steeper than flick_close_max_pitch.
+				const bool rising_fast = has_last_pitch_ && (pitch - last_pitch_) / frame.seconds > config_.flick_close_rate;
+				if (rising_fast && lid_ > 0.9f)
+				{
+					flicking_ = true;
+				}
+				else if (flicking_)
+				{
+					flicking_ = false;
+					if (pitch < config_.flick_close_max_pitch)
+					{
+						emit(result, gun.close_lid());
+					}
 				}
 				last_pitch_ = pitch;
 				has_last_pitch_ = true;
@@ -579,6 +603,9 @@ namespace bfvr::weapon
 			else
 			{
 				has_last_pitch_ = false;
+				tipped_for_ = 0.0f;
+				emptied_ = false;
+				flicking_ = false;
 			}
 			const float target = gun.state().lid_open ? 1.0f : 0.0f;
 			const float step = config_.lid_swing_seconds > 0.0f ? frame.seconds / config_.lid_swing_seconds : 1.0f;

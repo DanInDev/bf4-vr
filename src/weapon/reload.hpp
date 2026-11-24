@@ -99,6 +99,7 @@ namespace bfvr::weapon
 		belt_dropped,     // belt: let go off the tray, it hangs from the box again
 		bolt_opened,      // turn bolt: lifted out of its lugs, free to come back (#96)
 		bolt_closed,      // turn bolt: turned down into its lugs, locked: the gun can fire
+		cylinder_emptied, // revolver: tipped muzzle up with the cylinder out, the rounds and cases fall out (#132)
 	};
 
 	// #78: the seated magazine left the gun (was_in, now out) and no magazine-out cue played for it this frame (a pull
@@ -169,6 +170,9 @@ namespace bfvr::weapon
 		// Belt-fed: the lid swung up or shut; the belt end taken from the box, laid on the tray, or let go elsewhere.
 		reload_event open_lid();
 		reload_event close_lid();
+		// #132: the revolver open and tipped muzzle up: whatever is in the cylinder falls out (to the reserve, or lost
+		// with drop_discards_ammo), as the ejector rod does.
+		reload_event empty_cylinder();
 		reload_event take_belt();
 		reload_event lay_belt();
 		reload_event drop_belt();

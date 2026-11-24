@@ -254,6 +254,10 @@ namespace bfvr::weapon
 		float belt_reach{ 0.09f };     // the hand this near the belt end (or the laid belt) takes it
 		float belt_lay{ 0.08f };       // the held belt end this near the feed tray lays itself
 		float flick_close_rate{ 3.0f }; // a revolver open: the barrel's up component rising this fast (1/s, ~170 deg/s) shuts it
+		float flick_close_max_pitch{ 0.5f };  // #132: ... unless it ends up pointing steeper than ~30 deg up (that is the tip to empty)
+		float revolver_open_fraction{ 0.35f }; // #132: the cylinder swung out by hand this far opens (a tenth flipped it open)
+		float empty_pitch{ 0.75f };     // #132: open and the barrel's up component above this (~50 deg up) ...
+		float empty_seconds{ 0.15f };   // ... this long: the cylinder empties
 		float pump_return{ 0.015f };   // ... and a stroke that reached rack_pull cycles once back within this of the start
 		float fall_seconds{ 0.6f };    // a dropped magazine falls this long, then disappears (no floor known, or flight off)
 		float flick_seat_delay{ 0.25f }; // AK: after the old magazine is knocked out, the new one seats this much later
@@ -386,6 +390,9 @@ namespace bfvr::weapon
 		bool belt_armed_{};        // the held belt end has been away from the tray (a belt lifted off it is not laid back at once)
 		float last_pitch_{};       // the revolver: the barrel's up component last frame (flick shut)
 		bool has_last_pitch_{};
+		float tipped_for_{};       // #132: seconds the open revolver has pointed steeply up
+		bool emptied_{};           // #132: emptied on this tip (again only after it came back down)
+		bool flicking_{};          // #132: the barrel is rising fast; the close is decided when the flick ends
 		bool bolt_hold_{};   // #96: the hand holds the turn bolt's knob
 		v3 bolt_offset_;      // the hand from the knob when it took it (gun axes)
 		float bolt_lift_{};   // 0..1, where the bolt is turned (stays when let go)

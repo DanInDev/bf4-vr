@@ -301,6 +301,22 @@ namespace bfvr::weapon
 		return reload_event::lid_opened;
 	}
 
+	reload_event reload::empty_cylinder()
+	{
+		if (!profile_.revolver || !state_.lid_open)
+		{
+			return reload_event::none;
+		}
+		const int rounds = state_.magazine_rounds + (state_.chamber ? 1 : 0);
+		state_.magazine_rounds = 0;
+		state_.chamber = false;
+		if (rounds > 0)
+		{
+			drop(rounds);
+		}
+		return reload_event::cylinder_emptied; // also with only spent cases in it: they fall out all the same
+	}
+
 	reload_event reload::close_lid()
 	{
 		if (!(profile_.belt || profile_.revolver) || !state_.lid_open)

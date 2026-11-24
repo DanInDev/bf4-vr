@@ -285,6 +285,7 @@ namespace bfvr::weapon
 			case reload_event::belt_dropped: return "belt_dropped";
 			case reload_event::bolt_opened: return "bolt_opened";
 			case reload_event::bolt_closed: return "bolt_closed";
+			case reload_event::cylinder_emptied: return "cylinder_emptied";
 			}
 			return "?";
 		}
@@ -313,7 +314,8 @@ namespace bfvr::weapon
 			case reload_event::magazine_in:
 			case reload_event::shell_loaded:
 			case reload_event::belt_laid: play_gun(cue::magazine_in); break;
-			case reload_event::lid_opened: play_gun(cue::magazine_out); break;
+			case reload_event::lid_opened:
+			case reload_event::cylinder_emptied: play_gun(cue::magazine_out); break;
 			case reload_event::lid_closed: play_gun(cue::chamber); break;
 			case reload_event::belt_taken:
 			case reload_event::belt_dropped: play_gun(cue::cloth); break;
@@ -345,6 +347,7 @@ namespace bfvr::weapon
 			case reload_event::shell_loaded:
 			case reload_event::belt_taken:
 			case reload_event::lid_opened: input::haptic(reloading_hand, input::pulses::tick); break;
+			case reload_event::cylinder_emptied: input::haptic(1 - reloading_hand, input::pulses::grab); break;
 			case reload_event::belt_laid:
 			case reload_event::lid_closed:
 				input::haptic(reloading_hand, input::pulses::seat);
@@ -1324,6 +1327,7 @@ namespace bfvr::weapon
 			pose.tilt_pivot = hand_config{}.palm_pivot_drop;
 			pose.ak = gun.profile().kind == variant::ak;
 			pose.shell = gun.profile().tube;
+			pose.speedloader = gun.profile().revolver;
 			pose.hold_drop = settings::global().boolean("magazine_by_gun", true) ? magazine_hold_drop(weapon.name) : 0.0f;
 			pose.position[0] = result.magazine_position.x;
 			pose.position[1] = result.magazine_position.y;
