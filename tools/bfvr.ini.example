@@ -547,6 +547,17 @@ slot_models_ahead = 0.08
 # #41: the knife on the chest hangs blade down, handle up; this turns it about its blade, degrees:
 # 90 = edge to your left, -90 = to your right, 0 = ahead.
 knife_holster_turn = 90
+# #151 (Body > Items on your body): the knife's tip (+ handle towards you) and sideways lean, degrees, and its
+# place from the grab spot in cm (right, up, forward); the same for the grenade at its pouch, plus its turn.
+knife_holster_tilt = 0
+knife_holster_lean = 0
+knife_holster_right = 0
+knife_holster_up = 0
+knife_holster_forward = 0
+grenade_pouch_right = 0
+grenade_pouch_up = 0
+grenade_pouch_forward = 0
+grenade_pouch_turn = 0
 # With the C4 out, the off-hand trigger throws a pack (the game's aim button, otherwise held back by
 # ads_trigger = 0); the gun-hand trigger on the detonator sets them off.
 c4_trigger = 1

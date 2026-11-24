@@ -355,7 +355,12 @@ namespace bfvr::core
 			weapon::set_sling_show_primary(store.boolean("sling_show_primary", true));
 			weapon::set_slot_models_at_start(store.boolean("slot_models_at_start", true));
 			weapon::set_slot_models_ahead(store.real("slot_models_ahead", 0.08f));
-			body::set_holster_knife_turn(store.real("knife_holster_turn", 90.0f), 0.0f, 0.0f);
+			body::set_holster_knife_turn(store.real("knife_holster_turn", 90.0f), store.real("knife_holster_tilt", 0.0f), store.real("knife_holster_lean", 0.0f));
+			// #151: centimetres on the panel; forward is -z (back) in the body's axes.
+			body::set_holster_knife_shift(0.01f * store.real("knife_holster_right", 0.0f), 0.01f * store.real("knife_holster_up", 0.0f),
+				-0.01f * store.real("knife_holster_forward", 0.0f));
+			body::set_pouch_grenade_placement(0.01f * store.real("grenade_pouch_right", 0.0f), 0.01f * store.real("grenade_pouch_up", 0.0f),
+				-0.01f * store.real("grenade_pouch_forward", 0.0f), store.real("grenade_pouch_turn", 0.0f));
 			weapon::set_c4_trigger(store.boolean("c4_trigger", true));
 			input::set_focus_release(store.boolean("focus_release", true));
 			weapon::set_action_aim(store.boolean("action_aim", true));

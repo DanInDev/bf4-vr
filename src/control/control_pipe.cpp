@@ -908,7 +908,7 @@ namespace bfvr::control
 				{
 					float x{}, y{}, z{}, dx{}, dy{}, dz{};
 					const int read = sscanf_s(argument.c_str() + 10, "%f %f %f %f %f %f", &x, &y, &z, &dx, &dy, &dz);
-					if (read != 3 && read != 6) return "extramesh knifeturn <x> <y> <z> (degrees) [dx dy dz (metres, camera axes)]";
+					if (read != 3 && read != 6) return "extramesh knifeturn <turn> <tilt> <lean> (degrees) [dx dy dz (metres, body axes: right, up, back)]";
 					body::set_holster_knife_turn(x, y, z);
 					body::set_holster_knife_shift(dx, dy, dz);
 					return body::grenade_hold_report();

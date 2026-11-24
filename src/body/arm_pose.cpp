@@ -369,6 +369,8 @@ namespace bfvr::body
 		std::atomic<bool> pouch_grenade_shown{};
 		std::atomic<float> pouch_grenade_at[3]{};
 		std::atomic<float> pouch_grenade_yaw{};
+		std::atomic<float> pouch_grenade_shift[3]{}; // #151: body axes right, up, back (metres)
+		std::atomic<float> pouch_grenade_turn{};     // #151: degrees about the vertical
 		// #41: the knife. Out as the game's weapon it is captured once (hidden and tagged for that render);
 		// otherwise the copy stands in its holster (OpenXR LOCAL, the body's yaw), blade down.
 		std::atomic<bool> knife_weapon_now{};
@@ -3075,11 +3077,15 @@ namespace bfvr::body
 			{
 				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 				const ik::quat frame = camera_frame(camera);
+				const float half = 0.5f * pouch_grenade_yaw.load(std::memory_order_relaxed);
+				const ik::quat body_yaw{ 0, std::sin(half), 0, std::cos(half) };
+				// #151: settings grenade_pouch_right/up/forward (body axes: right, up, back) and grenade_pouch_turn.
+				const ik::vec3 shift = ik::rotate(body_yaw, ik::vec3{ pouch_grenade_shift[0].load(), pouch_grenade_shift[1].load(), pouch_grenade_shift[2].load() });
+				const float turn_half = 0.5f * 0.017453293f * pouch_grenade_turn.load(std::memory_order_relaxed);
 				ik::bone_transform pouch;
 				pouch.position = tracking_origin(camera, frame)
-					+ ik::rotate(frame, ik::vec3{ pouch_grenade_at[0].load(), pouch_grenade_at[1].load(), pouch_grenade_at[2].load() });
-				const float half = 0.5f * pouch_grenade_yaw.load(std::memory_order_relaxed);
-				pouch.rotation = ik::normalize(frame * ik::quat{ 0, std::sin(half), 0, std::cos(half) } * ik::quat{ 0, 1, 0, 0 });
+					+ ik::rotate(frame, ik::vec3{ pouch_grenade_at[0].load(), pouch_grenade_at[1].load(), pouch_grenade_at[2].load() } + shift);
+				pouch.rotation = ik::normalize(frame * body_yaw * ik::quat{ 0, std::sin(turn_half), 0, std::cos(turn_half) } * ik::quat{ 0, 1, 0, 0 });
 				ik::bone_transform root = ik::compose(ik::inverse(local[0]), ik::compose(pouch, grenade_in_fist));
 				root.scale = 1.0f;
 				float matrix[12];
@@ -3135,17 +3141,18 @@ namespace bfvr::body
 				}
 				const ik::bone_transform camera = ik::model_of(local, rig.parents, rig.camera);
 				const ik::quat frame = camera_frame(camera);
+				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
+				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
+				// #151: the shift (settings knife_holster_right/up/forward) is in the body's axes: right, up, back.
+				const ik::vec3 shift = ik::rotate(body_yaw, ik::vec3{ holster_knife_shift[0].load(), holster_knife_shift[1].load(), holster_knife_shift[2].load() });
 				ik::bone_transform sheath;
 				sheath.position = tracking_origin(camera, frame)
-					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load() + holster_knife_shift[0].load(), holster_knife_at[1].load() + holster_knife_shift[1].load(),
-						holster_knife_at[2].load() + holster_knife_shift[2].load() });
+					+ ik::rotate(frame, ik::vec3{ holster_knife_at[0].load(), holster_knife_at[1].load(), holster_knife_at[2].load() } + shift);
 				// Held as in the hand, with the controller pointing straight down: in the hand the knife's Wep_Root is
 				// frame * aim * hold (edit_arms: the blade along the controller ray, edge toward its down), so the
 				// controller's axes in the knife's own frame are conj(anchor) * conj(hold). At the holster the ray
 				// points down and the controller's down (the edge) to the body's left (owner 2026-11-16: blade down,
 				// handle up, edge left), then spun about the blade by knife_holster_turn.
-				const float yaw_half = 0.5f * holster_knife_yaw.load(std::memory_order_relaxed);
-				const ik::quat body_yaw{ 0, std::sin(yaw_half), 0, std::cos(yaw_half) };
 				const float pitch_half = 0.5f * knife_pitch.load(std::memory_order_relaxed);
 				const float turn_half = -0.5f * knife_yaw.load(std::memory_order_relaxed);
 				const float roll_half = -0.5f * knife_roll.load(std::memory_order_relaxed);
@@ -3694,6 +3701,14 @@ namespace bfvr::body
 		holster_knife_turn[0] = x_degrees;
 		holster_knife_turn[1] = y_degrees;
 		holster_knife_turn[2] = z_degrees;
+	}
+
+	void set_pouch_grenade_placement(float right, float up, float back, float turn_degrees)
+	{
+		pouch_grenade_shift[0] = right;
+		pouch_grenade_shift[1] = up;
+		pouch_grenade_shift[2] = back;
+		pouch_grenade_turn = turn_degrees;
 	}
 
 	void set_pouch_grenade(bool shown, const float (&position)[3], float yaw)
