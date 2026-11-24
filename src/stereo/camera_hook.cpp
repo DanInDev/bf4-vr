@@ -651,13 +651,15 @@ namespace bfvr::stereo
 				{
 					scene_aiming = false;
 				}
+				float lift = 0.0f;
 				if (physical_stance_on.load(std::memory_order_relaxed) && !scripted_frame)
 				{
 					// The camera is level here (controller aim): its up is the world's.
-					eye_pose.position[1] += update_physical_stance(params, eye_math::centre_pose(head).position[1]);
+					lift += update_physical_stance(params, eye_math::centre_pose(head).position[1]);
 				}
 				// #154: the extra height (in physical_stance_lift too, so the rig and the shot origin rise with it).
-				eye_pose.position[1] += extra_eye_height.load(std::memory_order_relaxed);
+				lift += extra_eye_height.load(std::memory_order_relaxed);
+				eye_pose.position[1] += lift;
 				// The world rows here are the body camera (no head pose yet): head motion never counts.
 				track_body_motion(reinterpret_cast<const float*>(params + transform));
 				lean_sample lean;
@@ -677,7 +679,14 @@ namespace bfvr::stereo
 					eye_pose = eye_math::pitched(eye_pose, tilted.tilt);
 				}
 				apply_eye_pose(params, eye_pose);
-				set_lens_eye(eye_pose);
+				{
+					// The optic's glass measures the eye against the gun's points, which are in tracking space without the
+					// lift (the rig rises with it, so their gap is the head's): the lifted eye sat 12 cm above every sight
+					// line with extra_height and shut each scope's field stop (monitor 2026-11-24, #139).
+					pose lens_pose = eye_pose;
+					lens_pose.position[1] -= lift;
+					set_lens_eye(lens_pose);
+				}
 				scope_on_view_copy(game_fov_y, eye_pose, head);
 				{
 					// sight_reticle: the sight line in this view's axes (x right, y up, -z ahead), for the game's reticle.

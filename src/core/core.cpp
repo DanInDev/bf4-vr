@@ -384,6 +384,7 @@ namespace bfvr::core
 			weapon::set_sight_ads(store.boolean("sight_ads", true));
 			weapon::set_sight_dot_reach(store.real("sight_dot_reach", 2.0f) * 0.01f);
 			weapon::set_hip_accuracy(store.real("hip_accuracy", 1.0f));
+			stereo::set_scope_eye_box(0.01f * store.real("scope_eye_box", 1.5f));
 			weapon::set_unlock_all_weapons(store.boolean("unlock_all_weapons", true));
 			weapon::set_zoom_mesh(store.boolean("sight_zoom_mesh", true));
 			weapon::set_sight_reticle(store.boolean("sight_reticle", true));

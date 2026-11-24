@@ -129,9 +129,16 @@ namespace bfvr::stereo
 		return 0;
 	}
 
-	float glass_field_stop(float eye_off_line_metres)
+	float glass_field_stop(float eye_off_line_metres, float eye_box)
 	{
-		const float off = std::isfinite(eye_off_line_metres) ? std::fabs(eye_off_line_metres) : glass_eye_box;
-		return glass_field_stop_on_line * std::fmax(0.0f, 1.0f - off / glass_eye_box);
+		const float box = std::isfinite(eye_box) && eye_box > 0.001f ? eye_box : glass_eye_box;
+		const float fade = box * glass_eye_box_fade;
+		const float off = std::isfinite(eye_off_line_metres) ? std::fabs(eye_off_line_metres) : box + fade;
+		if (off <= box)
+		{
+			return glass_field_stop_on_line;
+		}
+		const float t = std::fmin(1.0f, (off - box) / fade);
+		return glass_field_stop_on_line * (1.0f - t * t * (3.0f - 2.0f * t));
 	}
 }

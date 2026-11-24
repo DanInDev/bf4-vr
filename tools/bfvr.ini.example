@@ -392,6 +392,9 @@ crate_secondary = keep
 # towards max) is 0.2..1.7 at 1, 0.9..3.0 at 0.75, 1.6..4.4 at 0.5, 2.3..5.7 at 0.25, 3..7 at 0.
 # Headset 2026-11-11: 1 is pin-point on full auto; lower it for more spread.
 hip_accuracy = 1
+# #139: a scope or magnifier shows its whole picture while your eye is within this many cm of its sight line, then
+# darkens from the edge over 1.5 times that (a VR-sized eye box; a real scope's is a few mm).
+scope_eye_box = 1.5
 # Magnifying sights (the AK-12's flip magnifier): while the game aims through one, the world is
 # rendered once more from the sight with the lens's narrow view and shown on the lens, with a red dot
 # on the sight line. Costs one extra world render while aiming. scope_zoom multiplies the game's own

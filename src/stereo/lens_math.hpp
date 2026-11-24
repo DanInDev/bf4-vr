@@ -37,12 +37,14 @@ namespace bfvr::stereo
 	// plus the field stop over the power, with 15 % room. 0 when the line does not point ahead.
 	float glass_picture_reach(const float (&along)[3], float power);
 
-	// #139: Great Destroyer's field stop (0.38 off the line, scopezoom.cpp) for an eye on the sight line, closing as the
-	// eye moves off it (metres), shut at 2 cm: a scope's eye box, so the picture darkens from the edge (a real ACOG's
-	// exit pupil is ~8 mm; 2 cm leaves room for the headset's own motion).
+	// #139: Great Destroyer's field stop (0.38 off the line, scopezoom.cpp). Owner 2026-11-24 (VR eye box): the whole
+	// field while the eye is within `eye_box` (metres, setting scope_eye_box) of the sight line, then closing smoothly
+	// from the edge over 1.5 times that again (the 2 cm linear close of S3 left the glass black at 1-2 cm, where a head
+	// in a headset always is).
 	constexpr float glass_field_stop_on_line = 0.38f;
-	constexpr float glass_eye_box = 0.02f;
-	float glass_field_stop(float eye_off_line_metres);
+	constexpr float glass_eye_box = 0.015f;   // the default full-field box
+	constexpr float glass_eye_box_fade = 1.5f; // the fade's width, times the box
+	float glass_field_stop(float eye_off_line_metres, float eye_box = glass_eye_box);
 
 	// #139: which of this eye render's lens draws are the optic's glass. A lens draw is the glass when the sight line
 	// passes through it (`on_line` pixels at the line's point > 0); all such draws together (the ACOG's lie at two

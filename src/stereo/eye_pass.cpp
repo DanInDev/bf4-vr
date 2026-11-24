@@ -1213,6 +1213,7 @@ namespace bfvr::stereo
 		std::uint64_t glass_on_line[2][glass_max_quads]{};
 		glass_choice glass_kept[2];
 		std::atomic<float> glass_field_seen{};
+		std::atomic<float> scope_eye_box_m{ glass_eye_box }; // setting scope_eye_box (#139, owner 2026-11-24)
 		std::atomic<std::uint64_t> glass_fallbacks{};
 		std::atomic<ULONGLONG> glass_shown_at{};
 		std::atomic<int> glass_pick_seen{ -1 };
@@ -1602,7 +1603,7 @@ float4 ps_glass(v2p i) : SV_Target
 						eye_off = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
 					}
 				}
-				const float field = glass_field_stop(eye_off);
+				const float field = glass_field_stop(eye_off, scope_eye_box_m.load(std::memory_order_relaxed));
 				// The virtual eyepiece sits where the flat picture's lens would (14.8 cm ahead of the sight's eye point).
 				float quad_view[3]{};
 				to_view(eye, lens_image.quad.position, quad_view);
@@ -3506,6 +3507,11 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 	void set_scope_glass(bool on)
 	{
 		scope_glass_on = on;
+	}
+
+	void set_scope_eye_box(float metres)
+	{
+		scope_eye_box_m = std::isfinite(metres) ? std::fmax(0.005f, std::fmin(0.05f, metres)) : glass_eye_box;
 	}
 
 	bool scope_glass_shown()
