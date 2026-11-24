@@ -67,9 +67,10 @@ namespace bfvr::settings
 			{ "shoulder_offset", "Body", "Arms", "Shoulder offset", "Shoulders relative to the head, metres", "", true },
 
 			// Weapon
-			{ "crate_primary", "Weapon", "Weapons", "Own crate: primary", "Pick a gun: in your hand a second after you stop", weapon::crate::choices },
-			{ "crate_secondary", "Weapon", "Weapons", "Own crate: secondary", "Pick a gun for the second slot", weapon::crate::choices },
-			{ "unlock_all_weapons", "Weapon", "Weapons", "All crate weapons", "Every gun in the weapon crate can be picked", "" },
+			// #80 (owner 2026-11-24): the Armory: any crate gun, without attachments, into your hands in the normal campaign.
+			{ "crate_primary", "Weapon", "Armory", "Primary gun", "Bare, no attachments: in your hand a second after you stop", weapon::crate::choices },
+			{ "crate_secondary", "Weapon", "Armory", "Second gun", "Bare, no attachments: into the second slot", weapon::crate::choices },
+			{ "unlock_all_weapons", "Weapon", "Armory", "All crate weapons", "Every gun in the game's weapon crates can be picked too", "" },
 			{ "hip_accuracy", "Weapon", "Aiming", "Hip-fire accuracy", "1 = as accurate as aiming, 0 = the game's", "" },
 			{ "sight_lens_cone", "Weapon", "Aiming", "Clear lens angle", "Degrees off the sight line the lens stays clear", "", true },
 			{ "sight_lens_fov", "Weapon", "Aiming", "Reticle size", "Aiming view it is sized for (0 = the optic's own)", "" },
