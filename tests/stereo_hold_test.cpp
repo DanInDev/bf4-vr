@@ -54,6 +54,12 @@ int main()
 		stereo_hold hold(300);
 		expect(!hold.keep_on_mono(mono_reason::off, 0), "stereo off never holds");
 	}
+	{
+		stereo_hold hold(300);
+		hold.set_hold_ms(0);
+		hold.on_stereo();
+		expect(!hold.keep_on_mono(mono_reason::no_head, 1000), "stereo_hold_ms 0: the flat screen at once");
+	}
 	if (failures == 0)
 	{
 		std::printf("stereo_hold: all passed\n");

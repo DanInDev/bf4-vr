@@ -2172,6 +2172,7 @@ namespace bfvr::xr
 				// Mono frame (menu, loading, a scene on the screen): fall back to the theater screen. A frame without a
 				// head pose keeps the last pair for a moment instead (#163: the flat screen flashed in for a frame).
 				const bool was_ready = eye_ready[0] && eye_ready[1];
+				hold.set_hold_ms(static_cast<std::uint64_t>(std::fmax(0.0f, settings::global().real("stereo_hold_ms", 300.0f))));
 				if (!was_ready || !hold.keep_on_mono(tag.mono, GetTickCount64()))
 				{
 					if (was_ready)

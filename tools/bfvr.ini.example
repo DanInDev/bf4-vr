@@ -82,6 +82,10 @@ hud_up = 0
 # head looks around inside the scene while the game moves you. Detected when the camera turns away
 # from the aim for a quarter second, or the soldier is dead or absent; pipe `cutscene` shows it.
 cutscene_view = screen
+# Milliseconds the last 3D picture stays when a frame comes without a head pose (tracking lost for a
+# moment), instead of the flat screen flashing in (#163); 0 = the flat screen at once. A menu always
+# shows the flat screen at once.
+stereo_hold_ms = 300
 # In cutscenes (look): the arms, gun and fingers as the game animates them (game), or following your
 # controllers as in play (controllers; the scene's animated body then fights them: hands reversed).
 cutscene_hands = game

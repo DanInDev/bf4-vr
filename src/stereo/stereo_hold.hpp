@@ -24,6 +24,7 @@ namespace bfvr::stereo
 	{
 	public:
 		explicit stereo_hold(std::uint64_t hold_ms = 300) : hold_ms_(hold_ms) {}
+		void set_hold_ms(std::uint64_t hold_ms) { hold_ms_ = hold_ms; }
 
 		// A stereo pair (or eye) was stored.
 		void on_stereo();
