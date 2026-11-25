@@ -119,6 +119,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   `setting set right_stick look` to pitch the view, then back.
 - The user's own mouse and keyboard reach BF4 when they use the PC: check `GetLastInputInfo` or ask before
   sending input; stop if shots or weapon swaps happen that you did not cause.
+- **2026-11-25: the resume checkpoint moved on** to Shanghai's "Reach the Hotel" (an alley after the car drive, the
+  soldier unarmed, Esc at the start opens the pause menu: pad A resumes): during an hour of optic tests in the weapon
+  cache room the mission went on by itself and BF4 saved there. Guns come from `givegun`. Getting the cache room back
+  needs Restart mission (overwrites the checkpoint): ask the owner first.
 - From 2026-11-19 the resume checkpoint is **Shanghai, in front of a weapon cache** (level `SP_Shanghai`): the Baku notes
   below (crate beside you, gadget stash, red room) describe the old one. Crate guns for tests: `givegun` / the own crate
   (#80), e.g. `U_USAS-12_SP` (scope), `U_SteyrAug` (magnifier), `U_SRS` (sniper scope). Untested there yet: say so if
