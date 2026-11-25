@@ -172,6 +172,7 @@ add_library(bfvr_runtime STATIC
 	src/stereo/scope_scissor.cpp
 	src/stereo/scripted_view.cpp
 	src/stereo/steady_camera.cpp
+	src/stereo/stereo_hold.cpp
 	src/stereo/stream_math.cpp
 	src/stereo/stream_view.cpp
 	src/stereo/tracking.cpp
@@ -431,6 +432,8 @@ if(BFVR_BUILD_TESTS)
 	target_link_libraries(bfvr_gun_recoil_test PRIVATE bfvr_common)
 	add_executable(bfvr_scripted_view_test tests/scripted_view_test.cpp src/stereo/scripted_view.cpp)
 	target_link_libraries(bfvr_scripted_view_test PRIVATE bfvr_common)
+	add_executable(bfvr_stereo_hold_test tests/stereo_hold_test.cpp src/stereo/stereo_hold.cpp)
+	target_link_libraries(bfvr_stereo_hold_test PRIVATE bfvr_common)
 	add_executable(bfvr_steady_camera_test tests/steady_camera_test.cpp src/stereo/steady_camera.cpp)
 	target_link_libraries(bfvr_steady_camera_test PRIVATE bfvr_common)
 	add_executable(bfvr_stream_math_test tests/stream_math_test.cpp src/stereo/stream_math.cpp)
@@ -515,6 +518,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME torso COMMAND bfvr_torso_test)
 	add_test(NAME scripted_view COMMAND bfvr_scripted_view_test)
 	add_test(NAME steady_camera COMMAND bfvr_steady_camera_test)
+	add_test(NAME stereo_hold COMMAND bfvr_stereo_hold_test)
 	add_test(NAME stream_math COMMAND bfvr_stream_math_test)
 	add_test(NAME grasp_contact COMMAND bfvr_grasp_contact_test)
 	add_test(NAME hand_collision COMMAND bfvr_hand_collision_test)

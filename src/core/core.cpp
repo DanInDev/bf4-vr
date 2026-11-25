@@ -475,6 +475,8 @@ namespace bfvr::core
 				camera.copies, camera.copy_thread, present_thread.load(), stereo::eye_offset(), vr.stereo ? 1 : 0, vr.eye_images_stored);
 			return std::string(text) + "\n" + hooks::physical_pad_report() + "\n" + hooks::render_size_report() + " focus_losses_hidden=" + std::to_string(hooks::focus_losses_hidden())
 				+ "\neyepass " + stereo::eye_pass_report() + "\nmenu_over_level=" + (vr.menu_over_level ? "1" : "0") + " sight_dot_frames=" + std::to_string(vr.sight_dot_frames)
+				+ "\nflat_fallback no_eyes=" + std::to_string(vr.flat_no_eyes) + " copy_failed=" + std::to_string(vr.flat_copy_failed)
+				+ " held=" + std::to_string(vr.stereo_held) + " falls_no_head=" + std::to_string(vr.falls_no_head) + " falls_menu=" + std::to_string(vr.falls_menu)
 				+ "\nmenu_pointer frames=" + std::to_string(vr.pointer_frames) + " no_hand=" + std::to_string(vr.pointer_no_hand) + " misses=" + std::to_string(vr.pointer_misses)
 				+ " hits=" + std::to_string(vr.pointer_hits) + " hand=" + std::to_string(vr.pointer_hand) + " last_uv=" + std::to_string(vr.pointer_u) + "," + std::to_string(vr.pointer_v)
 				+ " " + hooks::game_pointer_report()

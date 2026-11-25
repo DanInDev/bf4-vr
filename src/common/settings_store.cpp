@@ -51,6 +51,7 @@ namespace bfvr::settings
 			{ "hud_show_ammo", kind::boolean, 0, 0, 0, "1", "", "HUD: health, ammo and grenade counters" },
 			{ "hud_show_bottom", kind::boolean, 0, 0, 0, "0", "", "HUD: the weapon cross and stance icons at the bottom (off by default: in VR the guns are in your hands and on your body; headset 2026-11-15)" },
 			{ "cutscene_view", kind::choice, 0, 0, 0, "screen", "screen|look", "while the game moves the camera (cutscenes, the death fall): a flat screen, or 3D with your head looking around in the scene" },
+			{ "stereo_hold_ms", kind::real, 0.0f, 1000.0f, 50.0f, "300", "", "milliseconds the last 3D picture stays when a frame comes without a head pose (tracking lost for a moment), before the flat screen; 0 = the flat screen at once (#163)" },
 			{ "stream_view", kind::boolean, 0, 0, 0, "1", "", "the game window shows a steadied, level 16:9 picture of the left eye for recording (OBS Window Capture); off: the raw eye image" },
 			{ "stream_fov", kind::real, 60.0f, 110.0f, 5.0f, "80", "", "stream view: degrees across; narrower leaves more room to steady a fast turn" },
 			{ "stream_smoothing", kind::real, 0.0f, 1.0f, 0.05f, "0.3", "", "stream view: seconds the camera takes to settle while the head is held still (faster turns are followed closer); 0 = no steadying" },

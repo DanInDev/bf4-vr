@@ -36,6 +36,13 @@ namespace bfvr::xr
 		int pointer_hand{};
 		float pointer_u{};
 		float pointer_v{};
+		// #163: frames on the flat screen in a level without a menu (no stereo pair / the eye copy failed), frames that
+		// kept the last pair through a missing head pose, and falls to the flat screen for that reason.
+		std::uint64_t flat_no_eyes{};
+		std::uint64_t flat_copy_failed{};
+		std::uint64_t stereo_held{};
+		std::uint64_t falls_no_head{};
+		std::uint64_t falls_menu{};
 	};
 
 	// The OpenXR side of the mod: the flat virtual screen (menus, cutscenes), the head-tracked

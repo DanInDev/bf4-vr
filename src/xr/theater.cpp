@@ -258,6 +258,11 @@ namespace bfvr::xr
 		std::uint64_t last_stored_copy{};
 		std::uint64_t last_stored_pair{};
 		std::uint64_t eye_images_stored{};
+		stereo::stereo_hold hold;
+		// #163: frames shown on the flat screen in the level with no menu up, by cause.
+		std::uint64_t flat_no_eyes{};
+		std::uint64_t flat_copy_failed{};
+		ULONGLONG flat_logged_at{};
 
 		// HUD layer (hud_layer = 1, stereo/hud_capture.hpp): the game's HUD on a head-locked quad in
 		// front of the eyes, at a size and distance that keep it inside the visible lens area.
@@ -2164,10 +2169,21 @@ namespace bfvr::xr
 			const stereo::rendered_view tag = stereo::latest_rendered_view();
 			if (!tag.stereo)
 			{
-				// Mono frame (menu, loading, no tracking): fall back to the theater screen.
-				eye_ready[0] = eye_ready[1] = false;
+				// Mono frame (menu, loading, a scene on the screen): fall back to the theater screen. A frame without a
+				// head pose keeps the last pair for a moment instead (#163: the flat screen flashed in for a frame).
+				const bool was_ready = eye_ready[0] && eye_ready[1];
+				hold.set_hold_ms(static_cast<std::uint64_t>(std::fmax(0.0f, settings::global().real("stereo_hold_ms", 300.0f))));
+				if (!was_ready || !hold.keep_on_mono(tag.mono, GetTickCount64()))
+				{
+					if (was_ready)
+					{
+						log::write("theater: stereo -> flat screen (%s)", stereo::mono_reason_name(tag.mono));
+					}
+					eye_ready[0] = eye_ready[1] = false;
+				}
 				return;
 			}
+			hold.on_stereo();
 			if (tag.pair)
 			{
 				store_pair(back_buffer, tag);
@@ -2614,7 +2630,19 @@ namespace bfvr::xr
 			}
 			const bool stereo_frame = stereo_mode && can_copy && eye_ready[0] && eye_ready[1] && !ui_on_screen;
 			enter("copy to swap chain");
-			if (frame.shouldRender && stereo_frame && copy_eyes_to_swapchain())
+			const bool stereo_copied = frame.shouldRender && stereo_frame && copy_eyes_to_swapchain();
+			if (frame.shouldRender && stereo_mode && can_copy && !ui_on_screen && !stereo_copied && last_stored_copy)
+			{
+				std::uint64_t& count = stereo_frame ? flat_copy_failed : flat_no_eyes;
+				++count;
+				if (const ULONGLONG now = GetTickCount64(); now - flat_logged_at >= 1000)
+				{
+					log::write("theater: flat screen without a menu: %s (no_eyes=%llu copy_failed=%llu held=%llu)",
+						stereo_frame ? "eye copy failed" : "no stereo pair", flat_no_eyes, flat_copy_failed, hold.held_frames());
+					flat_logged_at = now;
+				}
+			}
+			if (stereo_copied)
 			{
 				// Each eye is shown with exactly the pose and FOV it was rendered with; the
 				// compositor reprojects to the current head pose.
@@ -2959,6 +2987,7 @@ namespace bfvr::xr
 			s.reported_sync_ms, s.reported_frame_ms, s.stereo_mode, s.eye_images_stored, stage, stage_ms, s.menu_shown,
 			state::state_name(s.session_state), s.session_state == XR_SESSION_STATE_FOCUSED && !s.input_lost.load(), s.focus_losses.load(),
 			s.unfocused_since.load() ? static_cast<double>(GetTickCount64() - s.unfocused_since.load()) / 1000.0 : 0.0, s.sight_dot_layers.load(),
-			s.pointer_frames.load(), s.pointer_no_hand.load(), s.pointer_misses.load(), s.pointer_hits.load(), s.pointer_hand, s.pointer_last_u.load(), s.pointer_last_v.load() };
+			s.pointer_frames.load(), s.pointer_no_hand.load(), s.pointer_misses.load(), s.pointer_hits.load(), s.pointer_hand, s.pointer_last_u.load(), s.pointer_last_v.load(),
+			s.flat_no_eyes, s.flat_copy_failed, s.hold.held_frames(), s.hold.dropped(stereo::mono_reason::no_head), s.hold.dropped(stereo::mono_reason::menu) };
 	}
 }
