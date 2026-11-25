@@ -131,6 +131,7 @@ namespace bfvr::stereo
 			UINT size{};
 			ULONGLONG last_map{};
 			unsigned eye_discards{}; // maps with DISCARD since the current eye render began (#39 stray draws)
+			unsigned generation{};   // every map with DISCARD (never reset): which version of the arena a binding saw (#162)
 		};
 		constexpr ULONGLONG arena_idle_ms = 1000;
 		std::mutex arena_lock;
@@ -170,15 +171,15 @@ namespace bfvr::stereo
 		// discarded mid-render (about two discards per first-eye render) is not in it: the second eye patched stale data
 		// at that offset and drew that piece with another camera (the stray gun in the second eye). Such blocks are
 		// copied on the GPU at bind time, in command order, into fresh_staging, and patched from there (pipe eyefresh).
-		constexpr UINT fresh_size = 1u << 20;
+		constexpr UINT fresh_size = 4u << 20;
 		ComPtr<ID3D11Buffer> fresh_staging;
+		std::unordered_map<std::uint64_t, UINT> fresh_seen; // (block, discards, size) -> offset, this render
 		const std::uint8_t* fresh_cpu{};
 		UINT fresh_used{};
 		bool eye1_discarded{}; // render thread: an arena was discarded in this first-eye render
 		std::atomic<bool> fresh_fix{ true };
 		std::atomic<std::uint64_t> fresh_copies{};
 		std::atomic<std::uint64_t> fresh_overflows{};
-		std::atomic<std::uint64_t> fresh_replaced{}; // a key bound before the discard got the post-discard block
 
 		// Before the first eye: the job-written blocks it binds are complete, the render thread's own
 		// blocks of eye 1 are not (eye 2 never binds those, it writes its own).
@@ -304,6 +305,7 @@ namespace bfvr::stereo
 					arenas[i].cpu = static_cast<const std::uint8_t*>(data);
 					arenas[i].last_map = GetTickCount64();
 					arenas[i].eye_discards += discard && in_eye_render ? 1u : 0u;
+					arenas[i].generation += discard ? 1u : 0u;
 					return true;
 				}
 			}
@@ -581,7 +583,31 @@ namespace bfvr::stereo
 			UINT first{};
 			UINT count{};
 			UINT fresh{ ~0u }; // byte offset in fresh_staging: bound after its arena's discard in this render
+			unsigned generation{}; // the arena's generation when bound
 		};
+
+		// #162: a block is the arena's offset in one version of it (its generation); a discard makes every offset
+		// another block. Keys made this way never let a block of one version answer a binding of another.
+		std::uint64_t generation_key(ID3D11Buffer* buffer, UINT first, unsigned generation)
+		{
+			const std::uint64_t plain = block_key(buffer, first);
+			return discard_fix.load(std::memory_order_relaxed) ? plain ^ (static_cast<std::uint64_t>(generation & 0xfff) << 52) : plain;
+		}
+
+		// The arena's discards in this eye render and its generation (0, 0 for a buffer that is no arena).
+		void arena_state(ID3D11Buffer* buffer, unsigned& discards, unsigned& generation)
+		{
+			discards = generation = 0;
+			const std::lock_guard guard(arena_lock);
+			for (int a = 0; a < arena_count; ++a)
+			{
+				if (arenas[a].buffer.Get() == buffer)
+				{
+					discards = arenas[a].eye_discards;
+					generation = arenas[a].generation;
+				}
+			}
+		}
 		std::vector<used_block> first_eye_blocks;
 		bool collecting{};
 		std::vector<std::uint8_t> upload;
@@ -598,12 +624,9 @@ namespace bfvr::stereo
 				{
 					continue;
 				}
-				const std::uint64_t key = block_key(b.buffer, b.first);
+				const std::uint64_t key = generation_key(b.buffer, b.first, b.generation);
 				const bool fresh = b.fresh != ~0u && fresh_cpu;
-				// A block bound after its arena's discard holds what the arena has there now (what the second eye binds):
-				// it replaces a pre-discard binding of the same offset.
-				const bool known = patched_blocks.count(key) != 0;
-				if (known && !fresh)
+				if (patched_blocks.count(key))
 				{
 					continue;
 				}
@@ -630,11 +653,7 @@ namespace bfvr::stereo
 					used += aligned;
 					++blocks_patched;
 				}
-				if (fresh && known)
-				{
-					++fresh_replaced;
-				}
-				patched_blocks[key] = result;
+				patched_blocks.emplace(key, result);
 			}
 			D3D11_MAPPED_SUBRESOURCE mapped{};
 			if (used && SUCCEEDED(original_map(eye_context.Get(), eye_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
@@ -694,23 +713,14 @@ namespace bfvr::stereo
 			// #39: after this render discarded the arena, an offset holds a block written since then, not the one the
 			// first eye bound there: the copies made before (prepared from the first eye, or cached earlier in this
 			// render) must not answer it. The discards are part of the key (none: the prepared keys).
-			unsigned discards = 0;
-			{
-				const std::lock_guard guard(arena_lock);
-				for (int i = 0; i < arena_count; ++i)
-				{
-					if (arenas[i].buffer.Get() == buffer)
-					{
-						discards = arenas[i].eye_discards;
-					}
-				}
-			}
+			unsigned discards = 0, generation = 0;
+			arena_state(buffer, discards, generation);
 			const std::uint64_t plain_key = block_key(buffer, first);
 			if (discards && patched_blocks.count(plain_key))
 			{
 				++stale_after_discard;
 			}
-			const std::uint64_t key = discard_fix.load(std::memory_order_relaxed) ? plain_key ^ (static_cast<std::uint64_t>(discards & 0xf) << 60) : plain_key;
+			const std::uint64_t key = generation_key(buffer, first, generation);
 			if (const auto found = patched_blocks.find(key); found != patched_blocks.end())
 			{
 				return found->second;
@@ -845,20 +855,18 @@ namespace bfvr::stereo
 				for (UINT i = 0; i < count; ++i)
 				{
 					used_block b{ buffers[i], first[i], number[i] };
+					unsigned discards = 0;
+					arena_state(b.buffer, discards, b.generation);
 					if (eye1_discarded && b.buffer && b.count && b.count <= 4096 && fresh_staging && fresh_fix.load(std::memory_order_relaxed))
 					{
-						unsigned discards = 0;
+						// The same block after the same discard is bound many times (once per draw): copied once.
+						const std::uint64_t key = block_key(b.buffer, b.first) ^ (static_cast<std::uint64_t>(discards & 0xff) << 52)
+							^ (static_cast<std::uint64_t>(b.count) << 40);
+						if (const auto seen = fresh_seen.find(key); discards && seen != fresh_seen.end())
 						{
-							const std::lock_guard guard(arena_lock);
-							for (int a = 0; a < arena_count; ++a)
-							{
-								if (arenas[a].buffer.Get() == b.buffer)
-								{
-									discards = arenas[a].eye_discards;
-								}
-							}
+							b.fresh = seen->second;
 						}
-						if (discards)
+						else if (discards)
 						{
 							const UINT bytes = b.count * 16;
 							if (fresh_used + bytes > fresh_size)
@@ -870,6 +878,7 @@ namespace bfvr::stereo
 								const D3D11_BOX box{ b.first * 16, 0, 0, b.first * 16 + bytes, 1, 1 };
 								eye_context->CopySubresourceRegion(fresh_staging.Get(), 0, fresh_used, 0, 0, b.buffer, 0, &box);
 								b.fresh = fresh_used;
+								fresh_seen.emplace(key, fresh_used);
 								fresh_used += bytes;
 								++fresh_copies;
 							}
@@ -3530,6 +3539,7 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 				collecting = true;
 				begin_readback();
 				fresh_used = 0;
+				fresh_seen.clear();
 				eye1_discarded = false;
 				if (!fresh_staging)
 				{
@@ -3873,7 +3883,7 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			fresh_fix = on == 1;
 		}
 		return "eyefresh fresh_fix=" + std::to_string(fresh_fix.load() ? 1 : 0) + " copies=" + std::to_string(fresh_copies.load())
-			+ " replaced=" + std::to_string(fresh_replaced.load()) + " overflows=" + std::to_string(fresh_overflows.load());
+			+ " overflows=" + std::to_string(fresh_overflows.load());
 	}
 
 	std::string set_discard_fix(int on)
@@ -4152,12 +4162,12 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
 			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
 			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us) "
-			"arena_discards eye1=%llu eye2=%llu stale_after_discard=%llu discard_fix=%d fresh=%llu fresh_replaced=%llu fresh_overflows=%llu fresh_fix=%d",
+			"arena_discards eye1=%llu eye2=%llu stale_after_discard=%llu discard_fix=%d fresh=%llu fresh_overflows=%llu fresh_fix=%d",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
 			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
 			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load(),
 			arena_discards_eye1.load(), arena_discards_eye2.load(), stale_after_discard.load(), discard_fix.load() ? 1 : 0,
-			fresh_copies.load(), fresh_replaced.load(), fresh_overflows.load(), fresh_fix.load() ? 1 : 0);
+			fresh_copies.load(), fresh_overflows.load(), fresh_fix.load() ? 1 : 0);
 		return text;
 	}
 
