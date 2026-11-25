@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "stereo/stereo_hold.hpp"
+
 namespace bfvr::stereo
 {
 	// Plain copies of OpenXR poses/FOVs so game-side code needs no OpenXR headers.
@@ -57,6 +59,7 @@ namespace bfvr::stereo
 		// renders (stereo/eye_pass.hpp); second_pose is that right eye as rendered.
 		bool pair{};
 		pose second_pose;
+		mono_reason mono{ mono_reason::off }; // why stereo is false (#163)
 	};
 
 	void publish_rendered_view(const rendered_view& view);

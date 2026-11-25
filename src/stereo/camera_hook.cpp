@@ -604,6 +604,8 @@ namespace bfvr::stereo
 			}
 			const bool menu = menu_frame || (scripted_frame && cutscene_screen.load(std::memory_order_relaxed));
 			const head_sample head = stereo_enabled && !menu ? latest_head_sample() : head_sample{};
+			tag.mono = !stereo_enabled ? mono_reason::off : menu_frame ? mono_reason::menu : menu ? mono_reason::scene_screen
+				: !head.valid ? mono_reason::no_head : mono_reason::none;
 			float world_half_vertical = 0.0f; // set in head-tracked frames: the FOV the world is rendered with
 			if (head.valid)
 			{
