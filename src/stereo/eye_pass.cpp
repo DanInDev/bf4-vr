@@ -338,8 +338,14 @@ namespace bfvr::stereo
 			}
 		}
 
+		void capture_before_discard(ID3D11Resource* arena);
+
 		HRESULT STDMETHODCALLTYPE map_detour(ID3D11DeviceContext* c, ID3D11Resource* r, UINT s, D3D11_MAP type, UINT flags, D3D11_MAPPED_SUBRESOURCE* m)
 		{
+			if (type == D3D11_MAP_WRITE_DISCARD && r && c == eye_context.Get())
+			{
+				capture_before_discard(r);
+			}
 			const HRESULT hr = original_map(c, r, s, type, flags, m);
 			if (SUCCEEDED(hr) && m && r && (type == D3D11_MAP_WRITE_NO_OVERWRITE || type == D3D11_MAP_WRITE_DISCARD))
 			{
@@ -571,6 +577,7 @@ namespace bfvr::stereo
 			UINT count{};
 			const std::uint8_t* fresh{}; // bound after its arena's discard in this render: that version's mapping
 			UINT fresh_size{};
+			UINT stored{ ~0u };          // byte offset in fresh_store: read when its version was discarded
 			unsigned generation{}; // the arena's generation when bound
 		};
 
@@ -603,6 +610,13 @@ namespace bfvr::stereo
 		}
 		std::vector<used_block> first_eye_blocks;
 		bool collecting{};
+		// Fresh blocks of the first eye whose version is not read yet, and where those read at a discard went: an older
+		// version's memory can be reused by the driver before the first eye ends (it discards about twice per render).
+		std::vector<std::size_t> fresh_pending;
+		constexpr std::size_t fresh_store_size = 4u << 20;
+		std::vector<std::uint8_t> fresh_store;
+		std::size_t fresh_store_used{};
+		std::unordered_map<std::uint64_t, UINT> fresh_seen; // (block, generation, size) -> offset in fresh_store
 		std::vector<std::uint8_t> upload;
 		std::atomic<std::uint64_t> late_blocks{};
 		std::atomic<std::uint64_t> late_patched{};
@@ -620,7 +634,7 @@ namespace bfvr::stereo
 					continue;
 				}
 				const std::uint64_t key = generation_key(b.buffer, b.first, b.generation);
-				const bool fresh = b.fresh != nullptr;
+				const bool fresh = b.fresh != nullptr || b.stored != ~0u;
 				if (patched_blocks.count(key))
 				{
 					continue;
@@ -635,7 +649,16 @@ namespace bfvr::stereo
 				else if (fresh)
 				{
 					const UINT bytes = b.count * 16;
-					const bool read = b.first * 16 + bytes <= b.fresh_size && copy_guarded(block, b.fresh + b.first * 16, bytes);
+					bool read = false;
+					if (b.stored != ~0u)
+					{
+						std::memcpy(block, fresh_store.data() + b.stored, bytes);
+						read = true;
+					}
+					else
+					{
+						read = b.first * 16 + bytes <= b.fresh_size && copy_guarded(block, b.fresh + b.first * 16, bytes);
+					}
 					fresh_copies += read ? 1 : 0;
 					fresh_overflows += read ? 0 : 1;
 					if (read && patch_block(block, b.count) > 0)
@@ -857,10 +880,11 @@ namespace bfvr::stereo
 					const std::uint8_t* cpu{};
 					UINT size{};
 					arena_state(b.buffer, discards, b.generation, &cpu, &size);
-					if (discards && cpu && fresh_fix.load(std::memory_order_relaxed))
+					if (discards && cpu && b.count <= 4096 && fresh_fix.load(std::memory_order_relaxed))
 					{
 						b.fresh = cpu;
 						b.fresh_size = size;
+						fresh_pending.push_back(first_eye_blocks.size());
 					}
 					first_eye_blocks.push_back(b);
 				}
@@ -873,6 +897,46 @@ namespace bfvr::stereo
 			{
 				probe_bindings.push_back({ stage, start + i, buffers ? buffers[i] : nullptr, first ? first[i] : 0, number ? number[i] : 0 });
 			}
+		}
+
+		// The game is about to discard this arena: the first eye's fresh blocks of the version it leaves are complete now
+		// and still mapped; read them before the driver may reuse that memory.
+		void capture_before_discard(ID3D11Resource* arena)
+		{
+			if (!collecting || fresh_pending.empty())
+			{
+				return;
+			}
+			std::size_t kept = 0;
+			for (const std::size_t index : fresh_pending)
+			{
+				used_block& b = first_eye_blocks[index];
+				if (b.buffer != arena)
+				{
+					fresh_pending[kept++] = index;
+					continue;
+				}
+				const UINT bytes = b.count * 16;
+				const std::uint64_t key = block_key(b.buffer, b.first) ^ (static_cast<std::uint64_t>(b.generation & 0xfff) << 52)
+					^ (static_cast<std::uint64_t>(b.count) << 40);
+				if (const auto seen = fresh_seen.find(key); seen != fresh_seen.end())
+				{
+					b.stored = seen->second;
+				}
+				else if (fresh_store_used + bytes <= fresh_store_size && b.first * 16 + bytes <= b.fresh_size
+					&& copy_guarded(fresh_store.data() + fresh_store_used, b.fresh + b.first * 16, bytes))
+				{
+					b.stored = static_cast<UINT>(fresh_store_used);
+					fresh_seen.emplace(key, b.stored);
+					fresh_store_used += bytes;
+				}
+				else
+				{
+					b.fresh = nullptr; // gone with its version: no patch, the late path answers the second eye
+					++fresh_overflows;
+				}
+			}
+			fresh_pending.resize(kept);
 		}
 
 		void STDMETHODCALLTYPE vs_set_constant_buffers_detour(ID3D11DeviceContext* c, UINT s, UINT n, ID3D11Buffer* const* b)
@@ -3514,6 +3578,10 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 			if (patch_constants)
 			{
 				first_eye_blocks.clear();
+				fresh_pending.clear();
+				fresh_seen.clear();
+				fresh_store.resize(fresh_store_size);
+				fresh_store_used = 0;
 				collecting = true;
 				begin_readback();
 
