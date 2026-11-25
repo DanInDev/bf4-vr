@@ -170,12 +170,9 @@ namespace bfvr::stereo
 		// #162/#164: the read-back is copied before the first eye, so a block the first eye binds after its arena was
 		// discarded mid-render (about two discards per first-eye render) is not in it: the second eye patched stale data
 		// at that offset and drew that piece with another camera (the stray gun in the second eye). Such blocks are
-		// read at bind time through the arena's own mapping (what the draw reads; a GPU copy made the CPU wait for the
-		// whole first eye: 200 -> 140 fps), once per block and generation, and patched from there (pipe eyefresh).
-		constexpr UINT fresh_size = 4u << 20;
-		std::vector<std::uint8_t> fresh_data;
-		std::unordered_map<std::uint64_t, UINT> fresh_seen; // (block, generation, size) -> offset, this render
-		UINT fresh_used{};
+		// read after the first eye through the mapping of the arena version they were bound in, and patched from there
+		// (pipe eyefresh). Not at bind time: the game may write a block after binding it (monitor: still stray), and not
+		// by a GPU copy: mapping it made the CPU wait for the whole first eye (200 -> 140 fps).
 		std::atomic<bool> fresh_fix{ true };
 		std::atomic<std::uint64_t> fresh_copies{};
 		std::atomic<std::uint64_t> fresh_overflows{};
@@ -572,7 +569,8 @@ namespace bfvr::stereo
 			ID3D11Buffer* buffer{};
 			UINT first{};
 			UINT count{};
-			UINT fresh{ ~0u }; // byte offset in fresh_data: bound after its arena's discard in this render
+			const std::uint8_t* fresh{}; // bound after its arena's discard in this render: that version's mapping
+			UINT fresh_size{};
 			unsigned generation{}; // the arena's generation when bound
 		};
 
@@ -609,6 +607,8 @@ namespace bfvr::stereo
 		std::atomic<std::uint64_t> late_blocks{};
 		std::atomic<std::uint64_t> late_patched{};
 
+		bool copy_guarded(void* target, const void* source, std::size_t size);
+
 		void prepare_eye_blocks()
 		{
 			upload.resize(eye_buffer_size);
@@ -620,7 +620,7 @@ namespace bfvr::stereo
 					continue;
 				}
 				const std::uint64_t key = generation_key(b.buffer, b.first, b.generation);
-				const bool fresh = b.fresh != ~0u;
+				const bool fresh = b.fresh != nullptr;
 				if (patched_blocks.count(key))
 				{
 					continue;
@@ -634,8 +634,11 @@ namespace bfvr::stereo
 				}
 				else if (fresh)
 				{
-					std::memcpy(block, fresh_data.data() + b.fresh, b.count * 16);
-					if (patch_block(block, b.count) > 0)
+					const UINT bytes = b.count * 16;
+					const bool read = b.first * 16 + bytes <= b.fresh_size && copy_guarded(block, b.fresh + b.first * 16, bytes);
+					fresh_copies += read ? 1 : 0;
+					fresh_overflows += read ? 0 : 1;
+					if (read && patch_block(block, b.count) > 0)
 					{
 						result = used / 16;
 						used += aligned;
@@ -854,30 +857,10 @@ namespace bfvr::stereo
 					const std::uint8_t* cpu{};
 					UINT size{};
 					arena_state(b.buffer, discards, b.generation, &cpu, &size);
-					if (discards && b.count <= 4096 && cpu && fresh_fix.load(std::memory_order_relaxed))
+					if (discards && cpu && fresh_fix.load(std::memory_order_relaxed))
 					{
-						// The same block after the same discard is bound many times (once per draw): read once.
-						const std::uint64_t key = block_key(b.buffer, b.first) ^ (static_cast<std::uint64_t>(b.generation & 0xfff) << 52)
-							^ (static_cast<std::uint64_t>(b.count) << 40);
-						if (const auto seen = fresh_seen.find(key); seen != fresh_seen.end())
-						{
-							b.fresh = seen->second;
-						}
-						else
-						{
-							const UINT bytes = b.count * 16;
-							if (fresh_used + bytes > fresh_size || b.first * 16 + bytes > size)
-							{
-								++fresh_overflows;
-							}
-							else if (copy_guarded(fresh_data.data() + fresh_used, cpu + b.first * 16, bytes))
-							{
-								b.fresh = fresh_used;
-								fresh_seen.emplace(key, fresh_used);
-								fresh_used += bytes;
-								++fresh_copies;
-							}
-						}
+						b.fresh = cpu;
+						b.fresh_size = size;
 					}
 					first_eye_blocks.push_back(b);
 				}
@@ -3533,9 +3516,7 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 				first_eye_blocks.clear();
 				collecting = true;
 				begin_readback();
-				fresh_used = 0;
-				fresh_seen.clear();
-				fresh_data.resize(fresh_size);
+
 				ComPtr<ID3D11Device> device;
 				eye_context->GetDevice(&device);
 				gpu_begin(device.Get(), eye_context.Get());
