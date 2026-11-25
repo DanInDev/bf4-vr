@@ -35,18 +35,18 @@ namespace bfvr::weapon
 			{ "prisma", optic_kind::magnified, 3.4f },
 			{ "m145", optic_kind::magnified, 3.4f },
 			{ "jgm4", optic_kind::magnified, 4.0f },
+			{ "compact4x", optic_kind::magnified, 4.0f }, // #165: these two fell through to iron sights
+			{ "pks", optic_kind::magnified, 7.0f },
 			{ "hunter", optic_kind::magnified, 6.0f },
 			{ "ballistic", optic_kind::magnified, 14.0f },
 			{ "scope", optic_kind::magnified, 6.0f },
 		};
 
-		// The name after the last underscore, lowercased, letters and digits only.
-		void suffix_of(const char* name, char (&out)[32])
+		// One part of the name (up to the next underscore), lowercased, letters and digits only.
+		void part_of(const char* from, char (&out)[32])
 		{
-			const char* last = std::strrchr(name, '_');
-			const char* from = last ? last + 1 : name;
 			std::size_t n = 0;
-			for (const char* c = from; *c && n + 1 < sizeof(out); ++c)
+			for (const char* c = from; *c && *c != '_' && n + 1 < sizeof(out); ++c)
 			{
 				if (std::isalnum(static_cast<unsigned char>(*c)))
 				{
@@ -54,6 +54,18 @@ namespace bfvr::weapon
 				}
 			}
 			out[n] = 0;
+		}
+
+		const entry* match(const char* part)
+		{
+			for (const entry& e : table)
+			{
+				if (std::strncmp(part, e.suffix, std::strlen(e.suffix)) == 0)
+				{
+					return &e;
+				}
+			}
+			return nullptr;
 		}
 	}
 
@@ -63,16 +75,31 @@ namespace bfvr::weapon
 		{
 			return {};
 		}
+		// The name after the last underscore; for "..._Ballistic_Scope" / "..._Rifle_Scope" the part before it names the
+		// scope ("ballistic"), with the generic "scope" row as the fallback.
+		const char* last = std::strrchr(unlock_name, '_');
 		char suffix[32]{};
-		suffix_of(unlock_name, suffix);
-		for (const entry& e : table)
+		part_of(last ? last + 1 : unlock_name, suffix);
+		const entry* found = nullptr;
+		if (last && last != unlock_name && std::strcmp(suffix, "scope") == 0)
 		{
-			if (std::strncmp(suffix, e.suffix, std::strlen(e.suffix)) == 0)
+			const char* before = last - 1;
+			while (before > unlock_name && *(before - 1) != '_')
 			{
-				return { e.kind, e.magnification, e.clear_at_hip };
+				--before;
+			}
+			char previous[32]{};
+			part_of(before, previous);
+			if (before != unlock_name)
+			{
+				found = match(previous);
 			}
 		}
-		return {};
+		if (!found)
+		{
+			found = match(suffix);
+		}
+		return found ? optic_info{ found->kind, found->magnification, found->clear_at_hip } : optic_info{};
 	}
 
 	void add_optic(gun_optics& gun, const char* unlock_name)
