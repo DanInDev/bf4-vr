@@ -1994,3 +1994,45 @@ the weapons component (`0x140F7FDC0`) puts each `UnlockWeaponAndSlot` of `data+0
   needs charging (`needs_rack`: nothing chambered or the bolt open). Handguard lock (`support_lock`): grabbed at
   4.8 cm ahead of the magwell, the controller 7 cm forward left the hand at 4.8 cm (unlocked: 11.4 cm), 7 cm back
   moved it 3 cm with the game's own support spot as the barrel tilted; no regrab (`grabs` unchanged).
+
+## Every optic name in Shanghai, and the second-eye stray again (2026-11-25, monitor, Release, #165, #162, #164)
+
+**Optic names the table missed (#165).** `unlockfind` over Shanghai's attachments, grouped by the part after the gun:
+ACOG 34, ATN-Thor 3 + ATN_Thor 59, Ballistic_Scope 7, Compact4X 49 + Compact4x 6, Coyotee 14, EOTech 13, IRNV 55,
+Kobra 14, M145 55, Magnifier 46, PK-AS 14, PKA 55, **PKS-07 8**, PSO-1 55, CP1_Prismatic 55, RX01 13, Rifle_Scope 6 +
+RIfle_Scope 1. `weapon/optics` matched only the part after the last underscore, so PKS-07 (`pks07`), Compact4X, IRNV and
+Thor fell through to "no optic", and `Ballistic_Scope` matched the generic "scope" row (its "ballistic" row was never
+reached). An unrecognised optic counts as iron sights, so the mod forces the game's aim, and with a scope-type optic BF4
+then hides the whole first-person gun (In-frame lens, step 0): the SV-98's "black" PKS-07 was the gun gone with only the
+virtual eyepiece left (`sightstate` optic=none, `current=1`). Fixed for PKS-07 (7x), Compact 4x and the ballistic scope
+(`*_Scope` tries the part before it first); after: optic=U_SV98_PKS-07 magnified=1, `current=0`, the gun drawn, the
+chevrons and scale over the magnified city in the eyepiece.
+
+**Still open: IRNV and ATN Thor (thermal).** Both still count as iron sights. The CZ-805 with the IRNV at the eye: the
+forced aim turns the whole eye image into the game's green night vision, the optic's small glass a little brighter.
+A real one shows night vision only in its eyepiece. Neither choice is right yet: without the game's aim the effect is
+gone, with it the whole view is green.
+
+**The second-eye stray, reproduced and measured.** Type 88 + PKA held at the right eye: after a switch to slot 2 and
+back, `scope` showed `on_line=0/0/0` (before 28/28/28) and the second eye drew the gun twice: a second receiver and
+PKA tube where the first eye sees them (the first eye's camera), and in some shots a dark disc beside the optic (the
+first eye's closed tube): the "dark square" of #162. At a fixed pose about one second-eye shot in four carries it.
+`tools\stray_check.ps1` scores it (eye-2 shots of one pose against their median; the rain gives a baseline of ~5).
+Variants on branch `eyepass/fresh-blocks` (pipe `eyefix`, `eyefresh`; not merged):
+
+| Variant | Stray shots, on | Stray shots, off | Cost |
+| --- | --- | --- | --- |
+| Blocks the first eye binds after an arena discard copied on the GPU at bind time, keys by the arena's discard generation | 0 of 18 | 5 of 18 (only one of the two: 3-4 of 8) | 200 -> 140 fps, read-back 1.1 -> 4.7 ms: mapping the copy waits for the whole first eye |
+| Same, read on the CPU at bind time | as off | | none |
+| Read on the CPU after the first eye, through the bound version's mapping | 3 of 34 | 9 of 34 | none |
+| Older versions read when the game discards them, the current one after the first eye | 2 of 12 | 1 of 12 | none |
+
+So the stray comes from first-eye blocks bound after an arena discard (the GPU copy removes it), but their CPU-visible
+data is not what the draw used: reading at bind time is too early (the game writes some blocks after binding them),
+and reading later does not reliably give the bound version (a ring reused without a discard, or the driver reusing a
+discarded version's memory, are the candidates). Next: GPU copies without the wait (patching those blocks on the GPU,
+or copying them into the eye buffer and shifting only the camera rows with a small compute pass).
+
+Test pitfalls: piping `tools\optic_shots.ps1` into `Select-Object -First n` stops the script before its shots. During
+an hour of optic tests in the weapon cache room the mission went on by itself (black screen, the car drive, then
+"Reach the Hotel" in an alley); later `dev-run -Resume` may start there.

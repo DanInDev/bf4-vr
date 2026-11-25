@@ -36,6 +36,14 @@ int main()
 	expect(std::fabs(classify_optic("U_AK12_Magnifier").magnification - 1.73f) < 1e-4f, "the magnifier's measured zoom");
 	expect(kind("U_AK12_PKA", optic_kind::magnified) && std::fabs(classify_optic("U_AK12_PKA").magnification - 3.4f) < 1e-4f, "PKA is a 3.4x, not the PK-AS");
 	expect(kind("U_M16A4_ACOG", optic_kind::magnified) && std::fabs(classify_optic("U_M16A4_ACOG").magnification - 4.0f) < 1e-4f, "ACOG 4x");
+	// #165: names from Shanghai's unlock list (2026-11-25) that fell through to "no optic", so the mod forced the
+	// game's aim and BF4 hid the gun behind its flat scope view.
+	expect(kind("U_SV98_PKS-07", optic_kind::magnified) && std::fabs(classify_optic("U_SV98_PKS-07").magnification - 7.0f) < 1e-4f, "PKS-07 7x");
+	expect(kind("U_870_Compact4X", optic_kind::magnified) && kind("U_QBS09_Compact4x", optic_kind::magnified), "Compact 4x, both spellings");
+	expect(std::fabs(classify_optic("U_CS-LR4_Ballistic_Scope").magnification - 14.0f) < 1e-4f, "the ballistic scope, not the generic rifle scope");
+	expect(kind("U_CS-LR4_Rifle_Scope", optic_kind::magnified) && kind("U_M200_RIfle_Scope", optic_kind::magnified), "rifle scope, both spellings");
+	expect(kind("U_870_CP1_Prismatic", optic_kind::magnified) && kind("U_870_PSO-1", optic_kind::magnified) && kind("U_870_M145", optic_kind::magnified), "CP1, PSO-1, M145");
+	expect(kind("U_CS-LR4_Coyotee", optic_kind::reflex) && kind("U_CS-LR4_Kobra", optic_kind::reflex), "Coyote (BF4 spells it Coyotee), Kobra");
 	for (const char* other : { "U_AK12", "U_SCAR-H", "U_AK12_HeavyBarrel", "U_AK12_Foregrip_Folding", "U_SCAR-H_MuzzleBrake", "U_SCAR-H_TargetPointer",
 			 "U_Grass_Woodland", "U_M67_SP", "U_Knife", "U_SP_Visor", "" })
 	{
