@@ -166,6 +166,20 @@ namespace bfvr::stereo
 		readback readbacks[8];
 		int readback_count{};
 
+		// #162/#164: the read-back is copied before the first eye, so a block the first eye binds after its arena was
+		// discarded mid-render (about two discards per first-eye render) is not in it: the second eye patched stale data
+		// at that offset and drew that piece with another camera (the stray gun in the second eye). Such blocks are
+		// copied on the GPU at bind time, in command order, into fresh_staging, and patched from there (pipe eyefresh).
+		constexpr UINT fresh_size = 1u << 20;
+		ComPtr<ID3D11Buffer> fresh_staging;
+		const std::uint8_t* fresh_cpu{};
+		UINT fresh_used{};
+		bool eye1_discarded{}; // render thread: an arena was discarded in this first-eye render
+		std::atomic<bool> fresh_fix{ true };
+		std::atomic<std::uint64_t> fresh_copies{};
+		std::atomic<std::uint64_t> fresh_overflows{};
+		std::atomic<std::uint64_t> fresh_replaced{}; // a key bound before the discard got the post-discard block
+
 		// Before the first eye: the job-written blocks it binds are complete, the render thread's own
 		// blocks of eye 1 are not (eye 2 never binds those, it writes its own).
 		void begin_readback()
@@ -218,6 +232,9 @@ namespace bfvr::stereo
 				r.cpu = r.arena && r.staging && SUCCEEDED(original_map(eye_context.Get(), r.staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))
 					? static_cast<const std::uint8_t*>(mapped.pData) : nullptr;
 			}
+			D3D11_MAPPED_SUBRESOURCE mapped{};
+			fresh_cpu = fresh_used && fresh_staging && SUCCEEDED(original_map(eye_context.Get(), fresh_staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))
+				? static_cast<const std::uint8_t*>(mapped.pData) : nullptr;
 		}
 
 		void end_readback()
@@ -229,6 +246,11 @@ namespace bfvr::stereo
 					eye_context->Unmap(readbacks[i].staging.Get(), 0);
 					readbacks[i].cpu = nullptr;
 				}
+			}
+			if (fresh_cpu)
+			{
+				eye_context->Unmap(fresh_staging.Get(), 0);
+				fresh_cpu = nullptr;
 			}
 		}
 
@@ -335,6 +357,7 @@ namespace bfvr::stereo
 				if (arena && type == D3D11_MAP_WRITE_DISCARD && in_eye_render)
 				{
 					++(patching ? arena_discards_eye2 : arena_discards_eye1);
+					eye1_discarded = eye1_discarded || !patching;
 				}
 			}
 			return hr;
@@ -557,6 +580,7 @@ namespace bfvr::stereo
 			ID3D11Buffer* buffer{};
 			UINT first{};
 			UINT count{};
+			UINT fresh{ ~0u }; // byte offset in fresh_staging: bound after its arena's discard in this render
 		};
 		std::vector<used_block> first_eye_blocks;
 		bool collecting{};
@@ -575,23 +599,42 @@ namespace bfvr::stereo
 					continue;
 				}
 				const std::uint64_t key = block_key(b.buffer, b.first);
-				if (patched_blocks.count(key))
+				const bool fresh = b.fresh != ~0u && fresh_cpu;
+				// A block bound after its arena's discard holds what the arena has there now (what the second eye binds):
+				// it replaces a pre-discard binding of the same offset.
+				const bool known = patched_blocks.count(key) != 0;
+				if (known && !fresh)
 				{
 					continue;
 				}
 				const UINT aligned = (b.count * 16 + 255) & ~255u;
 				UINT result = ~0u;
+				float* const block = reinterpret_cast<float*>(upload.data() + used);
 				if (used + aligned > eye_buffer_size)
 				{
 					++eye_buffer_overflows;
 				}
-				else if (patched_copy(b.buffer, b.first, b.count, reinterpret_cast<float*>(upload.data() + used)))
+				else if (fresh)
+				{
+					std::memcpy(block, fresh_cpu + b.fresh, b.count * 16);
+					if (patch_block(block, b.count) > 0)
+					{
+						result = used / 16;
+						used += aligned;
+						++blocks_patched;
+					}
+				}
+				else if (patched_copy(b.buffer, b.first, b.count, block))
 				{
 					result = used / 16;
 					used += aligned;
 					++blocks_patched;
 				}
-				patched_blocks.emplace(key, result);
+				if (fresh && known)
+				{
+					++fresh_replaced;
+				}
+				patched_blocks[key] = result;
 			}
 			D3D11_MAPPED_SUBRESOURCE mapped{};
 			if (used && SUCCEEDED(original_map(eye_context.Get(), eye_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
@@ -801,7 +844,38 @@ namespace bfvr::stereo
 			{
 				for (UINT i = 0; i < count; ++i)
 				{
-					first_eye_blocks.push_back({ buffers[i], first[i], number[i] });
+					used_block b{ buffers[i], first[i], number[i] };
+					if (eye1_discarded && b.buffer && b.count && b.count <= 4096 && fresh_staging && fresh_fix.load(std::memory_order_relaxed))
+					{
+						unsigned discards = 0;
+						{
+							const std::lock_guard guard(arena_lock);
+							for (int a = 0; a < arena_count; ++a)
+							{
+								if (arenas[a].buffer.Get() == b.buffer)
+								{
+									discards = arenas[a].eye_discards;
+								}
+							}
+						}
+						if (discards)
+						{
+							const UINT bytes = b.count * 16;
+							if (fresh_used + bytes > fresh_size)
+							{
+								++fresh_overflows;
+							}
+							else
+							{
+								const D3D11_BOX box{ b.first * 16, 0, 0, b.first * 16 + bytes, 1, 1 };
+								eye_context->CopySubresourceRegion(fresh_staging.Get(), 0, fresh_used, 0, 0, b.buffer, 0, &box);
+								b.fresh = fresh_used;
+								fresh_used += bytes;
+								++fresh_copies;
+							}
+						}
+					}
+					first_eye_blocks.push_back(b);
 				}
 			}
 			if (!probing.load(std::memory_order_relaxed))
@@ -3455,6 +3529,18 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 				first_eye_blocks.clear();
 				collecting = true;
 				begin_readback();
+				fresh_used = 0;
+				eye1_discarded = false;
+				if (!fresh_staging)
+				{
+					ComPtr<ID3D11Device> fresh_device;
+					eye_context->GetDevice(&fresh_device);
+					D3D11_BUFFER_DESC desc{};
+					desc.ByteWidth = fresh_size;
+					desc.Usage = D3D11_USAGE_STAGING;
+					desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+					fresh_device->CreateBuffer(&desc, nullptr, &fresh_staging);
+				}
 				ComPtr<ID3D11Device> device;
 				eye_context->GetDevice(&device);
 				gpu_begin(device.Get(), eye_context.Get());
@@ -3780,6 +3866,16 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		return "eyeskip " + std::to_string(from) + ".." + std::to_string(to) + " (last eye-2 draw count " + std::to_string(eye2_draws) + ")";
 	}
 
+	std::string set_fresh_fix(int on)
+	{
+		if (on == 0 || on == 1)
+		{
+			fresh_fix = on == 1;
+		}
+		return "eyefresh fresh_fix=" + std::to_string(fresh_fix.load() ? 1 : 0) + " copies=" + std::to_string(fresh_copies.load())
+			+ " replaced=" + std::to_string(fresh_replaced.load()) + " overflows=" + std::to_string(fresh_overflows.load());
+	}
+
 	std::string set_discard_fix(int on)
 	{
 		if (on == 0 || on == 1)
@@ -4056,11 +4152,12 @@ float4 ps(float4 position : SV_Position) : SV_Target { return picture.Load(int3(
 		std::snprintf(text, sizeof(text), "eye_frames=%llu eye_pairs=%llu eye_rejected=%llu eye_abandoned=%llu eye_ms=%.2f eye_readback_ms=%.2f eye_windows=%u "
 			"eye_redirected=%llu eye_blocks=%llu eye_overflows=%llu eye_late=%llu eye_late_patched=%llu eye_vp_shifted=%llu eye_view_blocks=%llu "
 			"gpu_ms eye1=%.2f eye2=%.2f scope=%.2f scope_renders=%llu scope_hidden=%llu scope_ms=%.2f (worker %llu us, wait %llu us, render %llu us, compose %llu us) "
-			"arena_discards eye1=%llu eye2=%llu stale_after_discard=%llu discard_fix=%d",
+			"arena_discards eye1=%llu eye2=%llu stale_after_discard=%llu discard_fix=%d fresh=%llu fresh_replaced=%llu fresh_overflows=%llu fresh_fix=%d",
 			frames.load(), pairs.load(), rejected.load(), abandoned.load(), extra_ms.load(), readback_ms.load(), patch_windows.load(), bindings_redirected.load(),
 			blocks_patched.load(), eye_buffer_overflows.load(), late_blocks.load(), late_patched.load(), view_projections_shifted.load(), per_view_blocks_shifted.load(),
 			gpu_eye_ms[0].load(), gpu_eye_ms[1].load(), gpu_eye_ms[2].load(), scope_renders.load(), scope_hidden_blocks.load(), scope_ms.load(), scope_prepare_us.load(), scope_wait_us.load(), scope_render_us.load(), scope_compose_us.load(),
-			arena_discards_eye1.load(), arena_discards_eye2.load(), stale_after_discard.load(), discard_fix.load() ? 1 : 0);
+			arena_discards_eye1.load(), arena_discards_eye2.load(), stale_after_discard.load(), discard_fix.load() ? 1 : 0,
+			fresh_copies.load(), fresh_replaced.load(), fresh_overflows.load(), fresh_fix.load() ? 1 : 0);
 		return text;
 	}
 

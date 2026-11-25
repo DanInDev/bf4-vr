@@ -623,6 +623,7 @@ namespace bfvr::control
 			if (command == "foveation") return stereo::foveation_report();
 			if (command == "hudwidgets") return ui::hud_widgets_command(argument);
 			if (command == "eyefix") return stereo::set_discard_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));
+			if (command == "eyefresh") return stereo::set_fresh_fix(argument.empty() ? -1 : std::atoi(argument.c_str()));
 			if (command == "eyeskip")
 			{
 				unsigned from = 0, to = 0;
