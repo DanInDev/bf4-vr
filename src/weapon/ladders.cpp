@@ -56,6 +56,7 @@ namespace bfvr::weapon
 		constexpr std::uintptr_t static_model_vtable = 0x141d358f0; // ClientStaticModelEntity
 		constexpr std::uintptr_t entity_transform = 0x280;         // LinearTransform: right, up, forward (out), origin
 		constexpr int climbing = 3;
+		constexpr int in_air = 2, falling = 4;
 		// While the hands climb, the climbing state may go this fast (the game's own is 2 m/s): a strong pull is followed.
 		constexpr float hand_speed = 4.0f;
 		// The arm rig's points (palms, the view's origin) older than this count as untracked. Longer than the weapon code's 250:
@@ -368,6 +369,7 @@ namespace bfvr::weapon
 		ladder::climb_in in;
 		in.dt = dt;
 		in.on_ladder = known_state && state == climbing && placed;
+		in.airborne = known_state && (state == in_air || state == falling);
 		// What the hands move is the view: the tracking space's origin in the world (it rides with the drawn camera).
 		// The character's own position read here jumps by a metre while the game places him on the ladder (monitor
 		// 2026-11-26, its prediction replay), and the mount lifts the view 0.6 m against 0.2 m of it.
@@ -378,6 +380,12 @@ namespace bfvr::weapon
 			last_body_y = points.world_origin[1];
 		}
 		in.body_y = last_body_y;
+		if (fresh && points.has_floor)
+		{
+			// The soldier's ground (the rig's AITrajectory bone, OpenXR LOCAL) in the world: is he above the rung he takes?
+			in.has_feet = true;
+			in.feet_y = points.world_origin[1] + points.floor_y;
+		}
 		in.speed = speed.raised ? hand_speed : speed.original;
 		if (in.on_ladder)
 		{
@@ -472,7 +480,7 @@ namespace bfvr::weapon
 			// degrees), and a hand reaching for a rung has him facing it. (The soldier's yaw copies at +0x34C/+0x4D8 read
 			// 0 off the ladder on the monitor, 2026-11-26, so no turned push is built from them.)
 			stick_x = 0.0f;
-			stick_y = 0.8f;
+			stick_y = out.mount_stick;
 			if (stick_mode.exchange(2) != 2)
 			{
 				++mounts;
@@ -537,6 +545,9 @@ namespace bfvr::weapon
 				hand.grip ? 1 : 0, hand.busy ? 1 : 0, hand.palm_world.x, hand.palm_world.y, hand.palm_world.z, hand.palm.x, hand.palm.y, hand.palm.z);
 			report += text;
 		}
+		std::snprintf(text, sizeof(text), "\nfeet=%d %.3f airborne=%d mount_stick=%.2f", last_in.has_feet ? 1 : 0, last_in.feet_y, last_in.airborne ? 1 : 0,
+			last_out.mount ? last_out.mount_stick : 0.0f);
+		report += text;
 		const std::lock_guard guard(ladders_lock);
 		std::snprintf(text, sizeof(text), "\nknown=%zu scans=%llu scan_ms=%llu%s", known.size(), static_cast<unsigned long long>(scans.load()),
 			static_cast<unsigned long long>(scan_ms.load()), scanning.load() ? " (scanning)" : "");

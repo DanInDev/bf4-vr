@@ -125,8 +125,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   needs Restart mission (overwrites the checkpoint): ask the owner first.
 - **2026-11-26: the resume checkpoint is on the roof above the alley's wall ladder** (still "Reach the Hotel"; BF4 saved
   there after a ladder test climbed off the top, #134). The ladder (`re/notes/ladders.md`) stands below the roof edge,
-  foot (171.52, 63.115, -52.70), climbed facing +x from (170.6, -52.7); walking off the roof beside it lands unhurt in
-  the alley.
+  foot (171.52, 63.115, -52.70), climbed facing +x from (170.6, -52.7). A fall off the roof sometimes lands unhurt in
+  the alley, sometimes kills (the death watch logs it; he respawns on the roof). Getting on from the roof by hand: stand
+  at the edge on the ladder's line (z -52.70), put a fake palm on the hooks (171.62, 73.60, -52.70) and squeeze; place
+  fake hands by world point from the camera's axes and the `ladder` report, not by trial.
 - From 2026-11-19 the resume checkpoint is **Shanghai, in front of a weapon cache** (level `SP_Shanghai`): the Baku notes
   below (crate beside you, gadget stash, red room) describe the old one. Crate guns for tests: `givegun` / the own crate
   (#80), e.g. `U_USAS-12_SP` (scope), `U_SteyrAug` (magnifier), `U_SRS` (sniper scope). Untested there yet: say so if

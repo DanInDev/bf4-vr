@@ -128,8 +128,37 @@ What the monitor taught (each in the code):
 - The soldier's yaw copies (`+0x34C`, `+0x4D8`) read 0.000 off the ladder in these runs even through turns; nothing
   uses them. The walk-on pushes the stick straight ahead.
 
-Not checked on the monitor: **getting on at the top** (walking onto the ladder from the roof missed it twice, the
-soldier ended beside it or fell; the reach from the roof cannot reach the top rung standing), other ladder models.
+### Getting on at the top (2026-11-26, second session)
+
+How BF4 does it, found with the stick alone on the roof above this ladder:
+- Walking **forward** off the roof's edge at the ladder: the soldier stops at the edge (camera x 172.45, the state
+  flickering 0 / 8 Sliding); aimed down (pitch -50 through the controller ray, the soldier unarmed) the same. Never on.
+- Walking **backward** (facing the roof): he steps onto the ladder's top hooks (camera up to 75.17, feet 73.55, above
+  the ladder's 73.50 top) and then off them; he falls past the ladder (InAir 2, Falling 4) and the 10 m fall killed him
+  (death watch: died, respawn on the roof).
+- Backing off and, **once falling, pushing towards the ladder**: caught at the top, state 3 at camera 73.79 on the
+  ladder's climbing line (x 171.08). The stick held on afterwards climbs him straight back over the edge.
+
+By hand (`ladder_climb` `mount_kind::step_off`): standing above the rung (the rig's floor, `weapon_points.floor_y`,
+within 0.3 m of it or above), a fresh squeeze on the rails' tops or the hooks over the edge (`top_grab`: from the top
+rung up to the hooks' top at 10.66 m, 0.33 m in over the edge) holds there; the soldier, his aim turned into the
+ladder, backs off (stick -0.5) until he is in the air **and** the view has dropped 5 cm below its highest since the grab
+(on the hooks the state flickers to InAir already); then the stick goes full forward until he is on (1.2 s at most),
+and stops the frame he is.
+
+Monitor runs (4 fps, fake hands placed by world point): a push from 10 cm below the roof's view caught too late (0.6 m
+out from the wall; he fell past and was caught only at the foot); from 5 cm below the highest point, 2 of 3 caught at
+the top (state 3 at view 73.15 and 73.37, 1.5-1.7 m below standing on the roof), one fell (and died). At 90 fps the
+push comes within 11 ms instead of 270 ms. Then **all the way down by hand**: 25 pushes of one rung, the view -0.298
+to -0.302 m each, every re-grip on the next rung (72.811 down to 65.663), and at the foot he stepped off (state 0, view
+65.885 = his standing height before), not walking on.
+
+The foot needed one fix: the own-move rule first took the stopped body (the ground) for a move of the game's, brought
+the target back onto it and let the stick rest, so he stayed on the bottom rung (view 66.082, state 3). Now a body that
+moves less than asked, or not at all, is a block (the lead limit keeps pushing down, which steps him off); only moving
+beyond what was asked counts as the game's own move.
+
+Not checked on the monitor: other ladder models.
 
 ## Dead ends
 
@@ -142,8 +171,9 @@ soldier ended beside it or fell; the reach from the roof cannot reach the top ru
 
 ## Open
 
-- Other ladder models (rung spacing, the top's hook rails: a hand cannot take the rails above the top rung yet).
-- Getting on at the top by hand (the top rung is at the roof's foot level; a real climber kneels or takes the hooks).
+- Other ladder models (rung spacing, the top's hooks; `top_grab` assumes this model's hooks).
+- Getting on at the top falls past the ladder when the catch comes late (1 of 3 at 4 fps); at 90 fps for the headset
+  (CLIMB-2). Once on, the rails' tops are not a hold for climbing (only for getting on).
 - The background scan took 0.27-0.48 s after each load here; until it has run a reach from the ground finds no ladder
   (walking into it works, and adds it).
 - The headless runs are ~4 fps; the feel at 90 fps (lag, the follow rate) is for the headset (CLIMB-1/2/3).
