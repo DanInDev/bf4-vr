@@ -321,6 +321,16 @@ Baku checkpoint "Reach Secondary Extraction" (you start in the driver's seat). P
 | DRIVE-3 | open | Get out of the car and back in if the level allows; then walk on after the drive | On foot everything is as before: walk where you look, snap turn, sprint, gun aim; no jump in facing when you step out | vehicle controls | |
 | DRIVE-4 | problem | Baku car chase: lean out with the M320 (`scene_aim = game`, View > Comfort); right stick onto the helicopter, left trigger, fire | The scene plays as on a flat screen: the right stick moves the game's view, the round goes where it centres; a green dot marks that centre | #133 | 2026-11-19 headset: passed by aiming up with the right stick; **no green dot seen**. Before: every round missed (controller ray, then a visible hit with no damage); flat reference run: the scene's own camera is the aim |
 
+## Ladders
+
+Shanghai checkpoint "Reach the Hotel": the yellow wall ladder in the alley in front of you (#134).
+
+| ID | Status | Check | Look for | Issue | Last result |
+| --- | --- | --- | --- | --- | --- |
+| CLIMB-1 | open | Let go of any gun (it goes to the sling), reach out to a rung at chest height and squeeze, then climb the whole ladder hand over hand: grip a higher rung, pull it down, let go of the lower one; at the top keep pushing the top rung down to your hips | A tick and the soldier steps onto the ladder with your hand closed on the rung; each pull lifts you as far as your hand moved, without lag you notice and without jumps when a hand takes or leaves a rung; the drawn fists stay closed round their rungs; at the top the game lifts you over the edge and the hands let go | #134 | 2026-11-26 monitor (Debug, ~4 fps, fake hands): reach-mount on the measured rung; 30 cm pulls +0.303/+0.303 m; taking the second rung and letting go of the first moved nothing; 24 one-rung cycles to the top rung, the push down -> the game's climb-off onto the roof, the stick at rest through it |
+| CLIMB-2 | open | Halfway up let go with both hands and look around; then climb down: grip a rung, push it up, hand over hand to the ground; and once with the thumbstick only | Letting go leaves you hanging where you are; pushing a rung up lowers you as far as the hand moved; at the bottom you stand on the ground and do not walk backwards; with no hand on a rung the stick climbs as before | #134 | 2026-11-26 monitor: both hands open -> still on the ladder, the view held 2 s; three one-rung pushes down, each -0.30 m, the third onto the ground (state 0, standing height as before), no backward walk. Thumbstick-only climbing not rechecked |
+| CLIMB-3 | open | On the ladder, turn your body and head well away (90 degrees) and keep climbing by hand; also get on by reaching while standing a little turned | You stay on the ladder and climb the way your hands pull; the view turns with you, the climb does not | #134 | 2026-11-26 monitor: mounted 30 degrees off (before the fix a pull dropped him off the bottom); after it the same pull rose 0.303 m |
+
 ## Haptics and sound
 
 | ID | Status | Check | Look for | Issue | Last result |

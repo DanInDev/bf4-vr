@@ -18,6 +18,7 @@
 #include "weapon/zone_book.hpp"
 #include "body/soldier_radius.hpp"
 #include "physics/ray_cast.hpp"
+#include "weapon/ladders.hpp"
 #include "weapon/wall_stop_game.hpp"
 #include "common/config.hpp"
 #include "common/log.hpp"
@@ -613,6 +614,7 @@ namespace bfvr::control
 			if (command == "radius") return body::soldier_radius_report();
 			if (command == "raycast") return physics::raycast_command(argument);
 			if (command == "wallstop") return weapon::wall_stop_report();
+			if (command == "ladder") return weapon::ladder_command(argument); // #134
 			if (command == "poses")
 			{
 				// Loading goes through the setting (setting set pose_file load), so the sliders follow.

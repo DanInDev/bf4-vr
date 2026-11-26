@@ -354,6 +354,11 @@ namespace bfvr::body
 		std::atomic<bool> gun_in_off_hand{};
 		std::atomic<bool> off_by_grip{}; // #38: the off hand holds the pistol grip (mirrored gun-hand hold)
 		std::atomic<bool> gun_hand_fist{}; // #38: the free gun hand holds a grenade
+		// #134 (set_rung_hold): a hand on a ladder rung, the game's world point its palm stays at.
+		std::atomic<bool> rung_hold_active[2]{};
+		std::mutex rung_hold_lock;
+		float rung_hold_at[2][3]{};
+		float rung_hold_axis[2][3]{ { 1, 0, 0 }, { 1, 0, 0 } };
 		std::atomic<bool> gun_on_floor_now{}; // mirror of gun_on_floor for the finger task (no lock)
 		bool carried_by_off{};                 // pose-hook thread: last evaluation's carrier was the off hand
 		ik::quat off_carry_in_aim{ 0, 0, 0, 1 }; // the drawn off hand relative to frame * its aim, at the hand-over
@@ -1571,6 +1576,33 @@ namespace bfvr::body
 					hand_collision_depth[hand] = 0.0f;
 					hand_collision_checked[hand] = false;
 				}
+				// #134: a hand on a ladder rung stays on it wherever its controller goes (the body follows the pull):
+				// the whole hand moved so the controller's grip point sits on the rung, last, over every other hold.
+				if (rung_hold_active[hand].load(std::memory_order_relaxed))
+				{
+					const std::lock_guard held(rung_hold_lock);
+					const ik::vec3 on_rung{ rung_hold_at[hand][0], rung_hold_at[hand][1], rung_hold_at[hand][2] };
+					const ik::vec3 palm_at = origin + ik::rotate(frame, palm);
+					// The fist closes round the bar: the controller's handle axis (its grip pose's -z; the aim pose for a
+					// synthetic hand) is turned onto the rung by the shortest arc about the palm, so only the wrist's
+					// roll about the rung stays the player's, as on a real bar.
+					ik::quat controller = aim;
+					if (!targets[hand].active && hands.valid[hand])
+					{
+						const float* g = hands.grip[hand].orientation;
+						controller = { g[0], g[1], g[2], g[3] };
+					}
+					const ik::vec3 handle = ik::rotate(frame * ik::normalize(controller), ik::vec3{ 0.0f, 0.0f, -1.0f });
+					ik::vec3 bar{ rung_hold_axis[hand][0], rung_hold_axis[hand][1], rung_hold_axis[hand][2] };
+					if (ik::dot(handle, bar) < 0.0f)
+					{
+						bar = bar * -1.0f;
+					}
+					const ik::quat onto = ik::from_to(handle, bar);
+					goal.hand = ik::normalize(onto * goal.hand);
+					goal.wrist = palm_at + ik::rotate(onto, goal.wrist - palm_at);
+					goal.wrist = goal.wrist + (on_rung - palm_at);
+				}
 				// The elbow hints turn with the torso; the second (elbow out and back) takes over where
 				// the hand lies along the first, the belt and hip for the default hint.
 				const ik::quat body_frame = torso_turn * frame;
@@ -2208,6 +2240,10 @@ namespace bfvr::body
 			if (!last_arms[hand].solved)
 			{
 				return fingers::task::item;
+			}
+			if (rung_hold_active[hand].load(std::memory_order_relaxed))
+			{
+				return fingers::task::magazine; // #134: closed round a ladder rung
 			}
 			const bool off_carries = gun_in_off_hand.load(std::memory_order_relaxed);
 			if (hand == 1 && off_carries && support_weight.load(std::memory_order_relaxed) >= 0.5f)
@@ -3716,6 +3752,23 @@ namespace bfvr::body
 	{
 		gun_in_off_hand = held;
 		off_by_grip = held && by_grip;
+	}
+
+	void set_rung_hold(int hand, bool active, const float (&world)[3], const float (&axis)[3])
+	{
+		if (hand < 0 || hand > 1)
+		{
+			return;
+		}
+		{
+			const std::lock_guard held(rung_hold_lock);
+			for (int i = 0; i < 3; ++i)
+			{
+				rung_hold_at[hand][i] = world[i];
+				rung_hold_axis[hand][i] = axis[i];
+			}
+		}
+		rung_hold_active[hand] = active;
 	}
 
 	void set_gun_hand_fist(bool fist)

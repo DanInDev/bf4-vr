@@ -56,6 +56,7 @@
 #include "ui/vr_panel.hpp"
 #include "weapon/two_handed.hpp"
 #include "weapon/weapon_pickup.hpp"
+#include "weapon/ladders.hpp"
 #include "weapon/weapon_swap.hpp"
 #include "weapon/zone_book.hpp"
 #include "xr/controller_actions.hpp"
@@ -349,6 +350,7 @@ namespace bfvr::core
 			weapon::set_melee_gesture(store.boolean("melee_gesture", true));
 			weapon::set_knife_grip(true);
 			weapon::set_use_reach(store.boolean("use_reach", true));
+			weapon::set_ladder_hands(store.boolean("ladder_hands", true));
 			weapon::set_weapon_pickup(store.boolean("weapon_pickup", true));
 			weapon::set_free_hands(store.boolean("free_hands", true));
 			weapon::set_free_hands_release(store.real("free_hands_release", 0.0f));
@@ -437,6 +439,7 @@ namespace bfvr::core
 			ui::update_body_calibration();
 			body::update_soldier_radius();
 			ui::update_vr_panel();
+			weapon::update_ladders();
 			weapon::update_weapon_swap();
 			weapon::update_hit_feedback();
 			if (control_enabled)

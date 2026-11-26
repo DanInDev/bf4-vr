@@ -51,6 +51,8 @@ namespace bfvr::weapon
 	bool gun_in_off_hand();
 	// ...by its pistol grip (picked up with the off hand): it fires with the off-hand trigger.
 	bool gun_in_off_grip();
+	// #134: a gun is held in the gun hand (free hands): that hand takes no ladder rung until it lets go.
+	bool gun_hand_holds_gun();
 	// While the off hand reaches to use something (use_reach): from the head towards that hand, OpenXR LOCAL,
 	// unit. The game's aim goes there so its use target is what the hand reaches for (#37 keeps it with the
 	// body otherwise).

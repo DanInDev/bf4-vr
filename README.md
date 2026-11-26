@@ -144,6 +144,19 @@ The campaign's "engage" order (keyboard **Q** on the PC).
 
 Don't want it? Switch off **Squad order by hand** on the panel (**Weapon > Hands and melee**).
 
+### Ladders
+
+Climb with your hands, as on a real ladder.
+
+1. Let go of your gun (it goes to the sling), reach out to a **rung** and squeeze the **grip**: you step onto the ladder
+   with your hand closed on it.
+2. **Pull the rung down** to climb up, **push it up** to climb down; take the next rung with the other hand and let go of
+   the first, hand over hand.
+3. Let go with both hands and you hang where you are. At the top, keep pushing the top rung down and you climb over the
+   edge; at the bottom you step off onto the ground.
+
+With no hand on a rung the **left stick** climbs as before.
+
 ### Driving
 
 By default you drive with a **steering wheel** in front of you, and the view rides with the car.
