@@ -32,6 +32,7 @@
 #include "weapon/gun_traits.hpp"
 #include "weapon/hand_signal.hpp"
 #include "weapon/holsters.hpp"
+#include "weapon/ladders.hpp"
 #include "weapon/melee_gesture.hpp"
 #include "weapon/grenade_hands.hpp"
 #include "weapon/physical_grenade.hpp"
@@ -183,6 +184,7 @@ namespace bfvr::weapon
 		std::atomic<bool> unarmed_now{}; // #136: the game's unarmed item is in hand
 		std::atomic<bool> off_hand_now{}; // #38: the off hand holds the gun
 		std::atomic<bool> off_grip_now{}; // #38: by the pistol grip (it fires with the off-hand trigger)
+		std::atomic<bool> gun_hand_full{}; // #134: a gun in the gun hand (a rung needs it let go first)
 		free_hands dropper;
 		int last_slot{ -2 };
 		char last_name[48]{};
@@ -751,7 +753,7 @@ namespace bfvr::weapon
 			const bool busy[2]{
 				grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || off_grip_claimed.load() || signal_raised.load() || panel
 					|| hooks::game_pointer_active(),
-				grenade_in_hand() || grip_claimed.load() || reload_claims_free_hand() || panel
+				grenade_in_hand() || grip_claimed.load() || reload_claims_free_hand() || panel || ladder_claims_hand(1)
 					|| (gun_out && !off_hand_now.load() && (!free_hands_on.load(std::memory_order_relaxed) || !gun_dropped())),
 			};
 			const float head_at[3]{ head.x, head.y, head.z };
@@ -779,6 +781,7 @@ namespace bfvr::weapon
 			reach.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
 			// A menu the laser points at (the gadget stash) is no use target: the grip there sent E again and again.
 			reach.busy = grenade_in_hand() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ui::vr_panel_view().open
+				|| ladder_claims_hand(0) // #134: a rung is no use target
 				|| hooks::game_pointer_active();
 			const use_result used = user.update(reach);
 			use_reaching = used.reaching;
@@ -814,7 +817,8 @@ namespace bfvr::weapon
 			// #49: a grip at the selected weapon's own holster takes that weapon (the claim is its own).
 			drop.holster_take = holster_take;
 			holster_take = false;
-			drop.busy = grenade_in_hand() || (grip_claimed.load() && !drop.holster_take) || ui::vr_panel_view().open || reload_claims_free_hand();
+			drop.busy = grenade_in_hand() || (grip_claimed.load() && !drop.holster_take) || ui::vr_panel_view().open || reload_claims_free_hand()
+				|| ladder_claims_hand(1); // #134: the gun hand on a rung picks nothing up
 			drop.floor_y = points.floor_y;
 			// #38: the off hand on the handguard keeps the gun when the gun hand lets go.
 			drop.off_holds = off_hand_holds_gun();
@@ -864,6 +868,7 @@ namespace bfvr::weapon
 			dropped_now = dropped.dropped;
 			off_hand_now = dropped.in_off_hand || dropped.in_off_grip;
 			off_grip_now = dropped.in_off_grip;
+			gun_hand_full = drop.gun_in_hand && !dropped.dropped && !dropped.in_off_hand && !dropped.in_off_grip;
 			body::set_gun_in_off_hand(dropped.in_off_hand || dropped.in_off_grip, dropped.in_off_grip);
 			const float lying[3]{ dropped.position.x, dropped.position.y, dropped.position.z };
 			body::set_dropped_gun(dropped.dropped, lying, dropped.yaw, dropped.slung);
@@ -906,13 +911,13 @@ namespace bfvr::weapon
 		frame.hand_valid = points.hand_valid[1] && now - points.at < points_max_age_ms;
 		frame.gun_hand = { points.palm[1][0], points.palm[1][1], points.palm[1][2] };
 		// While a grenade is in the off hand, the gun hand's grip pulls its pin, never draws.
-		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand();
+		frame.gun_grip = (input::latest().buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0 && !grenade_in_hand() && !ladder_claims_hand(1);
 		frame.left_handed = input::left_handed();
 		frame.size = body_size_now.load(std::memory_order_relaxed);
 		frame.off_hand_valid = points.hand_valid[0] && now - points.at < points_max_age_ms;
 		frame.off_hand = { points.palm[0][0], points.palm[0][1], points.palm[0][2] };
 		frame.off_grip = (input::latest().buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0;
-		frame.off_busy = grenade_in_hand() || off_hand_at_belt() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load()
+		frame.off_busy = grenade_in_hand() || off_hand_at_belt() || reload_owns_off_hand() || off_hand_on_gun() || signal_raised.load() || ladder_claims_hand(0)
 			|| use_reaching.load() || ui::vr_panel_view().open;
 		const holster_result result = zones.update(frame);
 		if (zones.body_known())
@@ -1094,6 +1099,11 @@ namespace bfvr::weapon
 	bool gun_in_off_hand()
 	{
 		return off_hand_now.load(std::memory_order_relaxed);
+	}
+
+	bool gun_hand_holds_gun()
+	{
+		return gun_hand_full.load(std::memory_order_relaxed);
 	}
 
 	bool gun_in_off_grip()

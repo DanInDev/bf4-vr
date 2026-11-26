@@ -123,6 +123,10 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   soldier unarmed, Esc at the start opens the pause menu: pad A resumes): during an hour of optic tests in the weapon
   cache room the mission went on by itself and BF4 saved there. Guns come from `givegun`. Getting the cache room back
   needs Restart mission (overwrites the checkpoint): ask the owner first.
+- **2026-11-26: the resume checkpoint is on the roof above the alley's wall ladder** (still "Reach the Hotel"; BF4 saved
+  there after a ladder test climbed off the top, #134). The ladder (`re/notes/ladders.md`) stands below the roof edge,
+  foot (171.52, 63.115, -52.70), climbed facing +x from (170.6, -52.7); walking off the roof beside it lands unhurt in
+  the alley.
 - From 2026-11-19 the resume checkpoint is **Shanghai, in front of a weapon cache** (level `SP_Shanghai`): the Baku notes
   below (crate beside you, gadget stash, red room) describe the old one. Crate guns for tests: `givegun` / the own crate
   (#80), e.g. `U_USAS-12_SP` (scope), `U_SteyrAug` (magnifier), `U_SRS` (sniper scope). Untested there yet: say so if
@@ -234,6 +238,11 @@ branch; green branches are collected on `night/<date>`; three failed attempts pa
   leaves it untouched" and refuse to update or remove it. Install with `tools\deploy.ps1 -Action deploy -Config Release`,
   `dev-run`, or the launcher's Update mod.
 - Windows PowerShell 5.1: `[string](Get-Content <empty file> -Raw)` stays `$null`; use `"$(...)"` before `.Trim()`.
+- 2026-11-26 (#134): the soldier's yaw copies `+0x34C`/`+0x4D8` read 0.000 off a ladder in headless runs, also through
+  stick turns: steer a scripted walk by the rendered camera (`RenderView+0x40`, facing = minus its third row). At the
+  headless ~4 fps a frame takes ~270 ms, longer than the weapon code's 250 ms freshness for `latest_weapon_points()`.
+  Stick turns (`pad 0 0 ±1 0 350`, 30 degrees each) need `fakehead` set. `pipe.ps1 ladder` prints both palms in the
+  world: place fake hands on rungs from those numbers, not by guess.
 - 2026-11-21: after a level load the slot captures (knife, grenade) can leave slot 6 or 7 in hand ("the gun did not come
   back"); `givegun <gun> 0` then changes nothing in hand. Check `holster` slot= first; `game.ps1 keys -Keys 1` selects
   slot 0. `givegun` gives no attachments and a re-give of the same gun keeps the slot's kit (the crate's grips): Shanghai's

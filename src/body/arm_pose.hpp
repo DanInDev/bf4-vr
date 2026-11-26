@@ -244,6 +244,11 @@ namespace bfvr::body
 	void set_gun_in_off_hand(bool held, bool by_grip = false);
 	// #38: the free gun hand holds a grenade (its fingers make a fist).
 	void set_gun_hand_fist(bool fist);
+	// #134 (weapon/ladders): hand 0 = left rig arm, 1 = right holds a ladder rung: the drawn hand is moved so its
+	// controller's grip point (the palm) stays at this point of the game's world, its fist turned onto the rung's axis
+	// (unit, world; the wrist keeps its roll about it) and the fingers closed round it, over every other hold;
+	// active = false gives it back to its controller.
+	void set_rung_hold(int hand, bool active, const float (&world)[3], const float (&axis)[3]);
 	// Held grenade drawn as the game's own (#36, stereo/extra_mesh). On with physical
 	// grenades: while weapon/weapon_swap has the game's grenade selected for a capture (set_grenade_weapon) it
 	// is hidden at a tagged pose and captured; while physical_grenade holds one (hand 0 = off, 1 = gun hand)

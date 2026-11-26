@@ -17,6 +17,7 @@
 #include "control/control_pipe.hpp"
 #include "physics/ray_cast.hpp"
 #include "weapon/game_reload_sounds.hpp"
+#include "weapon/ladders.hpp"
 #include "weapon/own_crate.hpp"
 #include "weapon/shot_origin.hpp"
 #include "weapon/two_handed.hpp"
@@ -494,7 +495,18 @@ namespace bfvr::stereo
 			// -z), then in world axes (camera local axes = OpenXR axes).
 			float local[3];
 			float steer_yaw{};
-			if (weapon::action_aim_direction(local))
+			float ladder_world[3];
+			if (weapon::ladder_aim_world(ladder_world))
+			{
+				// #134: on a ladder the soldier faces into it, whichever way the player's body turns: BF4 reads the climb
+				// stick relative to his facing and drops him off past 30 degrees. World to the camera's axes (the
+				// rotation's rows are orthonormal).
+				for (int axis = 0; axis < 3; ++axis)
+				{
+					local[axis] = ladder_world[0] * world[4 * axis] + ladder_world[1] * world[4 * axis + 1] + ladder_world[2] * world[4 * axis + 2];
+				}
+			}
+			else if (weapon::action_aim_direction(local))
 			{
 				// #70: the squad order, a melee strike or a C4 throw: the game's target along the head or the hand, also
 				// while sprinting (it comes before the sprint steer).

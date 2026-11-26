@@ -187,6 +187,8 @@ add_library(bfvr_runtime STATIC
 	src/weapon/holsters.cpp
 	src/weapon/melee_gesture.cpp
 	src/weapon/use_reach.cpp
+	src/weapon/ladder_climb.cpp
+	src/weapon/ladders.cpp
 	src/weapon/free_hands.cpp
 	src/weapon/sling_primary.cpp
 	src/weapon/slot_capture_start.cpp
@@ -397,6 +399,9 @@ if(BFVR_BUILD_TESTS)
 	# Use by reaching (the game's interact); exits non-zero on failure.
 	add_executable(bfvr_use_reach_test tests/use_reach_test.cpp src/weapon/use_reach.cpp)
 	target_link_libraries(bfvr_use_reach_test PRIVATE bfvr_common)
+	# Ladders by hand (#134): rungs, the game's climb stick, hand over hand, mounting by reach.
+	add_executable(bfvr_ladder_climb_test tests/ladder_climb_test.cpp src/weapon/ladder_climb.cpp)
+	target_link_libraries(bfvr_ladder_climb_test PRIVATE bfvr_common)
 	# Free hands (#35): drop on an open grip, pick up by gripping near the dropped gun.
 	add_executable(bfvr_free_hands_test tests/free_hands_test.cpp src/weapon/free_hands.cpp)
 	target_link_libraries(bfvr_free_hands_test PRIVATE bfvr_common)
@@ -503,6 +508,7 @@ if(BFVR_BUILD_TESTS)
 	add_test(NAME hud_widgets COMMAND bfvr_hud_widgets_test)
 	add_test(NAME melee COMMAND bfvr_melee_test)
 	add_test(NAME use_reach COMMAND bfvr_use_reach_test)
+	add_test(NAME ladder_climb COMMAND bfvr_ladder_climb_test)
 	add_test(NAME free_hands COMMAND bfvr_free_hands_test)
 	add_test(NAME sling_primary COMMAND bfvr_sling_primary_test)
 	add_test(NAME slot_capture_start COMMAND bfvr_slot_capture_start_test)
