@@ -333,6 +333,28 @@ int main()
 		expect(held && !against, "the game's own climb-off: the stick never pushes hard against it");
 	}
 	{
+		// At the foot the body stops (the ground) while the hand pushes the rung on up: the stick keeps pushing down,
+		// which is what makes BF4 step the soldier off (monitor 2026-11-26: with the stick at rest he stayed on).
+		rig r;
+		r.reach_rung(1);
+		const v3 held = r.step(false, true).rung[1];
+		const float body = r.body_y;
+		climb_out out;
+		for (int i = 0; i < 90; ++i)
+		{
+			if (i < 30)
+			{
+				r.palm_local[1].y += 0.01f;
+			}
+			r.in.body_y = body; // the ground: he goes no lower
+			r.in.hands[1].palm = r.palm_local[1];
+			r.in.hands[1].palm_world = held;
+			r.in.hands[1].grip = true;
+			out = r.climb.update(r.in);
+		}
+		expect(out.drive && out.stick_y < -0.9f, "on the ground at the foot, a push further down keeps the stick hard down");
+	}
+	{
 		// Off the ladder (the game's climb-off at the top or the ground at the bottom): everything lets go, no stick.
 		rig r;
 		r.reach_rung(0);
@@ -427,6 +449,82 @@ int main()
 		r.in.have_ladder = false;
 		r.step(false, false);
 		expect(!r.step(false, true).mount, "no known ladder: a squeeze walks nowhere");
+	}
+	{
+		// From the ground (feet below the rung) the walk-on pushes forward.
+		rig r;
+		r.in.on_ladder = false;
+		r.in.has_feet = true;
+		r.in.feet_y = 64.205f;
+		r.reach_rung(1);
+		const climb_out out = r.step(false, true);
+		expect(out.mount && near(out.mount_stick, 0.8f), "from the ground: walk on, stick forward");
+	}
+	{
+		// From the roof (monitor 2026-11-26): a hand on the hooks over the edge, the soldier steps back off it, and once
+		// falling pushes towards the ladder, which the game catches; on it, the hand keeps its hold.
+		const frame f = shanghai();
+		v3 hook;
+		expect(top_grab(f, rungs, { 171.62f, 63.115f + 10.50f, -52.65f }, 0.12f, hook) && near(hook.y, 63.115f + 10.50f, 0.001f)
+				&& near(hook.x, 171.52f + 0.10f, 0.001f),
+			"standing on top, the hooks over the edge can be held");
+		expect(!top_grab(f, rungs, { 171.62f, 63.115f + 11.20f, -52.65f }, 0.12f, hook), "half a metre above the hooks is air");
+		expect(!top_grab(f, rungs, { 172.20f, 63.115f + 10.50f, -52.65f }, 0.12f, hook), "on the roof behind the hooks is no hold");
+		climber c;
+		climb_in in;
+		in.dt = 1.0f / 90.0f;
+		in.have_ladder = true;
+		in.ladder = f;
+		in.has_feet = true;
+		in.feet_y = 63.115f + f.length - 0.26f; // the roof
+		in.body_y = in.feet_y + 1.68f;
+		for (auto& hand : in.hands)
+		{
+			hand.tracked = true;
+			hand.palm_world = { 172.3f, in.feet_y + 1.0f, -52.70f };
+		}
+		c.update(in);
+		in.hands[1].palm_world = { 171.62f, 63.115f + 10.50f, -52.65f };
+		in.hands[1].grip = true;
+		climb_out out = c.update(in);
+		expect(out.mount && out.holding[1] && out.mount_stick < -0.3f && out.events[1] == event::grabbed, "a hand on the hooks: the soldier backs off the edge");
+		out = c.update(in);
+		expect(out.mount && out.mount_stick < -0.3f, "still backing while on the roof");
+		in.airborne = true;
+		in.body_y += 0.3f; // on the hooks the state flickers to InAir, the view higher than on the roof
+		out = c.update(in);
+		expect(out.mount && out.mount_stick < -0.3f, "on the hooks (InAir, but not dropping): still backing");
+		in.body_y -= 0.6f;
+		out = c.update(in);
+		expect(out.mount && near(out.mount_stick, 1.0f) && out.holding[1], "falling: towards the ladder, the hand on it");
+		in.airborne = false;
+		in.on_ladder = true;
+		out = c.update(in);
+		expect(!out.mount && out.holding[1], "caught: on the ladder, the hand keeps its hold");
+	}
+	{
+		// Backing off the top that never leaves the roof gives up (nothing pushes on forever).
+		climber c;
+		climb_in in;
+		in.dt = 1.0f / 90.0f;
+		in.have_ladder = true;
+		in.ladder = shanghai();
+		in.has_feet = true;
+		in.feet_y = 73.24f;
+		for (auto& hand : in.hands)
+		{
+			hand.tracked = true;
+		}
+		c.update(in);
+		in.hands[0].palm_world = { 171.60f, 73.60f, -52.70f };
+		in.hands[0].grip = true;
+		climb_out out = c.update(in);
+		expect(out.mount && out.mount_stick < 0.0f, "the top: backing off");
+		for (int i = 0; i < 300; ++i)
+		{
+			out = c.update(in);
+		}
+		expect(!out.mount && !out.holding[0], "never off the roof within its time: gives up");
 	}
 	if (failures == 0)
 	{

@@ -49,6 +49,24 @@ namespace bfvr::weapon::ladder
 		return true;
 	}
 
+	bool top_grab(const frame& ladder, const rung_model& rungs, const v3& point, float reach, v3& hold)
+	{
+		const float rails = ladder.length > 0.0f ? ladder.length : rungs.default_length;
+		const int last = static_cast<int>(std::floor((rails - rungs.first) / rungs.spacing));
+		const float top_rung = rungs.first + static_cast<float>(last) * rungs.spacing;
+		const v3 local = to_local(ladder, point);
+		// The rails' tops and hooks: from the top rung up to the hooks' top, across the rails, from the rungs' plane in
+		// over the edge.
+		const v3 on{ std::clamp(local.x, -rungs.half_width - 0.04f, rungs.half_width + 0.04f), std::clamp(local.y, top_rung, rails + 0.27f),
+			std::clamp(local.z, -0.33f, rungs.plane) };
+		if (length(sub(local, on)) > reach)
+		{
+			return false;
+		}
+		hold = to_world(ladder, on);
+		return true;
+	}
+
 	float climb_speed(const stick_curve& curve, float speed, float stick)
 	{
 		const float share = std::min(1.0f, curve.gain * std::max(0.0f, std::fabs(stick) - curve.dead));
@@ -73,6 +91,7 @@ namespace bfvr::weapon::ladder
 		settling_ = false;
 		mounting_ = 0.0f;
 		mount_hand_ = -1;
+		mount_ = mount_kind::none;
 	}
 
 	void climber::rebase(const climb_in& in)
@@ -113,14 +132,29 @@ namespace bfvr::weapon::ladder
 					}
 				}
 			}
-			if (mounting_ > 0.0f)
+			if (mount_hand_ >= 0)
 			{
 				mounting_ -= in.dt;
+				// Falling, not just stepping onto the hooks (the state flickered to InAir up there): the view dropping
+				// from the highest it was since the grab (on the hooks). As early as that: a frame later (monitor, 4 fps)
+				// he was 0.6 m out from the wall and fell past the ladder to its foot.
+				if (mount_ == mount_kind::step_off)
+				{
+					mount_y_ = std::max(mount_y_, in.body_y);
+				}
+				if (mount_ == mount_kind::step_off && in.airborne && in.body_y < mount_y_ - 0.05f)
+				{
+					// Off the edge: now towards the ladder, and the game catches it (monitor 2026-11-26: state 3 at the
+					// top, the camera 1.3 m below where he stood).
+					mount_ = mount_kind::catch_it;
+					mounting_ = config_.catch_seconds;
+				}
 				if (mounting_ <= 0.0f || !in.hands[mount_hand_].grip || !usable(mount_hand_))
 				{
 					out.events[mount_hand_] = event::released;
 					mounting_ = 0.0f;
 					mount_hand_ = -1;
+					mount_ = mount_kind::none;
 				}
 			}
 			else if (in.have_ladder)
@@ -128,21 +162,38 @@ namespace bfvr::weapon::ladder
 				for (int h = 0; h < 2 && mount_hand_ < 0; ++h)
 				{
 					int index = 0;
-					if (pressed[h] && usable(h) && nearest_rung(in.ladder, config_.rungs, in.hands[h].palm_world, config_.grab_reach, mount_rung_, index))
+					if (!pressed[h] || !usable(h))
+					{
+						continue;
+					}
+					const bool on_rung = nearest_rung(in.ladder, config_.rungs, in.hands[h].palm_world, config_.grab_reach, mount_rung_, index);
+					// Standing on top, the rails' tops and the hooks are what a hand takes (the top rung is at the feet).
+					const float rails = in.ladder.length > 0.0f ? in.ladder.length : config_.rungs.default_length;
+					const bool on_top = !on_rung && in.has_feet && in.feet_y > in.ladder.foot.y + rails - config_.top_reach_down - config_.rungs.spacing
+						&& top_grab(in.ladder, config_.rungs, in.hands[h].palm_world, config_.grab_reach, mount_rung_);
+					if (on_rung || on_top)
 					{
 						mount_hand_ = h;
-						mounting_ = config_.mount_seconds;
+						// Standing level with the rung or above it (on the roof at the ladder's top): BF4 takes the ladder
+						// from there only falling past it with the stick towards it, so the soldier steps back off the
+						// edge first. Below it: he walks on.
+						const bool above = on_top || (in.has_feet && in.feet_y > mount_rung_.y - config_.top_reach_down);
+						mount_ = above ? mount_kind::step_off : mount_kind::walk_on;
+						mount_y_ = in.body_y;
+						mounting_ = above ? config_.step_off_seconds : config_.mount_seconds;
 						out.events[h] = event::grabbed;
 					}
 				}
 			}
 			if (mount_hand_ >= 0)
 			{
-				// Walking onto the ladder, the hand already on its rung.
+				// Getting onto the ladder, the hand already on its rung. The stick is in the soldier's frame, who faces
+				// the ladder meanwhile (the adapter turns the game's aim into it).
 				out.mount = true;
 				const v3 in_flat{ -in.ladder.out.x, 0.0f, -in.ladder.out.z };
 				const float l = length(in_flat);
 				out.mount_direction = l > 1e-4f ? scale(in_flat, 1.0f / l) : v3{};
+				out.mount_stick = mount_ == mount_kind::step_off ? -config_.step_off_stick : mount_ == mount_kind::catch_it ? 1.0f : config_.walk_on_stick;
 				out.holding[mount_hand_] = true;
 				out.rung[mount_hand_] = mount_rung_;
 			}
@@ -170,6 +221,7 @@ namespace bfvr::weapon::ladder
 			}
 			mounting_ = 0.0f;
 			mount_hand_ = -1;
+			mount_ = mount_kind::none;
 			settling_ = true;
 			settle_seconds_ = 0.0f;
 			still_seconds_ = 0.0f;
@@ -266,16 +318,18 @@ namespace bfvr::weapon::ladder
 		}
 		else
 		{
-			// The body moving other than the stick asked, piling up over a moment: the game's own move (its climb-off
-			// at the top lifts the view 1.65 m in half a second while the hands still hold) or a block. The target
-			// takes that move along instead of pushing against it. Summed with a short memory, so the game's frame of
-			// lag at the start and end of a pull (it follows the stick one frame late) cancels out.
+			// The body moving beyond what the stick asked (or the other way), piling up over a moment: the game's own
+			// move (its climb-off at the top lifts the view 1.65 m in half a second while the hands still hold). The
+			// target takes that move along instead of pushing against it. Summed with a short memory, so the game's
+			// frame of lag at the start and end of a pull (it follows the stick one frame late) cancels out.
 			// What the last two frames' sticks asked for both count as asked: the game follows a frame late (at the
 			// headless 4 fps a frame is a quarter second of climbing; the first pull lost 28 of its 30 cm on the monitor
-			// when only last frame's counted).
+			// when only last frame's counted). Moving less than asked, or not at all, is a block, not a move of the
+			// game's: the lead limit below handles it, and at the foot the push down it keeps is what steps the soldier
+			// off (monitor 2026-11-26: taken as a move, the stick came to rest on the bottom rung and he stayed on).
 			const float moved = in.body_y - previous_body;
 			const float a = sent * in.dt, b = sent_before * in.dt;
-			own_move_ = own_move_ * std::exp(-in.dt / 0.15f) + (moved - std::clamp(moved, std::min(a, b), std::max(a, b)));
+			own_move_ = own_move_ * std::exp(-in.dt / 0.15f) + (moved - std::clamp(moved, std::min({ a, b, 0.0f }), std::max({ a, b, 0.0f })));
 			if (std::fabs(own_move_) > config_.own_move)
 			{
 				body_anchor_ += own_move_;

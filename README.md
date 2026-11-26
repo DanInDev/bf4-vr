@@ -154,6 +154,8 @@ Climb with your hands, as on a real ladder.
    the first, hand over hand.
 3. Let go with both hands and you hang where you are. At the top, keep pushing the top rung down and you climb over the
    edge; at the bottom you step off onto the ground.
+4. To climb down from the top, kneel at the edge and squeeze a grip on the ladder's **hooks** (or the top of its rails):
+   you step back over the edge onto the ladder, your hand on it.
 
 With no hand on a rung the **left stick** climbs as before.
 

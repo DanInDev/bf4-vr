@@ -44,6 +44,10 @@ namespace bfvr::weapon::ladder
 		float dead{ 0.3f };
 		float gain{ 1.6f };
 	};
+	// Standing on top: a palm on the rails above the top rung or on the hooks over the edge (the wall ladder's rails end at
+	// 10.39 m, its hooks reach 10.66 m and 0.33 m in over the parapet) holds there. False elsewhere.
+	bool top_grab(const frame& ladder, const rung_model& rungs, const v3& point, float reach, v3& hold);
+
 	float climb_speed(const stick_curve& curve, float speed, float stick);
 	// The deflection that asks for velocity v (m/s, + up) at the state's speed; 0 below a millimetre a second.
 	float stick_for(const stick_curve& curve, float speed, float v);
@@ -61,6 +65,9 @@ namespace bfvr::weapon::ladder
 	{
 		float dt{};
 		bool on_ladder{};  // the character's state is Climbing
+		bool airborne{};   // InAir or Falling (stepping off the top onto the ladder)
+		bool has_feet{};
+		float feet_y{};    // the soldier's ground, world (standing above a rung: getting on from the top)
 		bool have_ladder{};
 		frame ladder;      // the ladder the soldier is on, or the nearest known one while on the ground
 		float body_y{};    // the character's world height now
@@ -78,8 +85,9 @@ namespace bfvr::weapon::ladder
 		bool drive{};        // the hands climb: the stick below goes to the game
 		float stick_y{};     // left stick, + forward (up the ladder)
 		float target_y{};    // where the hands want the body
-		bool mount{};        // on the ground, a hand took a rung: walk onto the ladder
+		bool mount{};        // off the ladder, a hand took a rung: get onto the ladder
 		v3 mount_direction;  // world, horizontal unit: towards the ladder
+		float mount_stick{}; // left stick forward meanwhile, the soldier facing the ladder (back: step off the top)
 	};
 
 	struct climb_config
@@ -90,6 +98,14 @@ namespace bfvr::weapon::ladder
 		float follow{ 12.0f };      // 1/s: how hard the body chases the hands
 		float lead_limit{ 0.40f };  // the hands' target never runs further than this from the body (blocked, top, bottom)
 		float mount_seconds{ 0.8f }; // walking onto the ladder gives up after this
+		float walk_on_stick{ 0.8f };
+		// From the top (monitor 2026-11-26, Shanghai): BF4 takes the ladder neither walking forward nor backward off the
+		// roof (the soldier stands on its top hooks, then falls past it); backing off and, once falling, pushing towards
+		// the ladder catches it at the top. A hand taking a rung no higher than this above the feet starts that.
+		float top_reach_down{ 0.30f };
+		float step_off_stick{ 0.5f };
+		float step_off_seconds{ 2.5f }; // backing to the edge (the roof's edge can be a metre behind)
+		float catch_seconds{ 1.2f };
 		// Getting on, the game moves the body itself for a moment (monitor: up 0.9 m and back): the hands drive
 		// nothing until it has stood still this long, or this long at most.
 		float settle_still{ 0.25f };
@@ -131,7 +147,9 @@ namespace bfvr::weapon::ladder
 		float settle_seconds_{};
 		float still_seconds_{};
 		float settle_y_{};
-		float mounting_{};   // seconds left walking onto the ladder
+		float mounting_{};   // seconds left getting onto the ladder
+		enum class mount_kind { none, walk_on, step_off, catch_it } mount_{ mount_kind::none };
+		float mount_y_{};    // stepping off the top: the view's highest since the hand took hold
 		int mount_hand_{ -1 };
 		v3 mount_rung_;
 	};
